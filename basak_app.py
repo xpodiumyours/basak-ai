@@ -13,6 +13,7 @@ INDEX_FILE = os.path.join(UI_DIR, "index.html")
 HISTORY_FILE = os.path.join(BASE, "gecmis.json")
 SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
+KNOWLEDGE_MAX_CHARS = 4000  # yerel modelin bağlamını şişirmesin diye üst sınır
 
 KISILIK = (
     "Senin adın Başak. Sen 'Qwen' değilsin, 'Alibaba' değilsin, hiçbir şirketin ürünü değilsin. "
@@ -38,6 +39,35 @@ def _kaydet(path, veri):
             json.dump(veri, f, ensure_ascii=False, indent=2)
     except OSError:
         pass
+
+
+def _knowledge_context(limit=KNOWLEDGE_MAX_CHARS):
+    """knowledge/ altındaki .md/.txt dosyalarını okuyup tek metne birleştirir.
+    README.md hariç — o kullanım talimatı, kişisel bilgi değil."""
+    try:
+        dosyalar = sorted(
+            ad for ad in os.listdir(KNOWLEDGE_DIR)
+            if ad.lower().endswith((".md", ".txt")) and ad != "README.md"
+        )
+    except OSError:
+        return ""
+    parcalar = []
+    kalan = limit
+    for ad in dosyalar:
+        if kalan <= 0:
+            break
+        try:
+            with open(os.path.join(KNOWLEDGE_DIR, ad), "r", encoding="utf-8", errors="replace") as f:
+                icerik = f.read().strip()
+        except OSError:
+            continue
+        if not icerik:
+            continue
+        if len(icerik) > kalan:
+            icerik = icerik[:kalan].rstrip() + "\n[...devamı kısaltıldı]"
+        parcalar.append("### " + ad + "\n" + icerik)
+        kalan -= len(icerik)
+    return "\n\n".join(parcalar)
 
 
 class Api:
@@ -111,9 +141,17 @@ class Api:
         if model not in modeller:
             model = modeller[0]
         gecmis = [m for m in self._load_history() if m.get("role") != "system"]
-        mesajlar = [{"role": "system", "content": KISILIK}] + gecmis[-20:] + [
-            {"role": "user", "content": text}
-        ]
+        mesajlar = [{"role": "system", "content": KISILIK}]
+        bilgi = _knowledge_context()
+        if bilgi:
+            mesajlar.append({
+                "role": "system",
+                "content": (
+                    "Kullanıcının kişisel bilgi notları — gerekirse cevapta kullan, "
+                    "sorulmadıkça kendiliğinden tekrarlama:\n\n" + bilgi
+                ),
+            })
+        mesajlar += gecmis[-20:] + [{"role": "user", "content": text}]
         try:
             cevap, kaynak = self.brain.cevapla(mesajlar, model)
         except Exception as e:
