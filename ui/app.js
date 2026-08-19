@@ -1,7 +1,7 @@
 /* ============ Başak — ön yüz mantığı (js_api köprüsü) ============ */
 
 const $ = (id) => document.getElementById(id);
-const state = { busy: false, model: null, dinliyor: false, ttsOn: false, gucle: false };
+const state = { busy: false, ready: false, model: null, dinliyor: false, ttsOn: false, gucle: false };
 
 /* ---------------- API köprüsü ---------------- */
 const api = () => window.pywebview.api;
@@ -182,6 +182,10 @@ function send() {
   const input = $("input");
   const text = input.value.trim();
   if (!text || state.busy) return;
+  if (!state.ready || !window.pywebview || !window.pywebview.api) {
+    setStatus("err", "Başak henüz hazırlanıyor, birkaç saniye bekle");
+    return;
+  }
   input.value = "";
   input.style.height = "auto";
   Chat.add("user", text);
@@ -236,6 +240,9 @@ async function boot() {
   try {
     const status = await api().boot();
     if (status && status.ok) {
+      state.ready = true;
+      $("btnSend").disabled = false;
+      $("btnMic").disabled = false;
       state.model = status.model;
       state.ttsOn = !!status.tts_on;
       state.gucle = !!status.gucle_mod;

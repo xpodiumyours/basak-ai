@@ -1,6 +1,7 @@
 import json
 import os
 import threading
+import time
 
 import webview
 
@@ -14,6 +15,17 @@ HISTORY_FILE = os.path.join(BASE, "gecmis.json")
 SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
 KNOWLEDGE_MAX_CHARS = 4000  # yerel modelin bağlamını şişirmesin diye üst sınır
+HATA_LOG = os.path.join(BASE, "hata.log")
+
+
+def _log_hata(mesaj):
+    """Sessizce yutulan hataları kalıcı bir yere yazar — daha önce hiçbir
+    yere kaydedilmiyordu, UI'a ulaşamayan hata tamamen görünmez oluyordu."""
+    try:
+        with open(HATA_LOG, "a", encoding="utf-8") as f:
+            f.write(time.strftime("%Y-%m-%d %H:%M:%S") + " " + mesaj + "\n")
+    except OSError:
+        pass
 
 KISILIK = (
     "Senin adın Başak. Sen 'Qwen' değilsin, 'Alibaba' değilsin, hiçbir şirketin ürünü değilsin. "
@@ -82,8 +94,10 @@ class Api:
         try:
             if webview.windows:
                 webview.windows[0].evaluate_js(code)
-        except Exception:
-            pass
+            else:
+                _log_hata("JS cagrisi atlandi (pencere hazir degil): " + code[:80])
+        except Exception as e:
+            _log_hata("JS cagrisi hata: " + str(e))
 
     def _j(self, obj):
         return json.dumps(obj, ensure_ascii=False)
@@ -155,6 +169,7 @@ class Api:
         try:
             cevap, kaynak = self.brain.cevapla(mesajlar, model)
         except Exception as e:
+            _log_hata("Beyin hatasi: " + str(e))
             self._js("BasakUI.error(" + self._j("Beyin hatası: " + str(e)) + ")")
             return
         gecmis += [{"role": "user", "content": text}, {"role": "assistant", "content": cevap}]
