@@ -12,6 +12,10 @@ Başak — tamamen yerel çalışan, ücretsiz, Türkçe konuşan kişisel Jarvi
 
 Kişisel, tamamen yerel/ücretsiz çalışan bir Jarvis: sesli + yazılı konuşabilen, Casper'ı tanıyan, **kendi notlarını (`knowledge/`) okuyup kullanabilen**, bilgisayarda arka planda güvenilir çalışan bir asistan. Bulut (Groq) sadece yerel model yetmediğinde devrede — sürekli internet/abonelik bağımlılığı hedef değil.
 
+## 1.1. Sonraki özellikler
+
+`GOREV_LISTESI.md`'de 5 adet onaylı yön var (gerçek hafıza sistemi, bilgisayarda iş yapma, güncel bilgi/web arama, görev takibi, yeni güven sınırı). Kilitli sıra yok — hangisi açılırsa buraya "şu an neredeyiz" olarak işlenir.
+
 ## 2. Şu an neredeyiz / sıra
 
 1. **Çalışıyor:** sohbet (Ollama), TTS açma/kapama, sesli dinleme (STT), model seçimi, geçmiş (`gecmis.json`), 3D orb durum göstergesi (bekliyor/düşünüyor/cevaplıyor/hata/dinliyor — `ui/app.js`).
