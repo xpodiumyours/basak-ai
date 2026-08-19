@@ -1,0 +1,26 @@
+# Kişisel/gizli veri — asla commit edilmez
+ayarlar.json
+gecmis.json
+*.env
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Ayrı bir git deposu (embedded repo — burada takip edilmez)
+research-engine/
+
+# Büyük indirilen ses modeli (kaynak kod değil, tekrar indirilebilir)
+tr_TR-dfki-medium.onnx
+tr_TR-dfki-medium.onnx.json
+
+# Bugünkü hızlı test/debug dökümanları
+_launch.out
+_launch.err
+_test.json
+_tts_test.wav
+_voices.json
+hata.log
+hata.log.out
+test_port.txt
