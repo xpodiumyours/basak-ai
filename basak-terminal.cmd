@@ -1,3 +1,3 @@
 @echo off
 cd /d "%~dp0"
-start "Başak Terminal" python basak.py
+start "Basak Terminal" python basak.py

@@ -1,3 +1,3 @@
 @echo off
 cd /d "%~dp0"
-start "Başak" python basak_app.py
+start "Basak" python basak_app.py

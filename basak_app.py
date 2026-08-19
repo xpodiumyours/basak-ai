@@ -16,6 +16,7 @@ SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
 KNOWLEDGE_MAX_CHARS = 4000  # yerel modelin bağlamını şişirmesin diye üst sınır
 HATA_LOG = os.path.join(BASE, "hata.log")
+GOREVLER_FILE = os.path.join(BASE, "gorevler.json")
 
 
 def _log_hata(mesaj):
@@ -80,6 +81,76 @@ def _knowledge_context(limit=KNOWLEDGE_MAX_CHARS):
         parcalar.append("### " + ad + "\n" + icerik)
         kalan -= len(icerik)
     return "\n\n".join(parcalar)
+
+
+GOREVLER_FILE = os.path.join(BASE, "gorevler.json")
+
+
+def _gorevleri_yukle():
+    return _yukle(GOREVLER_FILE, [])
+
+
+def _gorevleri_kaydet(gorevler):
+    _kaydet(GOREVLER_FILE, gorevler)
+
+
+def _gorev_ekle(metin):
+    from datetime import datetime, timedelta
+    metin = metin.strip()
+    bugun = datetime.now()
+    tarih = bugun.strftime("%Y-%m-%d")
+    metin_kucuk = metin.lower()
+    if "yarin" in metin_kucuk or "yarin" in metin_kucuk:
+        tarih = (bugun + timedelta(days=1)).strftime("%Y-%m-%d")
+    elif "bu hafta" in metin_kucuk:
+        tarih = (bugun + timedelta(days=7)).strftime("%Y-%m-%d")
+    elif "bugun" in metin_kucuk:
+        tarih = bugun.strftime("%Y-%m-%d")
+    if not metin:
+        return None
+    gorev = {
+        "id": len(_gorevleri_yukle()) + 1,
+        "metin": metin,
+        "tarih": tarih,
+        "tamamlandi": False,
+        "eklenme": bugun.strftime("%Y-%m-%d %H:%M"),
+    }
+    gorevler = _gorevleri_yukle()
+    gorevler.append(gorev)
+    _gorevleri_kaydet(gorevler)
+    return gorev
+
+
+def _gorev_listesi():
+    gorevler = _gorevleri_yukle()
+    return [g for g in gorevler if not g.get("tamamlandi")]
+
+
+def _gorev_tamamla(numara):
+    gorevler = _gorevleri_yukle()
+    for g in gorevler:
+        if g.get("id") == numara:
+            g["tamamlandi"] = True
+            _gorevleri_kaydet(gorevler)
+            return True
+    return False
+
+
+def _gorev_kontrol(text):
+    text_lower = text.lower()
+    ekle_kelimeleri = ["gorev ekle", "hatirlat", "yapilacak", "yapmam gereken"]
+    if any(k in text_lower for k in ekle_kelimeleri):
+        return ("ekle", text)
+    listele_kelimeleri = ["gorevlerim", "gorev listesi", "yapilacaklar", "ne yapmam gerekiyor"]
+    if any(k in text_lower for k in listele_kelimeleri):
+        return ("listele", None)
+    tamamla_kelimeleri = ["gorev tamamla", "yaptim", "bitti"]
+    if any(k in text_lower for k in tamamla_kelimeleri):
+        import re
+        sayi = re.search(r"(\d+)", text)
+        if sayi:
+            return ("tamamla", int(sayi.group(1)))
+    return None
 
 
 class Api:
@@ -174,6 +245,27 @@ class Api:
             return
         gecmis += [{"role": "user", "content": text}, {"role": "assistant", "content": cevap}]
         self._save_history(gecmis[-40:])
+        gorev_islemi = _gorev_kontrol(text)
+        if gorev_islemi:
+            tur, veri = gorev_islemi
+            if tur == "ekle":
+                gorev = _gorev_ekle(veri)
+                if gorev:
+                    cevap = "Gorev eklendi: " + gorev["metin"] + " (" + gorev["tarih"] + ")"
+            elif tur == "listele":
+                gorevler = _gorev_listesi()
+                if gorevler:
+                    satirlar = ["Gorevleriniz:"]
+                    for g in gorevler:
+                        satirlar.append("- [" + str(g["id"]) + "] " + g["metin"] + " (" + g["tarih"] + ")")
+                    cevap = chr(10).join(satirlar)
+                else:
+                    cevap = "Henuz gorev yok."
+            elif tur == "tamamla":
+                if _gorev_tamamla(veri):
+                    cevap = "Gorev #" + str(veri) + " tamamlandi."
+                else:
+                    cevap = "Gorev #" + str(veri) + " bulunamadi."
         self._js("BasakUI.reply(" + self._j(cevap) + ")")
         if self.tts_on:
             try:
