@@ -84,4 +84,74 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": (
+                "Bir dosyanın içeriğini oku. Sadece knowledge/ klasöründeki "
+                "dosyaları okuyabilirsin. 'Dosyayı oku', 'İçeriğe bak' dediğinde kullan."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Dosya yolu (knowledge/ altı)"}
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file_tool",
+            "description": (
+                "Bir dosyaya yaz. Sadece knowledge/ klasörüne yazabilirsin. "
+                "Dosya yoksa oluşturur. 'Dosyayı güncelle', 'Yeni dosya oluştur' dediğinde kullan."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Dosya yolu (knowledge/ altı)"},
+                    "content": {"type": "string", "description": "Yazılacak içerik"},
+                },
+                "required": ["path", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_files",
+            "description": (
+                "Bir klasördeki dosyaları listele. Varsayılan olarak knowledge/ "
+                "klasörünü listeler. 'Dosyaları göster', 'Klasörde ne var' dediğinde kullan."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "folder": {"type": "string", "description": "Klasör yolu (varsayılan: knowledge)"}
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ac_uygulama",
+            "description": (
+                "Bilgisayarda bir uygulama aç. Sadece beyaz listedeki "
+                "uygulamaları açabilirsin: tarayici, notepad, calculator, "
+                "file_manager, vscode. 'Tarayıcıyı aç', 'Not defterini aç' dediğinde kullan."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "uygulama": {"type": "string", "description": "Uygulama adı"},
+                    "parametre": {"type": "string", "description": "Parametre (örn: URL, dosya yolu)"},
+                },
+                "required": ["uygulama"],
+            },
+        },
+    },
 ]

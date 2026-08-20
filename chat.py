@@ -4,6 +4,10 @@ Faz 0 duzeltmeleri:
 - Tool sadece gereken mesajlarda Groq'a gonderiliyor
 - Yerel Ollama varsayilan olarak kullaniliyor
 - Dil kontrolu: Karisik dil cevap gelirse fallback
+
+Faz 2 eklemeleri:
+- Dosya okuma/yazma tool'lari (read_file, write_file_tool, list_files)
+- Uygulama acma tool'u (ac_uygulama)
 """
 
 import json
@@ -25,6 +29,10 @@ TOOL_LABELS = {
     "list_tasks": "Görevler listeleniyor...",
     "complete_task": "Tamamlanıyor...",
     "save_note": "Kaydediliyor...",
+    "read_file": "Dosya okunuyor...",
+    "write_file_tool": "Dosya yazılıyor...",
+    "list_files": "Dosyalar listeleniyor...",
+    "ac_uygulama": "Uygulama açılıyor...",
 }
 
 TOOL_YONLENDIRME = (
@@ -34,6 +42,10 @@ TOOL_YONLENDIRME = (
     "- Kullanıcı bir işi bitirdiğini söylediğinde → complete_task\n"
     "- Kullanıcı bir şeyi hatırlamanı istediğinde → save_note\n"
     "- Güncel bilgi gerektiğinde (hava, fiyat, haber) → web_search\n"
+    "- Kullanıcı bir dosyanın içeriğini okumak istediğinde → read_file\n"
+    "- Kullanıcı bir dosyaya yazmak/güncellemek istediğinde → write_file_tool\n"
+    "- Kullanıcı klasördeki dosyaları görmek istediğinde → list_files\n"
+    "- Kullanıcı bir uygulama açmak istediğinde (tarayıcı, not defteri) → ac_uygulama\n"
     "- Selamlaşma, veda, basit sohbet → tool KULLANMA, doğrudan cevap ver\n\n"
     "ÖNEMLİ: Tool çağrısından sonra tool sonucunu kullanıcıya sun."
 )
@@ -50,6 +62,14 @@ _TOOL_KELIMELERI = {
                   "aklında tut"],
     "web_search": ["hava", "sıcaklık", "fiyat", "haber", "güncel",
                    "para", "dolar", "euro", "kur", "borsa", "döviz"],
+    "read_file": ["dosyayı oku", "içeriğe bak", "dosya oku", "okumak istiyorum",
+                  "göster", "oku"],
+    "write_file_tool": ["dosyaya yaz", "dosyayı güncelle", "yeni dosya oluştur",
+                        "dosya oluştur", "güncelle"],
+    "list_files": ["dosyaları göster", "klasörde ne var", "dosyaları listele",
+                   "klasör içeriği", "listele"],
+    "ac_uygulama": ["tarayıcıyı aç", "not defterini aç", "uygulama aç",
+                    "hesap makinesini aç", "dosya yöneticisini aç", "vscode'u aç"],
 }
 
 

@@ -1,12 +1,15 @@
 """tools/executor.py — Tool çalıştırıcı.
 
 Tool ismine göre ilgili fonksiyonu çağırır ve sonucu döndürür.
-Tek bir sorumluluk: tool ismini fonksiyona eşleştirmek.
+Her çalışma arac.log'a yazılır.
 """
 
 from tools.web_search import web_search
 from tools.tasks import add_task, list_tasks, complete_task
 from tools.notes import save_note
+from tools.file_ops import read_file, write_file_ops, list_files
+from tools.app_launcher import ac_uygulama
+from tools.tool_logger import log_tool_call
 
 # Tool isimlerini fonksiyonlara eşleştiren harita
 TOOL_MAP = {
@@ -15,6 +18,10 @@ TOOL_MAP = {
     "list_tasks": list_tasks,
     "complete_task": complete_task,
     "save_note": save_note,
+    "read_file": read_file,
+    "write_file_tool": write_file_ops,
+    "list_files": list_files,
+    "ac_uygulama": ac_uygulama,
 }
 
 
@@ -25,8 +32,8 @@ def calistir(tool_name: str, arguments: dict, knowledge_dir: str = "",
     Args:
         tool_name: Çalıştırılacak tool'un ismi.
         arguments: Tool parametreleri (dict).
-        knowledge_dir: knowledge/ klasörü yolu (sadece save_note için gerekli).
-        gorevler_file: Görevler dosyası yolu (görev tool'ları için gerekli).
+        knowledge_dir: knowledge/ klasörü yolu.
+        gorevler_file: Görevler dosyası yolu.
 
     Returns:
         Tool sonucu (dict). Hata olursa {"error": str}.
@@ -34,20 +41,44 @@ def calistir(tool_name: str, arguments: dict, knowledge_dir: str = "",
     if tool_name not in TOOL_MAP:
         return {"error": f"Bilinmeyen tool: {tool_name}"}
 
-    # Tool'a göre doğru parametreleri hazırla
+    # Base dir (knowledge_dir'in bir üst dizini)
+    import os
+    base_dir = os.path.dirname(knowledge_dir) if knowledge_dir else os.getcwd()
+
+    # Tool'a göre doğru parametreleri hazırla ve çalıştır
     if tool_name == "web_search":
-        return web_search(arguments.get("query", ""))
+        sonuc = web_search(arguments.get("query", ""))
     elif tool_name == "add_task":
-        return add_task(arguments.get("text", ""), gorevler_file)
+        sonuc = add_task(arguments.get("text", ""), gorevler_file)
     elif tool_name == "list_tasks":
-        return list_tasks(gorevler_file)
+        sonuc = list_tasks(gorevler_file)
     elif tool_name == "complete_task":
-        return complete_task(arguments.get("task_id", 0), gorevler_file)
+        sonuc = complete_task(arguments.get("task_id", 0), gorevler_file)
     elif tool_name == "save_note":
-        return save_note(
+        sonuc = save_note(
             arguments.get("title", ""),
             arguments.get("content", ""),
             knowledge_dir,
         )
+    elif tool_name == "read_file":
+        sonuc = read_file(arguments.get("path", ""), base_dir)
+    elif tool_name == "write_file_tool":
+        sonuc = write_file_ops(
+            arguments.get("path", ""),
+            arguments.get("content", ""),
+            base_dir,
+        )
+    elif tool_name == "list_files":
+        sonuc = list_files(arguments.get("folder", ""), base_dir)
+    elif tool_name == "ac_uygulama":
+        sonuc = ac_uygulama(
+            arguments.get("uygulama", ""),
+            arguments.get("parametre", ""),
+        )
+    else:
+        return {"error": f"Tool eşleştirilemedi: {tool_name}"}
 
-    return {"error": f"ToolworkEşleştirilemedi: {tool_name}"}
+    # Loglama
+    log_tool_call(tool_name, arguments, sonuc, base_dir)
+
+    return sonuc
