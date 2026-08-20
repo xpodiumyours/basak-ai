@@ -71,7 +71,10 @@ const Orb = (function () {
       sphere.material.emissive.lerp(target, 0.08);
       const glow = (s === "dusunuyor" || s === "dinliyor") ? 0.28 + Math.sin(performance.now() / 180) * 0.2 : 0.35;
       sphere.material.emissiveIntensity = glow;
-      if (sphere.material.color.distanceTo(target) > 0.02) requestAnimationFrame(tween);
+      // THREE.Color.distanceTo yok — manuel RGB karsilastirma
+      const c1 = sphere.material.color, c2 = target;
+      const dist = Math.abs(c1.r - c2.r) + Math.abs(c1.g - c2.g) + Math.abs(c1.b - c2.b);
+      if (dist > 0.02) requestAnimationFrame(tween);
     };
     tween();
     particles.material.color.copy(target);
