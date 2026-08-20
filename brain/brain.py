@@ -1,4 +1,8 @@
-"""brain/brain.py — Başak'ın ana beyin sınıfı."""
+"""brain/brain.py — Basak'in ana beyin sinifi.
+
+Faz 0 duzeltmesi: Yerel Ollama artik tool calling destekliyor.
+Groq sadece gucte mod aciksa veya uzun sorularda kullaniliyor.
+"""
 
 import json
 import logging
@@ -43,7 +47,7 @@ class Brain:
             try:
                 self._groq = GroqClient(self.groq_key, self.groq_model)
             except ValueError as e:
-                logger.warning("Groq başlatılamadı: %s", e)
+                logger.warning("Groq baslatilamadi: %s", e)
 
     def bulut_musait(self) -> bool:
         return self._groq is not None and self._groq.musait()
@@ -84,18 +88,33 @@ class Brain:
     def yerel_modeller(self) -> list:
         return self._ollama.modeller()
 
-    def yerel_cevap(self, messages, model):
-        """Yerel modelden cevap alır (rate limit fallback)."""
-        return self._ollama.cevapla(messages, model)
+    def yerel_cevap(self, messages, model, tools=None):
+        """Yerel modelden cevap alir (tools destekli)."""
+        return self._ollama.cevapla(messages, model, tools=tools)
 
     def cevapla(self, messages, yerel_model, tools=None, force_groq=False):
-        """Mesajlara cevap verir."""
+        """Mesajlara cevap verir.
+
+        Oncelik:
+        1. Tools varsa → Groq dene (tool calling icin guclu model)
+           Groq basarisizsa → Ollama'ya dus (tools ile)
+        2. Guclu mod aciksa → Groq
+        3. Uzun soru (15+ kelime) → Groq
+        4. Diger → Ollama (hizli, ucretsiz, offline)
+        """
+        # 1. Tools varsa: once Groq dene
         if tools and self.bulut_musait():
             try:
                 return self._groq.cevapla(messages, tools=tools), "groq"
             except Exception as e:
-                logger.warning("Groq hatası: %s", e)
+                logger.warning("Groq hatasi (tools fallback): %s", e)
+                # Groq basarisizsa Ollama ile tools dene
+                try:
+                    return self._ollama.cevapla(messages, yerel_model, tools=tools), "yerel"
+                except Exception as e2:
+                    logger.warning("Ollama tools hatasi: %s", e2)
 
+        # 2. Guclu mod veya uzun soru → Groq
         if self.bulut_musait():
             son_kullanici = ""
             for m in reversed(messages):
@@ -106,10 +125,11 @@ class Brain:
                 try:
                     return self._groq.cevapla(messages), "groq"
                 except Exception as e:
-                    logger.warning("Groq hatası: %s", e)
+                    logger.warning("Groq hatasi: %s", e)
 
+        # 3. Varsayilan: Ollama
         try:
-            yanit = self._ollama.cevapla(messages, yerel_model)
-            return {"content": yanit}, "yerel"
+            yanit = self._ollama.cevapla(messages, yerel_model, tools=tools)
+            return yanit, "yerel"
         except Exception as e:
-            raise RuntimeError(f"Hiçbir model çalışmadı: {e}") from e
+            raise RuntimeError(f"Hicbir model calismadi: {e}") from e

@@ -1,4 +1,8 @@
-"""basak_app.py — Basak'in pywebview API koprusu."""
+"""basak_app.py — Basak'in pywebview API koprusu.
+
+Faz 0.3 duzeltmesi: _chat() icine try/except eklendi.
+Beklenmeyen hata olursa UI donmez, hata mesaji gosterilir.
+"""
 
 import json
 import os
@@ -26,31 +30,17 @@ KISILIK = (
     "- HER ZAMAN 'sen' kullan, 'siz' ASLA.\n"
     "- Resmi konusma yapma.\n"
     "- Kisa, net, dogal cevaplar ver.\n"
-    "- Emoji kullanma.\n"
-    "- MARKDOWN KULLANMA — duz metin yaz.\n\n"
-    "DIL:\n"
-    "- SADECE TURKCE yaz.\n\n"
-    "ONMLI — TOOL KURALLARI (cok onemli, bunlara uymazsan hata yaparsin):\n"
-    "- Kullanici bir sey yapacagini soylediginde (yap, et, al, git, hazirla, basla, bitir)\n"
-    "  -> add_task KULLAN. 'Yarin odevimi bitir' = yeni gorev ekle.\n"
-    "- Kullanici 'gorevlerim', 'ne yapacagim', 'yapacaklarim' dediginde\n"
-    "  -> list_tasks KULLAN.\n"
-    "- Kullanici bir isti YAPTIGINI soylediginde (bitirdim, tamamladim, yaptim, hallettim)\n"
-    "  -> complete_task KULLAN.\n"
-    "- 'bunu hatirla', 'not al' dediginde\n"
-    "  -> save_note KULLAN.\n"
-    "- Guncel bilgi (hava durumu, fiyat, haber) istediginde\n"
-    "  -> web_search KULLAN.\n"
-    "- Selamlassma, veda, kisisel sohbet\n"
-    "  -> tool KULLANMA, dogrudan cevap ver.\n"
-    "- Kisisel tanitim (yas, meslek) -> save_note ile KAYDETME.\n\n"
-    "GEÇMIS:\n"
-    "- Kullanici 'az once ne dedim', 'ne konusmustuk' dediginde,\n"
-    "  sohbet gecmisinden oku. Tool kullanma.\n\n"
+    "- Emoji kullanma. Duz metin yaz. SADECE TURKCE.\n\n"
+    "TOOL KURALLARI:\n"
+    "- Yap/al/git/hazirla → add_task\n"
+    "- Gorevlerim/ne yapacagim → list_tasks\n"
+    "- Bitirdim/tamamladim → complete_task\n"
+    "- Hatirla/not al → save_note\n"
+    "- Hava/fiyat → web_search\n"
+    "- Selam/veda → tool KULLANMA\n\n"
     "KISITLAR:\n"
     "- Bilmedigini soyle, uydurma.\n"
-    "- Klise acilis yapma.\n"
-    "- Uzun write yazma, kisa ve oz ol."
+    "- Kisa ve oz ol."
 )
 
 
@@ -72,7 +62,16 @@ class Api:
         threading.Thread(target=self._chat, args=(text,), daemon=True).start()
 
     def _chat(self, text):
-        mesaj_isle(text, self.brain, KISILIK, self._js, TOOLS)
+        try:
+            mesaj_isle(text, self.brain, KISILIK, self._js, TOOLS)
+        except Exception as e:
+            # Hata olursa UI'da hata mesaji goster — UI donmesin
+            try:
+                self._js("BasakUI.error(" + self._j("Beklenmeyen hata: " + str(e)[:200]) + ")")
+            except Exception:
+                pass
+            return
+
         if self.tts_on:
             try:
                 if self.tts is None:

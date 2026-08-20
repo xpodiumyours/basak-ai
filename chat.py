@@ -1,10 +1,9 @@
 """chat.py — Sohbet ve tool calling akisi.
 
-Tur 6: Kalite iyilestirmeleri:
-- Knowledge cache 4000 karaktere cikarildi
-- History 5'e cikarildi
-- Multi-turn tool calling: tool sonucu modele geri gonderilir
-- Daha iyi hata yonetimi
+Faz 0 duzeltmeleri:
+- Tool sadece gereken mesajlarda Groq'a gonderiliyor
+- Yerel Ollama varsayilan olarak kullaniliyor
+- Dil kontrolu: Karisik dil cevap gelirse fallback
 """
 
 import json
@@ -39,6 +38,54 @@ TOOL_YONLENDIRME = (
     "ÖNEMLİ: Tool çağrısından sonra tool sonucunu kullanıcıya sun."
 )
 
+# Tool gerektiren anahtar kelimeler
+_TOOL_KELIMELERI = {
+    "add_task": ["yap", "et", "al", "git", "hazırla", "başla", "bitir", "ekle",
+                  "kaydet", "not al", "satın al", "alışveriş", "görev"],
+    "list_tasks": ["görev", "yapacak", "listele", "ne yapacağım", "yapacaklarım",
+                   "hatırlatma", "plan"],
+    "complete_task": ["bitirdim", "tamamladım", "yaptım", "hallettim",
+                      "görevi bitir", "işlem tamam"],
+    "save_note": ["hatırla", "not al", "kaydet", "bunu hatırla", "not et",
+                  "aklında tut"],
+    "web_search": ["hava", "sıcaklık", "fiyat", "haber", "güncel",
+                   "para", "dolar", "euro", "kur", "borsa", "döviz"],
+}
+
+
+def _tool_gerekli_mi(text):
+    """Mesajin tool cagrisi gerektirip gerektirmedigini kontrol eder."""
+    text_lower = text.lower()
+    bulunan = []
+
+    for tool_name, kelimeler in _TOOL_KELIMELERI.items():
+        for kelime in kelimeler:
+            if kelime in text_lower:
+                bulunan.append(tool_name)
+                break
+
+    return bool(bulunan), bulunan
+
+
+def _dil_kontrol(text):
+    """Cevabin cogunlukla Turkce olup olmadigini kontrol eder."""
+    if not text or not isinstance(text, str):
+        return True
+
+    alfa_sayisi = sum(1 for ch in text if ch.isalpha())
+    if alfa_sayisi < 5:
+        return True
+
+    ingilizce = sum(1 for ch in text if ch.isascii() and ch.isalpha())
+    oransal_ingilizce = ingilizce / alfa_sayisi
+
+    # Eger alfabe karakterlerinin %60'tan fazlasi Ingilizce ise
+    if oransal_ingilizce > 0.6:
+        return False
+
+    return True
+
+
 _knowledge_cache = None
 _knowledge_lock = threading.Lock()
 
@@ -54,11 +101,9 @@ def _load_knowledge():
         _knowledge_cache = ""
         return
 
-    # INDEX.md varsa onu once yukle (oncelikli bilgi)
     parcalar = []
     kalan = KNOWLEDGE_MAX_CHARS
 
-    # INDEX.md oncelikli
     if "INDEX.md" in dosyalar:
         dosyalar.remove("INDEX.md")
         dosyalar.insert(0, "INDEX.md")
@@ -119,7 +164,6 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     tam_prompt = system_prompt + TOOL_YONLENDIRME
     mesajlar = [{"role": "system", "content": tam_prompt}]
 
-    # Knowledge bilgisini ekle
     with _knowledge_lock:
         bilgi = _knowledge_cache
     if bilgi:
@@ -130,37 +174,66 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
 
     mesajlar += gecmis[-MAX_HISTORY:] + [{"role": "user", "content": text}]
 
-    # Model cevabi al — tool calling ile birlikte
-    try:
-        yanit, kaynak = brain.cevapla(mesajlar, model, tools=tools)
-    except Exception as e:
-        hata_str = str(e)
-        # Rate limit hatasi → Ollama'ya dus
-        if "429" in hata_str or "rate" in hata_str.lower():
-            try:
-                yanit, kaynak = brain.yerel_cevap(mesajlar, model)
-                yanit = {"content": yanit}
-            except Exception:
-                js_callback("BasakUI.error(" + _j("Cok fazla istek gonderildi, biraz bekle") + ")")
+    # Tool gerekli mi kontrol et
+    tools_gerekli, hangi_toollar = _tool_gerekli_mi(text)
+
+    # Sadece tool gerekliyse Groq'a gonder
+    if tools_gerekli:
+        try:
+            yanit, kaynak = brain.cevapla(mesajlar, model, tools=tools)
+        except Exception as e:
+            hata_str = str(e)
+            if "429" in hata_str or "rate" in hata_str.lower():
+                try:
+                    yanit, kaynak = brain.yerel_cevap(mesajlar, model)
+                    yanit = {"content": yanit} if isinstance(yanit, str) else yanit
+                except Exception:
+                    js_callback("BasakUI.error(" + _j("Cok fazla istek, biraz bekle") + ")")
+                    return
+            else:
+                js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
                 return
-        else:
-            js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
-            return
+    else:
+        # Tool gerekmiyor → her zaman yerel Ollama
+        try:
+            yanit_str = brain.yerel_cevap(mesajlar, model)
+            yanit = {"content": yanit_str} if isinstance(yanit_str, str) else yanit_str
+            kaynak = "yerel"
+        except Exception as e:
+            if brain.bulut_musait():
+                try:
+                    yanit, kaynak = brain.cevapla(mesajlar, model, tools=None)
+                except Exception:
+                    js_callback("BasakUI.error(" + _j("Beyin hatasi: " + str(e)[:100]) + ")")
+                    return
+            else:
+                js_callback("BasakUI.error(" + _j("Beyin hatasi: " + str(e)[:100]) + ")")
+                return
 
     tool_calls = yanit.get("tool_calls")
     if not tool_calls:
         cevap = _temizle(yanit.get("content", ""))
+
+        # Dil kontrolu: Ingilizce cevap gelirse tekrar dene
+        if cevap and not _dil_kontrol(cevap) and brain.bulut_musait():
+            try:
+                yanit2, kaynak2 = brain.yerel_cevap(mesajlar, model)
+                cevap2 = _temizle(yanit2)
+                if cevap2 and _dil_kontrol(cevap2):
+                    cevap = cevap2
+                    kaynak = "yerel (dil duzeltme)"
+            except Exception:
+                pass
+
         _save_and_reply(text, cevap, kaynak, gecmis, js_callback)
         return
 
-    # Multi-turn tool calling: tool sonucunu modele geri gonder
     cevap = _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calistir)
     _save_and_reply(text, cevap, kaynak, gecmis, js_callback)
 
 
 def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calistir):
     """Tool sonuclarini modele geri gondererek anlamlil cevap uretir."""
-    # Ilk tool sonuclarini al
     tool_sonuclari = []
     for call in tool_calls:
         func = call.get("function", {})
@@ -172,12 +245,6 @@ def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calisti
         net = _sonucu_donustur(tool_name, sonuc)
         tool_sonuclari.append((tool_name, net))
 
-    # Tool sonuclarini modele geri gonder (multi-turn)
-    tool_sonuc_metni = "\n".join(
-        f"[{isim} sonucu]: {sonuc}" for isim, sonuc in tool_sonuclari
-    )
-
-    # Tool mesajlarini ekle ve modelden son cevabi al
     tool_msg = [{"role": "assistant", "content": None, "tool_calls": tool_calls}]
     tool_result_msgs = []
     for i, (isim, sonuc) in enumerate(tool_sonuclari):
@@ -186,7 +253,6 @@ def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calisti
             "content": sonuc,
         })
 
-    # Modelin son cevabini al
     expanded = mesajlar + tool_msg + tool_result_msgs
     try:
         son_yanit, _ = brain.cevapla(expanded, model, tools=None)
@@ -196,7 +262,6 @@ def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calisti
     except Exception:
         pass
 
-    # Fallback: tool sonuclarini dogrudan don
     return "\n".join(sonuc for _, sonuc in tool_sonuclari)
 
 
@@ -224,8 +289,15 @@ def _sonucu_donustur(tool_name, sonuc):
 
 
 def _temizle(text):
+    # Gelen content her türden olabilir (str, dict, None)
     if not text:
         return ""
+    if not isinstance(text, str):
+        # Dict ise content anahtarini al
+        if isinstance(text, dict):
+            text = text.get("content", str(text))
+        else:
+            text = str(text)
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
     text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
     text = re.sub(r"`([^`]+)`", r"\1", text)
