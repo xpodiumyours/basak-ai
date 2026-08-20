@@ -126,12 +126,19 @@ window.BasakUI = {
     setStatus("busy", "Başak düşünüyor...");
     setOrb("dusunuyor");
   },
-  reply(text) {
+  toolStatus(text) {
+    const el = document.querySelector(".msg.basak.thinking .msg-bubble");
+    if (el) el.textContent = text;
+    setStatus("busy", text);
+    setOrb("dusunuyor");
+  },
+  reply(text, modelInfo) {
     Chat.add("basak", text);
     state.busy = false;
     $("btnSend").disabled = false;
     setOrb("bekliyor");
-    setStatus("ok", state.model || "yerel beyin hazır");
+    const ml = modelInfo || state.model || "yerel beyin";
+    setStatus("ok", ml + " hazır");
     $("input").focus();
   },
   error(msg) {
@@ -279,3 +286,4 @@ async function boot() {
 
 window.addEventListener("pywebviewready", boot);
 setTimeout(() => { if (!booted && window.pywebview) boot(); }, 800);
+setTimeout(() => { if (!booted) boot(); }, 2000);

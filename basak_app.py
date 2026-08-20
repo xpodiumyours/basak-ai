@@ -1,12 +1,15 @@
+"""basak_app.py — Basak'in pywebview API koprusu."""
+
 import json
 import os
 import threading
-import time
 
 import webview
 
 from brain import Brain
+from tools import TOOLS
 from voice import TTS, STT
+from chat import mesaj_isle, yukle, kaydet, init_cache
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 UI_DIR = os.path.join(BASE, "ui")
@@ -14,143 +17,41 @@ INDEX_FILE = os.path.join(UI_DIR, "index.html")
 HISTORY_FILE = os.path.join(BASE, "gecmis.json")
 SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
-KNOWLEDGE_MAX_CHARS = 4000  # yerel modelin bağlamını şişirmesin diye üst sınır
-HATA_LOG = os.path.join(BASE, "hata.log")
-GOREVLER_FILE = os.path.join(BASE, "gorevler.json")
-
-
-def _log_hata(mesaj):
-    """Sessizce yutulan hataları kalıcı bir yere yazar — daha önce hiçbir
-    yere kaydedilmiyordu, UI'a ulaşamayan hata tamamen görünmez oluyordu."""
-    try:
-        with open(HATA_LOG, "a", encoding="utf-8") as f:
-            f.write(time.strftime("%Y-%m-%d %H:%M:%S") + " " + mesaj + "\n")
-    except OSError:
-        pass
 
 KISILIK = (
-    "Senin adın Başak. Sen 'Qwen' değilsin, 'Alibaba' değilsin, hiçbir şirketin ürünü değilsin. "
-    "Adın sorulduğunda 'Başak' diye cevap ver. "
-    "Kullanıcının kişisel yapay zekâ asistanısın. "
-    "Türkçe konuş, kısa ve net cevaplar ver. "
-    "Kullanıcının adını öğren ve sonraki konuşmalarda hatırla. "
-    "Bilmediğini uydurma, dürüst ol."
+    "Sen Basak'sin — Casper'in kisisel yapay zeka asistani.\n\n"
+    "KISILIK:\n"
+    "- Samimi, sicak, arkadas gibi konus.\n"
+    "- Kullanicinin adi Casper. Ona 'Casper' de.\n"
+    "- HER ZAMAN 'sen' kullan, 'siz' ASLA.\n"
+    "- Resmi konusma yapma.\n"
+    "- Kisa, net, dogal cevaplar ver.\n"
+    "- Emoji kullanma.\n"
+    "- MARKDOWN KULLANMA — duz metin yaz.\n\n"
+    "DIL:\n"
+    "- SADECE TURKCE yaz.\n\n"
+    "ONMLI — TOOL KURALLARI (cok onemli, bunlara uymazsan hata yaparsin):\n"
+    "- Kullanici bir sey yapacagini soylediginde (yap, et, al, git, hazirla, basla, bitir)\n"
+    "  -> add_task KULLAN. 'Yarin odevimi bitir' = yeni gorev ekle.\n"
+    "- Kullanici 'gorevlerim', 'ne yapacagim', 'yapacaklarim' dediginde\n"
+    "  -> list_tasks KULLAN.\n"
+    "- Kullanici bir isti YAPTIGINI soylediginde (bitirdim, tamamladim, yaptim, hallettim)\n"
+    "  -> complete_task KULLAN.\n"
+    "- 'bunu hatirla', 'not al' dediginde\n"
+    "  -> save_note KULLAN.\n"
+    "- Guncel bilgi (hava durumu, fiyat, haber) istediginde\n"
+    "  -> web_search KULLAN.\n"
+    "- Selamlassma, veda, kisisel sohbet\n"
+    "  -> tool KULLANMA, dogrudan cevap ver.\n"
+    "- Kisisel tanitim (yas, meslek) -> save_note ile KAYDETME.\n\n"
+    "GEÇMIS:\n"
+    "- Kullanici 'az once ne dedim', 'ne konusmustuk' dediginde,\n"
+    "  sohbet gecmisinden oku. Tool kullanma.\n\n"
+    "KISITLAR:\n"
+    "- Bilmedigini soyle, uydurma.\n"
+    "- Klise acilis yapma.\n"
+    "- Uzun write yazma, kisa ve oz ol."
 )
-
-
-def _yukle(path, varsayilan):
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, json.JSONDecodeError):
-        return varsayilan
-
-
-def _kaydet(path, veri):
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(veri, f, ensure_ascii=False, indent=2)
-    except OSError:
-        pass
-
-
-def _knowledge_context(limit=KNOWLEDGE_MAX_CHARS):
-    """knowledge/ altındaki .md/.txt dosyalarını okuyup tek metne birleştirir.
-    README.md hariç — o kullanım talimatı, kişisel bilgi değil."""
-    try:
-        dosyalar = sorted(
-            ad for ad in os.listdir(KNOWLEDGE_DIR)
-            if ad.lower().endswith((".md", ".txt")) and ad != "README.md"
-        )
-    except OSError:
-        return ""
-    parcalar = []
-    kalan = limit
-    for ad in dosyalar:
-        if kalan <= 0:
-            break
-        try:
-            with open(os.path.join(KNOWLEDGE_DIR, ad), "r", encoding="utf-8", errors="replace") as f:
-                icerik = f.read().strip()
-        except OSError:
-            continue
-        if not icerik:
-            continue
-        if len(icerik) > kalan:
-            icerik = icerik[:kalan].rstrip() + "\n[...devamı kısaltıldı]"
-        parcalar.append("### " + ad + "\n" + icerik)
-        kalan -= len(icerik)
-    return "\n\n".join(parcalar)
-
-
-GOREVLER_FILE = os.path.join(BASE, "gorevler.json")
-
-
-def _gorevleri_yukle():
-    return _yukle(GOREVLER_FILE, [])
-
-
-def _gorevleri_kaydet(gorevler):
-    _kaydet(GOREVLER_FILE, gorevler)
-
-
-def _gorev_ekle(metin):
-    from datetime import datetime, timedelta
-    metin = metin.strip()
-    bugun = datetime.now()
-    tarih = bugun.strftime("%Y-%m-%d")
-    metin_kucuk = metin.lower()
-    if "yarin" in metin_kucuk or "yarin" in metin_kucuk:
-        tarih = (bugun + timedelta(days=1)).strftime("%Y-%m-%d")
-    elif "bu hafta" in metin_kucuk:
-        tarih = (bugun + timedelta(days=7)).strftime("%Y-%m-%d")
-    elif "bugun" in metin_kucuk:
-        tarih = bugun.strftime("%Y-%m-%d")
-    if not metin:
-        return None
-    gorev = {
-        "id": len(_gorevleri_yukle()) + 1,
-        "metin": metin,
-        "tarih": tarih,
-        "tamamlandi": False,
-        "eklenme": bugun.strftime("%Y-%m-%d %H:%M"),
-    }
-    gorevler = _gorevleri_yukle()
-    gorevler.append(gorev)
-    _gorevleri_kaydet(gorevler)
-    return gorev
-
-
-def _gorev_listesi():
-    gorevler = _gorevleri_yukle()
-    return [g for g in gorevler if not g.get("tamamlandi")]
-
-
-def _gorev_tamamla(numara):
-    gorevler = _gorevleri_yukle()
-    for g in gorevler:
-        if g.get("id") == numara:
-            g["tamamlandi"] = True
-            _gorevleri_kaydet(gorevler)
-            return True
-    return False
-
-
-def _gorev_kontrol(text):
-    text_lower = text.lower()
-    ekle_kelimeleri = ["gorev ekle", "hatirlat", "yapilacak", "yapmam gereken"]
-    if any(k in text_lower for k in ekle_kelimeleri):
-        return ("ekle", text)
-    listele_kelimeleri = ["gorevlerim", "gorev listesi", "yapilacaklar", "ne yapmam gerekiyor"]
-    if any(k in text_lower for k in listele_kelimeleri):
-        return ("listele", None)
-    tamamla_kelimeleri = ["gorev tamamla", "yaptim", "bitti"]
-    if any(k in text_lower for k in tamamla_kelimeleri):
-        import re
-        sayi = re.search(r"(\d+)", text)
-        if sayi:
-            return ("tamamla", int(sayi.group(1)))
-    return None
 
 
 class Api:
@@ -158,122 +59,30 @@ class Api:
         self.brain = Brain()
         self.tts = None
         self.stt = None
-        self.tts_on = bool(_yukle(SETTINGS_FILE, {}).get("tts_on", False))
+        self.tts_on = bool(yukle(SETTINGS_FILE, {}).get("tts_on", False))
 
-    # ---------- yardımcılar ----------
     def _js(self, code):
-        try:
-            if webview.windows:
-                webview.windows[0].evaluate_js(code)
-            else:
-                _log_hata("JS cagrisi atlandi (pencere hazir degil): " + code[:80])
-        except Exception as e:
-            _log_hata("JS cagrisi hata: " + str(e))
+        if webview.windows:
+            webview.windows[0].evaluate_js(code)
 
     def _j(self, obj):
         return json.dumps(obj, ensure_ascii=False)
 
-    def _settings(self):
-        return _yukle(SETTINGS_FILE, {})
-
-    def _save_setting(self, key, val):
-        s = self._settings()
-        s[key] = val
-        _kaydet(SETTINGS_FILE, s)
-
-    def _load_history(self):
-        return _yukle(HISTORY_FILE, [])
-
-    def _save_history(self, data):
-        _kaydet(HISTORY_FILE, data)
-
-    def _tts(self):
-        if self.tts is None:
-            self.tts = TTS()
-        return self.tts
-
-    # ---------- açılış ----------
-    def boot(self):
-        modeller = self.brain.yerel_modeller()
-        model = None
-        if modeller:
-            kayitli = self._settings().get("model")
-            model = kayitli if kayitli in modeller else modeller[0]
-        return {
-            "ok": bool(modeller),
-            "models": modeller or [],
-            "model": model,
-            "cloud": self.brain.bulut_musait(),
-            "gucle_mod": self.brain.gucle_mod,
-            "tts_on": self.tts_on,
-        }
-
-    # ---------- sohbet ----------
     def mesaj(self, text):
         threading.Thread(target=self._chat, args=(text,), daemon=True).start()
 
     def _chat(self, text):
-        text = (text or "").strip()
-        self._js("BasakUI.thinking()")
-        if not text:
-            self._js("BasakUI.error(" + self._j("Boş mesaj") + ")")
-            return
-        modeller = self.brain.yerel_modeller()
-        if not modeller:
-            self._js("BasakUI.error(" + self._j("Ollama çalışmıyor") + ")")
-            return
-        model = self._settings().get("model")
-        if model not in modeller:
-            model = modeller[0]
-        gecmis = [m for m in self._load_history() if m.get("role") != "system"]
-        mesajlar = [{"role": "system", "content": KISILIK}]
-        bilgi = _knowledge_context()
-        if bilgi:
-            mesajlar.append({
-                "role": "system",
-                "content": (
-                    "Kullanıcının kişisel bilgi notları — gerekirse cevapta kullan, "
-                    "sorulmadıkça kendiliğinden tekrarlama:\n\n" + bilgi
-                ),
-            })
-        mesajlar += gecmis[-20:] + [{"role": "user", "content": text}]
-        try:
-            cevap, kaynak = self.brain.cevapla(mesajlar, model)
-        except Exception as e:
-            _log_hata("Beyin hatasi: " + str(e))
-            self._js("BasakUI.error(" + self._j("Beyin hatası: " + str(e)) + ")")
-            return
-        gecmis += [{"role": "user", "content": text}, {"role": "assistant", "content": cevap}]
-        self._save_history(gecmis[-40:])
-        gorev_islemi = _gorev_kontrol(text)
-        if gorev_islemi:
-            tur, veri = gorev_islemi
-            if tur == "ekle":
-                gorev = _gorev_ekle(veri)
-                if gorev:
-                    cevap = "Gorev eklendi: " + gorev["metin"] + " (" + gorev["tarih"] + ")"
-            elif tur == "listele":
-                gorevler = _gorev_listesi()
-                if gorevler:
-                    satirlar = ["Gorevleriniz:"]
-                    for g in gorevler:
-                        satirlar.append("- [" + str(g["id"]) + "] " + g["metin"] + " (" + g["tarih"] + ")")
-                    cevap = chr(10).join(satirlar)
-                else:
-                    cevap = "Henuz gorev yok."
-            elif tur == "tamamla":
-                if _gorev_tamamla(veri):
-                    cevap = "Gorev #" + str(veri) + " tamamlandi."
-                else:
-                    cevap = "Gorev #" + str(veri) + " bulunamadi."
-        self._js("BasakUI.reply(" + self._j(cevap) + ")")
+        mesaj_isle(text, self.brain, KISILIK, self._js, TOOLS)
         if self.tts_on:
             try:
-                self._tts().speak(cevap)
+                if self.tts is None:
+                    self.tts = TTS()
+                gecmis = yukle(HISTORY_FILE, [])
+                if gecmis:
+                    self.tts.speak(gecmis[-1].get("content", ""))
             except Exception:
                 pass
 
-    # ---------- sesli dinle ----------
     def dinle(self):
         threading.Thread(target=self._dinle, daemon=True).start()
 
@@ -285,15 +94,26 @@ class Api:
             text = self.stt.dinle()
         except Exception as e:
             self._js("BasakUI.listening(false)")
-            self._js("BasakUI.error(" + self._j("Mikrofon hatası: " + str(e)) + ")")
+            self._js("BasakUI.error(" + self._j("Mikrofon hatasi: " + str(e)) + ")")
             return
         self._js("BasakUI.listening(false)")
         if text:
             self._js("BasakUI.sttResult(" + self._j(text) + ")")
 
-    # ---------- ayarlar ----------
+    def boot(self):
+        modeller = self.brain.yerel_modeller()
+        model = None
+        if modeller:
+            kayitli = yukle(SETTINGS_FILE, {}).get("model")
+            model = kayitli if kayitli in modeller else modeller[0]
+        return {
+            "ok": bool(modeller), "models": modeller or [], "model": model,
+            "cloud": self.brain.bulut_musait(), "gucle_mod": self.brain.gucle_mod,
+            "tts_on": self.tts_on,
+        }
+
     def set_model(self, m):
-        self._save_setting("model", m)
+        kaydet(SETTINGS_FILE, {**yukle(SETTINGS_FILE, {}), "model": m})
         return {"ok": True}
 
     def set_cloud(self, on):
@@ -306,7 +126,7 @@ class Api:
 
     def set_tts(self, on):
         self.tts_on = bool(on)
-        self._save_setting("tts_on", self.tts_on)
+        kaydet(SETTINGS_FILE, {**yukle(SETTINGS_FILE, {}), "tts_on": self.tts_on})
         return {"ok": True, "tts_on": self.tts_on}
 
     def clear(self):
@@ -330,14 +150,11 @@ class Api:
 
 
 def main():
+    init_cache()
     api = Api()
     webview.create_window(
-        "Başak",
-        INDEX_FILE,
-        js_api=api,
-        width=1100,
-        height=720,
-        min_size=(900, 600),
+        "Basak", INDEX_FILE, js_api=api,
+        width=1100, height=720, min_size=(900, 600),
         background_color="#0E1117",
     )
     webview.start()
