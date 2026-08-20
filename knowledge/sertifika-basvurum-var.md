@@ -1,3 +1,3 @@
-# sertifika basvurum var
+# Sertifika Basvurum
 
-sertifika basvurum var
+Sertifika basvurum var. Tarih ve detaylar netlesmeden not olarak eklendi.

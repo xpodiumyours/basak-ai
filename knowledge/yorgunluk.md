@@ -1,3 +1,0 @@
-# Yorgunluk
-
-padisahim cok yorgun

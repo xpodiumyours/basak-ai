@@ -1,3 +1,5 @@
 # Proje Sunumu
 
-proje sunumu cuma gunu saat 14te
+- Tarih: Cuma gunu, saat 14:00
+- Ic slide hazirlamak gerekiyor
+- Proje: Muhtemelen VixRex veya NumeraMatch
