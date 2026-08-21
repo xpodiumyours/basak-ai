@@ -1,14 +1,15 @@
 """chat.py — Sohbet ve tool calling akisi.
 
-Varsayilan model: Groq (ucretsiz, hizli).
-Yerel Ollama sadece Groq calismazsa fallback olarak kullanilir.
+Faz 0 duzeltmeleri:
+- Tool sadece gereken mesajlarda Groq'a gonderiliyor
+- Yerel Ollama varsayilan olarak kullaniliyor
+- Dil kontrolu: Karisik dil cevap gelirse fallback
 """
 
 import json
 import os
 import re
 import threading
-import time
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 HISTORY_FILE = os.path.join(BASE, "gecmis.json")
@@ -24,10 +25,6 @@ TOOL_LABELS = {
     "list_tasks": "Görevler listeleniyor...",
     "complete_task": "Tamamlanıyor...",
     "save_note": "Kaydediliyor...",
-    "read_file": "Dosya okunuyor...",
-    "write_file_tool": "Dosya yazılıyor...",
-    "list_files": "Dosyalar listeleniyor...",
-    "ac_uygulama": "Uygulama açılıyor...",
 }
 
 TOOL_YONLENDIRME = (
@@ -37,14 +34,11 @@ TOOL_YONLENDIRME = (
     "- Kullanıcı bir işi bitirdiğini söylediğinde → complete_task\n"
     "- Kullanıcı bir şeyi hatırlamanı istediğinde → save_note\n"
     "- Güncel bilgi gerektiğinde (hava, fiyat, haber) → web_search\n"
-    "- Kullanıcı bir dosyanın içeriğini okumak istediğinde → read_file\n"
-    "- Kullanıcı bir dosyaya yazmak/güncellemek istediğinde → write_file_tool\n"
-    "- Kullanıcı klasördeki dosyaları görmek istediğinde → list_files\n"
-    "- Kullanıcı bir uygulama açmak istediğinde (tarayıcı, not defteri) → ac_uygulama\n"
     "- Selamlaşma, veda, basit sohbet → tool KULLANMA, doğrudan cevap ver\n\n"
     "ÖNEMLİ: Tool çağrısından sonra tool sonucunu kullanıcıya sun."
 )
 
+# Tool gerektiren anahtar kelimeler
 _TOOL_KELIMELERI = {
     "add_task": ["yap", "et", "al", "git", "hazırla", "başla", "bitir", "ekle",
                   "kaydet", "not al", "satın al", "alışveriş", "görev"],
@@ -56,52 +50,48 @@ _TOOL_KELIMELERI = {
                   "aklında tut"],
     "web_search": ["hava", "sıcaklık", "fiyat", "haber", "güncel",
                    "para", "dolar", "euro", "kur", "borsa", "döviz"],
-    "read_file": ["dosyayı oku", "içeriğe bak", "dosya oku", "okumak istiyorum",
-                  "göster", "oku"],
-    "write_file_tool": ["dosyaya yaz", "dosyayı güncelle", "yeni dosya oluştur",
-                        "dosya oluştur", "güncelle"],
-    "list_files": ["dosyaları göster", "klasörde ne var", "dosyaları listele",
-                   "klasör içeriği", "listele"],
-    "ac_uygulama": ["tarayıcıyı aç", "not defterini aç", "uygulama aç",
-                    "hesap makinesini aç", "dosya yöneticisini aç", "vscode'u aç"],
 }
 
 
 def _tool_gerekli_mi(text):
+    """Mesajin tool cagrisi gerektirip gerektirmedigini kontrol eder."""
     text_lower = text.lower()
     bulunan = []
+
     for tool_name, kelimeler in _TOOL_KELIMELERI.items():
         for kelime in kelimeler:
             if kelime in text_lower:
                 bulunan.append(tool_name)
                 break
+
     return bool(bulunan), bulunan
 
 
 def _dil_kontrol(text):
+    """Cevabin cogunlukla Turkce olup olmadigini kontrol eder."""
     if not text or not isinstance(text, str):
         return True
+
     alfa_sayisi = sum(1 for ch in text if ch.isalpha())
     if alfa_sayisi < 5:
         return True
+
     ingilizce = sum(1 for ch in text if ch.isascii() and ch.isalpha())
     oransal_ingilizce = ingilizce / alfa_sayisi
+
+    # Eger alfabe karakterlerinin %60'tan fazlasi Ingilizce ise
     if oransal_ingilizce > 0.6:
         return False
+
     return True
 
 
 _knowledge_cache = None
 _knowledge_lock = threading.Lock()
-_knowledge_last_load = 0
 
 
-def _load_knowledge(force=False):
-    global _knowledge_cache, _knowledge_last_load
-    now = time.time()
-    if not force and _knowledge_cache is not None and (now - _knowledge_last_load) < 60:
-        return
-    _knowledge_last_load = now
+def _load_knowledge():
+    global _knowledge_cache
     try:
         dosyalar = sorted(
             ad for ad in os.listdir(KNOWLEDGE_DIR)
@@ -137,10 +127,6 @@ def _load_knowledge(force=False):
     _knowledge_cache = "\n\n".join(parcalar)
 
 
-def reload_knowledge():
-    _load_knowledge(force=True)
-
-
 def yukle(path, varsayilan):
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -154,16 +140,6 @@ def kaydet(path, veri):
         json.dump(veri, f, ensure_ascii=False, indent=2)
 
 
-def _hangi_toollari_gonder(bulunan_toollar, tum_toollar):
-    if not bulunan_toollar:
-        return None
-    filtreli = [
-        t for t in tum_toollar
-        if t["function"]["name"] in bulunan_toollar
-    ]
-    return filtreli if filtreli else None
-
-
 def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     from tools import calistir
 
@@ -173,19 +149,14 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
         js_callback("BasakUI.error(" + _j("Bos mesaj") + ")")
         return
 
-    # Groq musait mi? Musaitse her seyde Groq kullan
-    groq_musait = brain.bulut_musait()
+    modeller = brain.yerel_modeller()
+    if not modeller:
+        js_callback("BasakUI.error(" + _j("Ollama calismiyor — lutfen Ollama'yı baslat") + ")")
+        return
 
-    if not groq_musait:
-        modeller = brain.yerel_modeller()
-        if not modeller:
-            js_callback("BasakUI.error(" + _j("Ollama calismiyor — lutfen Ollama'yı baslat") + ")")
-            return
-        model = yukle(SETTINGS_FILE, {}).get("model")
-        if model not in modeller:
-            model = modeller[0]
-    else:
-        model = yukle(SETTINGS_FILE, {}).get("model", "groq")
+    model = yukle(SETTINGS_FILE, {}).get("model")
+    if model not in modeller:
+        model = modeller[0]
 
     raw_gecmis = [m for m in yukle(HISTORY_FILE, []) if m.get("role") != "system"]
     gecmis = _temizle_history(raw_gecmis)
@@ -194,7 +165,6 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     mesajlar = [{"role": "system", "content": tam_prompt}]
 
     with _knowledge_lock:
-        _load_knowledge(force=False)
         bilgi = _knowledge_cache
     if bilgi:
         mesajlar.append({
@@ -204,29 +174,145 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
 
     mesajlar += gecmis[-MAX_HISTORY:] + [{"role": "user", "content": text}]
 
-    # Tool gerekli mi?
+    # Tool gerekli mi kontrol et
     tools_gerekli, hangi_toollar = _tool_gerekli_mi(text)
-    filtreli_tools = _hangi_toollari_gonder(hangi_toollar, tools) if tools_gerekli else None
 
-    # Her durumda once Groq dene (musaitse)
-    if groq_musait:
+    # Sadece tool gerekliyse Groq'a gonder
+    if tools_gerekli:
         try:
-            yanit, kaynak = brain.cevapla(mesajlar, model, tools=filtreli_tools)
+            yanit, kaynak = brain.cevapla(mesajlar, model, tools=tools)
         except Exception as e:
             hata_str = str(e)
             if "429" in hata_str or "rate" in hata_str.lower():
-                # Rate limit → yerel modele dus
                 try:
-                    yanit, kaynak = brain.yerel_cevap(mesajlar, model), "yerel"
+                    yanit, kaynak = brain.yerel_cevap(mesajlar, model)
                     yanit = {"content": yanit} if isinstance(yanit, str) else yanit
                 except Exception:
                     js_callback("BasakUI.error(" + _j("Cok fazla istek, biraz bekle") + ")")
                     return
             else:
-                # Diger hatalar → yerel modele dus
-                try:
-                    yanit, kaynak = brain.yerel_cevap(mesajlar, model), "yerel"
-                    yanit = {"content": yanit} if isinstance(yanit, str) else yanit
-                except Exception:
-                    js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
-                    retu
+                js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
+                return
+    else:
+        # Groq musait degil → yerel Ollama
+        try:
+            yanit_str = brain.yerel_cevap(mesajlar, model)
+            yanit = {"content": yanit_str} if isinstance(yanit_str, str) else yanit_str
+            kaynak = "yerel"
+        except Exception as e:
+            js_callback("BasakUI.error(" + _j("Beyin hatasi: " + str(e)[:100]) + ")")
+            return
+
+    tool_calls = yanit.get("tool_calls")
+    if not tool_calls:
+        cevap = _temizle(yanit.get("content", ""))
+
+        # Dil kontrolu: Ingilizce cevap gelirse tekrar dene
+        if cevap and not _dil_kontrol(cevap) and brain.bulut_musait():
+            try:
+                yanit2, kaynak2 = brain.yerel_cevap(mesajlar, model)
+                cevap2 = _temizle(yanit2)
+                if cevap2 and _dil_kontrol(cevap2):
+                    cevap = cevap2
+                    kaynak = "yerel (dil duzeltme)"
+            except Exception:
+                pass
+
+        _save_and_reply(text, cevap, kaynak, gecmis, js_callback)
+        return
+
+    cevap = _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calistir)
+    _save_and_reply(text, cevap, kaynak, gecmis, js_callback)
+
+
+def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calistir):
+    """Tool sonuclarini modele geri gondererek anlamlil cevap uretir."""
+    tool_sonuclari = []
+    for call in tool_calls:
+        func = call.get("function", {})
+        tool_name = func.get("name", "")
+        args = _parse_args(func.get("arguments", "{}"))
+        js_callback("BasakUI.toolStatus(" + _j(
+            TOOL_LABELS.get(tool_name, "Isleniyor...")) + ")")
+        sonuc = calistir(tool_name, args, KNOWLEDGE_DIR, GOREVLER_FILE)
+        net = _sonucu_donustur(tool_name, sonuc)
+        tool_sonuclari.append((tool_name, net))
+
+    tool_msg = [{"role": "assistant", "content": None, "tool_calls": tool_calls}]
+    tool_result_msgs = []
+    for i, (isim, sonuc) in enumerate(tool_sonuclari):
+        tool_result_msgs.append({
+            "role": "tool",
+            "content": sonuc,
+        })
+
+    expanded = mesajlar + tool_msg + tool_result_msgs
+    try:
+        son_yanit, _ = brain.cevapla(expanded, model, tools=None)
+        son_cevap = _temizle(son_yanit.get("content", ""))
+        if son_cevap:
+            return son_cevap
+    except Exception:
+        pass
+
+    return "\n".join(sonuc for _, sonuc in tool_sonuclari)
+
+
+def _save_and_reply(text, cevap, kaynak, gecmis, js_callback):
+    gecmis += [{"role": "user", "content": text},
+               {"role": "assistant", "content": cevap}]
+    kaydet(HISTORY_FILE, gecmis[-40:])
+    js_callback("BasakUI.reply(" + _j(cevap) + ", " + _j(kaynak) + ")")
+
+
+def _temizle_history(gecmis):
+    temiz = []
+    for m in gecmis:
+        if m.get("role") == "assistant" and m.get("tool_calls"):
+            temiz.append({"role": "assistant", "content": m.get("content", "")})
+        else:
+            temiz.append(m)
+    return temiz
+
+
+def _sonucu_donustur(tool_name, sonuc):
+    if "error" in sonuc:
+        return "Hata: " + sonuc["error"]
+    return sonuc.get("result", "Islem tamamlandi.")
+
+
+def _temizle(text):
+    # Gelen content her türden olabilir (str, dict, None)
+    if not text:
+        return ""
+    if not isinstance(text, str):
+        # Dict ise content anahtarini al
+        if isinstance(text, dict):
+            text = text.get("content", str(text))
+        else:
+            text = str(text)
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+    text = re.sub(r'\*([^*]+)\*', r'\1', text)
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+def _parse_args(args):
+    if isinstance(args, str):
+        try:
+            return json.loads(args)
+        except (json.JSONDecodeError, TypeError):
+            return {}
+    return args
+
+
+def init_cache():
+    _load_knowledge()
+
+
+def _j(obj):
+    return json.dumps(obj, ensure_ascii=False)
