@@ -1,7 +1,7 @@
 """brain/brain.py — Basak'in ana beyin sinifi.
 
-Faz 0 duzeltmesi: Yerel Ollama artik tool calling destekliyor.
-Groq sadece gucte mod aciksa veya uzun sorularda kullaniliyor.
+Varsayilan: Groq (ucretsiz, hizli).
+Yerel Ollama sadece Groq calismazsa fallback olarak kullanilir.
 """
 
 import json
@@ -89,18 +89,15 @@ class Brain:
         return self._ollama.modeller()
 
     def yerel_cevap(self, messages, model, tools=None):
-        """Yerel modelden cevap alir (tools destekli)."""
         return self._ollama.cevapla(messages, model, tools=tools)
 
     def cevapla(self, messages, yerel_model, tools=None, force_groq=False):
         """Mesajlara cevap verir.
 
         Oncelik:
-        1. Tools varsa → Groq dene (tool calling icin guclu model)
-           Groq basarisizsa → Ollama'ya dus (tools ile)
-        2. Guclu mod aciksa → Groq
-        3. Uzun soru (15+ kelime) → Groq
-        4. Diger → Ollama (hizli, ucretsiz, offline)
+        1. Groq musait ve tools varsa → Groq (tool calling icin)
+        2. Groq musait → Groq (hizli, ucretsiz)
+        3. Groq musait degil → Ollama (fallback)
         """
         # 1. Tools varsa: once Groq dene
         if tools and self.bulut_musait():
@@ -108,26 +105,19 @@ class Brain:
                 return self._groq.cevapla(messages, tools=tools), "groq"
             except Exception as e:
                 logger.warning("Groq hatasi (tools fallback): %s", e)
-                # Groq basarisizsa Ollama ile tools dene
                 try:
                     return self._ollama.cevapla(messages, yerel_model, tools=tools), "yerel"
                 except Exception as e2:
                     logger.warning("Ollama tools hatasi: %s", e2)
 
-        # 2. Guclu mod veya uzun soru → Groq
+        # 2. Groq musait → her seyde Groq kullan
         if self.bulut_musait():
-            son_kullanici = ""
-            for m in reversed(messages):
-                if m.get("role") == "user":
-                    son_kullanici = m.get("content", "")
-                    break
-            if force_groq or self.gucle_mod or len(son_kullanici.split()) >= 15:
-                try:
-                    return self._groq.cevapla(messages), "groq"
-                except Exception as e:
-                    logger.warning("Groq hatasi: %s", e)
+            try:
+                return self._groq.cevapla(messages), "groq"
+            except Exception as e:
+                logger.warning("Groq hatasi: %s", e)
 
-        # 3. Varsayilan: Ollama
+        # 3. Groq musait degil → Ollama fallback
         try:
             yanit = self._ollama.cevapla(messages, yerel_model, tools=tools)
             return yanit, "yerel"
