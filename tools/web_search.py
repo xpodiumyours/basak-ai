@@ -115,7 +115,7 @@ def _hava_kodu_cevir(kod):
 def _duckduckgo_ara(query):
     """DuckDuckGo'da arama yapar."""
     try:
-        from duckduckgo_search import DDGS
+        from ddgs import DDGS
 
         with DDGS() as ddgs:
             results = list(ddgs.text(query, region="tr-tr", max_results=3))
@@ -138,7 +138,7 @@ def _duckduckgo_ara(query):
         return {"result": " | ".join(parcalar[:2])}
 
     except ImportError:
-        return {"error": "duckduckgo_search paketi yüklü değil"}
+        return {"error": "ddgs paketi yüklü değil"}
     except Exception as e:
         logger.error("Web arama hatası: %s", e)
         return {"error": f"Arama yapılamadı: {e}"}

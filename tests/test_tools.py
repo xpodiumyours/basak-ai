@@ -127,8 +127,9 @@ class TestNotes:
             sonuc = save_note("Test Notu", "Bu bir test notudur", tmpdir)
             assert "result" in sonuc
             dosyalar = os.listdir(tmpdir)
-            assert len(dosyalar) == 1
-            assert dosyalar[0].endswith(".md")
+            # save_note hem not dosyasi hem INDEX.md olusturur
+            assert "test-notu.md" in dosyalar
+            assert "INDEX.md" in dosyalar
 
     def test_save_note_bos_baslik(self):
         """Boş başlık hata döndürmeli."""
@@ -173,8 +174,8 @@ class TestToolDefinitions:
     """Tool tanımları testleri."""
 
     def test_tools_listesi_dogru(self):
-        """TOOLS listesi 5 tool içermeli."""
-        assert len(TOOLS) == 5
+        """TOOLS listesi 10 tool icermeli."""
+        assert len(TOOLS) == 10
 
     def test_tool_isimleri(self):
         """Tool isimleri doğru olmalı."""

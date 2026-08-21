@@ -1,0 +1,149 @@
+"""tools/reminders.py — Proaktif hatırlatma sistemi.
+
+Knowledge dosyalarındaki tarih bazlı bilgileri okur,
+görev listesini kontrol eder ve bugünkü hatırlatmaları üretir.
+"""
+
+import json
+import logging
+import os
+import re
+from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
+
+# Türkçe ay isimleri → numara
+AY_MAP = {
+    "ocak": 1, "şubat": 2, "mart": 3, "nisan": 4,
+    "mayıs": 5, "haziran": 6, "temmuz": 7, "ağustos": 8,
+    "eylül": 9, "ekim": 10, "kasım": 11, "aralık": 12,
+}
+
+
+def _tarih_ayikla(dosya_adi: str, icerik: str) -> list:
+    """Dosya içeriğinden tarih bilgilerini çıkarır.
+
+    Returns:
+        [{"tarih": datetime, "konu": str, "dosya": str}, ...]
+    """
+    bulunanlar = []
+    icerik_lower = icerik.lower()
+
+    # "25 Ağustos", "3 Ekim", "15 Mart" gibi pattern'leri ara
+    pattern = r'(\d{1,2})\s+(ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık)'
+    eslesmeler = re.findall(pattern, icerik_lower)
+
+    for gun_str, ay_str in eslesmeler:
+        try:
+            gun = int(gun_str)
+            ay = AY_MAP.get(ay_str)
+            if not ay:
+                continue
+
+            bugun = datetime.now()
+            # Bu yıl için tarih bul
+            tarih = datetime(bugun.year, ay, gun)
+
+            # Eğer bu tarih geçtiyse gelecek yıla ayarla
+            if tarih < bugun - timedelta(days=1):
+                tarih = datetime(bugun.year + 1, ay, gun)
+
+            # Dosya adından konu çıkar
+            konu = dosya_adi.replace(".md", "").replace("-", " ").replace("_", " ")
+
+            bulunanlar.append({
+                "tarih": tarih,
+                "konu": konu,
+                "dosya": dosya_adi,
+            })
+        except (ValueError, KeyError):
+            continue
+
+    return bulunanlar
+
+
+def bugunku_hatirlatmalar(knowledge_dir: str, gorevler_file: str) -> dict:
+    """Bugünkü hatırlatmaları toplar.
+
+    1. Knowledge dosyalarındaki tarih bazlı bilgiler
+    2. Bugünkü görevler
+    3. Yaklaşan görevler (3 gün içinde)
+
+    Returns:
+        {"result": str} formatında hatırlatma listesi.
+    """
+    hatirlatmalar = []
+    bugun = datetime.now()
+    bugun_str = bugun.strftime("%Y-%m-%d")
+
+    # 1. Knowledge dosyalarından tarih bazlı bilgiler
+    try:
+        if os.path.exists(knowledge_dir):
+            for dosya in os.listdir(knowledge_dir):
+                if not dosya.lower().endswith((".md", ".txt")):
+                    continue
+                if dosya in ("README.md", "INDEX.md"):
+                    continue
+
+                dosya_yolu = os.path.join(knowledge_dir, dosya)
+                try:
+                    with open(dosya_yolu, "r", encoding="utf-8", errors="replace") as f:
+                        icerik = f.read()
+                except OSError:
+                    continue
+
+                tarihler = _tarih_ayikla(dosya, icerik)
+                for bilgi in tarihler:
+                    kalan = (bilgi["tarih"] - bugun).days
+
+                    if kalan == 0:
+                        hatirlatmalar.append(
+                            f"BUGUN: {bilgi['konu']} (bugun gunu!)"
+                        )
+                    elif kalan == 1:
+                        hatirlatmalar.append(
+                            f"YARIN: {bilgi['konu']} (1 gun kaldi)"
+                        )
+                    elif kalan <= 7:
+                        hatirlatmalar.append(
+                            f"{kalan} gun sonra: {bilgi['konu']}"
+                        )
+    except OSError as e:
+        logger.warning("Knowledge okunamadi: %s", e)
+
+    # 2. Bugünkü görevler
+    try:
+        if os.path.exists(gorevler_file):
+            with open(gorevler_file, "r", encoding="utf-8") as f:
+                gorevler = json.load(f)
+
+            bugunku = [g for g in gorevler
+                       if g.get("date") == bugun_str and not g.get("done")]
+
+            if bugunku:
+                sayi = len(bugunku)
+                hatirlatmalar.append(
+                    f"BUGUN ICIN {sayi} GOREV: "
+                    + ", ".join(g["text"][:30] for g in bugunku[:5])
+                )
+
+            # Yaklaşan görevler (1-3 gün)
+            for g in gorevler:
+                if g.get("done"):
+                    continue
+                try:
+                    g_tarih = datetime.strptime(g["date"], "%Y-%m-%d")
+                    kalan = (g_tarih - bugun).days
+                    if 1 <= kalan <= 3:
+                        hatirlatmalar.append(
+                            f"{kalan} gun sonra: {g['text'][:40]}"
+                        )
+                except (ValueError, KeyError):
+                    continue
+    except (OSError, json.JSONDecodeError) as e:
+        logger.warning("Gorevler okunamadi: %s", e)
+
+    if not hatirlatmalar:
+        return {"result": "Bugun ozel bir hatirlatma yok. Iyi geceler!"}
+
+    return {"result": "\n".join(hatirlatmalar)}

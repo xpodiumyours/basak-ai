@@ -154,4 +154,13 @@ TOOLS = [
             },
         },
     },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "get_reminders",
+            "description": "Bugunku hatirlatmalari goster. Tarih bazli onemli gunler, bugunku gorevler ve yaklasan gorevler hakkinda bilgi ver. Uygulama basladiginda veya kullanici hatirlatmalarim ne dediginde kullan.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
 ]

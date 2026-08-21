@@ -265,6 +265,11 @@ async function boot() {
         sel.onchange = () => { state.model = sel.value; api().set_model(sel.value); setStatus("ok", sel.value + " hazır"); };
       }
       $("btnTts").classList.toggle("active", state.ttsOn);
+
+      // Hatirlatmalari goster
+      if (status.reminders && status.reminders.trim()) {
+        Chat.add("basak", status.reminders);
+      }
       const ct = $("cloudToggle");
       if (ct) {
         ct.textContent = state.gucle ? "Açık" : "Kapalı";

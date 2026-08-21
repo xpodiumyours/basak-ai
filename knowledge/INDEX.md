@@ -13,3 +13,4 @@ Basak once bu dosyayi okur, sonra sadece ilgili dosyalari acar.
 - **proje-sunumu.md** | konu: Proje sunumu | Cuma gunu saat 14:00, slide hazirlamak gerekiyor
 - **sertifika-basvurum-var.md** | konu: Sertifika basvurusu | Basvuru var, detaylar netlesmedi
 - **padisahim-yorgun.md** | konu: Casper'in durumu | Cok yorgun
+- **test-notu.md** | konu: Test Notu | tarih: 2026-08-21 | Bu bir test notudur. Basak tarafindan olusturuldu.

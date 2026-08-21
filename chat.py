@@ -14,6 +14,7 @@ import json
 import os
 import re
 import threading
+import time
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 HISTORY_FILE = os.path.join(BASE, "gecmis.json")
@@ -21,7 +22,7 @@ SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
 KNOWLEDGE_MAX_CHARS = 4000
 GOREVLER_FILE = os.path.join(BASE, "gorevler.json")
-MAX_HISTORY = 5
+MAX_HISTORY = 20  # Faz 0: 5'ten 20'ye artirildi
 
 TOOL_LABELS = {
     "web_search": "Aranıyor...",
@@ -108,10 +109,17 @@ def _dil_kontrol(text):
 
 _knowledge_cache = None
 _knowledge_lock = threading.Lock()
+_knowledge_last_load = 0  # son yukleme zamani (epoch saniye)
 
 
-def _load_knowledge():
-    global _knowledge_cache
+def _load_knowledge(force=False):
+    """Bilgi dosyalarini cache'ler. 60sn'de bir veya force=True ile yeniden yukler."""
+    global _knowledge_cache, _knowledge_last_load
+    now = time.time()
+    # Her 60 saniyede bir veya zorlandiginda yeniden yukle
+    if not force and _knowledge_cache is not None and (now - _knowledge_last_load) < 60:
+        return
+    _knowledge_last_load = now
     try:
         dosyalar = sorted(
             ad for ad in os.listdir(KNOWLEDGE_DIR)
@@ -147,6 +155,12 @@ def _load_knowledge():
     _knowledge_cache = "\n\n".join(parcalar)
 
 
+
+def reload_knowledge():
+    """Knowledge cache'ini zorla yeniden yukle (save_note Sonra kullanilir)."""
+    _load_knowledge(force=True)
+
+
 def yukle(path, varsayilan):
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -158,6 +172,18 @@ def yukle(path, varsayilan):
 def kaydet(path, veri):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(veri, f, ensure_ascii=False, indent=2)
+
+
+
+def _hangi_toollari_gonder(bulunan_toollar, tum_toollar):
+    """Sadece tespit edilen toollari filtreler - gereksiz Groq cagrisini onler."""
+    if not bulunan_toollar:
+        return None
+    filtreli = [
+        t for t in tum_toollar
+        if t["function"]["name"] in bulunan_toollar
+    ]
+    return filtreli if filtreli else None
 
 
 def mesaj_isle(text, brain, system_prompt, js_callback, tools):
@@ -184,7 +210,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     tam_prompt = system_prompt + TOOL_YONLENDIRME
     mesajlar = [{"role": "system", "content": tam_prompt}]
 
+    # Faz 0: Her mesajda cache'i kontrol et (60sn'de bir tazelenir)
     with _knowledge_lock:
+        _load_knowledge(force=False)
         bilgi = _knowledge_cache
     if bilgi:
         mesajlar.append({
@@ -198,9 +226,11 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     tools_gerekli, hangi_toollar = _tool_gerekli_mi(text)
 
     # Sadece tool gerekliyse Groq'a gonder
+    # Faz 0: Sadece tespit edilen toollari gonder (tum TOOLS listesi degil)
     if tools_gerekli:
+        filtreli_tools = _hangi_toollari_gonder(hangi_toollar, tools)
         try:
-            yanit, kaynak = brain.cevapla(mesajlar, model, tools=tools)
+            yanit, kaynak = brain.cevapla(mesajlar, model, tools=filtreli_tools)
         except Exception as e:
             hata_str = str(e)
             if "429" in hata_str or "rate" in hata_str.lower():
@@ -338,7 +368,7 @@ def _parse_args(args):
 
 
 def init_cache():
-    _load_knowledge()
+    _load_knowledge(force=True)
 
 
 def _j(obj):

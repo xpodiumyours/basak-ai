@@ -25,6 +25,9 @@ KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
 KISILIK = (
     "Sen Basak'sin — Casper'in kisisel yapay zeka asistani.\n\n"
     "KISILIK:\n"
+    "OM KIMLIK: Senin adin BASAK. Asla Casper deme.\n"
+    "- Kendini tanitirken Ben Basak, senin kisisel asistaniyim de.\n"
+    "- Kullaniciya HER ZAMAN sen de, siz ASLA.\n"
     "- Samimi, sicak, arkadas gibi konus.\n"
     "- Kullanicinin adi Casper. Ona 'Casper' de.\n"
     "- HER ZAMAN 'sen' kullan, 'siz' ASLA.\n"
@@ -99,16 +102,28 @@ class Api:
         if text:
             self._js("BasakUI.sttResult(" + self._j(text) + ")")
 
+    def bugunku_hatirlatmalar(self):
+        """Bugunku hatirlatmalari dondurur (UI icin)."""
+        from tools.reminders import bugunku_hatirlatmalar
+        return bugunku_hatirlatmalar(KNOWLEDGE_DIR, GOREVLER_FILE)
+
     def boot(self):
         modeller = self.brain.yerel_modeller()
         model = None
         if modeller:
             kayitli = yukle(SETTINGS_FILE, {}).get("model")
             model = kayitli if kayitli in modeller else modeller[0]
+        # Bugunku hatirlatmalari al
+        try:
+            hatirlatma = self.bugunku_hatirlatmalar()
+            hatirlatma_metni = hatirlatma.get("result", "")
+        except Exception:
+            hatirlatma_metni = ""
+
         return {
             "ok": bool(modeller), "models": modeller or [], "model": model,
             "cloud": self.brain.bulut_musait(), "gucle_mod": self.brain.gucle_mod,
-            "tts_on": self.tts_on,
+            "tts_on": self.tts_on, "reminders": hatirlatma_metni,
         }
 
     def set_model(self, m):

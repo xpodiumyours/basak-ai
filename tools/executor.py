@@ -9,6 +9,7 @@ from tools.tasks import add_task, list_tasks, complete_task
 from tools.notes import save_note
 from tools.file_ops import read_file, write_file_ops, list_files
 from tools.app_launcher import ac_uygulama
+from tools.reminders import bugunku_hatirlatmalar
 from tools.tool_logger import log_tool_call
 
 # Tool isimlerini fonksiyonlara eşleştiren harita
@@ -22,6 +23,7 @@ TOOL_MAP = {
     "write_file_tool": write_file_ops,
     "list_files": list_files,
     "ac_uygulama": ac_uygulama,
+    "get_reminders": lambda: None,  # placeholder, asagida calistirilacak
 }
 
 
@@ -70,6 +72,8 @@ def calistir(tool_name: str, arguments: dict, knowledge_dir: str = "",
         )
     elif tool_name == "list_files":
         sonuc = list_files(arguments.get("folder", ""), base_dir)
+    elif tool_name == "get_reminders":
+        sonuc = bugunku_hatirlatmalar(knowledge_dir, gorevler_file)
     elif tool_name == "ac_uygulama":
         sonuc = ac_uygulama(
             arguments.get("uygulama", ""),

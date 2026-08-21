@@ -3,7 +3,6 @@
 Tool calling destekleyen Groq modelleri:
 - openai/gpt-oss-20b → Hızlı, tool calling destekli
 - openai/gpt-oss-120b → Güçlü
-- qwen/qwen3.6-27b → Orta hız
 """
 
 import json
@@ -17,7 +16,6 @@ logger = logging.getLogger(__name__)
 MODELLER = {
     "hizli": "openai/gpt-oss-20b",
     "guclu": "openai/gpt-oss-120b",
-    "orta": "qwen/qwen3.6-27b",
     "varsayilan": "openai/gpt-oss-20b",  # Hızlı model varsayılan
 }
 
