@@ -17,10 +17,9 @@ logger = logging.getLogger(__name__)
 
 # Ucretsiz modeller (tool calling destekli)
 MODELLER = {
-    "llama31": "@cf/meta/llama-3.1-8b-instruct",
-    "mistral": "@cf/mistralai/mistral-7b-instruct-v0.2",
-    "gemma": "@cf/google/gemma-2b-it",
-    "varsayilan": "@cf/meta/llama-3.1-8b-instruct",
+    "hizli": "@cf/meta/llama-3.2-3b-instruct",
+    "guclu": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "varsayilan": "@cf/meta/llama-3.2-3b-instruct",
 }
 
 
