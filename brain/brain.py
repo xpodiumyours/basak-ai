@@ -18,6 +18,7 @@ from brain.qwen import QwenClient
 from brain.nvidia import NvidiaClient
 from brain.openrouter import OpenRouterClient
 from brain.cloudflare import CloudflareClient
+from brain.cohere import CohereClient
 from brain.ollama import OllamaClient
 from brain.kota import KotaYoneticisi
 from brain import secici, registry
@@ -161,6 +162,18 @@ class Brain:
             except ValueError as e:
                 logger.warning("Cloudflare baslatilamadi: %s", e)
 
+        # Dokuzuncu bulut saglayici: Cohere (ucretsiz Trial key)
+        self.cohere_key = (
+            os.environ.get("COHERE_API_KEY")
+            or ayar.get("cohere_key") or ""
+        )
+        self._cohere = None
+        if self.cohere_key:
+            try:
+                self._cohere = CohereClient(self.cohere_key)
+            except ValueError as e:
+                logger.warning("Cohere baslatilamadi: %s", e)
+
     def _bulut_zinciri(self) -> list:
         """Oncelik sirasi: Groq -> Gemini -> GLM -> Cloudflare -> NVIDIA -> OpenRouter -> DeepSeek."""
         zincir = []
@@ -172,6 +185,8 @@ class Brain:
             zincir.append(("glm", self._glm))
         if self._cloudflare is not None and self._cloudflare.musait():
             zincir.append(("cloudflare", self._cloudflare))
+        if self._cohere is not None and self._cohere.musait():
+            zincir.append(("cohere", self._cohere))
         if self._nvidia is not None and self._nvidia.musait():
             zincir.append(("nvidia", self._nvidia))
         if self._qwen is not None and self._qwen.musait():

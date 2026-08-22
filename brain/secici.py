@@ -23,8 +23,8 @@ _GOREV_KELIMELERI = {
 # Gorev turune gore one alinacak saglayicilar (registry gucleriyle uyumlu)
 _TERCİHLER = {
     "kod": ["nvidia", "glm"],
-    "arastirma": ["gemini"],
-    "hiz": ["groq"],
+    "arastirma": ["gemini", "cohere"],
+    "hiz": ["groq", "cloudflare"],
 }
 
 

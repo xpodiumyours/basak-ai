@@ -44,6 +44,14 @@ SAGLAYICILAR = {
         "gunluk_istek": None,
         "not": "Workers AI ucretsiz Llama/Mistral; GPU kaynaklanma sinirli.",
     },
+    "cohere": {
+        "ad": "Cohere",
+        "ucretsiz": True,
+        "tools": True,
+        "gucleri": ["genel", "arastirma"],
+        "gunluk_istek": None,
+        "not": "Trial key ile ucretsiz; Command R hizli ve tool destekli.",
+    },
     "deepseek": {
         "ad": "DeepSeek",
         "ucretsiz": False,
@@ -89,8 +97,8 @@ SAGLAYICILAR = {
 # Varsayilan oncelik sirasi (gorev turuna gore secici yeniden siralar).
 # Ucretli saglayici sonda: kazayla cagrilmasin.
 VARSAYILAN_SIRA = [
-    "groq", "gemini", "glm", "cloudflare", "nvidia", "openrouter",
-    "qwen", "deepseek",
+    "groq", "gemini", "glm", "cloudflare", "cohere", "nvidia",
+    "openrouter", "qwen", "deepseek",
 ]
 
 
