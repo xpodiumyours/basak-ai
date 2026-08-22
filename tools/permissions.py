@@ -23,6 +23,7 @@ ETIKETLER = {
     "ac_uygulama": ["sistem"],
     "get_reminders": ["salt-okunur"],
     "video_analyze": ["salt-okunur"],  # video okur, yazmaz
+    "image_analyze": ["salt-okunur"],  # goruntu okur, yazmaz
     "model_stats": ["salt-okunur"],   # istatistik okur
 }
 

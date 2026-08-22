@@ -89,6 +89,12 @@ def calistir(tool_name: str, arguments: dict, knowledge_dir: str = "",
         )
     elif tool_name == "video_analyze":
         sonuc = video_analyze(arguments.get("video_yolu", ""))
+    elif tool_name == "image_analyze":
+        from tools.image_analyzer import image_analyze
+        sonuc = image_analyze(
+            arguments.get("goruntu_yolu", ""),
+            soru=arguments.get("soru"),
+        )
     elif tool_name == "model_stats":
         from brain.stats import model_stats_al
         istat = model_stats_al()

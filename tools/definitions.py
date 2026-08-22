@@ -189,6 +189,31 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "image_analyze",
+            "description": (
+                "Bir goruntuyu analiz et: icerigi, metni, nesneleri, renkleri acikla. "
+                "'Bu goruntuyu acikla', 'Fotoğrafta ne var', 'Ekran goruntusunu oku' "
+                "dediginde kullan. jpg/png/webp/gif destekler."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "goruntu_yolu": {
+                        "type": "string",
+                        "description": "Goruntu dosyasinin mutlak yolu",
+                    },
+                    "soru": {
+                        "type": "string",
+                        "description": "Goruntu hakkinda ozel soru (opsiyonel)",
+                    },
+                },
+                "required": ["goruntu_yolu"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "model_stats",
             "description": (
                 "Model performans istatistiklerini goster. "
