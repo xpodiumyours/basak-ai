@@ -15,9 +15,9 @@ import cohere
 logger = logging.getLogger(__name__)
 
 MODELLER = {
-    "hizli": "command-r",
-    "guclu": "command-r-plus",
-    "varsayilan": "command-r",
+    "hizli": "command-a-03-2025",
+    "guclu": "command-a-03-2025",
+    "varsayilan": "command-a-03-2025",
 }
 
 
