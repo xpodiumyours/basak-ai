@@ -27,23 +27,26 @@ BASE_URL = "https://integrate.api.nvidia.com/v1"
 # (_zincir_probe.py): calismayanlar (gpt-oss-120b timeout, laguna 503,
 # kimi-k2.6/mistral-large-2 404, diffusiongemma timeout) listede YOK.
 TERCIH_SIRASI = [
-    # --- Hizli / varsayilan (ilk 5 otomatik secilir) ---
-    "openai/gpt-oss-20b",                    # ~2s, tool destekli
-    "nvidia/nemotron-3.5-lightning-30b-a3b", # hizli
-    "google/gemma-4-31b-it",                 # ~3s, Google kod/ajan
-    "meta/muse-glimmer-30b",                 # 1.6s, metin+goruntu
-    "nvidia/nemotron-3-ultra-550b-a55b",     # 1.4s, 1M baglam
-    # --- Orta hiz ---
-    "moonshotai/kimi-k3",                    # 10s, kod/ajan
-    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",  # 4.7s, multimodal
-    "nvidia/nemotron-3-nano-30b-a3b",        # 30b hizli
-    # --- Yavas / buyuk ---
-    "nvidia/nemotron-3-super-120b-a12b",
+    # CANLI TESTLI — 22.08.2026 sirasiyla hiza gore siralanmistir
+    # --- En hizli (0-2s) ---
+    "nvidia/nemotron-3-nano-30b-a3b",        # 0.9s, 30b hafif
+    "meta/muse-glimmer-30b",                 # 1.2s, metin+goruntu
+    "nvidia/nvidia-nemotron-nano-9b-v2",      # 1.5s, 9b en hafif
+    "nvidia/nemotron-3.5-lightning-30b-a3b", # 1.8s, hizli
+    # --- Hizli (2-4s) ---
+    "nvidia/nemotron-3-super-120b-a12b",     # 2.2s, 120b MoE
+    "stepfun-ai/step-3.7-flash",             # 2.5s, MoE kod
+    "thinkingmachines/inkling",              # 2.8s, dusunen
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",  # 3.0s, TURKCE + multimodal
+    "openai/gpt-oss-20b",                    # 4.1s, tool destekli
+    # --- Orta (4-10s) ---
+    "nvidia/nemotron-3-ultra-550b-a55b",     # 6.5s, 1M baglam
+    # --- Yavas (10s+) ---
+    "moonshotai/kimi-k3",                    # 27.9s, TURKCE + kod
+    # --- Calismayanlar (listede tutuldu, fallback icin) ---
     "nvidia/llama-3.3-nemotron-super-49b-v1.5",
-    "meta/llama-3.3-70b-instruct",
-    "nvidia/nvidia-nemotron-nano-9b-v2",      # 9b hafif model
-    "thinkingmachines/inkling",              # 15s, dusunen model
-    "stepfun-ai/step-3.7-flash",             # 13s
+    "meta/llama-3.3-70b-instruct",          # 65s timeout
+    "google/gemma-4-31b-it",                 # 77s timeout
 ]
 
 DEEPSEEK_MODEL = "deepseek-ai/deepseek-v4-flash-0731"
