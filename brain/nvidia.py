@@ -27,16 +27,24 @@ BASE_URL = "https://integrate.api.nvidia.com/v1"
 # (_zincir_probe.py): calismayanlar (gpt-oss-120b timeout, laguna 503,
 # kimi-k2.6/mistral-large-2 404, diffusiongemma timeout) listede YOK.
 TERCIH_SIRASI = [
+    # --- Hizli / varsayilan (ilk 5 otomatik secilir) ---
     "openai/gpt-oss-20b",                    # ~2s, tool destekli
     "nvidia/nemotron-3.5-lightning-30b-a3b", # hizli
+    "google/gemma-4-31b-it",                 # ~3s, Google kod/ajan
     "meta/muse-glimmer-30b",                 # 1.6s, metin+goruntu
     "nvidia/nemotron-3-ultra-550b-a55b",     # 1.4s, 1M baglam
+    # --- Orta hiz ---
     "moonshotai/kimi-k3",                    # 10s, kod/ajan
+    "nvidia/nemotron-3-nano-omni-30b-a3b",  # multimodal: goruntu+metin+video
+    "nvidia/kozmos3-nano",                   # fiziksel akil yurutme
+    # --- Yavas / buyuk ---
     "nvidia/nemotron-3-super-120b-a12b",
     "nvidia/llama-3.3-nemotron-super-49b-v1.5",
     "meta/llama-3.3-70b-instruct",
+    "nvidia/cosmos3-nano-reasoner",          # video/goruntu ustunde akil yurutme
     "thinkingmachines/inkling",              # 15s, dusunen model
     "stepfun-ai/step-3.7-flash",             # 13s
+    "nvidia/nemotron-voice",                 # sesli sohbet (ingilizce)
 ]
 
 DEEPSEEK_MODEL = "deepseek-ai/deepseek-v4-flash-0731"
@@ -46,11 +54,16 @@ GPTOSS_MODEL = "openai/gpt-oss-20b"
 MODELLER = {
     "varsayilan": None,          # TERCIH_SIRASI'ndan otomatik (GPT-OSS-20b)
     "gptoss": GPTOSS_MODEL,
+    "gemma": "google/gemma-4-31b-it",
     "kimi": "moonshotai/kimi-k3",
     "ultra": "nvidia/nemotron-3-ultra-550b-a55b",
     "glimmer": "meta/muse-glimmer-30b",
+    "omni": "nvidia/nemotron-3-nano-omni-30b-a3b",  # multimodal
+    "kozmos": "nvidia/kozmos3-nano",                 # fiziksel akil
+    "cosmos-reasoner": "nvidia/cosmos3-nano-reasoner", # video akil
     "inkling": "thinkingmachines/inkling",
     "step": "stepfun-ai/step-3.7-flash",
+    "voice": "nvidia/nemotron-voice",               # sesli sohbet
     "minimax": MINIMAX_MODEL,    # hizli MoE, arac destegi var
     "deepseek": DEEPSEEK_MODEL,  # dusunen model; cok yavas (~90-180 sn)
 }

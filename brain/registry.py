@@ -72,9 +72,9 @@ SAGLAYICILAR = {
         "ad": "NVIDIA NIM",
         "ucretsiz": True,
         "tools": True,
-        "gucleri": ["kod"],
+        "gucleri": ["kod", "goruntu", "video"],
         "gunluk_istek": None,
-        "not": "GPT-OSS-20b + Nemotron; kod islerinde one alinir.",
+        "not": "GPT-OSS-20b + Gemma-4 + Nemotron + Omni + Kozmos; kod/goruntu/video.",
     },
     "openrouter": {
         "ad": "OpenRouter",
