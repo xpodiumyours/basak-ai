@@ -74,7 +74,7 @@ SAGLAYICILAR = {
         "tools": True,
         "gucleri": ["kod"],
         "gunluk_istek": None,
-        "not": "Nemotron; kod islerinde one alinir.",
+        "not": "GPT-OSS-20b + Nemotron; kod islerinde one alinir.",
     },
     "openrouter": {
         "ad": "OpenRouter",
@@ -98,7 +98,7 @@ SAGLAYICILAR = {
 # Ucretli saglayici sonda: kazayla cagrilmasin.
 VARSAYILAN_SIRA = [
     "groq", "gemini", "glm", "cloudflare", "cohere", "nvidia",
-    "openrouter", "qwen", "deepseek",
+    "openrouter",
 ]
 
 

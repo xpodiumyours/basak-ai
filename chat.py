@@ -13,6 +13,8 @@ import re
 import threading
 import uuid
 
+from olcu import cikis_kapisi, PROMPT_BLOGU
+
 logger = logging.getLogger(__name__)
 
 # P3 Session Manager: uygulama acilista bir oturum kimligi uretir;
@@ -186,6 +188,14 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     from tools import calistir
 
     text = (text or "").strip()
+
+    # Konuşmacı bilgisini çıkar: "Merhaba [Casper]" → "Merhaba", aktif_konusmaci="Casper"
+    aktif_konusmaci = None
+    konusmaci_eslesme = re.search(r"\[([^\]]+)\]\s*$", text)
+    if konusmaci_eslesme:
+        aktif_konusmaci = konusmaci_eslesme.group(1)
+        text = text[:konusmaci_eslesme.start()].strip()
+
     js_callback("BasakUI.thinking()")
     if not text:
         js_callback("BasakUI.error(" + _j("Bos mesaj") + ")")
@@ -203,7 +213,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     raw_gecmis = [m for m in yukle(HISTORY_FILE, []) if m.get("role") != "system"]
     gecmis = _temizle_history(raw_gecmis)
 
-    tam_prompt = system_prompt + TOOL_YONLENDIRME
+    tam_prompt = system_prompt + TOOL_YONLENDIRME + PROMPT_BLOGU
+    if aktif_konusmaci:
+        tam_prompt += "\n\n[ANLIK DURUM] An itibarıyla konuşan kişi: %s. Ona göre hitap et." % aktif_konusmaci
     mesajlar = [{"role": "system", "content": tam_prompt}]
 
     with _knowledge_lock:
@@ -267,15 +279,25 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
             except Exception:
                 pass
 
-        _save_and_reply(text, cevap, kaynak, gecmis, js_callback)
+        # Çıkış kapısı (Ö-0): işaretsiz/uydurma cümle kullanıcıya gitmez
+        cevap, _kapi = cikis_kapisi(cevap, olcumler=[])
+        _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=aktif_konusmaci)
         return
 
-    cevap = _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calistir)
-    _save_and_reply(text, cevap, kaynak, gecmis, js_callback)
+    cevap, arac_ciktilari = _tool_calling_multi(
+        tool_calls, mesajlar, brain, model, js_callback, calistir)
+    cevap = _temizle(cevap)
+    # Kapı araç çıktılarına karşı da denetler ([Ö] alıntısı birebir olmalı)
+    cevap, _kapi = cikis_kapisi(cevap, olcumler=arac_ciktilari)
+    _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=aktif_konusmaci)
 
 
 def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calistir):
-    """Tool sonuclarini modele geri gondererek anlamlil cevap uretir."""
+    """Tool sonuclarini modele geri gondererek anlamlil cevap uretir.
+
+    Donus: (cevap_metni, arac_ciktilari) — ciktilar cikis kapisinin [O]
+    denetimi icin gecer.
+    """
     tool_sonuclari = []
     for call in tool_calls:
         func = call.get("function", {})
@@ -301,14 +323,15 @@ def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calisti
         son_yanit, _ = brain.cevapla(expanded, model, tools=None)
         son_cevap = _temizle(son_yanit.get("content", ""))
         if son_cevap:
-            return son_cevap
+            return (son_cevap, [s for _, s in tool_sonuclari])
     except Exception:
         pass
 
-    return "\n".join(sonuc for _, sonuc in tool_sonuclari)
+    return ("\n".join(sonuc for _, sonuc in tool_sonuclari),
+            [s for _, s in tool_sonuclari])
 
 
-def _save_and_reply(text, cevap, kaynak, gecmis, js_callback):
+def _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=""):
     gecmis += [{"role": "user", "content": text, "oturum": OTURUM_ID},
                {"role": "assistant", "content": cevap, "oturum": OTURUM_ID}]
     kaydet(HISTORY_FILE, gecmis[-40:])
@@ -317,7 +340,7 @@ def _save_and_reply(text, cevap, kaynak, gecmis, js_callback):
     motor = _hafiza_al()
     if motor and cevap:
         try:
-            motor.episodik_kaydet(text, cevap)
+            motor.episodik_kaydet(text, cevap, speaker=speaker)
         except Exception as e:
             logger.warning("Ani kaydedilemedi: %s", e)
 

@@ -4,9 +4,11 @@ Gorev turunu anahtar kelimelerle siniflandirir, saglayici sirasini
 gerekcesiyle dondurur. Kurallar seffaf: hangi gorev turu hangi
 saglayiciyi one aldigi acikca yazilir.
 
-Dinamik skorlar audit verisi birikince P4'te devreye girer — burada yok.
+Genel sohbette saglayicilar sirayla distribute edilir — boylece
+tek bir saglayicinin token limiti hici dolmaz (P3 optimizasyonu).
 """
 
+import random
 from brain import registry
 
 # Gorev turleri ve anahtar kelimeleri (chat.py'deki eski _beyin_tercihi
@@ -73,5 +75,14 @@ def sec(text=None, gorev_tipi=None, tools=False, mevcutlar=None):
             onecelenen = tercih
             gerekce = "%s isi → %s öne alındı" % (
                 tip, ", ".join(registry.kart(a)["ad"] for a in tercih))
+    elif tip == "genel" and len(mevcutlar) >= 3:
+        # Genel sohbette ilk 3 saglayiciyi rastgele sirayla baslat.
+        # Bu, tek saglayicinin token limitinin hici dolmasini onler.
+        ilk_3 = mevcutlar[:3]
+        kalan = mevcutlar[3:]
+        random.shuffle(ilk_3)
+        mevcutlar = ilk_3 + kalan
+        gerekce = "genel sohbet → dagitilmis sira (" + ", ".join(
+            registry.kart(a)["ad"] for a in ilk_3) + ")"
 
     return list(mevcutlar), gerekce

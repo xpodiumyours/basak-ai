@@ -198,9 +198,13 @@ window.BasakUI = {
     $("btnMic").disabled = on;
     setOrb(on ? "dinliyor" : "bekliyor");
   },
-  sttResult(text) {
+  sttResult(text, speaker) {
     const input = $("input");
-    input.value = text;
+    if (speaker && speaker.isim && speaker.isim !== "Bilinmeyen") {
+      input.value = text + " [" + speaker.isim + "]";
+    } else {
+      input.value = text;
+    }
     send();
   },
   ses(seviye) {

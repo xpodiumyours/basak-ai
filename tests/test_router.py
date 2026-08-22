@@ -74,8 +74,11 @@ class TestSecici:
 
     def test_genel_varsayilan_sira(self):
         sirali, gerekce = secici.sec(text="naber")
-        assert sirali[0] == "groq"  # varsayilan zincir basi
-        assert "varsayilan" in gerekce
+        # Genel sohbette ilk 3 saglayici rastgele siralanir (dagitim)
+        ilk_3 = set(registry.VARSAYILAN_SIRA[:3])
+        assert sirali[0] in ilk_3, "ilk saglayici ilk 3 icinden olmali"
+        assert len(sirali) == len(registry.VARSAYILAN_SIRA)
+        assert "dagitilmis" in gerekce
 
 
 @pytest.fixture

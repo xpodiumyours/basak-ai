@@ -5,7 +5,7 @@ https://integrate.api.nvidia.com/v1
 Anahtar: env NVIDIA_API_KEY veya ayarlar.json -> nvidia_key (nvapi-... ile baslar).
 
 Model secimi:
-- varsayilan: TERCIH_SIRASI'ndaki ilk hesapta acik Nemotron varyanti
+- varsayilan: TERCIH_SIRASI'ndaki ilk hesapta acik model (GPT-OSS-20b)
 - ayarlar.json -> "nvidia_model" ile sabit model secilebilir
   (orn. deepseek-v4-flash). Bu model "thinking" modundadir ve yaniti
   gecikebilir; o yuzden cevapla() model duzeyinde yedegine dusen
@@ -23,23 +23,43 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://integrate.api.nvidia.com/v1"
 
-# Tercih sirasi: guncel NVIDIA NIM modelleri (agustos 2026)
+# Tercih sirasi: NIM ucretsiz modeller — hepsi 2026-08-22 canli testli
+# (_zincir_probe.py): calismayanlar (gpt-oss-120b timeout, laguna 503,
+# kimi-k2.6/mistral-large-2 404, diffusiongemma timeout) listede YOK.
 TERCIH_SIRASI = [
-    "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "openai/gpt-oss-20b",                    # ~2s, tool destekli
+    "nvidia/nemotron-3.5-lightning-30b-a3b", # hizli
+    "meta/muse-glimmer-30b",                 # 1.6s, metin+goruntu
+    "nvidia/nemotron-3-ultra-550b-a55b",     # 1.4s, 1M baglam
+    "moonshotai/kimi-k3",                    # 10s, kod/ajan
     "nvidia/nemotron-3-super-120b-a12b",
     "nvidia/llama-3.3-nemotron-super-49b-v1.5",
     "meta/llama-3.3-70b-instruct",
-    "nvidia/nemotron-3-nano-30b-a3b",
+    "thinkingmachines/inkling",              # 15s, dusunen model
+    "stepfun-ai/step-3.7-flash",             # 13s
 ]
 
 DEEPSEEK_MODEL = "deepseek-ai/deepseek-v4-flash-0731"
+MINIMAX_MODEL = "minimaxai/minimax-m3"
+GPTOSS_MODEL = "openai/gpt-oss-20b"
 
 MODELLER = {
-    "varsayilan": None,          # TERCIH_SIRASI'ndan otomatik
-    "deepseek": DEEPSEEK_MODEL,
+    "varsayilan": None,          # TERCIH_SIRASI'ndan otomatik (GPT-OSS-20b)
+    "gptoss": GPTOSS_MODEL,
+    "kimi": "moonshotai/kimi-k3",
+    "ultra": "nvidia/nemotron-3-ultra-550b-a55b",
+    "glimmer": "meta/muse-glimmer-30b",
+    "inkling": "thinkingmachines/inkling",
+    "step": "stepfun-ai/step-3.7-flash",
+    "minimax": MINIMAX_MODEL,    # hizli MoE, arac destegi var
+    "deepseek": DEEPSEEK_MODEL,  # dusunen model; cok yavas (~90-180 sn)
 }
 
-# DeepSeek v4 Flash: dusunerek cevap verir; normal cagrilara gore cok daha yavas
+# Dev thinking modelleri otomatik SECILMEZ (yavas); ayarlardan secilir.
+# Otomatik secim her zaman hizli Nemotron hattini tercih eder.
+
+# Buyuk modeller: dusunerek cevap verdikleri icin normalden yavastir;
+# istemci varsayilan 20 sn timeout bunlara yetmez, cagri basina uzatilir
 _THINKING_TIMEOUT = 180.0
 _NORMAL_TIMEOUT = 20.0
 
@@ -56,8 +76,11 @@ class NvidiaClient:
         self._kur()
 
     @staticmethod
-    def _thinking_mi(model_adi: str) -> bool:
-        return bool(model_adi and "deepseek" in model_adi.lower())
+    def _buyuk_model_mi(model_adi: str) -> bool:
+        """Dusunen/buyuk modeller: DeepSeek, MiniMax, Ultra, Inkling."""
+        ad = (model_adi or "").lower()
+        return ("deepseek" in ad or "minimax" in ad
+                or "ultra" in ad or "inkling" in ad)
 
     def _kur(self):
         try:
@@ -98,18 +121,20 @@ class NvidiaClient:
         return self.client is not None
 
     def _cagri_ata(self, model_adi: str, messages: list, tools: list = None) -> dict:
-        """Tek model icin cagri; DeepSeek icin thinking ayarlari eklenir."""
+        """Tek model icin cagri; buyuk modellerde timeout uzatilir."""
         kwargs = {
             "model": model_adi,
             "messages": messages,
             "temperature": 0.5,
         }
-        if self._thinking_mi(model_adi):
-            # Dusunen modelde uzun cevap uretilir; token tavanini makul tut
+        if self._buyuk_model_mi(model_adi):
             kwargs["max_tokens"] = 2048
-            kwargs["extra_body"] = {
-                "chat_template_kwargs": {"thinking": True}
-            }
+            kwargs["timeout"] = _THINKING_TIMEOUT
+            if "deepseek" in model_adi.lower():
+                # DeepSeek NIM'de dusunme modu acik olarak istenir
+                kwargs["extra_body"] = {
+                    "chat_template_kwargs": {"thinking": True}
+                }
         else:
             kwargs["max_tokens"] = 1024
         if tools:

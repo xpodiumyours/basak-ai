@@ -5,8 +5,11 @@ Beklenmeyen hata olursa UI donmez, hata mesaji gosterilir.
 """
 
 import json
+import logging
 import os
 import threading
+
+logger = logging.getLogger(__name__)
 
 import webview
 
@@ -112,14 +115,33 @@ class Api:
         try:
             if self.stt is None:
                 self.stt = STT()
-            text = self.stt.dinle()
+            text, audio, sr = self.stt.dinle_and_id()
         except Exception as e:
             self._js("BasakUI.listening(false)")
             self._js("BasakUI.error(" + self._j("Mikrofon hatasi: " + str(e)) + ")")
             return
         self._js("BasakUI.listening(false)")
+
+        # Konuşmacı tanıma — ses verisi varsa ve model hazırsa
+        konusmaci = None
+        if audio is not None:
+            try:
+                from voice.speaker_id import taniyici_al
+                taniyici = taniyici_al()
+                if taniyici:
+                    tanima = taniyici.tanima_array(audio, sr)
+                    if tanima["isim"] not in ("Bilinmeyen", "Hata"):
+                        konusmaci = tanima
+            except Exception as e:
+                logger.debug("Konuşmacı tanıma atlandı: %s", e)
+
         if text:
-            self._js("BasakUI.sttResult(" + self._j(text) + ")")
+            # Konuşmacı bilgisi varsa metne ekle
+            if konusmaci:
+                ek = " [%s]" % konusmaci["isim"]
+                self._js("BasakUI.sttResult(" + self._j(text) + ", " + self._j(konusmaci) + ")")
+            else:
+                self._js("BasakUI.sttResult(" + self._j(text) + ")")
 
     def bugunku_hatirlatmalar(self):
         """Bugunku hatirlatmalari dondurur (UI icin)."""

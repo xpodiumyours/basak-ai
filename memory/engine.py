@@ -97,8 +97,15 @@ class HafizaMotoru:
             " text TEXT NOT NULL,"
             " source TEXT NOT NULL DEFAULT '',"
             " created_at REAL NOT NULL,"
-            " has_vec INTEGER NOT NULL DEFAULT 0)"
+            " has_vec INTEGER NOT NULL DEFAULT 0,"
+            " speaker TEXT DEFAULT '')"
         )
+        # Eski DB'de speaker sütunu yoksa ekle (migrasyon)
+        try:
+            cur.execute("SELECT speaker FROM memories LIMIT 1")
+        except sqlite3.OperationalError:
+            cur.execute("ALTER TABLE memories ADD COLUMN speaker TEXT DEFAULT ''")
+            logger.info("memories tablosuna speaker sutunu eklendi")
         cur.execute(
             "CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts "
             "USING fts5(text)"
@@ -120,8 +127,16 @@ class HafizaMotoru:
 
     # ---------- yazma ----------
 
-    def ekle(self, metin, kind="episodic", kaynak="", zaman=None):
-        """Bir ani ekler. Vektor alinamazsa BM25-only olarak kaydeder."""
+    def ekle(self, metin, kind="episodic", kaynak="", zaman=None, speaker=""):
+        """Bir ani ekler. Vektor alinamazsa BM25-only olarak kaydeder.
+
+        Args:
+            metin: Anı metni.
+            kind: Anı türü (episodic, semantic, vb.).
+            kaynak: Kaynak etiketi.
+            zaman: Unix timestamp (None ise simdi).
+            speaker: Konuşmacı adı (opsiyonel).
+        """
         metin = (metin or "").strip()
         if not metin:
             return False
@@ -130,9 +145,9 @@ class HafizaMotoru:
 
         with self._lock:
             cur = self.conn.execute(
-                "INSERT INTO memories (kind, text, source, created_at, has_vec)"
-                " VALUES (?, ?, ?, ?, ?)",
-                (kind, metin, kaynak, zaman, 1 if vektor else 0),
+                "INSERT INTO memories (kind, text, source, created_at, has_vec, speaker)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (kind, metin, kaynak, zaman, 1 if vektor else 0, speaker or ""),
             )
             rowid = cur.lastrowid
             self.conn.execute(
@@ -153,15 +168,23 @@ class HafizaMotoru:
             self.conn.commit()
         return True
 
-    def episodik_kaydet(self, soru, cevap, kaynak="sohbet"):
-        """Soru-cevap ciftini tarih etiketiyle episodic hafizaya yazar."""
+    def episodik_kaydet(self, soru, cevap, kaynak="sohbet", speaker=""):
+        """Soru-cevap ciftini tarih etiketiyle episodic hafizaya yazar.
+
+        Args:
+            soru: Kullanıcı sorusu.
+            cevap: Asistan cevabı.
+            kaynak: Kaynak etiketi (varsayılan "sohbet").
+            speaker: Konuşmacı adı (opsiyonel, ör: "Casper").
+        """
         from datetime import datetime
         tarih = datetime.now().strftime("%Y-%m-%d")
+        konusmaci = speaker or "Kullanıcı"
         metin = (
-            "Furkan (%s): %s\nBaşak: %s"
-            % (tarih, (soru or "").strip()[:1000], (cevap or "").strip()[:1000])
+            "%s (%s): %s\nBaşak: %s"
+            % (konusmaci, tarih, (soru or "").strip()[:1000], (cevap or "").strip()[:1000])
         )
-        return self.ekle(metin, kind="episodic", kaynak=kaynak)
+        return self.ekle(metin, kind="episodic", kaynak=kaynak, speaker=speaker)
 
     def kaynak_sil(self, kaynak):
         """Belirli bir kaynagin tum parcalarini siler (yeniden indeks icin)."""

@@ -11,3 +11,108 @@
 [2026-08-21 19:39:16] OK | web_search | {'query': 'Istanbul hava durumu'} | {'result': 'Istanbul hava durumu: Az bulutlu, 25.3°C. Gün içinde 21.6°C ile 29.1°C arası. Nem: %75, Rüzgar: 18.6 km/s. Yağış ihtimali: %0.'}
 [2026-08-21 19:48:12] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
 [2026-08-21 19:48:12] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-21 19:55:15] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-21 19:55:15] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-21 20:05:59] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-21 20:05:59] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-21 20:26:23] OK | save_note | {'content': 'Yarın su iç', 'title': 'Su içme hatırlatıcısı'} | {'result': 'Not kaydedildi: su-içme-hatırlatıcısı.md'}
+[2026-08-21 20:26:48] OK | list_tasks | {} | {'result': 'Henüz görev yok'}
+[2026-08-21 20:27:43] OK | save_note | {'content': 'Yarın su iç', 'title': 'Su içme hatırlatıcısı'} | {'result': 'Not kaydedildi: su-içme-hatırlatıcısı.md'}
+[2026-08-21 20:27:48] OK | list_tasks | {} | {'result': 'Henüz görev yok'}
+[2026-08-21 20:28:33] OK | save_note | {'content': 'Yarın su iç', 'title': 'Su içme hatırlatıcısı'} | {'result': 'Not kaydedildi: su-içme-hatırlatıcısı.md'}
+[2026-08-21 20:28:58] OK | list_tasks | {} | {'result': 'Henüz görev yok'}
+[2026-08-21 20:29:48] OK | list_tasks | {} | {'result': 'Henüz görev yok'}
+[2026-08-21 22:01:44] OK | save_note | {'content': 'Yarın kitap okumayı hatırla', 'title': 'Kitap Okuma Hatırlatıcısı'} | {'result': 'Not kaydedildi: kitap-okuma-hatırlatıcısı.md'}
+[2026-08-21 23:34:32] HATA | read_file | {'path': '../../ayarlar.json'} | {'error': 'Yol proje dizininin dışında'}
+[2026-08-21 23:34:32] HATA | read_file | {'path': 'C:\\Windows\\win.ini'} | {'error': 'Yol proje dizininin dışında'}
+[2026-08-21 23:34:32] OK | save_note | {'title': '../../kotu', 'content': 'guvenlik testi'} | {'result': 'Not kaydedildi: kotu.md'}
+[2026-08-21 23:34:32] OK | ac_uygulama | {'uygulama': 'notepad', 'parametre': '& echo ENJEKSIYON_BASARILI > "C:\\Users\\Casper\\AppData\\Local\\Temp\\basak_guvenlik_isaret.txt"'} | {'result': 'Not Defteri\'ni açar açıldı. Parametre: & echo ENJEKSIYON_BASARILI > "C:\\Users\\Casper\\AppData\\Local\\Temp\\basak_guvenlik_isaret.txt"'}
+[2026-08-21 23:42:53] HATA | read_file | {'path': '../../ayarlar.json'} | {'error': 'Yol proje dizininin dışında'}
+[2026-08-21 23:42:53] HATA | read_file | {'path': 'C:\\Windows\\win.ini'} | {'error': 'Yol proje dizininin dışında'}
+[2026-08-21 23:42:53] OK | save_note | {'title': '../../kotu', 'content': 'guvenlik testi'} | {'result': 'Not kaydedildi: kotu.md'}
+[2026-08-21 23:42:53] HATA | ac_uygulama | {'uygulama': 'notepad', 'parametre': '& echo ENJEKSIYON_BASARILI > "C:\\Users\\Casper\\AppData\\Local\\Temp\\basak_guvenlik_isaret.txt"'} | {'error': 'Parametrede geçersiz karakterler var'}
+[2026-08-22 06:44:20] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 06:44:20] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 06:53:08] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 06:53:08] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 07:11:14] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 07:11:16] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 07:11:16] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 07:12:46] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 07:15:00] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 07:16:14] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 07:16:16] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 07:16:18] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 07:16:18] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 07:18:43] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 07:18:45] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 07:18:46] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 07:18:46] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 12:05:03] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 12:05:05] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 12:05:05] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 12:06:51] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 12:06:53] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 12:06:56] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 12:06:56] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 12:49:02] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 12:49:04] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 12:49:05] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 12:49:05] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 14:03:40] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 14:08:02] OK | get_reminders | {} | {'result': '3 gun sonra: Doğum: 26 Ağustos 1995 — Başak burcu (asistanın adının kaynağı bu).'}
+[2026-08-22 14:08:03] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 14:08:05] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 14:10:00] OK | web_search | {'query': 'yeni yapay zeka çıktı mı'} | {'result': "Yapay Zeka haberleri sayfasında Yapay Zeka hakkında son dakika haberler ve güncel bilgiler bulunmaktadır. Toplam 12137 Yapay Zeka haberi, videosu, fotoğrafı ve yazar yazısı yer almaktadır....
+[2026-08-22 14:11:12] OK | web_search | {'query': 'en yeni çıkan kod tabanlı yapay zeka ajanları 2026 kaynaklar'} | {'result': "2026'te yazılım geliştirmek sadece kod satırları yazmakla ilgili değil, daha akıllıca çalışmakla ilgili. | Görevleri otomatikleştiren, üretkenliği artıran ve iş akışlarını basitleştiren 10...
+[2026-08-22 14:15:08] OK | web_search | {'query': 'free open source LLMs for coding 2024 list'} | {'result': 'Learn top 8 open-source llms for coding with step-by-step tutorials. Includes implementation examples, best practices, and deployment guides for 2024. | Directory of 34+ free LLM & AI APIs...
+[2026-08-22 14:26:22] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 14:26:24] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 14:26:25] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 14:26:25] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 14:50:54] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 14:50:56] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 14:50:57] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 14:50:57] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 14:52:33] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 14:52:36] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 14:52:38] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 14:52:38] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 14:57:12] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 15:32:31] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 15:32:33] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 15:32:34] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 15:32:34] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 15:46:14] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 15:46:16] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 15:46:17] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 15:46:17] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 15:48:05] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 15:48:14] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 15:48:16] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 15:48:17] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 15:48:17] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 15:53:27] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 15:53:47] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 15:53:59] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 15:54:01] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 15:54:04] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 15:54:04] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 16:04:55] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 16:04:59] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 16:05:00] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 16:05:00] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 16:05:22] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 16:05:24] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 16:05:27] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 16:05:27] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 16:05:53] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 16:05:55] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 16:05:59] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 16:05:59] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 16:14:36] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 16:14:38] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 16:14:40] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 16:14:40] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 16:21:26] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 16:53:42] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}

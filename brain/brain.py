@@ -13,8 +13,6 @@ from datetime import datetime
 from brain.groq import GroqClient, MODELLER
 from brain.gemini import GeminiClient
 from brain.glm import GLMClient
-from brain.deepseek import DeepSeekClient
-from brain.qwen import QwenClient
 from brain.nvidia import NvidiaClient
 from brain.openrouter import OpenRouterClient
 from brain.cloudflare import CloudflareClient
@@ -101,36 +99,15 @@ class Brain:
             except ValueError as e:
                 logger.warning("GLM baslatilamadi: %s", e)
 
-        # Dorduncu bulut saglayici: DeepSeek (ucretli — bakiye yoksa atlanir)
-        self.deepseek_key = (
-            os.environ.get("DEEPSEEK_API_KEY") or ayar.get("deepseek_key") or ""
-        )
-        self._deepseek = None
-        if self.deepseek_key:
-            try:
-                self._deepseek = DeepSeekClient(self.deepseek_key)
-            except ValueError as e:
-                logger.warning("DeepSeek baslatilamadi: %s", e)
-
-        # Besinci bulut saglayici: Qwen (QwenCloud/DashScope)
-        self.dashscope_key = (
-            os.environ.get("DASHSCOPE_API_KEY") or ayar.get("dashscope_key") or ""
-        )
-        self._qwen = None
-        if self.dashscope_key:
-            try:
-                self._qwen = QwenClient(self.dashscope_key)
-            except ValueError as e:
-                logger.warning("Qwen baslatilamadi: %s", e)
-
-        # Altinci bulut saglayici: NVIDIA NIM (Nemotron)
+        # Altinci bulut saglayici: NVIDIA NIM (GPT-OSS / Nemotron / Kimi)
         self.nvidia_key = (
             os.environ.get("NVIDIA_API_KEY") or ayar.get("nvidia_key") or ""
         )
         self._nvidia = None
         if self.nvidia_key:
             try:
-                self._nvidia = NvidiaClient(self.nvidia_key)
+                self._nvidia = NvidiaClient(
+                    self.nvidia_key, model=ayar.get("nvidia_model"))
             except ValueError as e:
                 logger.warning("NVIDIA baslatilamadi: %s", e)
 
@@ -175,7 +152,8 @@ class Brain:
                 logger.warning("Cohere baslatilamadi: %s", e)
 
     def _bulut_zinciri(self) -> list:
-        """Oncelik sirasi: Groq -> Gemini -> GLM -> Cloudflare -> NVIDIA -> OpenRouter -> DeepSeek."""
+        """Oncelik sirasi: Groq -> Gemini -> GLM -> Cloudflare -> Cohere
+        -> NVIDIA -> OpenRouter. (qwen/deepseek 2026-08-22'de cikarildi.)"""
         zincir = []
         if self._groq is not None and self._groq.musait():
             zincir.append(("groq", self._groq))
@@ -189,12 +167,8 @@ class Brain:
             zincir.append(("cohere", self._cohere))
         if self._nvidia is not None and self._nvidia.musait():
             zincir.append(("nvidia", self._nvidia))
-        if self._qwen is not None and self._qwen.musait():
-            zincir.append(("qwen", self._qwen))
         if self._openrouter is not None and self._openrouter.musait():
             zincir.append(("openrouter", self._openrouter))
-        if self._deepseek is not None and self._deepseek.musait():
-            zincir.append(("deepseek", self._deepseek))
         return zincir
 
     def bulut_musait(self) -> bool:

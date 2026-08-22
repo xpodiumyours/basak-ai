@@ -22,6 +22,7 @@ ETIKETLER = {
     "list_files": ["salt-okunur"],
     "ac_uygulama": ["sistem"],
     "get_reminders": ["salt-okunur"],
+    "video_analyze": ["salt-okunur"],  # video okur, yazmaz
 }
 
 

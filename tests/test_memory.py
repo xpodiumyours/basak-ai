@@ -92,8 +92,19 @@ class TestEkleVeAra:
         motor.episodik_kaydet("Bugün hava nasıl?", "Güneşli.")
         sonuclar = motor.ara("hava", limit=1)
         assert sonuclar
-        assert "Furkan (" in sonuclar[0]["text"]
+        # Konuşmacı belirtilmediyse "Kullanıcı", belirtildiyse isim yazılır
+        assert any(k in sonuclar[0]["text"] for k in ("Kullanıcı (", "Furkan (", "Casper ("))
         assert "Başak:" in sonuclar[0]["text"]
+
+    def test_episodik_konuşmacılı_kayıt(self, motor):
+        motor.episodik_kaydet("Merhaba", "Merhaba Casper", speaker="Casper")
+        motor.episodik_kaydet("Hava nasıl?", "Güneşli", speaker="")
+        # Speaker alanını kontrol et
+        row = motor.conn.execute("SELECT speaker, text FROM memories ORDER BY id").fetchall()
+        assert row[0][0] == "Casper"
+        assert "Casper (" in row[0][1]
+        assert row[1][0] == ""
+        assert "Kullanıcı (" in row[1][1]
 
     def test_say(self, motor):
         assert motor.say() == 0

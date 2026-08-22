@@ -163,4 +163,27 @@ TOOLS = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "video_analyze",
+            "description": (
+                "Video dosyasini analiz et: konusmacilari tespit et, "
+                "transkript uret, zaman damgalari goster. "
+                "'Bu videoyu analiz et', 'Videodaki konusmacilari bul' "
+                "dediginde kullan. "
+                "Desteklenen formatlar: mp4, mkv, avi, mov, webm, wav, mp3."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "video_yolu": {
+                        "type": "string",
+                        "description": "Video dosyasinin mutlak yolu",
+                    }
+                },
+                "required": ["video_yolu"],
+            },
+        },
+    },
 ]
