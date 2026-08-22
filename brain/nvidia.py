@@ -21,6 +21,7 @@ BASE_URL = "https://integrate.api.nvidia.com/v1"
 
 # Tercih sirasi: sohbet-edebilen Nemotron varyantlari
 TERCIH_SIRASI = [
+    "nvidia/nemotron-3.5-lightning-30b-a3b",
     "nvidia/nemotron-3-super",
     "nvidia/llama-3.3-nemotron-super",
     "nvidia/nemotron",
