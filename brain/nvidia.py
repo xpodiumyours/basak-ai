@@ -1,8 +1,13 @@
-"""brain/groq.py — Groq bulut entegrasyonu.
+"""brain/nvidia.py — NVIDIA NIM bulut entegrasyonu (Nemotron).
 
-Tool calling destekleyen Groq modelleri:
-- openai/gpt-oss-20b → Hızlı, tool calling destekli
-- openai/gpt-oss-120b → Güçlü
+OpenAI-uyumlu uc:
+https://integrate.api.nvidia.com/v1
+Anahtar: env NVIDIA_API_KEY veya ayarlar.json -> nvidia_key (nvapi-... ile baslar).
+
+Ucretsiz deneme ucu ucundadir; kota biterse zincir hatayi atlar.
+Model adi acilista /models'ten otomatik secilir.
+
+Arayuz groq.py / gemini.py ile birebir aynidir.
 """
 
 import json
@@ -12,22 +17,25 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-# Tool calling destekleyen modeller (sadece bunlar kullanılabilir)
-MODELLER = {
-    "hizli": "openai/gpt-oss-20b",
-    "guclu": "openai/gpt-oss-120b",
-    "varsayilan": "openai/gpt-oss-20b",  # Hızlı model varsayılan
-}
+BASE_URL = "https://integrate.api.nvidia.com/v1"
+
+# Tercih sirasi: sohbet-edebilen Nemotron varyantlari
+TERCIH_SIRASI = [
+    "nvidia/nemotron-3-super",
+    "nvidia/llama-3.3-nemotron-super",
+    "nvidia/nemotron",
+    "meta/llama-3.3-70b-instruct",
+]
 
 
-class GroqClient:
-    """Groq API istemcisi."""
+class NvidiaClient:
+    """NVIDIA NIM API istemcisi."""
 
     def __init__(self, api_key: str, model: str = None):
         if not api_key or not api_key.strip():
-            raise ValueError("Groq API anahtarı boş olamaz")
+            raise ValueError("NVIDIA API anahtarı boş olamaz")
         self.api_key = api_key.strip()
-        self.model = model or MODELLER["varsayilan"]
+        self.model = model
         self.client = None
         self._kur()
 
@@ -37,22 +45,34 @@ class GroqClient:
                 api_key=self.api_key,
                 timeout=20.0,
                 max_retries=0,
-                base_url="https://api.groq.com/openai/v1",
+                base_url=BASE_URL,
             )
+            if not self.model:
+                self.model = self._model_bul()
         except Exception as e:
-            logger.warning("Groq kurulamadı: %s", e)
+            logger.warning("NVIDIA kurulamadı: %s", e)
             self.client = None
+
+    def _model_bul(self) -> str:
+        """Hesapta kullanilabilir ilk tercih edilen modeli bulur."""
+        try:
+            mevcutler = [m.id.lower() for m in self.client.models.list()]
+        except Exception as e:
+            logger.warning("NVIDIA model listesi alinamadi: %s", e)
+            return TERCIH_SIRASI[0]
+        for aday in TERCIH_SIRASI:
+            for m in mevcutler:
+                if m.startswith(aday.lower()):
+                    return m
+        return mevcutler[0] if mevcutler else TERCIH_SIRASI[0]
 
     def musait(self) -> bool:
         return self.client is not None
 
     def cevapla(self, messages: list, tools: list = None) -> dict:
-        """Groq'a mesaj gönderir.
-
-        Hız için: temperature=0.5, max_tokens=1024.
-        """
+        """NVIDIA NIM'e mesaj gönderir. Dönen şekil groq.py ile aynıdır."""
         if not self.client:
-            raise RuntimeError("Groq bağlı değil")
+            raise RuntimeError("NVIDIA bağlı değil")
 
         kwargs = {
             "model": self.model,

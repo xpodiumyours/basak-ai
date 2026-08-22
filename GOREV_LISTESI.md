@@ -1,41 +1,105 @@
-# Başak — Görev Listesi (Yol Haritası)
+# BAŞAK ANA PLAN — Bağlayıcı Yol Haritası (21 Ağustos 2026)
 
-19-20 Ağustos 2026. Referans: [OpenClaw](https://github.com/openclaw/openclaw) (380k+ yıldız) — SADECE genel yaklaşımından ilham alınıyor (gerçek hafıza + yeni yetki eklerken onay isteme). OpenClaw'un sınırsız/sandbox'sız komut çalıştırma yaklaşımı BİLİNÇLİ OLARAK ALINMIYOR — Başak'ın güvenlik sınırı (Faz 2) geçerliliğini koruyor.
+Casper'ın 20 katmanlı mimarisi + Jarvis kararları + öğrenme karar defterinin birleşmiş kesin hali.
+Üç uyarı işlendi: (1) TencentDB bulutu reddedildi → yerel SQLite+sqlite-vec+BM25, (2) Terminal aracı en sıkı kuralla en son açılır, (3) faz kanıtı olmadan sıradaki faza geçilmez.
 
-**Sıra artık kilitli.** Fazlar sırayla açılır. Bir faz gerçekten çalıştığı kanıtlanmadan (AGENTS.md §6 — gerçek çalıştırma kanıtı) bir sonrakine geçilmez. Kod yazan ajana (Claude Code, Kilo Code, OpenCode, Codebuff) her seferinde **sadece o anki faz** verilir — tüm liste birden verilmez, kapsam taşmasın diye.
-
-## Faz 0 — Bilinen 3 hata (ÖNCELİKLİ, henüz düzeltilmedi)
-
-Kod incelemesiyle bulundu (2026-08-20), son commit'lerde (`52e667d`, `c2774f6`) dokunulmamış:
-
-1. `chat.py` → `mesaj_isle()` her mesajda `TOOLS` listesini `brain.cevapla()`'ya geçiyor. `brain.py` → `cevapla()` içindeki `if tools and self.bulut_musait(): Groq'a git` satırı bu yüzden HER mesajda (selamlaşma dahil) tetikleniyor. Sonuç: yerel Ollama (`qwen2.5:3b`) pratikte hiç kullanılmıyor, "sadece zor sorularda buluta kaç" hedefi (AGENTS.md §1) bozulmuş. `qwen2.5:3b` zaten tool-calling destekliyor (`ollama.py`'deki "Ollama tool calling desteklemez" yorumu yanlış) — önce yerelde dene, gerçekten gerekiyorsa (gucle_mod açık / soru uzun) buluta düş.
-2. Bulut modeli `openai/gpt-oss-20b` Türkçe'de zayıf — "SADECE TÜRKÇE yaz" talimatına rağmen karışık dil üretebiliyor. Madde 1 düzelince azalır ama ek önlem: cevapta çoğunlukla İngilizce tespit edilirse yerel modele düş.
-3. `basak_app.py` → `Api._chat()` metodu `mesaj_isle()`'yi hiçbir try/except olmadan çağırıyor, thread `daemon=True`. Beklenmeyen bir hata olursa thread sessizce ölüyor, UI'da "düşünüyor" durumu sonsuza kadar takılı kalıyor (kullanıcı "cevap vermiyor" olarak görüyor). `_chat()` içine try/except eklenmeli, hata olursa mutlaka `js_callback("BasakUI.error(...)")` çağrılmalı.
-
-Bitince: gerçekten çalıştır (`basak.cmd`), 5-6 farklı mesajla dene (selamlaşma, hava durumu, görev ekleme, uzun/karmaşık bir soru), hangi kaynağın (yerel/groq) cevap verdiğini ve dilin tutarlı Türkçe kaldığını göster.
-
-## Faz 1 — Gerçek hafıza sistemi (kısmen yapılmış)
-
-`knowledge/INDEX.md` zaten var, `chat.py` onu önceliklendiriyor — iyi başlangıç. Eksik: `save_note` yeni not eklerken `INDEX.md`'yi otomatik güncellemiyor (elle senkron kalıyor, dosya sayısı artınca INDEX bayatlar). OpenClaw dersi: konuşma sırasında öğrenilen kalıcı bilgi otomatik ilgili nota bağlanmalı — `save_note` çağrıldığında `INDEX.md`'ye tek satırlık özet eklensin.
-
-## Faz 2 — Bilgisayarda iş yapma (araç kullanımı, whitelist'li)
-
-Casper'ın onayladığı kapsam: (a) belirlenmiş klasörlerde dosya okuma/yazma (`knowledge/` ve benzeri, sistemin geneli değil), (b) izin verilen belirli uygulamaları açma (tarayıcı, not defteri vb. — beyaz liste). **Kesinlikle yok:** sınırsız komut çalıştırma, sistem dosyalarına erişim, onaysız silme — OpenClaw'daki sandbox'sız yaklaşım burada ALINMIYOR.
-
-Uygulama notu: Ollama/qwen2.5'in tool-calling desteğini Faz 0 zaten doğrulayacak. Her araç çağrısı loglanır (ayrı bir `arac.log`); beyaz listeye yeni klasör/uygulama eklemek Casper onayı gerektirir (bkz. Faz 5).
-
-## Faz 3 — Web arama (YAPILDI, doğrulandı)
-
-`tools/web_search.py` mevcut: hava durumu (Open-Meteo API) + genel arama (DuckDuckGo). Çalışıyor, `gecmis.json`'da gerçek örnek var. Ekstra iş gerekmiyor.
-
-## Faz 4 — Görev takibi (YAPILDI, doğrulandı)
-
-`tools/tasks.py` mevcut: `add_task`/`list_tasks`/`complete_task`, tarih tespiti ("yarın", "bu hafta"). Çalışıyor. Ekstra iş gerekmiyor.
-
-## Faz 5 — AGENTS.md'ye yeni güven sınırı
-
-Faz 2 hayata geçince: yeni bir izinli klasör/uygulama eklemek ya da mevcut aracın kapsamını genişletmek **Casper onayı gerektirir** kuralı `AGENTS.md`'nin ilgili bölümüne işlenecek — ödeme/auth gibi hassas alanlarla aynı muamele.
+**Durum işaretleri:** ✅ yapıldı · 🔧 kısmen · 📌 planlı (faz etiketiyle) · ⛔ reddedildi · 🕐 uyuyor (anahtar var, hesap hazır değil) · ❓ dış koşul bekler
 
 ---
 
-**Not:** Bu liste artık sıralı bir yol haritası, serbest dökümlü aday listesi değil. Ajana bir sonraki fazı vermeden önce mevcut fazın gerçekten çalıştığını gör (screenshot/konsol çıktısı). Hangi faz açılırsa `AGENTS.md` §2'ye "şu an neredeyiz" olarak işlenir.
+## KATMAN DURUMLARI
+
+### 1. Ana Çalışma Katmanı — 🔧
+- Agent Core çekirdeği ✅ (chat.py: bağlam → araç → sonuç akışı).
+- Session Manager (konuşma kimliği, çoklu oturum, yarım görev) → **P3**.
+- Task Manager: tek seferlik ✅; uzun/zamanlanmış/tekrar eden → **P5**.
+
+### 2. Hafıza — 🔧 → P2 ANA İŞ
+- Working ✅ (sohbet bağlamı). Episodic 🔧 (gecmis.json düz dosya). Semantic 🔧 (kütüphane "ilk 4000 karakter" ile okunuyor — yetersiz).
+- Memory Engine: **yerel SQLite + sqlite-vec + BM25 + nomic-embed gömme (Ollama'da hazır, ücretsiz)** → **P2**. Önem puanı/tekrar temizleme/sıkıştırma P4'te olgunlaşır.
+- Procedural Memory → P4. File Memory (PDF/görsel) → P6+.
+- ⛔ TencentDB Agent Memory REDDEDİLDİ: bulut servisi "her şey bana ait" kuralını bozar.
+
+### 3. Model Router — ✅ çekirdek / 📌 P3
+- Sabit öncelik zinciri ✅: Groq→Gemini→GLM→DeepSeek(🕐)→Qwen(🕐)→NVIDIA→Ollama.
+- Model Registry (context limiti, kota, rate limit, özellikler, sağlık durumu) → **P3**.
+
+### 4. Yerel Fallback — ✅ Ollama son çare; internet/kota bitse bile Başak çalışır.
+
+### 5. Model Seçim Motoru — ❌ → P3
+- Görev sınıflandırma önce kural tabanlı (şeffaf); dinamik skorlar audit verisi birikince **P4**'te açılır.
+
+### 6. Kota/Limit Yönetimi — ❌ → P3
+- Sağlayıcı başına günlük kullanım sayacı, 429 geri çekilme, **ücretli çağrı varsayılan engelli**, günlük öğrenme bütçesi (karar #6).
+
+### 7. Araçlar — 🔧
+- Var: web arama, notlar, görevler, hatırlatmalar, whitelist'li dosya işlemleri, uygulama açma (shell kaldırıldı, sonda ile doğrulandı).
+- P5: web sayfası okuma, git-okuma, izinli terminal (**en sıkı kural**), zamanlayıcı.
+- P6+: browser otomasyonu (onayla), API client.
+- ⛔ Python kodu çalıştırma: ŞİMDİLİK YASAK — sandbox kararı ayrıca Casper onayıyla alınır.
+
+### 8. Tool Permission Layer — ❌ → P3
+- Her araca etiket: read-only / write / sistem / internet / hassas. Model kendi yetkisini veremez/artıramaz.
+
+### 9. Güvenlik / Policy Core — 🔧 ilkeler AGENTS.md'de → kod olarak P1
+- Secrets ayrımı (env öncelik), kill switch (tepsi "Durdur" + acil durdurma), dosya/ağ/süre sınırları.
+- 21 Ağustos'ta komut enjeksiyonu açığı kapatıldı (sonda ile kanıtlandı) — bu standart düşürülmez.
+
+### 10. Audit/Log — 🔧 → P1 zenginleştirme
+- Var: arac.log. Eklenecek: hangi model, neden seçildi, token, failover olayları, güvenlik engelleri.
+
+### 11. Öğrenme/Gelişim Katmanı — ❌ → P4 (Karar Defteri ile birlikte)
+- Görev analizi, başarılı/başarısız yol kaydı, model skor güncelleme, müfredat, doğrulama, onay kuyusu.
+- Kural: ana güvenlik politikasını ASLA değiştiremez.
+
+### 12. Model Keşif Sistemi — ❌ → P3 sonrası bonus
+- HF/OpenRouter/NIM duyurularından yeni ücretsiz model bulur; test eder; uygunsa registry'ye ekler; Casper'a bildirir.
+
+### 13. GPU/Ağır İş — 🕐 düşük öncelik
+- Colab/Kaggle "sürekli yaşamaz" — sadece ileride isteğe bağlı ağır-job worker. Şimdilik yok.
+
+### 14. Job Queue — ❌ → P5-P6 (zamanlayıcı ve arka plan işleriyle birlikte).
+
+### 15. Veri Katmanı (/data) — ❌ → P1 iskeleti
+- data/memory, conversations, tasks, files, model_stats, provider_limits, audit. Secrets ayrı (ayarlar.json gitignore'da).
+
+### 16. Adapter Katmanı — ✅ fiilen var (groq/gemini/glm/deepseek/qwen/nvidia/ollama aynı arayüzde).
+
+### 17. Başak API — ❌ → P6 (pywebview js_api bugün köprü görevi görüyor).
+
+### 18. Web Arayüzü — 🔧 → v2 P6
+- Ekranlara eklenecek: onay kuyusu, müfredat paneli, kalan kotalar, audit görüntüleme, sistem durumu.
+
+### 19. Watchdog — ❌ → P1 mini (J1): tepside yaşama + çözerse yeniden başlatma + açılışta otomatik başlatma.
+
+### 20. Çalışma Akışı — mevcut akış zincirin genişletilmiş hali yukarıdaki fazlarla oturur.
+
+---
+
+## FAZ SIRASI (kanıt kapılı)
+
+| Faz | İçerik | Kabul ölçütü (kanıtsız geçilmez) |
+|---|---|---|
+| **P1** | ✅ TAMAMLANDI (22 Ağustos): tepsi ikonu + X=gizle + kill switch; otomatik başlatma (Basak.lnk); audit log (data/audit/audit.log — her çağrıda kaynak/süre/hata); /data iskeleti (memory, conversations, tasks, model_stats) | Kanıt: Casper görsel onay verdi + audit dosyası canlı: `OK kaynak=groq | 0.3 sn` |
+| **P2** | ✅ TAMAMLANDI (22 Ağustos, Casper onaylı) — Hafıza Motoru: `memory/engine.py` (SQLite `data/memory/basak.db` + sqlite-vec vektör arama + FTS5/BM25 anahtar kelime, hibrit RRF birleşim). Her sorudan önce ilgili anılar bağlama eklenir (`chat.py` `_ilgili_anilar`); her cevaptan sonra episodic anı kaydedilir; eski `gecmis.json` aktarıldı; `knowledge/` + Obsidian defteri (`Basak/`) mtime takibiyle indekslenir. Ollama/embedding düşerse BM25-only devam eder. Kanıt: knowledge'da olmayan bilgi yalnız hafızaya eklenip soruldu → doğru cevap; 44/44 test yeşil; Casper canlı onayı verdi. | "Geçen hafta konuştuğumuz X" sorusuna doğru hatırlama; büyük kütüphanede ilgili notu bulma |
+| **P3** | 🔧 KOD TAMAMLANDI (22 Ağustos), Casper canlı onayı bekleniyor — Router v2: `brain/registry.py` (sağlayıcı kartları: ücretsiz/ücretli, tool desteği, güçler, günlük limit), `brain/secici.py` (kural tabanlı seçim + şeffaf gerekçe), `brain/kota.py` (günlük sayaç `data/provider_limits/`, 429 sonrası otomatik soğuma, **ücretli çağrı varsayılan engelli**), `tools/permissions.py` (araç izin etiketleri; etiketsiz araç güvenlik engeline takılır), Session kimliği (`chat.py` OTURUM_ID, geçmişe işlenir). Seçim UI'da görünür ("Nemotron · kod işi"), audit'e gerekçe + istek sayısı yazar. | Görev türüne göre model seçimi görünür; kota dolunca otomatik geçiş; ücretli çağrı engelli |
+| **P4** | Öğrenme döngüsü: müfredat + paralel doğrulama + resmi kaynak + onay kuyusu + bütçe + Procedural/Dinamik skor | Bir konuyu 2+ kaynakla doğrulayıp onaya sunar; bütçe bitince durur; reddedilen bilgi kalıcılaşmaz |
+| **P5** | Yetki genişletme: sayfa okuma, git-okuma, izinli terminal, zamanlayıcı | Her yeni araç ayrı Casper onaylı; enjeksiyon sondası tekrar koşar ve temiz çıkar |
+| **P6** | Başak API + Web UI v2 + File Memory + Job Queue | Harici basit istemciden /chat çalışır; UI'dan kota/onay/müfredat görünür |
+| **P7** | Sesli Jarvis (eski J2): wake word + sürekli dinleme + hep sesli cevap | Eller serbest: "Başak" de → sor → sesli cevap al |
+
+## REDDİLENLER / UYUYANLAR / BEKLEYENLER
+
+- ⛔ TencentDB Agent Memory (bulut) — taşınabilirlik ihlali. Yerel ikamesi P2.
+- ⛔ Python çalıştırma, sandbox'suz terminal — güvenlik.
+- 🕐 DeepSeek (bakiye bekliyor), QwenCloud (model etkinleşmesi bekliyor) — kod hazır, canlanınca zincire otomatik girer.
+- ❓ Ox Alpha — herkese açık API yok; açıldığında adapter deseniyle dakikalar içinde eklenir.
+- 🕐 GPU katmanı — sadece ileride isteğe bağlı ağır işler için.
+
+## DEĞİŞMEYECEK PARÇALAR (Casper'ın mülkiyet listesi)
+
+Başak kimliği · hafızası · görev geçmişi · araçları · dosyaları · güvenlik politikası · izin sistemi · öğrenilmiş akışlar · arayüzü · audit kayıtları. Model yalnızca beyin sağlayıcısıdır; bunların hepsi yerel dosyalarda, klasör kopyasıyla taşınır.
+
+---
+
+**Not:** Bu liste sıralı yol haritasıdır. Her faz bittiğinde `AGENTS.md` §2'ye "neredeyiz" yazılır; kanıt olmadan faz kapanmaz.

@@ -5,39 +5,40 @@ Her işlem loglanır.
 """
 
 import logging
-import os
+import re
 import subprocess
 import sys
+import webbrowser
 
 logger = logging.getLogger(__name__)
 
+# tarayiciya SADECE http/https adresi geçirilir
+_URL_KALIP = re.compile(r"^https?://\S+$")
+
+# Diğer uygulamalarda parametre: kabuk metakarakterleri ve kontrol
+# karakterleri YASAK (ikinci savunma katmanı; asıl koruma shell=False)
+_YASAK_KALIP = re.compile(r"""[&|<>^"`$;\r\n\t\x00-\x1f]""")
+
 # Beyaz liste: sadece bu uygulamalar açılabilir
 BEYAZ_LISTE = {
-    "tarayici": {
-        "windows": "cmd /c start",
-        "desc": "Varsayılan tarayıcıyı açar",
-    },
-    "notepad": {
-        "windows": "notepad",
-        "desc": "Not Defteri'ni açar",
-    },
-    "calculator": {
-        "windows": "calc",
-        "desc": "Hesap Makinesi'ni açar",
-    },
-    "file_manager": {
-        "windows": "explorer",
-        "desc": "Dosya Yöneticisi'ni açar",
-    },
-    "vscode": {
-        "windows": "code",
-        "desc": "Visual Studio Code'u açar",
-    },
+    "tarayici": {"desc": "Varsayılan tarayıcıyı açar"},
+    "notepad": {"exe": ["notepad"], "desc": "Not Defteri'ni açar", "param": True},
+    "calculator": {"exe": ["calc"], "desc": "Hesap Makinesi'ni açar", "param": False},
+    "file_manager": {"exe": ["explorer"], "desc": "Dosya Yöneticisi'ni açar", "param": True},
+    "vscode": {"exe": ["code"], "desc": "Visual Studio Code'u açar", "param": True},
 }
 
 
 def ac_uygulama(uygulama_adi: str, parametre: str = "") -> dict:
     """Beyaz listedeki bir uygulamayı açar.
+
+    GÜVENLİK NOTU (2026-08-21):
+    Eski sürüm shell=True ile komut birleştiriyordu; 'parametre' alanından
+    keyfi komut çalıştırılabiliyordu (güvenlik sondası ile kanıtlandı).
+    Artık:
+    - shell=True hiç kullanılmaz (list-form Popen)
+    - tarayiciya yalnızca http/https adresi geçirilir (webbrowser modülü)
+    - diğer uygulamalarda parametredeki kabuk metakarakterleri reddedilir
 
     Args:
         uygulama_adi: Açılacak uygulamanın kısa adı (örn: tarayici, notepad).
@@ -59,35 +60,44 @@ def ac_uygulama(uygulama_adi: str, parametre: str = "") -> dict:
         }
 
     bilgi = BEYAZ_LISTE[uygulama_adi]
-    komut = bilgi["windows"]
-
-    if parametre:
-        komut = f"{komut} {parametre}"
+    parametre = (parametre or "").strip()
+    mesaj_ek = f" Parametre: {parametre}" if parametre else ""
 
     try:
-        if sys.platform == "win32":
-            # Windows'ta arka planda aç
-            subprocess.Popen(
-                komut,
-                shell=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
-            )
+        if uygulama_adi == "tarayici":
+            if parametre:
+                if not _URL_KALIP.match(parametre):
+                    return {"error": "Tarayıcıya sadece http/https adresi geçer"}
+                webbrowser.open(parametre)
+            else:
+                webbrowser.open("about:blank")
         else:
-            subprocess.Popen(
-                komut.split(),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            komut = list(bilgi["exe"])
+            if parametre:
+                if not bilgi.get("param"):
+                    return {"error": f"{uygulama_adi} parametre kabul etmez"}
+                if _YASAK_KALIP.search(parametre):
+                    return {"error": "Parametrede geçersiz karakterler var"}
+                komut.append(parametre)
+            if sys.platform == "win32":
+                subprocess.Popen(
+                    komut,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+            else:
+                subprocess.Popen(
+                    komut,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
 
         mesaj = f"{bilgi['desc']} açıldı."
-        if parametre:
-            mesaj += f" Parametre: {parametre}"
-
+        mesaj += mesaj_ek
         return {"result": mesaj}
 
     except FileNotFoundError:
         return {"error": f"'{uygulama_adi}' bulunamadı — yüklü olmayabilir"}
     except OSError as e:
-        return {"error": f"Uygulama açılamadı: {e}"}
+        return {"error": "Uygulama açılamadı: %s" % e}

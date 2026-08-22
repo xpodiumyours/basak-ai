@@ -33,7 +33,7 @@ def add_task(text: str, gorevler_file: str) -> dict:
         # Mevcut görevleri yükle
         gorevler = []
         if os.path.exists(gorevler_file):
-            with open(gorevler_file, "r", encoding="utf-8") as f:
+            with open(gorevler_file, "r", encoding="utf-8-sig") as f:
                 gorevler = json.load(f)
 
         # Tarih tespiti
@@ -79,7 +79,7 @@ def list_tasks(gorevler_file: str) -> dict:
         if not os.path.exists(gorevler_file):
             return {"result": "Henüz görev yok"}
 
-        with open(gorevler_file, "r", encoding="utf-8") as f:
+        with open(gorevler_file, "r", encoding="utf-8-sig") as f:
             gorevler = json.load(f)
 
         acik_gorevler = [g for g in gorevler if not g.get("done")]
@@ -113,7 +113,7 @@ def complete_task(task_id: int, gorevler_file: str) -> dict:
         if not os.path.exists(gorevler_file):
             return {"error": "Görev listesi boş"}
 
-        with open(gorevler_file, "r", encoding="utf-8") as f:
+        with open(gorevler_file, "r", encoding="utf-8-sig") as f:
             gorevler = json.load(f)
 
         for g in gorevler:

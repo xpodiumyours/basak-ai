@@ -1,8 +1,10 @@
-"""brain/groq.py — Groq bulut entegrasyonu.
+"""brain/gemini.py — Google Gemini bulut entegrasyonu (yedek saglayici).
 
-Tool calling destekleyen Groq modelleri:
-- openai/gpt-oss-20b → Hızlı, tool calling destekli
-- openai/gpt-oss-120b → Güçlü
+Google'in OpenAI-uyumlu ucu kullanilir:
+https://generativelanguage.googleapis.com/v1beta/openai/
+Boylece groq.py ile ayni arayuz ve ayni yanit sekli korunur.
+
+Ucretsiz katman: gemini-2.5-flash (kredi karti gerekmez).
 """
 
 import json
@@ -12,20 +14,20 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-# Tool calling destekleyen modeller (sadece bunlar kullanılabilir)
+# OpenAI uyumlu Gemini ucu + ucretsiz modeller
+BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 MODELLER = {
-    "hizli": "openai/gpt-oss-20b",
-    "guclu": "openai/gpt-oss-120b",
-    "varsayilan": "openai/gpt-oss-20b",  # Hızlı model varsayılan
+    "hizli": "gemini-2.5-flash",
+    "varsayilan": "gemini-2.5-flash",
 }
 
 
-class GroqClient:
-    """Groq API istemcisi."""
+class GeminiClient:
+    """Google Gemini API istemcisi."""
 
     def __init__(self, api_key: str, model: str = None):
         if not api_key or not api_key.strip():
-            raise ValueError("Groq API anahtarı boş olamaz")
+            raise ValueError("Gemini API anahtarı boş olamaz")
         self.api_key = api_key.strip()
         self.model = model or MODELLER["varsayilan"]
         self.client = None
@@ -37,22 +39,19 @@ class GroqClient:
                 api_key=self.api_key,
                 timeout=20.0,
                 max_retries=0,
-                base_url="https://api.groq.com/openai/v1",
+                base_url=BASE_URL,
             )
         except Exception as e:
-            logger.warning("Groq kurulamadı: %s", e)
+            logger.warning("Gemini kurulamadı: %s", e)
             self.client = None
 
     def musait(self) -> bool:
         return self.client is not None
 
     def cevapla(self, messages: list, tools: list = None) -> dict:
-        """Groq'a mesaj gönderir.
-
-        Hız için: temperature=0.5, max_tokens=1024.
-        """
+        """Gemini'ye mesaj gönderir. Dönen şekil groq.py ile aynıdır."""
         if not self.client:
-            raise RuntimeError("Groq bağlı değil")
+            raise RuntimeError("Gemini bağlı değil")
 
         kwargs = {
             "model": self.model,

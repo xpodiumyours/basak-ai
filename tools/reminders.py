@@ -23,41 +23,52 @@ AY_MAP = {
 def _tarih_ayikla(dosya_adi: str, icerik: str) -> list:
     """Dosya içeriğinden tarih bilgilerini çıkarır.
 
+    Konu olarak DOSYA ADINI değil, tarihin geçtiği satırı kullanır;
+    böylece 'casper hakkinda' gibi anlamsız etiketler çıkmaz.
+
     Returns:
         [{"tarih": datetime, "konu": str, "dosya": str}, ...]
     """
     bulunanlar = []
-    icerik_lower = icerik.lower()
+    bugun = datetime.now()
 
-    # "25 Ağustos", "3 Ekim", "15 Mart" gibi pattern'leri ara
-    pattern = r'(\d{1,2})\s+(ocak|şubat|mart|nisan|mayıs|haziran|temmuz|ağustos|eylül|ekim|kasım|aralık)'
-    eslesmeler = re.findall(pattern, icerik_lower)
+    pattern = re.compile(
+        r'(\d{1,2})\s+(ocak|şubat|mart|nisan|mayıs|haziran|temmuz'
+        r'|ağustos|eylül|ekim|kasım|aralık)',
+        re.IGNORECASE,
+    )
 
-    for gun_str, ay_str in eslesmeler:
+    for satir in icerik.splitlines():
+        satir_temiz = satir.strip().lstrip("-*# ").strip()
+        if not satir_temiz:
+            continue
+
+        eslesme = pattern.search(satir_temiz.lower())
+        if not eslesme:
+            continue
+
         try:
-            gun = int(gun_str)
-            ay = AY_MAP.get(ay_str)
+            gun = int(eslesme.group(1))
+            ay = AY_MAP.get(eslesme.group(2))
             if not ay:
                 continue
 
-            bugun = datetime.now()
-            # Bu yıl için tarih bul
             tarih = datetime(bugun.year, ay, gun)
 
             # Eğer bu tarih geçtiyse gelecek yıla ayarla
             if tarih < bugun - timedelta(days=1):
                 tarih = datetime(bugun.year + 1, ay, gun)
-
-            # Dosya adından konu çıkar
-            konu = dosya_adi.replace(".md", "").replace("-", " ").replace("_", " ")
-
-            bulunanlar.append({
-                "tarih": tarih,
-                "konu": konu,
-                "dosya": dosya_adi,
-            })
         except (ValueError, KeyError):
             continue
+
+        # Tarihi içeren satırın kendisi en iyi açıklamadır
+        konu = re.sub(r"\*\*", "", satir_temiz)[:80]
+
+        bulunanlar.append({
+            "tarih": tarih,
+            "konu": konu,
+            "dosya": dosya_adi,
+        })
 
     return bulunanlar
 
@@ -73,6 +84,7 @@ def bugunku_hatirlatmalar(knowledge_dir: str, gorevler_file: str) -> dict:
         {"result": str} formatında hatırlatma listesi.
     """
     hatirlatmalar = []
+    gorulen = set()
     bugun = datetime.now()
     bugun_str = bugun.strftime("%Y-%m-%d")
 
@@ -94,6 +106,13 @@ def bugunku_hatirlatmalar(knowledge_dir: str, gorevler_file: str) -> dict:
 
                 tarihler = _tarih_ayikla(dosya, icerik)
                 for bilgi in tarihler:
+                    # Aynı gün (ay+gün) birden çok dosyada geçiyorsa
+                    # sadece ilkini göster — mükerrer satır olmasın
+                    anahtar = (bilgi["tarih"].month, bilgi["tarih"].day)
+                    if anahtar in gorulen:
+                        continue
+                    gorulen.add(anahtar)
+
                     kalan = (bilgi["tarih"] - bugun).days
 
                     if kalan == 0:
@@ -114,7 +133,7 @@ def bugunku_hatirlatmalar(knowledge_dir: str, gorevler_file: str) -> dict:
     # 2. Bugünkü görevler
     try:
         if os.path.exists(gorevler_file):
-            with open(gorevler_file, "r", encoding="utf-8") as f:
+            with open(gorevler_file, "r", encoding="utf-8-sig") as f:
                 gorevler = json.load(f)
 
             bugunku = [g for g in gorevler

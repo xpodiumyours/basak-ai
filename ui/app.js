@@ -1,7 +1,38 @@
 /* ============ Başak — ön yüz mantığı (js_api köprüsü) ============ */
 
 const $ = (id) => document.getElementById(id);
-const state = { busy: false, ready: false, model: null, dinliyor: false, ttsOn: false, gucle: false };
+let sesZamanlayici = null;
+const state = { busy: false, ready: false, model: null, dinliyor: false, ttsOn: false };
+
+window.addEventListener("error", function (ev) {
+  const ds = document.getElementById("durumSatiri");
+  if (ds && ds.textContent.indexOf("hatası") === -1) {
+    ds.textContent = "js hatası: " + ev.message;
+  }
+});
+
+/* Son cevabin kaynagini Ayarlar'daki durum satirina yazar.
+   P3: secim motorunun gerekcesi de gorunur ("Nemotron · kod işi" gibi). */
+function brainKaynakEtiketi(kaynak) {
+  const el = $("brainSource");
+  if (!el) return;
+  const s = String(kaynak || "");
+  let ad = null;
+  if (s.startsWith("groq")) ad = "Groq";
+  else if (s.startsWith("gemini")) ad = "Gemini";
+  else if (s.startsWith("glm")) ad = "GLM";
+  else if (s.startsWith("deepseek")) ad = "DeepSeek";
+  else if (s.startsWith("qwen")) ad = "Qwen";
+  else if (s.startsWith("nvidia")) ad = "Nemotron";
+  else if (s.startsWith("openrouter")) ad = "OpenRouter";
+  else if (s.startsWith("yerel")) ad = "Yerel";
+
+  const parcalar = s.split("·");
+  if (ad && parcalar.length > 1 && parcalar[1].trim()) {
+    ad += " · " + parcalar[1].trim();
+  }
+  el.textContent = ad || "—";
+}
 
 /* ---------------- API köprüsü ---------------- */
 const api = () => window.pywebview.api;
@@ -15,7 +46,7 @@ const Orb = (function () {
   };
   function init() {
     const wrap = $("orbWrap"), canvas = $("orbCanvas");
-    if (!window.THREE) { $("orbStatus").textContent = "3D yok"; return; }
+    if (!wrap || !window.THREE) return;   // sinema sahnesi yoksa eski orb da kurulmaz
     const w = wrap.clientWidth, h = wrap.clientHeight;
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
@@ -87,6 +118,7 @@ const Chat = (function () {
   const scroll = $("chatScroll"), list = $("messages"), empty = $("chatEmpty");
   function add(role, text) {
     empty.style.display = "none";
+    document.body.classList.add("goster-mesajlar");   // sinema modunda perde otomatik açılsın
     const div = document.createElement("div");
     div.className = "msg " + role;
     div.innerHTML = '<div class="msg-avatar">' + (role === "basak" ? "B" : "S") + '</div><div class="msg-body"><div class="msg-name">' + (role === "basak" ? "BAŞAK" : "SEN") + '</div><div class="msg-bubble"></div></div>';
@@ -97,6 +129,7 @@ const Chat = (function () {
   }
   function thinking() {
     empty.style.display = "none";
+    document.body.classList.add("goster-mesajlar");
     const div = document.createElement("div");
     div.className = "msg basak thinking";
     div.innerHTML = '<div class="msg-avatar">B</div><div class="msg-body"><div class="msg-name">BAŞAK</div><div class="msg-bubble"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>';
@@ -115,9 +148,15 @@ function setStatus(kind, label) {
   $("brainLabel").textContent = label;
 }
 function setOrb(s) {
-  Orb.setState(s);
-  const labels = { bekliyor: "BEKLİYOR", dusunuyor: "DÜŞÜNÜYOR", cevapliyor: "CEVAPLIYOR", hata: "HATA", dinliyor: "DİNLİYOR" };
-  $("orbStatus").textContent = labels[s] || s;
+  const labels = { bekliyor: "BAŞAK dinliyor", dusunuyor: "BAŞAK düşünüyor", cevapliyor: "BAŞAK konuşuyor", arac: "BAŞAK çalışıyor", hata: "HATA — bir sorun var", dinliyor: "BAŞAK dinliyor" };
+  const ds = $("durumSatiri");
+  if (ds) ds.textContent = labels[s] || "BAŞAK";
+  try {
+    if (window.BasakHead) {
+      const harita = { bekliyor: "bekliyor", dusunuyor: "dusunuyor", cevapliyor: "konusuyor", arac: "arac", hata: "hata", dinliyor: "dinliyor" };
+      BasakHead.durum(harita[s] || "bekliyor");
+    }
+  } catch (e) { /* sahne yoksa sohbet etkilenmez */ }
 }
 
 /* ---------------- Python'dan gelen geri çağrılar ---------------- */
@@ -133,13 +172,15 @@ window.BasakUI = {
     const el = document.querySelector(".msg.basak.thinking .msg-bubble");
     if (el) el.textContent = text;
     setStatus("busy", text);
-    setOrb("dusunuyor");
+    setOrb("arac");
   },
   reply(text, modelInfo) {
     Chat.add("basak", text);
+    brainKaynakEtiketi(modelInfo);
     state.busy = false;
     $("btnSend").disabled = false;
-    setOrb("bekliyor");
+    setOrb("cevapliyor");
+    if (!state.ttsOn) setTimeout(() => setOrb("bekliyor"), 2200);
     const ml = modelInfo || state.model || "yerel beyin";
     setStatus("ok", ml + " hazır");
     $("input").focus();
@@ -156,12 +197,21 @@ window.BasakUI = {
     $("btnMic").classList.toggle("active", on);
     $("btnMic").disabled = on;
     setOrb(on ? "dinliyor" : "bekliyor");
-    $("orbStatus").textContent = on ? "DİNLİYOR" : "BEKLİYOR";
   },
   sttResult(text) {
     const input = $("input");
     input.value = text;
     send();
+  },
+  ses(seviye) {
+    try {
+      if (window.BasakHead) BasakHead.ses(seviye / 100);
+      if (seviye > 2) {
+        setOrb("cevapliyor");
+        clearTimeout(sesZamanlayici);
+        sesZamanlayici = setTimeout(() => setOrb("bekliyor"), 1200);
+      }
+    } catch (e) {}
   },
 };
 
@@ -221,6 +271,9 @@ $("btnClear2").addEventListener("click", async () => {
   $("chatEmpty").style.display = "block";
 });
 $("btnClose").addEventListener("click", () => api().quit());
+$("btnMesajlar").addEventListener("click", () => {
+  document.body.classList.toggle("goster-mesajlar");
+});
 $("btnKey").addEventListener("click", async () => {
   const key = $("groqKey").value.trim();
   const r = await api().set_key(key);
@@ -246,7 +299,8 @@ let booted = false;
 async function boot() {
   if (booted) return;
   booted = true;
-  Orb.init();
+  document.body.classList.add("sinema");
+  if (!window.BasakHead) Orb.init();   // sahne yoksa eski orb devrede
   try {
     const status = await api().boot();
     if (status && status.ok) {
@@ -255,9 +309,7 @@ async function boot() {
       $("btnMic").disabled = false;
       state.model = status.model;
       state.ttsOn = !!status.tts_on;
-      state.gucle = !!status.gucle_mod;
-      setStatus("ok", (status.model || "yerel beyin") + " hazır");
-      $("topSub").textContent = "yerel beyin " + (status.model || "") + " hazır";
+      setStatus("ok", (status.cloud ? "hızlı bulut hazır" : (status.model || "yerel beyin") + " hazır"));
       const sel = $("modelSelect");
       if (status.models && status.models.length) {
         sel.innerHTML = status.models.map((m) => "<option>" + m + "</option>").join("");
@@ -269,17 +321,6 @@ async function boot() {
       // Hatirlatmalari goster
       if (status.reminders && status.reminders.trim()) {
         Chat.add("basak", status.reminders);
-      }
-      const ct = $("cloudToggle");
-      if (ct) {
-        ct.textContent = state.gucle ? "Açık" : "Kapalı";
-        ct.classList.toggle("active", state.gucle);
-        ct.onclick = () => {
-          state.gucle = !state.gucle;
-          api().set_cloud(state.gucle);
-          ct.classList.toggle("active", state.gucle);
-          ct.textContent = state.gucle ? "Açık" : "Kapalı";
-        };
       }
     } else {
       setStatus("err", "Ollama kapalı — Başak'ı Başlat.cmd çalıştır");
@@ -295,3 +336,15 @@ async function boot() {
 window.addEventListener("pywebviewready", boot);
 setTimeout(() => { if (!booted && window.pywebview) boot(); }, 800);
 setTimeout(() => { if (!booted) boot(); }, 2000);
+
+/* Canlı varlık sahnesini başlat (pywebview'den bağımsız) — hata görünür olsun */
+function sahneBaslat() {
+  try {
+    if (!window.THREE) { $("durumSatiri").textContent = "sahne: Three.js yüklenmedi"; return; }
+    if (!window.BasakHead) { $("durumSatiri").textContent = "sahne: head.js yüklenmedi"; return; }
+    BasakHead.init();
+  } catch (e) {
+    $("durumSatiri").textContent = "sahne hatası: " + (e && e.message ? e.message : e);
+  }
+}
+sahneBaslat();

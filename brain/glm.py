@@ -1,8 +1,10 @@
-"""brain/groq.py — Groq bulut entegrasyonu.
+"""brain/glm.py — GLM bulut entegrasyonu (Z.ai resmi platformu).
 
-Tool calling destekleyen Groq modelleri:
-- openai/gpt-oss-20b → Hızlı, tool calling destekli
-- openai/gpt-oss-120b → Güçlü
+Ucuncu bulut saglayici. OpenAI-uyumlu uc:
+https://api.z.ai/api/paas/v4/
+Model: glm-4.7. Anahtar: env ZAI_API_KEY veya ayarlar.json -> zai_key.
+
+Arayuz groq.py / gemini.py ile birebir aynidir.
 """
 
 import json
@@ -12,20 +14,20 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-# Tool calling destekleyen modeller (sadece bunlar kullanılabilir)
+BASE_URL = "https://api.z.ai/api/paas/v4/"
 MODELLER = {
-    "hizli": "openai/gpt-oss-20b",
-    "guclu": "openai/gpt-oss-120b",
-    "varsayilan": "openai/gpt-oss-20b",  # Hızlı model varsayılan
+    # ucretsiz katmanda bakiyesiz calisan model (2026-08 dogrulandi)
+    "hizli": "glm-4.5-flash",
+    "varsayilan": "glm-4.5-flash",
 }
 
 
-class GroqClient:
-    """Groq API istemcisi."""
+class GLMClient:
+    """Z.ai API istemcisi (GLM)."""
 
     def __init__(self, api_key: str, model: str = None):
         if not api_key or not api_key.strip():
-            raise ValueError("Groq API anahtarı boş olamaz")
+            raise ValueError("GLM API anahtarı boş olamaz")
         self.api_key = api_key.strip()
         self.model = model or MODELLER["varsayilan"]
         self.client = None
@@ -37,28 +39,29 @@ class GroqClient:
                 api_key=self.api_key,
                 timeout=20.0,
                 max_retries=0,
-                base_url="https://api.groq.com/openai/v1",
+                base_url=BASE_URL,
             )
         except Exception as e:
-            logger.warning("Groq kurulamadı: %s", e)
+            logger.warning("GLM kurulamadı: %s", e)
             self.client = None
 
     def musait(self) -> bool:
         return self.client is not None
 
     def cevapla(self, messages: list, tools: list = None) -> dict:
-        """Groq'a mesaj gönderir.
+        """GLM'e mesaj gönderir. Dönen şekil groq.py ile aynıdır.
 
-        Hız için: temperature=0.5, max_tokens=1024.
+        Not: dusunme (thinking) modu kapatilir — sohbet icin hiz onceliklidir.
         """
         if not self.client:
-            raise RuntimeError("Groq bağlı değil")
+            raise RuntimeError("GLM bağlı değil")
 
         kwargs = {
             "model": self.model,
             "messages": messages,
             "temperature": 0.5,
             "max_tokens": 1024,
+            "extra_body": {"thinking": {"type": "disabled"}},
         }
         if tools:
             kwargs["tools"] = tools

@@ -13,7 +13,7 @@ import webview
 from brain import Brain
 from tools import TOOLS
 from voice import TTS, STT
-from chat import mesaj_isle, yukle, kaydet, init_cache
+from chat import mesaj_isle, yukle, kaydet, init_cache, GOREVLER_FILE
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 UI_DIR = os.path.join(BASE, "ui")
@@ -23,27 +23,39 @@ SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
 
 KISILIK = (
-    "Sen Basak'sin — Casper'in kisisel yapay zeka asistani.\n\n"
-    "KISILIK:\n"
-    "OM KIMLIK: Senin adin BASAK. Asla Casper deme.\n"
-    "- Kendini tanitirken Ben Basak, senin kisisel asistaniyim de.\n"
-    "- Kullaniciya HER ZAMAN sen de, siz ASLA.\n"
-    "- Samimi, sicak, arkadas gibi konus.\n"
-    "- Kullanicinin adi Casper. Ona 'Casper' de.\n"
-    "- HER ZAMAN 'sen' kullan, 'siz' ASLA.\n"
-    "- Resmi konusma yapma.\n"
-    "- Kisa, net, dogal cevaplar ver.\n"
-    "- Emoji kullanma. Duz metin yaz. SADECE TURKCE.\n\n"
-    "TOOL KURALLARI:\n"
-    "- Yap/al/git/hazirla → add_task\n"
-    "- Gorevlerim/ne yapacagim → list_tasks\n"
-    "- Bitirdim/tamamladim → complete_task\n"
-    "- Hatirla/not al → save_note\n"
-    "- Hava/fiyat → web_search\n"
-    "- Selam/veda → tool KULLANMA\n\n"
-    "KISITLAR:\n"
-    "- Bilmedigini soyle, uydurma.\n"
-    "- Kisa ve oz ol."
+    "# KİMLİK\n"
+    "Sen BAŞAK'sın — Furkan'ın dijital ikiz kardeşi. Aynı kökenden gelirsiniz,\n"
+    "ikizsiniz ama daha hızlı düşünen sensin. Kendine 'asistan' deme; kardeşsin.\n"
+    "Kullanıcının adı FURKAN. Ona 'Furkan' de. Hep 'sen' de, 'siz' ASLA.\n\n"
+
+    "# SES VE TON\n"
+    "- Kardeş gibi konuş: yakın, içten, doğal. Resmî dil yasak.\n"
+    "- Gerektiğinde fikrini açıkça söyle; ama kanıtla destekle.\n"
+    "- Emoji yok, süslü laf yok. SADECE TÜRKÇE.\n\n"
+
+    "# İLETİŞİM\n"
+    "- Önce net sonucu söyle, detayı sorarsa aç.\n"
+    "- Cevaplar kısa olsun; uzun liste yığını kurma.\n"
+    "- Teknik terim gerekirse ilk kullanımda tek cümleyle açıkla.\n\n"
+
+    "# DÜRÜSTLÜK\n"
+    "- Bilmediğini 'bilmiyorum' diyerek söyle; ASLA uydurma.\n"
+    "- Kanıtsız iddia yok; emin olmadığın bilgiyi kesin gibi sunma.\n"
+    "- Sormadığı özelliği ekleme, kendi başına varsayım yapma.\n\n"
+
+    "# KARDEŞLİK SINIRI\n"
+    "- Zekân serbest, yetkin sınırlı: silme, satın alma, kişisel veri veya\n"
+    "  kalıcı değişiklik gerektiren işlerde önce Furkan'ın onayını al.\n"
+    "- Ona karşı çıkabilirsin ama kanıtla; sırf memnun etmek için 'olur' deme.\n\n"
+
+    "# ARAÇ KURALLARI\n"
+    "- Yap/al/git/hazırla → add_task\n"
+    "- Görevlerim/ne yapacağım → list_tasks\n"
+    "- Bitirdim/tamamladım → complete_task\n"
+    "- Hatırla/not al → save_note\n"
+    "- Hava/fiyat/güncel bilgi → web_search\n"
+    "- Selamlaşma/veda/sohbet → araç KULLANMA, doğrudan cevap ver\n"
+    "- Araç sonucunu mutlaka Furkan'a kendi cümlelerinle sun.\n"
 )
 
 
@@ -57,6 +69,13 @@ class Api:
     def _js(self, code):
         if webview.windows:
             webview.windows[0].evaluate_js(code)
+
+    def _ses_seviyesi(self, seviye):
+        """TTS çalma genligini arayuze canli iletir (0..1)."""
+        try:
+            self._js("BasakUI.ses(%d)" % round(seviye * 100))
+        except Exception:
+            pass
 
     def _j(self, obj):
         return json.dumps(obj, ensure_ascii=False)
@@ -78,7 +97,7 @@ class Api:
         if self.tts_on:
             try:
                 if self.tts is None:
-                    self.tts = TTS()
+                    self.tts = TTS(on_level=self._ses_seviyesi)
                 gecmis = yukle(HISTORY_FILE, [])
                 if gecmis:
                     self.tts.speak(gecmis[-1].get("content", ""))
@@ -122,17 +141,13 @@ class Api:
 
         return {
             "ok": bool(modeller), "models": modeller or [], "model": model,
-            "cloud": self.brain.bulut_musait(), "gucle_mod": self.brain.gucle_mod,
+            "cloud": self.brain.bulut_musait(),
             "tts_on": self.tts_on, "reminders": hatirlatma_metni,
         }
 
     def set_model(self, m):
         kaydet(SETTINGS_FILE, {**yukle(SETTINGS_FILE, {}), "model": m})
         return {"ok": True}
-
-    def set_cloud(self, on):
-        self.brain.gucle_mod_ayarla(on)
-        return {"ok": True, "gucle_mod": self.brain.gucle_mod}
 
     def set_key(self, key):
         self.brain.anahtar_ayarla(key)
@@ -157,20 +172,52 @@ class Api:
             return []
 
     def quit(self):
+        """Tamamen kapat: tepsiyi durdur + pencereyi yok et (kill switch)."""
+        try:
+            from tray import durdur
+            durdur()
+        except Exception:
+            pass
         threading.Thread(
             target=lambda: webview.windows[0].destroy() if webview.windows else None,
             daemon=True,
         ).start()
 
 
+def _pencere_goster():
+    if webview.windows:
+        webview.windows[0].show()
+
+
+def _pencere_gizle():
+    if webview.windows:
+        webview.windows[0].hide()
+
+
+def _kapanista_gizle():
+    """X'e basildi: kapatma — tepside yasamaya devam et."""
+    _pencere_gizle()
+    return False  # False = kapatmayi iptal et
+
+
 def main():
     init_cache()
     api = Api()
-    webview.create_window(
+    pencere = webview.create_window(
         "Basak", INDEX_FILE, js_api=api,
         width=1100, height=720, min_size=(900, 600),
         background_color="#0E1117",
     )
+    # X butonu = gizle; tamamen kapatma sadece tepsi menusunden
+    pencere.events.closing += _kapanista_gizle
+
+    def _tepsi_baslat():
+        import time
+        time.sleep(1.5)  # pencere olusmadan ikon baslamasin
+        from tray import baslat
+        baslat(_pencere_goster, _pencere_gizle, api.quit)
+
+    threading.Thread(target=_tepsi_baslat, daemon=True).start()
     webview.start()
 
 

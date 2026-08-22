@@ -1,8 +1,13 @@
-"""brain/groq.py — Groq bulut entegrasyonu.
+"""brain/deepseek.py — DeepSeek bulut entegrasyonu (dorduncu saglayici).
 
-Tool calling destekleyen Groq modelleri:
-- openai/gpt-oss-20b → Hızlı, tool calling destekli
-- openai/gpt-oss-120b → Güçlü
+Ucuncu taraf OpenAI-uyumlu uc:
+https://api.deepseek.com/v1
+Model: deepseek-chat. Anahtar: env DEEPSEEK_API_KEY veya ayarlar.json -> deepseek_key.
+
+NOT: DeepSeek ucretli platformdur — hesapta bakiye yoksa API 402 doner;
+zincir bu hatayi sessizce atlar (bir sonraki saglayici devralir).
+
+Arayuz groq.py / gemini.py ile birebir aynidir.
 """
 
 import json
@@ -12,20 +17,19 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-# Tool calling destekleyen modeller (sadece bunlar kullanılabilir)
+BASE_URL = "https://api.deepseek.com/v1"
 MODELLER = {
-    "hizli": "openai/gpt-oss-20b",
-    "guclu": "openai/gpt-oss-120b",
-    "varsayilan": "openai/gpt-oss-20b",  # Hızlı model varsayılan
+    "hizli": "deepseek-chat",
+    "varsayilan": "deepseek-chat",
 }
 
 
-class GroqClient:
-    """Groq API istemcisi."""
+class DeepSeekClient:
+    """DeepSeek API istemcisi."""
 
     def __init__(self, api_key: str, model: str = None):
         if not api_key or not api_key.strip():
-            raise ValueError("Groq API anahtarı boş olamaz")
+            raise ValueError("DeepSeek API anahtarı boş olamaz")
         self.api_key = api_key.strip()
         self.model = model or MODELLER["varsayilan"]
         self.client = None
@@ -37,22 +41,19 @@ class GroqClient:
                 api_key=self.api_key,
                 timeout=20.0,
                 max_retries=0,
-                base_url="https://api.groq.com/openai/v1",
+                base_url=BASE_URL,
             )
         except Exception as e:
-            logger.warning("Groq kurulamadı: %s", e)
+            logger.warning("DeepSeek kurulamadı: %s", e)
             self.client = None
 
     def musait(self) -> bool:
         return self.client is not None
 
     def cevapla(self, messages: list, tools: list = None) -> dict:
-        """Groq'a mesaj gönderir.
-
-        Hız için: temperature=0.5, max_tokens=1024.
-        """
+        """DeepSeek'e mesaj gönderir. Dönen şekil groq.py ile aynıdır."""
         if not self.client:
-            raise RuntimeError("Groq bağlı değil")
+            raise RuntimeError("DeepSeek bağlı değil")
 
         kwargs = {
             "model": self.model,

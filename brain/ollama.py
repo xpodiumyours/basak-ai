@@ -90,6 +90,7 @@ class OllamaClient:
                     args = json.dumps(args) if args else "{}"
                 tool_calls.append({
                     "id": f"call_{id(tc)}",
+                    "type": "function",
                     "function": {
                         "name": func.get("name", ""),
                         "arguments": args,

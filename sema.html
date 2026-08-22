@@ -1,0 +1,633 @@
+<title>Başak — Şema</title>
+
+<style>
+  :root {
+    color-scheme: light dark;
+
+    /* Başak'ın kendi kimliği — ui/style.css :root değişkenlerinden alındı */
+    --zemin:    #F5F7FA;
+    --yuzey:    #FFFFFF;
+    --yuzey-2:  #EDF1F6;
+    --cizgi:    rgba(16, 24, 36, 0.12);
+    --cizgi-2:  rgba(16, 24, 36, 0.06);
+    --metin:    #111820;
+    --sonuk:    #5C6673;
+    --mavi:     #2563EB;
+    --mor:      #7C4DE0;
+    --kehribar: #B26A02;
+    --kehribar-zemin: rgba(245, 158, 11, 0.12);
+    --yesil:    #0F8A5F;
+    --kirmizi:  #C2413F;
+
+    --olcu: 14px;
+
+    --display: "Segoe UI Semibold", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --govde:   "Segoe UI", system-ui, -apple-system, sans-serif;
+    --veri:    ui-monospace, "Cascadia Code", "Cascadia Mono", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --zemin:    #0E1117;
+      --yuzey:    #161B22;
+      --yuzey-2:  #1C222C;
+      --cizgi:    rgba(255, 255, 255, 0.10);
+      --cizgi-2:  rgba(255, 255, 255, 0.05);
+      --metin:    #E6EDF3;
+      --sonuk:    #9BA5B3;
+      --mavi:     #3B82F6;
+      --mor:      #8B5CF6;
+      --kehribar: #F59E0B;
+      --kehribar-zemin: rgba(245, 158, 11, 0.14);
+      --yesil:    #34D399;
+      --kirmizi:  #F87171;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --zemin: #F5F7FA; --yuzey: #FFFFFF; --yuzey-2: #EDF1F6;
+    --cizgi: rgba(16,24,36,0.12); --cizgi-2: rgba(16,24,36,0.06);
+    --metin: #111820; --sonuk: #5C6673;
+    --mavi: #2563EB; --mor: #7C4DE0; --kehribar: #B26A02;
+    --kehribar-zemin: rgba(245,158,11,0.12);
+    --yesil: #0F8A5F; --kirmizi: #C2413F;
+  }
+
+  :root[data-theme="dark"] {
+    --zemin: #0E1117; --yuzey: #161B22; --yuzey-2: #1C222C;
+    --cizgi: rgba(255,255,255,0.10); --cizgi-2: rgba(255,255,255,0.05);
+    --metin: #E6EDF3; --sonuk: #9BA5B3;
+    --mavi: #3B82F6; --mor: #8B5CF6; --kehribar: #F59E0B;
+    --kehribar-zemin: rgba(245,158,11,0.14);
+    --yesil: #34D399; --kirmizi: #F87171;
+  }
+
+  body {
+    background: var(--zemin);
+    color: var(--metin);
+    font-family: var(--govde);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sayfa {
+    max-width: 940px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 64px;
+  }
+
+  /* ---------- ortak ---------- */
+  .etiket {
+    font-family: var(--veri);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--sonuk);
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(30px, 5vw, 44px);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.12;
+    text-wrap: balance;
+    margin-top: 10px;
+  }
+
+  h2 {
+    font-family: var(--display);
+    font-size: 23px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-family: var(--display);
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  p { max-width: 66ch; }
+
+  .giris p { font-size: 18px; color: var(--sonuk); max-width: 60ch; }
+  .giris strong { color: var(--metin); font-weight: 600; }
+
+  .bolum { display: flex; flex-direction: column; gap: 20px; }
+  .bolum-bas { display: flex; flex-direction: column; gap: 6px; }
+
+  /* ---------- figür ---------- */
+  figure { display: flex; flex-direction: column; gap: 12px; }
+
+  .tuval {
+    background: var(--yuzey);
+    border: 1px solid var(--cizgi);
+    border-radius: var(--olcu);
+    padding: 20px 16px;
+    overflow-x: auto;
+  }
+
+  .tuval svg { display: block; max-width: 100%; height: auto; min-width: 620px; margin: 0 auto; }
+
+  figcaption {
+    font-size: 14px;
+    color: var(--sonuk);
+    max-width: 66ch;
+  }
+  figcaption b { color: var(--metin); font-weight: 600; }
+
+  /* svg içi ortak sınıflar */
+  .kutu   { fill: var(--yuzey-2); stroke: var(--cizgi); stroke-width: 1; }
+  .kutu-v { fill: none; stroke: currentColor; stroke-width: 1; opacity: 0.45; stroke-dasharray: 4 4; }
+  .kutu-k { fill: var(--kehribar-zemin); stroke: var(--kehribar); stroke-width: 1.5; }
+  .yazi   { font-family: var(--govde); font-size: 13px; fill: var(--metin); }
+  .yazi-k { font-family: var(--govde); font-size: 13px; font-weight: 600; fill: var(--kehribar); }
+  .kucuk  { font-family: var(--veri); font-size: 10.5px; letter-spacing: 0.08em; fill: var(--sonuk); text-transform: uppercase; }
+  .ok     { stroke: currentColor; stroke-width: 1.4; fill: none; opacity: 0.55; }
+  .ok-k   { stroke: var(--kehribar); stroke-width: 1.6; fill: none; }
+
+  /* ---------- kesit ---------- */
+  .kesit { display: flex; flex-direction: column; gap: 10px; }
+
+  .kat {
+    display: grid;
+    grid-template-columns: 132px 1fr;
+    gap: 20px;
+    background: var(--yuzey);
+    border: 1px solid var(--cizgi);
+    border-radius: var(--olcu);
+    padding: 18px 20px;
+  }
+
+  .kat-zemin {
+    background: var(--kehribar-zemin);
+    border-color: var(--kehribar);
+  }
+
+  .kat-gutter { display: flex; flex-direction: column; gap: 8px; }
+
+  .kat-no {
+    font-family: var(--veri);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--sonuk);
+  }
+
+  .rozet {
+    font-family: var(--veri);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    padding: 3px 8px;
+    border-radius: 99px;
+    border: 1px solid currentColor;
+    align-self: flex-start;
+    white-space: nowrap;
+  }
+  .r-bitti  { color: var(--yesil); }
+  .r-kirik  { color: var(--kirmizi); }
+  .r-plan   { color: var(--mavi); }
+  .r-secim  { color: var(--mor); }
+
+  .kat-govde { display: flex; flex-direction: column; gap: 8px; }
+  .kat-govde p { font-size: 14.5px; color: var(--sonuk); margin: 0; }
+  .kat-govde .ne { color: var(--metin); }
+
+  .parcalar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+  .parca {
+    font-family: var(--veri);
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    background: var(--yuzey-2);
+    border: 1px solid var(--cizgi-2);
+    color: var(--sonuk);
+  }
+
+  /* ---------- pota kenar ---------- */
+  .kenar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    border: 1px dashed var(--mor);
+    border-radius: var(--olcu);
+    padding: 20px 22px;
+    background: var(--yuzey);
+  }
+  .kenar h3 { color: var(--mor); }
+
+  /* ---------- sinir listesi ---------- */
+  .sinir { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .sinir-kart {
+    border: 1px solid var(--cizgi);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: var(--yuzey);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .sinir-kart .b { font-family: var(--display); font-weight: 600; font-size: 14.5px; }
+  .sinir-kart .a { font-size: 13.5px; color: var(--sonuk); }
+
+  /* ---------- tablo ---------- */
+  .tablo-sar { overflow-x: auto; border: 1px solid var(--cizgi); border-radius: var(--olcu); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 520px; }
+  th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--cizgi-2); }
+  th {
+    font-family: var(--veri);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--sonuk);
+    background: var(--yuzey-2);
+  }
+  tr:last-child td { border-bottom: none; }
+  td.dur { font-family: var(--veri); font-size: 12px; white-space: nowrap; }
+
+  .son {
+    border-top: 1px solid var(--cizgi);
+    padding-top: 24px;
+    font-size: 14px;
+    color: var(--sonuk);
+  }
+
+  @media (max-width: 640px) {
+    .kat { grid-template-columns: 1fr; gap: 12px; }
+    .kat-gutter { flex-direction: row; align-items: center; gap: 12px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="sayfa">
+
+  <header class="giris">
+    <div class="etiket">Başak · plan tamamlandığında</div>
+    <h1>Tahmin etmeyen asistan</h1>
+    <p>Plandaki işler bittiğinde Başak, bugünkünden tek bir yerde ayrılacak: <strong>söylediği her cümlenin ölçülmüş olması gerekecek.</strong> Aşağıdaki şema, bunun hangi parçalardan çıktığını gösteriyor.</p>
+  </header>
+
+  <!-- ============ 1. FARK ============ -->
+  <section class="bolum">
+    <div class="bolum-bas">
+      <div class="etiket">Asıl fark</div>
+      <h2>Araya bir kapı giriyor</h2>
+    </div>
+
+    <figure>
+      <div class="tuval">
+        <svg viewBox="0 0 740 300" role="img" aria-label="Bugünkü akış üç adım: soru, model, cevap. Yeni akış beş adım: soru, ölçüm planı, ölçüm, kapı, cevap. Kapı ölçülmemiş cümleleri siliyor.">
+          <defs>
+            <marker id="ucGri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon points="0,1 9,5 0,9" fill="currentColor" opacity="0.55" />
+            </marker>
+            <marker id="ucKehribar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon points="0,1 9,5 0,9" fill="var(--kehribar)" />
+            </marker>
+          </defs>
+
+          <!-- BUGÜN -->
+          <text class="kucuk" x="30" y="34">bugün</text>
+          <rect class="kutu" x="30"  y="48" width="120" height="44" rx="9" />
+          <text class="yazi" x="90"  y="75" text-anchor="middle">soru</text>
+          <rect class="kutu" x="200" y="48" width="120" height="44" rx="9" />
+          <text class="yazi" x="260" y="75" text-anchor="middle">model</text>
+          <rect class="kutu" x="370" y="48" width="120" height="44" rx="9" />
+          <text class="yazi" x="430" y="75" text-anchor="middle">cevap</text>
+          <line class="ok" x1="152" y1="70" x2="196" y2="70" marker-end="url(#ucGri)" />
+          <line class="ok" x1="322" y1="70" x2="366" y2="70" marker-end="url(#ucGri)" />
+          <text class="kucuk" x="520" y="66">tahmin</text>
+          <text class="kucuk" x="520" y="82">buraya karışabilir</text>
+
+          <!-- SONRA -->
+          <text class="kucuk" x="30" y="158">plan bitince</text>
+          <rect class="kutu" x="30"  y="172" width="104" height="44" rx="9" />
+          <text class="yazi" x="82"  y="199" text-anchor="middle">soru</text>
+          <rect class="kutu" x="164" y="172" width="104" height="44" rx="9" />
+          <text class="yazi" x="216" y="194" text-anchor="middle">ölçüm</text>
+          <text class="yazi" x="216" y="209" text-anchor="middle">planı</text>
+          <rect class="kutu" x="298" y="172" width="104" height="44" rx="9" />
+          <text class="yazi" x="350" y="199" text-anchor="middle">ölçüm</text>
+          <rect class="kutu-k" x="432" y="172" width="104" height="44" rx="9" />
+          <text class="yazi-k" x="484" y="199" text-anchor="middle">KAPI</text>
+          <rect class="kutu" x="566" y="172" width="104" height="44" rx="9" />
+          <text class="yazi" x="618" y="199" text-anchor="middle">cevap</text>
+
+          <line class="ok" x1="136" y1="194" x2="160" y2="194" marker-end="url(#ucGri)" />
+          <line class="ok" x1="270" y1="194" x2="294" y2="194" marker-end="url(#ucGri)" />
+          <line class="ok" x1="404" y1="194" x2="428" y2="194" marker-end="url(#ucGri)" />
+          <line class="ok-k" x1="538" y1="194" x2="562" y2="194" marker-end="url(#ucKehribar)" />
+
+          <!-- eleme -->
+          <line class="ok-k" x1="484" y1="218" x2="484" y2="252" marker-end="url(#ucKehribar)" />
+          <rect class="kutu-v" x="386" y="252" width="196" height="30" rx="8" />
+          <text class="yazi" x="484" y="272" text-anchor="middle">işaretsiz cümle silinir</text>
+        </svg>
+      </div>
+      <figcaption><b>Eklenen tek parça kapı.</b> Model artık "bilen" değil, ölçüm çıktısını Türkçeye çeviren taraf. Kaynağı gösterilemeyen cümle kullanıcıya ulaşmadan eleniyor — model iyi davranmaya çalışmıyor, kötü davranamıyor.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ 2. KESİT ============ -->
+  <section class="bolum">
+    <div class="bolum-bas">
+      <div class="etiket">Kesit · yukarıdan aşağıya</div>
+      <h2>Altı katman</h2>
+      <p>En altta kanıt zemini var. Üstteki her katman ondan besleniyor — zemin çürükse üstü de çürük.</p>
+    </div>
+
+    <div class="kesit">
+
+      <div class="kat">
+        <div class="kat-gutter">
+          <div class="kat-no">KAT 5</div>
+          <div class="rozet r-bitti">çalışıyor</div>
+        </div>
+        <div class="kat-govde">
+          <h3>Yüz</h3>
+          <p class="ne">Konuştuğun yer: sohbet, ses, arkadaki küre, tek fay kartı.</p>
+          <div class="parcalar">
+            <span class="parca">sohbet</span><span class="parca">sesli okuma</span><span class="parca">mikrofon</span><span class="parca">küre</span><span class="parca">kart</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kat">
+        <div class="kat-gutter">
+          <div class="kat-no">KAT 4</div>
+          <div class="rozet r-secim">POTA seçecek</div>
+        </div>
+        <div class="kat-govde">
+          <h3>İzleyen motor</h3>
+          <p class="ne">Sen sormadan çalışan kısım. Ne olacağı henüz belli değil — potadan hangi aday çıkarsa o.</p>
+          <p>Bugünkü adaylar: <b>fay</b> (çelişki avlar) · <b>bekçi</b> (her iş öncesi durum ölçer) · <b>karne</b> (kim ne kadar yanılıyor sayar).</p>
+        </div>
+      </div>
+
+      <div class="kat">
+        <div class="kat-gutter">
+          <div class="kat-no">KAT 3</div>
+          <div class="rozet r-bitti">çalışıyor</div>
+        </div>
+        <div class="kat-govde">
+          <h3>Eller</h3>
+          <p class="ne">Dünyaya dokunduğu yer. Her aracın izin etiketi var, model kendi yetkisini artıramıyor.</p>
+          <div class="parcalar">
+            <span class="parca">web arama</span><span class="parca">notlar</span><span class="parca">görevler</span><span class="parca">hatırlatma</span><span class="parca">dosya (izinli)</span><span class="parca">uygulama açma</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kat">
+        <div class="kat-gutter">
+          <div class="kat-no">KAT 2</div>
+          <div class="rozet r-kirik">bir yeri kırık</div>
+        </div>
+        <div class="kat-govde">
+          <h3>Beyin zinciri</h3>
+          <p class="ne">Yedi sağlayıcı, kota sayacı, görev türüne göre seçim. Hepsi düşerse bilgisayarındaki model devralıyor.</p>
+          <p>Şu an <b>D-1</b> arızası zinciri kırıyor: oturum kimliği isteğe sızıyor, Groq reddediyor.</p>
+        </div>
+      </div>
+
+      <div class="kat">
+        <div class="kat-gutter">
+          <div class="kat-no">KAT 1</div>
+          <div class="rozet r-bitti">çalışıyor</div>
+        </div>
+        <div class="kat-govde">
+          <h3>Hafıza</h3>
+          <p class="ne">Kendi bilgisayarında duran geçmiş: konuşmalar, notların, Obsidian defterin. Hem anlamdan hem kelimeden arıyor.</p>
+          <div class="parcalar">
+            <span class="parca">anlam araması</span><span class="parca">kelime araması</span><span class="parca">knowledge/</span><span class="parca">Obsidian</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kat kat-zemin">
+        <div class="kat-gutter">
+          <div class="kat-no">KAT 0</div>
+          <div class="rozet r-plan">kurulacak</div>
+        </div>
+        <div class="kat-govde">
+          <h3>ÖLÇÜ — kanıt zemini</h3>
+          <p class="ne">Her cümlenin tipi var: <b>ölçüm</b>, <b>alıntı</b>, <b>çıkarım</b>, <b>bilmiyorum</b>. Beşinci tip — tahmin — yok.</p>
+          <div class="parcalar">
+            <span class="parca">çıkış kapısı</span><span class="parca">alıntı doğrulama</span><span class="parca">iddia defteri</span><span class="parca">bayatlama</span><span class="parca">karne</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 3. YOLCULUK ============ -->
+  <section class="bolum">
+    <div class="bolum-bas">
+      <div class="etiket">Tek bir sorunun yolu</div>
+      <h2>Soru sorduğunda ne oluyor</h2>
+    </div>
+
+    <figure>
+      <div class="tuval">
+        <svg viewBox="0 0 880 360" role="img" aria-label="Soru önce çözüm planına gidiyor, plan ölçümleri çalıştırıyor, ölçüm kaynakları git dosya hafıza ve belgeler. Model ölçümü çeviriyor, kapı denetliyor, cevap çıkıyor. Ölçüm ayrıca iddia defterine yazılıyor.">
+          <defs>
+            <marker id="uc2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon points="0,1 9,5 0,9" fill="currentColor" opacity="0.55" />
+            </marker>
+            <marker id="uc2k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon points="0,1 9,5 0,9" fill="var(--kehribar)" />
+            </marker>
+          </defs>
+
+          <!-- kaynaklar -->
+          <text class="kucuk" x="228" y="30">ölçülebilenler</text>
+          <rect class="kutu" x="228" y="42" width="86" height="32" rx="7" />
+          <text class="yazi" x="271" y="63" text-anchor="middle">git</text>
+          <rect class="kutu" x="326" y="42" width="86" height="32" rx="7" />
+          <text class="yazi" x="369" y="63" text-anchor="middle">dosyalar</text>
+          <rect class="kutu" x="424" y="42" width="86" height="32" rx="7" />
+          <text class="yazi" x="467" y="63" text-anchor="middle">hafıza</text>
+          <rect class="kutu" x="522" y="42" width="96" height="32" rx="7" />
+          <text class="yazi" x="570" y="63" text-anchor="middle">belge · site</text>
+
+          <line class="ok" x1="271" y1="76" x2="330" y2="168" marker-end="url(#uc2)" />
+          <line class="ok" x1="369" y1="76" x2="352" y2="168" marker-end="url(#uc2)" />
+          <line class="ok" x1="467" y1="76" x2="374" y2="168" marker-end="url(#uc2)" />
+          <line class="ok" x1="570" y1="76" x2="396" y2="168" marker-end="url(#uc2)" />
+
+          <!-- ana hat -->
+          <rect class="kutu" x="24"  y="174" width="96" height="46" rx="9" />
+          <text class="yazi" x="72"  y="202" text-anchor="middle">soru</text>
+
+          <rect class="kutu" x="152" y="174" width="112" height="46" rx="9" />
+          <text class="yazi" x="208" y="196" text-anchor="middle">çözüm</text>
+          <text class="yazi" x="208" y="211" text-anchor="middle">planı</text>
+
+          <rect class="kutu" x="296" y="174" width="112" height="46" rx="9" />
+          <text class="yazi" x="352" y="202" text-anchor="middle">ölçüm</text>
+
+          <rect class="kutu" x="440" y="174" width="124" height="46" rx="9" />
+          <text class="yazi" x="502" y="196" text-anchor="middle">model</text>
+          <text class="kucuk" x="502" y="211" text-anchor="middle">tercüman</text>
+
+          <rect class="kutu-k" x="596" y="174" width="104" height="46" rx="9" />
+          <text class="yazi-k" x="648" y="202" text-anchor="middle">KAPI</text>
+
+          <rect class="kutu" x="732" y="174" width="112" height="46" rx="9" />
+          <text class="yazi" x="788" y="202" text-anchor="middle">cevap</text>
+
+          <line class="ok" x1="122" y1="197" x2="148" y2="197" marker-end="url(#uc2)" />
+          <line class="ok" x1="266" y1="197" x2="292" y2="197" marker-end="url(#uc2)" />
+          <line class="ok" x1="410" y1="197" x2="436" y2="197" marker-end="url(#uc2)" />
+          <line class="ok" x1="566" y1="197" x2="592" y2="197" marker-end="url(#uc2)" />
+          <line class="ok-k" x1="702" y1="197" x2="728" y2="197" marker-end="url(#uc2k)" />
+
+          <text class="kucuk" x="208" y="164" text-anchor="middle">bunu ne çözer</text>
+          <text class="kucuk" x="648" y="164" text-anchor="middle">kaynak var mı</text>
+
+          <!-- elenen -->
+          <line class="ok-k" x1="648" y1="222" x2="648" y2="266" marker-end="url(#uc2k)" />
+          <rect class="kutu-v" x="556" y="266" width="184" height="32" rx="8" />
+          <text class="yazi" x="648" y="287" text-anchor="middle">"bunu ölçemedim"</text>
+
+          <!-- defter -->
+          <line class="ok" x1="352" y1="222" x2="352" y2="288" marker-end="url(#uc2)" />
+          <text class="kucuk" x="362" y="252">yazılır</text>
+          <rect class="kutu" x="252" y="288" width="200" height="38" rx="9" />
+          <text class="yazi" x="352" y="312" text-anchor="middle">iddia defteri</text>
+        </svg>
+      </div>
+      <figcaption><b>Ölçüm cevaptan önce geliyor.</b> Hiçbir ölçüm soruyu çözmüyorsa cevap "bunu ölçemedim, şu ölçülebilirdi" olur — bu bir başarısızlık değil, doğru cevap. Alınan her ölçüm ayrıca deftere düşüyor; bir sonraki bölüm bunun neden önemli olduğunu gösteriyor.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ 4. DÖNGÜ ============ -->
+  <section class="bolum">
+    <div class="bolum-bas">
+      <div class="etiket">Kendi kendine gelişen kısım</div>
+      <h2>Gerçek zaten kendini yeniden ölçüyor</h2>
+    </div>
+
+    <figure>
+      <div class="tuval">
+        <svg viewBox="0 0 880 230" role="img" aria-label="Ölçüm alınır, iddia deftere yazılır, gerçek değişir, yeni ölçüm eski iddiayı sınar, karne güncellenir ve güven hesabına geri döner.">
+          <defs>
+            <marker id="uc3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon points="0,1 9,5 0,9" fill="currentColor" opacity="0.55" />
+            </marker>
+            <marker id="uc3k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon points="0,1 9,5 0,9" fill="var(--kehribar)" />
+            </marker>
+          </defs>
+
+          <rect class="kutu" x="24"  y="46" width="140" height="52" rx="9" />
+          <text class="yazi" x="94"  y="78" text-anchor="middle">ölçüm alınır</text>
+
+          <rect class="kutu" x="194" y="46" width="140" height="52" rx="9" />
+          <text class="yazi" x="264" y="70" text-anchor="middle">iddia deftere</text>
+          <text class="yazi" x="264" y="86" text-anchor="middle">yazılır</text>
+
+          <rect class="kutu" x="364" y="46" width="140" height="52" rx="9" />
+          <text class="yazi" x="434" y="70" text-anchor="middle">gerçek değişir</text>
+          <text class="kucuk" x="434" y="87" text-anchor="middle">git · dosya · site</text>
+
+          <rect class="kutu-k" x="534" y="46" width="150" height="52" rx="9" />
+          <text class="yazi-k" x="609" y="70" text-anchor="middle">eski iddia</text>
+          <text class="yazi-k" x="609" y="86" text-anchor="middle">sınava girer</text>
+
+          <rect class="kutu" x="714" y="46" width="140" height="52" rx="9" />
+          <text class="yazi" x="784" y="78" text-anchor="middle">karne işlenir</text>
+
+          <line class="ok" x1="166" y1="72" x2="190" y2="72" marker-end="url(#uc3)" />
+          <line class="ok" x1="336" y1="72" x2="360" y2="72" marker-end="url(#uc3)" />
+          <line class="ok" x1="506" y1="72" x2="530" y2="72" marker-end="url(#uc3)" />
+          <line class="ok-k" x1="686" y1="72" x2="710" y2="72" marker-end="url(#uc3k)" />
+
+          <!-- geri dönüş -->
+          <path class="ok" d="M784 100 L784 164 L94 164 L94 102" marker-end="url(#uc3)" />
+          <text class="kucuk" x="439" y="184" text-anchor="middle">güven hesabına girer — sen hiçbir şey yapmadan</text>
+        </svg>
+      </div>
+      <figcaption><b>Gelişim sinyali bedava.</b> Ölçüm zaten başka bir iş için alınıyor; eski iddiaların sınavı ona bedavaya biniyor. Senin oturup "bu doğruydu, bu yanlıştı" demen gerekmiyor. Haftalar sonra ortaya ölçülmüş bir bilgi çıkıyor: <i>hangi kaynak, hangi konuda, ne sıklıkla yanılıyor.</i></figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ 5. POTA ============ -->
+  <section class="bolum">
+    <div class="bolum-bas">
+      <div class="etiket">Şemanın dışında duran parça</div>
+      <h2>Pota, katman 4'ü seçen tezgâh</h2>
+    </div>
+
+    <div class="kenar">
+      <h3>Sürekli çalışmaz — arada bir yakılır</h3>
+      <p>Pota asistanın bir parçası değil, onu şekillendiren tezgâh. Aday algoritmaları senin gerçek geçmişine karşı sınava sokar: <i>"bu algoritma 4 Ağustos'ta çalışıyor olsaydı, 19 Ağustos'ta canını yakan şeyi yakalar mıydı?"</i></p>
+      <p>Sınavı kazanan <b>katman 4</b> olur. Kaybedenler defterde kalır; bir sonraki turda melezlenip tekrar girebilir. Yani asistanın en üst aklı zamanla değişebilir — gerisi sabit kalır.</p>
+    </div>
+  </section>
+
+  <!-- ============ 6. SINIRLAR ============ -->
+  <section class="bolum">
+    <div class="bolum-bas">
+      <div class="etiket">Dürüst sınırlar</div>
+      <h2>Bu şema neyi çözmez</h2>
+      <p>Ölçülemeyen şeylerde Başak fikir üretmeye çalışmaz. "Bu ölçülemez, karar senin" der ve elindeki ölçülebilenleri gösterir.</p>
+    </div>
+
+    <div class="sinir">
+      <div class="sinir-kart">
+        <span class="b">Gelecek</span>
+        <span class="a">Bu iş kaç gün sürer, bu ürün tutar mı.</span>
+      </div>
+      <div class="sinir-kart">
+        <span class="b">Niyet</span>
+        <span class="a">Müşteri ne ister, karşı taraf ne düşünüyor.</span>
+      </div>
+      <div class="sinir-kart">
+        <span class="b">Değer yargısı</span>
+        <span class="a">Bu iyi bir fikir mi, bu kod temiz mi.</span>
+      </div>
+      <div class="sinir-kart">
+        <span class="b">Ölçümün kendisi</span>
+        <span class="a">O da yanılabilir — bayat veri, yanlış klasör. Onun da karnesi tutulur.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 7. DURUM ============ -->
+  <section class="bolum">
+    <div class="bolum-bas">
+      <div class="etiket">22 Ağustos 2026 itibarıyla</div>
+      <h2>Nerede duruyoruz</h2>
+    </div>
+
+    <div class="tablo-sar">
+      <table>
+        <thead>
+          <tr><th>Parça</th><th>Durum</th><th>Dayanak</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Hafıza (kat 1)</td><td class="dur">bitti</td><td>P2 kanıtlı, canlı onaylı</td></tr>
+          <tr><td>Beyin zinciri (kat 2)</td><td class="dur">kırık</td><td>D-1 — hata kaydında doğrulandı</td></tr>
+          <tr><td>Araçlar (kat 3)</td><td class="dur">bitti</td><td>izin katmanı çalışıyor, kayıtta görünüyor</td></tr>
+          <tr><td>Görev listesi</td><td class="dur">kırık</td><td>D-2 — dosya baytları ölçüldü</td></tr>
+          <tr><td>Kota kapasitesi</td><td class="dur">ölçülecek</td><td>D-3 — günlük haklar dolmuş görünüyor</td></tr>
+          <tr><td>ÖLÇÜ zemini (kat 0)</td><td class="dur">kurulacak</td><td>Ö-0 → Ö-3</td></tr>
+          <tr><td>İzleyen motor (kat 4)</td><td class="dur">seçilecek</td><td>POTA Tur 1 sonucu</td></tr>
+          <tr><td>Yüz (kat 5)</td><td class="dur">bitti</td><td>küre işi ayrı sürüyor</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="son">Bu sayfa <code>FAY-MOTORU.md</code>, <code>POTA.md</code>, <code>OLCU.md</code>, <code>düzenleme.md</code> ve <code>gelişimsüreci.md</code> dosyalarının görsel özeti. Ayrıntı ve kabul ölçütleri o dosyalarda; çelişki olursa dosyalar geçerlidir.</p>
+
+</div>

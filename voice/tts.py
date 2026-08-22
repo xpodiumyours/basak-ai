@@ -8,6 +8,7 @@ import io
 import logging
 import os
 import threading
+import time
 
 import sounddevice as sd
 import soundfile as sf
@@ -24,24 +25,17 @@ class TTS:
     """Piper TTS sınıfı.
 
     Metni sese dönüştürür ve doğrudan hoparlöre çalar.
+    İsteğe bağlı on_level geri çağrısıyla çalma sırasında 50 ms'lik
+    pencereler hâlinde ses yüksekliğini (0..1) dışarıya bildirir.
     """
 
-    def __init__(self):
-        """TTS modelini yükler.
-
-        Raises:
-            FileNotFoundError: Ses modeli dosyası bulunamazsa.
-        """
+    def __init__(self, on_level=None):
         cfg = VOICE_JSON if os.path.exists(VOICE_JSON) else None
         self.voice = PiperVoice.load(VOICE_ONNX, config_path=cfg)
         self._lock = threading.Lock()
+        self.on_level = on_level
 
     def speak(self, text: str):
-        """Verilen metni seslendirir.
-
-        Args:
-            text: Seslendirilecek metin. Boşsa hiçbir şey yapmaz.
-        """
         text = (text or "").strip()
         if not text:
             return
@@ -58,5 +52,32 @@ class TTS:
                 self.voice.synthesize(text, f)
             buf.seek(0)
             data, sr = sf.read(buf, dtype="float32")
+
+            adim = max(1, int(sr * 0.05))
+            parca = len(data) // adim
+            zarf = None
+            if parca > 0 and self.on_level is not None:
+                import numpy as np
+
+                kesit = data[: parca * adim].reshape(parca, adim)
+                zarf = np.sqrt(np.mean(kesit.astype("float64") ** 2, axis=1))
+                tepe = float(zarf.max())
+                if tepe > 1e-6:
+                    zarf = np.clip(zarf / tepe, 0.0, 1.0)
+
             sd.play(data, sr)
+            if zarf is not None:
+                for seviye in zarf:
+                    try:
+                        self.on_level(float(seviye))
+                    except Exception:
+                        pass
+                    time.sleep(adim / sr)
+            else:
+                sd.wait()
+                return
             sd.wait()
+            try:
+                self.on_level(0.0)
+            except Exception:
+                pass

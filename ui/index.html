@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="sahne"><canvas id="sahneCanvas"></canvas></div>
   <div class="app">
 
     <aside class="sidebar" id="sidebar">
@@ -45,15 +46,10 @@
 
     <main class="main">
       <header class="topbar">
-        <div class="orb-wrap" id="orbWrap">
-          <canvas id="orbCanvas"></canvas>
-          <div class="orb-status" id="orbStatus">Bekliyor</div>
-        </div>
-        <div class="topbar-info">
-          <h1 class="topbar-title" id="topTitle">Başak'a sor</h1>
-          <p class="topbar-sub" id="topSub">hazırlanıyor...</p>
-        </div>
         <div class="topbar-right">
+          <button class="icon-btn" id="btnMesajlar" title="Sohbet geçmişi">
+            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </button>
           <button class="icon-btn" id="btnTts" title="Sesli okuma (TTS)">
             <svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>
           </button>
@@ -69,12 +65,12 @@
       <section class="view active" id="view-sohbet">
         <div class="chat-scroll" id="chatScroll">
           <div class="chat-empty" id="chatEmpty">
-            <div class="empty-orb"></div>
             <h2>Merhaba, ben Başak</h2>
             <p>Ne istediğini yaz. Soru, araştırma, özet, fikir — her şey.</p>
           </div>
           <div class="messages" id="messages"></div>
         </div>
+        <div id="durumSatiri">BAŞAK dinliyor</div>
         <div class="composer-wrap">
           <div class="composer">
             <button class="icon-btn mic-btn" id="btnMic" title="Mikrofonla konuş" disabled>
@@ -114,7 +110,7 @@
           <div class="setting-row">
             <div>
               <strong>Hafıza</strong>
-              <p class="muted">Konuşmalar bu bilgisayarda saklanır, hiçbir yere gönderilmez.</p>
+              <p class="muted">Konuşma geçmişi bu bilgisayarda saklanır. Cevaplar Groq, Gemini, GLM gibi bulut zekâ servislerinde üretilir.</p>
             </div>
             <button class="ghost-btn" id="btnClear2">Hafızayı temizle</button>
           </div>
@@ -126,10 +122,10 @@
           </div>
           <div class="setting-row">
             <div>
-              <strong>Güçlü mod (Groq bulut)</strong>
-              <p class="muted">Zor sorularda yerel yerine Groq bulut beynini kullan. GROQ_API_KEY gerekir.</p>
+              <strong>Beyin zinciri</strong>
+              <p class="muted">Sıra: Groq → Gemini → GLM → DeepSeek → Qwen → Nemotron → Yerel. Birinin limiti dolursa sıradaki otomatik devralır.</p>
             </div>
-            <button class="toggle-btn" id="cloudToggle">Kapalı</button>
+            <span class="brain-now">Şu an: <strong id="brainSource">—</strong></span>
           </div>
           <div class="setting-row">
             <div>
@@ -146,6 +142,7 @@
     </main>
   </div>
 <script src="three.min.js"></script>
+<script src="head.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

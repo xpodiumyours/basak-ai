@@ -11,6 +11,7 @@ from tools.file_ops import read_file, write_file_ops, list_files
 from tools.app_launcher import ac_uygulama
 from tools.reminders import bugunku_hatirlatmalar
 from tools.tool_logger import log_tool_call
+from tools.permissions import izinli_mi, etiketler
 
 # Tool isimlerini fonksiyonlara eşleştiren harita
 TOOL_MAP = {
@@ -40,12 +41,18 @@ def calistir(tool_name: str, arguments: dict, knowledge_dir: str = "",
     Returns:
         Tool sonucu (dict). Hata olursa {"error": str}.
     """
-    if tool_name not in TOOL_MAP:
-        return {"error": f"Bilinmeyen tool: {tool_name}"}
-
     # Base dir (knowledge_dir'in bir üst dizini)
     import os
     base_dir = os.path.dirname(knowledge_dir) if knowledge_dir else os.getcwd()
+
+    # P3 Permission Layer: etiketi tanimlanmayan arac calismaz.
+    # Model kendi yetkisini veremez — tablo kod olarak sabit.
+    if not izinli_mi(tool_name):
+        log_tool_call(tool_name, arguments,
+                      {"error": "izin engeli"}, base_dir)
+        return {"error": (
+            f"Güvenlik engeli: '{tool_name}' aracının izin etiketi yok. "
+            "Bu araç kullanılamaz.")}
 
     # Tool'a göre doğru parametreleri hazırla ve çalıştır
     if tool_name == "web_search":

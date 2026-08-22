@@ -1,8 +1,9 @@
-"""brain/groq.py — Groq bulut entegrasyonu.
+"""brain/cerebras.py — Cerebras bulut entegrasyonu.
 
-Tool calling destekleyen Groq modelleri:
-- openai/gpt-oss-20b → Hızlı, tool calling destekli
-- openai/gpt-oss-120b → Güçlü
+Dünyanın en hızlı inference'ı (WSE donanımı).
+OpenAI-uyumlu uç: https://api.cerebras.ai/v1
+Modeller: gpt-oss-120b, gpt-oss-20b, zai-glm-4.7
+Ücretsiz katman var, kredi kartı gerekmez.
 """
 
 import json
@@ -12,22 +13,25 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-# Tool calling destekleyen modeller (sadece bunlar kullanılabilir)
-MODELLER = {
-    "hizli": "openai/gpt-oss-20b",
-    "guclu": "openai/gpt-oss-120b",
-    "varsayilan": "openai/gpt-oss-20b",  # Hızlı model varsayılan
-}
+BASE_URL = "https://api.cerebras.ai/v1"
+
+# Tercih sırası: mevcut modeller
+TERCIH_SIRASI = [
+    "gpt-oss-120b",
+    "gpt-oss-20b",
+    "gemma-4-31b",
+    "zai-glm-4.7",
+]
 
 
-class GroqClient:
-    """Groq API istemcisi."""
+class CerebrasClient:
+    """Cerebras API istemcisi."""
 
     def __init__(self, api_key: str, model: str = None):
         if not api_key or not api_key.strip():
-            raise ValueError("Groq API anahtarı boş olamaz")
+            raise ValueError("Cerebras API anahtarı boş olamaz")
         self.api_key = api_key.strip()
-        self.model = model or MODELLER["varsayilan"]
+        self.model = model
         self.client = None
         self._kur()
 
@@ -35,24 +39,34 @@ class GroqClient:
         try:
             self.client = OpenAI(
                 api_key=self.api_key,
-                timeout=20.0,
-                max_retries=0,
-                base_url="https://api.groq.com/openai/v1",
+                base_url=BASE_URL,
             )
+            if not self.model:
+                self.model = self._model_bul()
         except Exception as e:
-            logger.warning("Groq kurulamadı: %s", e)
+            logger.warning("Cerebras kurulamadı: %s", e)
             self.client = None
+
+    def _model_bul(self) -> str:
+        """Hesapta kullanılabilir ilk tercih edilen modeli bulur."""
+        try:
+            mevcutler = [m.id for m in self.client.models.list()]
+        except Exception as e:
+            logger.warning("Cerebras model listesi alınamadı: %s", e)
+            return TERCIH_SIRASI[0]
+        for aday in TERCIH_SIRASI:
+            for m in mevcutler:
+                if m == aday or m.startswith(aday):
+                    return m
+        return mevcutler[0] if mevcutler else TERCIH_SIRASI[0]
 
     def musait(self) -> bool:
         return self.client is not None
 
     def cevapla(self, messages: list, tools: list = None) -> dict:
-        """Groq'a mesaj gönderir.
-
-        Hız için: temperature=0.5, max_tokens=1024.
-        """
+        """Cerebras'a mesaj gönderir. Dönen şekil groq.py ile aynıdır."""
         if not self.client:
-            raise RuntimeError("Groq bağlı değil")
+            raise RuntimeError("Cerebras bağlı değil")
 
         kwargs = {
             "model": self.model,

@@ -7,17 +7,45 @@ Faz 0 duzeltmeleri:
 """
 
 import json
+import logging
 import os
 import re
 import threading
+import uuid
+
+logger = logging.getLogger(__name__)
+
+# P3 Session Manager: uygulama acilista bir oturum kimligi uretir;
+# her kayda islenir (coklu oturum/yarim gorev ayirt etmenin temeli)
+OTURUM_ID = uuid.uuid4().hex[:8]
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 HISTORY_FILE = os.path.join(BASE, "gecmis.json")
 SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
-KNOWLEDGE_MAX_CHARS = 4000
+OBSIDIAN_DIR = os.path.join(BASE, "Basak")
+DEFTER_DIR = os.path.join(BASE, "defter")
+KNOWLEDGE_MAX_CHARS = 5000
 GOREVLER_FILE = os.path.join(BASE, "gorevler.json")
 MAX_HISTORY = 20
+
+# P2 hafiza motoru — arka planda hazirlanir, hazir degilse sohbet etkilenmez
+_hafiza = None
+_hafiza_lock = threading.Lock()
+
+
+def _hafiza_al():
+    """Motoru tek seferlik olusturur; acilamazsa None doner (sohbet devam eder)."""
+    global _hafiza
+    with _hafiza_lock:
+        if _hafiza is None:
+            try:
+                from memory import HafizaMotoru
+                _hafiza = HafizaMotoru()
+            except Exception as e:
+                logger.warning("Hafiza motoru acilamadi: %s", e)
+                _hafiza = False
+    return _hafiza or None
 
 TOOL_LABELS = {
     "web_search": "Aranıyor...",
@@ -51,6 +79,10 @@ _TOOL_KELIMELERI = {
     "web_search": ["hava", "sıcaklık", "fiyat", "haber", "güncel",
                    "para", "dolar", "euro", "kur", "borsa", "döviz"],
 }
+
+
+# Görev türüne göre beyin tercihi P3'te brain/secici.py'ye taşındı —
+# seçim motoru şeffaf gerekçeyle çalışır, burada tekrar edilmez.
 
 
 def _tool_gerekli_mi(text):
@@ -108,11 +140,21 @@ def _load_knowledge():
         dosyalar.remove("INDEX.md")
         dosyalar.insert(0, "INDEX.md")
 
+    # Proje dokümanları da hafızaya karışsın (plan + kurallar)
+    # Ortak defter: yalnız INDEX her mesaja girer; tek tek kayıtlar
+    # hafıza motorunun aramasıyla, ilgiliyse çekilir (ORTAK-DEFTER.md §4)
+    for ad_ek in ("defter/INDEX.md", "GOREV_LISTESI.md", "AGENTS.md"):
+        if os.path.exists(os.path.join(BASE, ad_ek)) and ad_ek not in dosyalar:
+            dosyalar.append(ad_ek)
+
     for ad in dosyalar:
         if kalan <= 0:
             break
         try:
-            with open(os.path.join(KNOWLEDGE_DIR, ad), "r",
+            dosya_yolu = os.path.join(KNOWLEDGE_DIR, ad)
+            if not os.path.exists(dosya_yolu):
+                dosya_yolu = os.path.join(BASE, ad)
+            with open(dosya_yolu, "r",
                        encoding="utf-8", errors="replace") as f:
                 icerik = f.read().strip()
         except OSError:
@@ -129,7 +171,7 @@ def _load_knowledge():
 
 def yukle(path, varsayilan):
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8-sig") as f:
             return json.load(f)
     except (OSError, json.JSONDecodeError):
         return varsayilan
@@ -172,49 +214,56 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
             "content": "Casper'in notlari:\n\n" + bilgi,
         })
 
+    anilar = _ilgili_anilar(text)
+    if anilar:
+        blok = "\n\n".join(
+            "- %s (kaynak: %s)" % (a["text"][:500], a["source"] or a["kind"])
+            for a in anilar
+        )
+        mesajlar.append({
+            "role": "system",
+            "content": (
+                "Hafizandaki ilgili anilar ve notlar (eski sohbetlerden ve "
+                "not defterinden geliyor; soruyla iliskiliyse kullan):\n\n" + blok
+            ),
+        })
+
     mesajlar += gecmis[-MAX_HISTORY:] + [{"role": "user", "content": text}]
 
     # Tool gerekli mi kontrol et
     tools_gerekli, hangi_toollar = _tool_gerekli_mi(text)
 
-    # Sadece tool gerekliyse Groq'a gonder
-    if tools_gerekli:
-        try:
-            yanit, kaynak = brain.cevapla(mesajlar, model, tools=tools)
-        except Exception as e:
-            hata_str = str(e)
-            if "429" in hata_str or "rate" in hata_str.lower():
-                try:
-                    yanit, kaynak = brain.yerel_cevap(mesajlar, model)
-                    yanit = {"content": yanit} if isinstance(yanit, str) else yanit
-                except Exception:
-                    js_callback("BasakUI.error(" + _j("Cok fazla istek, biraz bekle") + ")")
-                    return
-            else:
-                js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
-                return
-    else:
-        # Groq musait degil → yerel Ollama
-        try:
-            yanit_str = brain.yerel_cevap(mesajlar, model)
-            yanit = {"content": yanit_str} if isinstance(yanit_str, str) else yanit_str
-            kaynak = "yerel"
-        except Exception as e:
-            js_callback("BasakUI.error(" + _j("Beyin hatasi: " + str(e)[:100]) + ")")
-            return
+    # Tum mesajlar brain.cevapla uzerinden gider:
+    # once bulut zinciri (Groq → Gemini), hepsi duserse yerel Ollama.
+    try:
+        yanit, kaynak = brain.cevapla(
+            mesajlar, model,
+            tools=tools if tools_gerekli else None)
+    except Exception as e:
+        hata_str = str(e)
+        if "429" in hata_str or "rate" in hata_str.lower():
+            js_callback("BasakUI.error(" + _j("Cok fazla istek, biraz bekle") + ")")
+        else:
+            js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
+        return
 
     tool_calls = yanit.get("tool_calls")
     if not tool_calls:
         cevap = _temizle(yanit.get("content", ""))
 
-        # Dil kontrolu: Ingilizce cevap gelirse tekrar dene
-        if cevap and not _dil_kontrol(cevap) and brain.bulut_musait():
+        # Dil kontrolu: Karisik/Ingilizce cevap gelirse Turkce telkinle tekrar dene
+        if cevap and not _dil_kontrol(cevap):
             try:
-                yanit2, kaynak2 = brain.yerel_cevap(mesajlar, model)
-                cevap2 = _temizle(yanit2)
+                telkin = mesajlar + [{
+                    "role": "system",
+                    "content": "SADECE TURKCE yaz. Ingilizce kelime ve cumle kullanma.",
+                }]
+                yanit2, kaynak2 = brain.cevapla(telkin, model)
+                icerik2 = yanit2.get("content", "") if isinstance(yanit2, dict) else yanit2
+                cevap2 = _temizle(icerik2)
                 if cevap2 and _dil_kontrol(cevap2):
                     cevap = cevap2
-                    kaynak = "yerel (dil duzeltme)"
+                    kaynak = kaynak2 + " (dil duzeltme)"
             except Exception:
                 pass
 
@@ -243,6 +292,7 @@ def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calisti
     for i, (isim, sonuc) in enumerate(tool_sonuclari):
         tool_result_msgs.append({
             "role": "tool",
+            "tool_call_id": tool_calls[i].get("id", "call_%d" % i),
             "content": sonuc,
         })
 
@@ -259,10 +309,17 @@ def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calisti
 
 
 def _save_and_reply(text, cevap, kaynak, gecmis, js_callback):
-    gecmis += [{"role": "user", "content": text},
-               {"role": "assistant", "content": cevap}]
+    gecmis += [{"role": "user", "content": text, "oturum": OTURUM_ID},
+               {"role": "assistant", "content": cevap, "oturum": OTURUM_ID}]
     kaydet(HISTORY_FILE, gecmis[-40:])
     js_callback("BasakUI.reply(" + _j(cevap) + ", " + _j(kaynak) + ")")
+    # UI guncellendikten sonra ani kaydet — cevabi bekletmesin
+    motor = _hafiza_al()
+    if motor and cevap:
+        try:
+            motor.episodik_kaydet(text, cevap)
+        except Exception as e:
+            logger.warning("Ani kaydedilemedi: %s", e)
 
 
 def _temizle_history(gecmis):
@@ -271,7 +328,8 @@ def _temizle_history(gecmis):
         if m.get("role") == "assistant" and m.get("tool_calls"):
             temiz.append({"role": "assistant", "content": m.get("content", "")})
         else:
-            temiz.append(m)
+            # API'ye yalnızca role+content gider; oturum gibi yerel alanlar silinir
+            temiz.append({"role": m.get("role"), "content": m.get("content", "")})
     return temiz
 
 
@@ -312,6 +370,58 @@ def _parse_args(args):
 
 def init_cache():
     _load_knowledge()
+    threading.Thread(target=_hafiza_hazirla, daemon=True).start()
+
+
+def _hafiza_hazirla():
+    """Arka planda: eski gecmisi aktar, knowledge/ + Obsidian'i indeksle."""
+    motor = _hafiza_al()
+    if not motor:
+        return
+    try:
+        from memory.engine import indeksle_klasor
+
+        if not motor.meta_al("gecmis_aktarildi", False):
+            _gecmisi_aktar(motor)
+            motor.meta_koy("gecmis_aktarildi", True)
+
+        n1 = indeksle_klasor(motor, KNOWLEDGE_DIR, "knowledge")
+        n2 = indeksle_klasor(motor, OBSIDIAN_DIR, "obsidian")
+        n3 = indeksle_klasor(motor, DEFTER_DIR, "defter")
+        logger.info("Hafiza hazir: %d ani, indekleme +%d", motor.say(), n1 + n2 + n3)
+    except Exception as e:
+        logger.warning("Hafiza hazirlanamadi (sohbet etkilenmez): %s", e)
+
+
+def _gecmisi_aktar(motor):
+    """gecmis.json'daki eski sohbeti bir kereye mahsus episodic hafizaya tasir."""
+    kayitlar = yukle(HISTORY_FILE, [])
+    soru = None
+    sayac = 0
+    for m in kayitlar:
+        rol = m.get("role")
+        icerik = (m.get("content") or "").strip()
+        if not icerik:
+            continue
+        if rol == "user":
+            soru = icerik
+        elif rol == "assistant" and soru:
+            if motor.episodik_kaydet(soru, icerik):
+                sayac += 1
+            soru = None
+    logger.info("Eski gecmis hafizaya tasindi: %d cift", sayac)
+
+
+def _ilgili_anilar(sorgu, limit=4):
+    """Soruyla ilgili anilari dondurur; motor/hata durumunda bos liste."""
+    motor = _hafiza_al()
+    if not motor:
+        return []
+    try:
+        return motor.ara(sorgu, limit=limit)
+    except Exception as e:
+        logger.warning("Ani arama hatasi: %s", e)
+        return []
 
 
 def _j(obj):
