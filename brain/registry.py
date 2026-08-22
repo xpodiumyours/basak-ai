@@ -36,6 +36,14 @@ SAGLAYICILAR = {
         "gunluk_istek": None,
         "not": "Z.ai ucretsiz kontingent; limit bilinmedigi icin sayac takip eder.",
     },
+    "cloudflare": {
+        "ad": "Cloudflare",
+        "ucretsiz": True,
+        "tools": True,
+        "gucleri": ["genel", "hiz"],
+        "gunluk_istek": None,
+        "not": "Workers AI ucretsiz Llama/Mistral; GPU kaynaklanma sinirli.",
+    },
     "deepseek": {
         "ad": "DeepSeek",
         "ucretsiz": False,
@@ -81,7 +89,8 @@ SAGLAYICILAR = {
 # Varsayilan oncelik sirasi (gorev turuna gore secici yeniden siralar).
 # Ucretli saglayici sonda: kazayla cagrilmasin.
 VARSAYILAN_SIRA = [
-    "groq", "gemini", "glm", "nvidia", "openrouter", "qwen", "deepseek",
+    "groq", "gemini", "glm", "cloudflare", "nvidia", "openrouter",
+    "qwen", "deepseek",
 ]
 
 

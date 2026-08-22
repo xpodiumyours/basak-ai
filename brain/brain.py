@@ -17,6 +17,7 @@ from brain.deepseek import DeepSeekClient
 from brain.qwen import QwenClient
 from brain.nvidia import NvidiaClient
 from brain.openrouter import OpenRouterClient
+from brain.cloudflare import CloudflareClient
 from brain.ollama import OllamaClient
 from brain.kota import KotaYoneticisi
 from brain import secici, registry
@@ -143,8 +144,25 @@ class Brain:
             except ValueError as e:
                 logger.warning("OpenRouter baslatilamadi: %s", e)
 
+        # Sekizinci bulut saglayici: Cloudflare Workers AI (ucretsiz)
+        self.cloudflare_account = (
+            os.environ.get("CLOUDFLARE_ACCOUNT_ID")
+            or ayar.get("cloudflare_account_id") or ""
+        )
+        self.cloudflare_key = (
+            os.environ.get("CLOUDFLARE_API_TOKEN")
+            or ayar.get("cloudflare_api_token") or ""
+        )
+        self._cloudflare = None
+        if self.cloudflare_account and self.cloudflare_key:
+            try:
+                self._cloudflare = CloudflareClient(
+                    self.cloudflare_account, self.cloudflare_key)
+            except ValueError as e:
+                logger.warning("Cloudflare baslatilamadi: %s", e)
+
     def _bulut_zinciri(self) -> list:
-        """Oncelik sirasi: Groq -> Gemini -> GLM -> DeepSeek -> Qwen -> NVIDIA -> OpenRouter."""
+        """Oncelik sirasi: Groq -> Gemini -> GLM -> Cloudflare -> NVIDIA -> OpenRouter -> DeepSeek."""
         zincir = []
         if self._groq is not None and self._groq.musait():
             zincir.append(("groq", self._groq))
@@ -152,14 +170,16 @@ class Brain:
             zincir.append(("gemini", self._gemini))
         if self._glm is not None and self._glm.musait():
             zincir.append(("glm", self._glm))
-        if self._deepseek is not None and self._deepseek.musait():
-            zincir.append(("deepseek", self._deepseek))
-        if self._qwen is not None and self._qwen.musait():
-            zincir.append(("qwen", self._qwen))
+        if self._cloudflare is not None and self._cloudflare.musait():
+            zincir.append(("cloudflare", self._cloudflare))
         if self._nvidia is not None and self._nvidia.musait():
             zincir.append(("nvidia", self._nvidia))
+        if self._qwen is not None and self._qwen.musait():
+            zincir.append(("qwen", self._qwen))
         if self._openrouter is not None and self._openrouter.musait():
             zincir.append(("openrouter", self._openrouter))
+        if self._deepseek is not None and self._deepseek.musait():
+            zincir.append(("deepseek", self._deepseek))
         return zincir
 
     def bulut_musait(self) -> bool:
