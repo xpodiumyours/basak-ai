@@ -89,6 +89,16 @@ def calistir(tool_name: str, arguments: dict, knowledge_dir: str = "",
         )
     elif tool_name == "video_analyze":
         sonuc = video_analyze(arguments.get("video_yolu", ""))
+    elif tool_name == "model_stats":
+        from brain.stats import model_stats_al
+        istat = model_stats_al()
+        model = arguments.get("model")
+        son_saat = arguments.get("son_saat", 24)
+        if model:
+            ozet = istat.ozet(model=model, son_saat=son_saat)
+        else:
+            ozet = istat.siralama(son_saat=son_saat)
+        sonuc = {"result": ozet}
     else:
         return {"error": f"Tool eşleştirilemedi: {tool_name}"}
 

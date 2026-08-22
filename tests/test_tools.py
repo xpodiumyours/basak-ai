@@ -175,7 +175,7 @@ class TestToolDefinitions:
 
     def test_tools_listesi_dogru(self):
         """TOOLS listesi 11 tool icermeli (video_analyze eklendi)."""
-        assert len(TOOLS) == 11
+        assert len(TOOLS) == 12
 
     def test_tool_isimleri(self):
         """Tool isimleri doğru olmalı."""

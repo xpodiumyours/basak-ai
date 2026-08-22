@@ -18,6 +18,7 @@ from brain.openrouter import OpenRouterClient
 from brain.cloudflare import CloudflareClient
 from brain.cohere import CohereClient
 from brain.ollama import OllamaClient
+from brain.stats import model_stats_al
 from brain.kota import KotaYoneticisi
 from brain import secici, registry
 
@@ -258,36 +259,45 @@ class Brain:
                 hatalar.append("%s: %s" % (ad, engel))
                 continue
 
+            istat = model_stats_al()
             t0 = time.time()
             try:
                 if tools:
                     yanit = istemci.cevapla(messages, tools=tools)
                 else:
                     yanit = istemci.cevapla(messages)
+                sure = time.time() - t0
                 istek_no = self.kota.harca(ad)
                 _audit("OK kaynak=%s | %.1f sn | tools=%s | istek=%d | %s" %
-                       (ad, time.time() - t0, bool(tools), istek_no, gerekce))
+                       (ad, sure, bool(tools), istek_no, gerekce))
+                istat.kaydet(ad, sure, basarili=True, tools=bool(tools))
                 # Secim gorunur olsun: one alinma varsa gosterimde tasi
                 gosterim = ad
                 if tip in ("kod", "arastirma", "hiz") and ad in sirali[:2]:
                     gosterim = "%s · %s isi" % (ad, tip)
                 return yanit, gosterim
             except Exception as e:
+                sure = time.time() - t0
                 logger.warning("%s hatasi, siradaki deneniyor: %s", ad, e)
                 hatalar.append("%s: %s" % (ad, str(e)[:80]))
                 self.kota.hata_isle(ad, str(e))
                 _audit("HATA kaynak=%s (%.1f sn): %s" %
-                       (ad, time.time() - t0, str(e)[:100]))
+                       (ad, sure, str(e)[:100]))
+                istat.kaydet(ad, sure, basarili=False, hata=str(e)[:100], tools=bool(tools))
 
         # Tum bulutlar dustu → yerel Ollama
+        istat = model_stats_al()
         try:
             t0 = time.time()
             yanit = self._ollama.cevapla(messages, yerel_model, tools=tools)
+            sure = time.time() - t0
             istek_no = self.kota.harca("yerel")
             _audit("OK kaynak=yerel | %.1f sn | tools=%s | istek=%d | dustu=%d bulut"
-                   % (time.time() - t0, bool(tools), istek_no, len(hatalar)))
+                   % (sure, bool(tools), istek_no, len(hatalar)))
+            istat.kaydet("yerel", sure, basarili=True, tools=bool(tools))
             return yanit, "yerel"
         except Exception as e:
+            istat.kaydet("yerel", 0, basarili=False, hata=str(e)[:100], tools=bool(tools))
             detay = "; ".join(hatalar) if hatalar else str(e)
             _audit("TAM BASARISIZLIK: %s" % detay[:150])
             raise RuntimeError(f"Hicbir model calismadi ({detay})") from e

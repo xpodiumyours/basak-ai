@@ -186,4 +186,31 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "model_stats",
+            "description": (
+                "Model performans istatistiklerini goster. "
+                "Hangi model daha hizli, hangisi daha basarili, "
+                "son hatalar neler — ogren. "
+                "'Model performansları nasıl', 'Hangi model daha hızlı' "
+                "dediginde kullan."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "model": {
+                        "type": "string",
+                        "description": "Belirli bir modelin istatistigi (opsiyonel)",
+                    },
+                    "son_saat": {
+                        "type": "integer",
+                        "description": 'Son kac saat (varsayilan 24)',
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
 ]
