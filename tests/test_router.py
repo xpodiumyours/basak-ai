@@ -31,11 +31,11 @@ class TestRegistry:
         for ad, k in registry.SAGLAYICILAR.items():
             assert "ucretsiz" in k and "tools" in k and "gucleri" in k, ad
 
-    def test_varsayilan_sirada_ucretli_sonda(self):
-        sira = registry.VARSAYILAN_SIRA
-        assert sira.index("deepseek") == len(sira) - 1 or \
-            all(not registry.ucretli_mi(a)
-                for a in sira[sira.index("deepseek") + 1:])
+    def test_varsayilan_zincirde_ucretli_yok(self):
+        # Ucretli saglayici (deepseek) zincirden tamamen cikarildi;
+        # kazayla cagrilmasin diye varsayilan zincir tamamen ucretsiz olmali.
+        for ad in registry.VARSAYILAN_SIRA:
+            assert registry.ucretli_mi(ad) is False, f"{ad} ucretli, zincire giremez"
 
 
 class TestSiniflandirma:

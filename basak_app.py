@@ -161,10 +161,23 @@ class Api:
         except Exception:
             hatirlatma_metni = ""
 
+# Token economy durumu (knowledge cache optimizasyonu istatistikleri)
+        try:
+            from chat import _knowledge_cache as _kc
+            cache_uzunluk = len(_kc) if _kc else 0
+            token_orani = int((cache_uzunluk / 2000) * 100) if cache_uzunluk else 0
+        except Exception:
+            cache_uzunluk = 0
+            token_orani = 0
+        token_status = "YUKSEK" if token_orani > 80 else "NORMAL"
+
         return {
             "ok": bool(modeller), "models": modeller or [], "model": model,
             "cloud": self.brain.bulut_musait(),
             "tts_on": self.tts_on, "reminders": hatirlatma_metni,
+            "token_durumu": token_status,  # UI'da gösterilecek
+            "current_model": model,        # Kullanılan model bilgi
+            "cache_karakter": cache_uzunluk,  # Knowledge cache karakter sayısı
         }
 
     def set_model(self, m):

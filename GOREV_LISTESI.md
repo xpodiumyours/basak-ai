@@ -1,5 +1,9 @@
 # BAŞAK ANA PLAN — Bağlayıcı Yol Haritası (21 Ağustos 2026)
 
+> ⚠️ **Bu belge eski ana plandır (22 Ağustos itibarıyla).** P1-P3 geçerli; P4 yerine
+> ÖLÇÜ+POTA hattı, P5 yerine E-1..E-4 fazları geldi. Tek kapı: **`gelişimsüreci.md`**
+> — sıra ve kabul ölçütleri oradan yürür. Aşağıdaki P4/P5 satırlarını okurken bu notu hesaba kat.
+
 Casper'ın 20 katmanlı mimarisi + Jarvis kararları + öğrenme karar defterinin birleşmiş kesin hali.
 Üç uyarı işlendi: (1) TencentDB bulutu reddedildi → yerel SQLite+sqlite-vec+BM25, (2) Terminal aracı en sıkı kuralla en son açılır, (3) faz kanıtı olmadan sıradaki faza geçilmez.
 

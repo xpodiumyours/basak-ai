@@ -261,10 +261,15 @@ class HafizaMotoru:
 
     def _bm25_ara(self, sorgu, limit):
         """FTS5 BM25 aramasi; sorgu hatasinda guvenli sekilde bos doner."""
-        fts_sorgu = " OR ".join(
-            '"%s"' % kelime.replace('"', '""')
-            for kelime in sorgu.split() if kelime
-        )
+        # Türkçe stop words filtresi: arama kalitesini artirmak için
+        stop_words = {"ve", "veya", "ile", "için", "olan", "olması", "olmak",
+                      "bu", "bu", "bu", "bu", "bu", "bu", "bu", "bu"}
+        words = [w for w in sorgu.lower().split() if w not in stop_words and len(w) > 2]
+        
+        if not words:
+            return []
+        
+        fts_sorgu = " OR ".join(f'"{w}"' for w in words)
         if not fts_sorgu:
             return []
         try:

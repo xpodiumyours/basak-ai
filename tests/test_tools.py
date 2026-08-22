@@ -174,8 +174,16 @@ class TestToolDefinitions:
     """Tool tanımları testleri."""
 
     def test_tools_listesi_dogru(self):
-        """TOOLS listesi 11 tool icermeli (video_analyze eklendi)."""
-        assert len(TOOLS) == 13
+        """TOOLS listesi 16 arac icermeli (O-1 olcum aracları eklendi)."""
+        assert len(TOOLS) == 18
+
+    def test_her_aracin_etiketi_var(self):
+        """Semada aciklanan HER aracin izin etiketi olmali.
+        Etiketsiz arac calismaz (P3 kurali) — sema/izin uyusmazligi bayatliktir."""
+        from tools.permissions import ETIKETLER
+        for tool in TOOLS:
+            ad = tool["function"]["name"]
+            assert ad in ETIKETLER, "%s aracina izin etiketi yok" % ad
 
     def test_tool_isimleri(self):
         """Tool isimleri doğru olmalı."""
