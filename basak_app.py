@@ -150,6 +150,7 @@ class Api:
 
     def boot(self):
         modeller = self.brain.yerel_modeller()
+        bulut = self.brain.bulut_musait()
         model = None
         if modeller:
             kayitli = yukle(SETTINGS_FILE, {}).get("model")
@@ -172,8 +173,11 @@ class Api:
         token_status = "YUKSEK" if token_orani > 80 else "NORMAL"
 
         return {
-            "ok": bool(modeller), "models": modeller or [], "model": model,
-            "cloud": self.brain.bulut_musait(),
+            # ok: Ollama-bagimsizlik (2026-08-24): yerel model ON KOSUL degil;
+            # bulut zinciri ayaktayken de Basak acilir ve sohbet eder.
+            "ok": bool(modeller) or bool(bulut),
+            "models": modeller or [], "model": model,
+            "cloud": bulut,
             "tts_on": self.tts_on, "reminders": hatirlatma_metni,
             "token_durumu": token_status,  # UI'da gösterilecek
             "current_model": model,        # Kullanılan model bilgi

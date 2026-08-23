@@ -365,14 +365,21 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
         js_callback("BasakUI.error(" + _j("Bos mesaj") + ")")
         return
 
+    # Ollama-bagimsizlik (2026-08-24, Casper'in buldugu hata): yerel model
+    # ON KOSUL degil, SON CARE. Bulut zinciri ayaktayken Ollama kapalisi
+    # sohbeti kesmez; ikisi de yoksa ancak o zaman dur.
     modeller = brain.yerel_modeller()
-    if not modeller:
-        js_callback("BasakUI.error(" + _j("Ollama calismiyor — lutfen Ollama'yı baslat") + ")")
+    if not modeller and not brain.bulut_musait():
+        js_callback("BasakUI.error(" + _j(
+            "Hicbir beyin yok: Ollama kapali ve bulut anahtarlari da "
+            "hazir degil") + ")")
         return
 
     model = yukle(SETTINGS_FILE, {}).get("model")
-    if model not in modeller:
+    if modeller and model not in modeller:
         model = modeller[0]
+    # modeller bossa (tam bulut turu) model=None gecer — yalniz son care
+    # Ollama'ya ulasilirsa zaten RuntimeError ile zarif dusus olur.
 
     raw_gecmis = [m for m in yukle(HISTORY_FILE, []) if m.get("role") != "system"]
     gecmis = _temizle_history(raw_gecmis)

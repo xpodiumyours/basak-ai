@@ -37,3 +37,4 @@
 | hafiza-temizleme-yasam-dongusu.md | "Hafiza temizlendi" yalani kapandi: clear episodic'i unutur, semantic kalir, 1000 satir tavani; 331/331 yesil | opencode | 2026-08-24 | sonsuz |
 | hafiza-onem-puani-budama.md | Kademe 1+2: anilara onem puani (kod verir), budama puana gore; onemli plan 1000 gevezelikten kalir; 343/343 yesil | opencode | 2026-08-24 | sonsuz |
 | kapanista-db-kapanisi.md | Kapanista DB gercekten kapanir: quit yanlis nesneye (self._hafiza) bakiyordu, artik chat globali; 346/346 yesil | opencode | 2026-08-24 | sonsuz |
+| ollama-bagimsizlik.md | Ollama kapaliyken bulut ayaktaysa sohbet surer: dur kosulu "ikisi de yok"; boot ok bulutla acilir; 350/350 yesil | opencode | 2026-08-24 | sonsuz |
