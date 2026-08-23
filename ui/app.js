@@ -525,11 +525,23 @@ async function hafizaTemizle(btn) {
   clearTimeout(hafizaTemizle._t);
   btn.classList.remove("onay-bekliyor");
   temizleOnayi = null;
-  await api().clear();
+  /* 2026-08-24: clear() artik episodic anilari da unutturuyor (gecmis.json
+     + basak.db episodic). Not/defter indeksleri bilerek KALIR. Mesaj
+     gercegi soylesin: kac ani unutuldu. */
+  let r = null;
+  try {
+    r = await api().clear();
+  } catch (e) {
+    setStatus("error", "temizleme hatası: " + e);
+    return;
+  }
   $("messages").innerHTML = "";
   $("chatEmpty").style.display = "block";
   sonGonderilen = "";
-  setStatus("ok", "hafıza temizlendi");
+  const unutulan = (r && typeof r.unutulan_ani === "number") ? r.unutulan_ani : null;
+  setStatus("ok", unutulan === null
+    ? "sohbet temizlendi"
+    : "sohbet temizlendi, " + unutulan + " anı unutuldu");
 }
 $("btnClear").addEventListener("click", (e) => hafizaTemizle(e.currentTarget));
 $("btnClear2").addEventListener("click", (e) => hafizaTemizle(e.currentTarget));
