@@ -24,3 +24,4 @@
 | cevaplar-makine-ciktisi-gibi-okunuyordu.md | Cevaplar makine ciktisi gibi okunuyordu | claude | 2026-08-23 | 30g |
 | cok-adimli-is-ve-dusunme-metni-sizintisi.md | Cok adimli is ve dusunme metni sizintisi | claude | 2026-08-23 | 30g |
 | basak-bekleyen-isler-sirasi.md | Basak bekleyen isler sirasi | claude | 2026-08-23 | 30g |
+| b-cumlesinde-eylem-denetimi.md | B cumlesinde eylem denetimi: kaydedildi/eklendi iddiasi arac kosmadiysa elenir; 265/265 yesil | opencode | 2026-08-23 | 30g |

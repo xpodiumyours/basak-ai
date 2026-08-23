@@ -33,6 +33,38 @@ _KONUM_A = re.compile(r'^\[A\]\s*([^\s"]+)', re.IGNORECASE)
 _KONUM_O = re.compile(r'^\[(?:Ö|O)\s*\d*\]\s*([^\s"]+)', re.IGNORECASE)
 _DAYANAK = re.compile(r"\[(?:Ö|O)\s*(\d+)\]", re.IGNORECASE)
 
+# [B] eylem denetimi (2026-08-23 olculen gercek ariza): model yapmadigi isi
+# "[B] ... deftere kaydedildi" diyebiliyordu — [B] kapidan serbest geciyor,
+# icerigi hicbakilmadan yasiyordu. Eylem iddiasi tasiyan [B] cumlesi,
+# ilgili arac O TURDA basarili calismadiysa elenir.
+_YAZMA_ARACLARI = frozenset((
+    "deftere_kaydet", "save_note", "add_task", "complete_task",
+    "write_file_tool",
+))
+# (desen, iddiayi kanitlayabilecek araclar) — sirasi onemli, ozeli once dener.
+# Bos liste = hicbir arac kanitlayamaz (silme/gonderme araci yok).
+_EYLEM_DESENLERI = (
+    (r"\bdefter\w*\b", ("deftere_kaydet",)),
+    (r"\bnot\w*\s+(?:al|dus|kayd)|kayd\w*\s+not",
+     ("save_note", "deftere_kaydet")),
+    (r"\bgorev\w*\s+(?:liste\w*\s+)?ekle|\bekle\w*\s+gorev", ("add_task",)),
+    (r"\bgorev\w*.{0,40}(?:tamamla|isaretl)|tamamladim|isaretledim",
+     ("complete_task",)),
+    (r"\bdosya\w*.{0,40}(?:yazil|olusturul|guncellen)",
+     ("write_file_tool",)),
+    (r"\bsil(?:in)?di\b|\bsildim\b|\bgonder(?:il)?di\b|\bgonderdim\b", ()),
+    (r"kaydedildi|kaydettim|eklendi|ekledim|olusturuldu|olusturdum|"
+     r"guncellendi|guncelledim|yazildi",
+     _YAZMA_ARACLARI),
+)
+# Olumsuz eylem ("eklenmedi") iddia degildir — dogru soyleyen elenmez
+_OLUMSUZ_EYLEM = (
+    "kaydetmedim", "kaydedilmedi", "eklemedim", "eklenmedi", "silmedim",
+    "silinmedi", "gondermedim", "gonderilmedi", "yazmadi", "yazilmadi",
+    "olusturmadi", "olusturulmadi", "guncellemedim", "guncellenmedi",
+    "tamamlamadi", "tamamlanmadi", "isaretlemedim", "isaretlenmedi",
+)
+
 _SONLANDIRAN = re.compile(
     r'(?<=[.!?…])\s+(?=["«(\[]?[A-ZÀ-ÞĞİÖŞÜ0-9\-\|])')
 
@@ -141,6 +173,32 @@ def _alinti_dogrula(konum, alinti):
     return _norm(alinti) in _norm(icerik)
 
 
+def _b_eylem_denetimi(cumle, olcum_kayitlari):
+    """Eylem iddialı [B] cümlesini bu turun araç geçmişine karşı denetler.
+
+    Dönüş: True = cümle elenmeli (iddia kanıtsız), False = geçebilir.
+    Kural: [B] bilmiyorum/ölçülemez içindir; "kaydedildi/eklendi" gibi bir
+    eylem iddiası, o eylemi yapan aracın O TURDA hatasız koşmuş olmasını
+    gerektirir. Hata döndüren aracın çıktısı ("Hata: ...") kanıt sayılmaz.
+    """
+    norm = _norm(cumle)
+    if any(x in norm for x in _OLUMSUZ_EYLEM):
+        return False
+    gerekenler = None
+    for desen, araclar in _EYLEM_DESENLERI:
+        if re.search(desen, norm):
+            # Kayitlardaki arac adlari _norm'dan gecmis (alt cizgiler
+            # soyulur) — karsilastirma ayni normalizasyonla yapilir.
+            gerekenler = {_norm(a) for a in araclar}
+            break
+    if not gerekenler:
+        return bool(gerekenler is not None)
+    for ad, cikti in olcum_kayitlari:
+        if _norm(ad) in gerekenler and not cikti.startswith("hata:"):
+            return False
+    return True
+
+
 def cikis_kapisi(metin, olcumler=None):
     """Cevabi denetler. Donus: (gecen_metin, rapor).
 
@@ -194,6 +252,10 @@ def cikis_kapisi(metin, olcumler=None):
             rapor.append("SILINDI (isaretsiz): " + cumle[:80])
 
         elif tip == "B":
+            if _b_eylem_denetimi(cumle, olcum_kayitlari):
+                rapor.append("SILINDI ([B] eylem iddiası — ilgili araç bu "
+                             "turda çalışmadı): " + cumle[:80])
+                continue
             gecen.append(_isaret_degistir(cumle, "B"))
 
         elif tip == "Y":
@@ -327,6 +389,9 @@ PROMPT_BLOGU = (
     "KURALLAR: Bir cümlede TEK alıntı olur. Alıntı AYNEN taşınır. "
     "[Ö] cümlesinde yazdığın araç adı, o metni GERÇEKTEN döndüren araç "
     "olmalı — başka aracın çıktısını ona mal edersen cümle silinir. "
+    "[B]'de eylem iddiası YOKTUR: 'kaydettim/eklendi/silindi' gibi yaptığın "
+    "bir işi söylüyorsan ilgili araç o turda GERÇEKTEN çalışmış olmalı, "
+    "yoksa cümle silinir. "
     "Araç izin vermediyse ya da hata döndürdüyse [B] ile söyle. "
     "İşaretsiz cümle ile uydurma alıntı CEVAPTAN SİLİNİR — sessiz kalmak "
     "yanlış bilgi vermekten iyidir.\n"
