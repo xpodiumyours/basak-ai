@@ -141,6 +141,29 @@ def _dil_kontrol(text):
     return True
 
 
+# Saglayicilarin sizdirdigi dusunme metni tipik olarak Ingilizce ve
+# "we need to / the user asks" kalibinda olur. _dil_kontrol bu is icin
+# YETMIYOR: Turkce harflerin cogu ASCII oldugu icin duzgun Turkce cevabi
+# da Ingilizce sayiyor (2026-08-23'te test yakaladi).
+_ING_KELIMELER = frozenset("""the we need user should must answer because
+let okay first then assistant tool call question response they there
+what which about would could their this that with from have""".split())
+_TR_KELIMELER = frozenset("""bir ve için bu şu var yok ile daha göre olarak
+değil şimdi son ama veya gibi kadar sonra önce hangi nedir dalında""".split())
+
+
+def _ingilizce_sizinti_mi(text):
+    """Cevap, Turkce yanit degil de Ingilizce dusunme metni mi?"""
+    if not text or not isinstance(text, str):
+        return False
+    kelimeler = re.findall(r"[a-zçğıöşü]+", text.lower())
+    if len(kelimeler) < 8:
+        return False
+    ing = sum(1 for k in kelimeler if k in _ING_KELIMELER)
+    tr = sum(1 for k in kelimeler if k in _TR_KELIMELER)
+    return ing >= 3 and ing > tr
+
+
 _knowledge_cache = None
 _knowledge_lock = threading.Lock()
 
@@ -345,7 +368,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
         cevap = _temizle(yanit.get("content", ""))
 
         # Dil kontrolu: Karisik/Ingilizce cevap gelirse Turkce telkinle tekrar dene
-        if cevap and not _dil_kontrol(cevap):
+        if cevap and _ingilizce_sizinti_mi(cevap):
             try:
                 telkin = mesajlar + [{
                     "role": "system",
@@ -354,11 +377,15 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
                 yanit2, kaynak2 = brain.cevapla(telkin, model)
                 icerik2 = yanit2.get("content", "") if isinstance(yanit2, dict) else yanit2
                 cevap2 = _temizle(icerik2)
-                if cevap2 and _dil_kontrol(cevap2):
+                if cevap2 and not _ingilizce_sizinti_mi(cevap2):
                     cevap = cevap2
                     kaynak = kaynak2 + " (dil duzeltme)"
             except Exception:
                 pass
+            # Telkin de tutmadiysa sizinti metnini KULLANICIYA VERME.
+            if _ingilizce_sizinti_mi(cevap):
+                logger.info("Ingilizce sizinti telkinden sonra da surdu")
+                cevap = YEDEK_CUMLE
 
         # Çıkış kapısı (Ö-0): işaretsiz/uydurma cümle kullanıcıya gitmez
         cevap, _kapi = cikis_kapisi(cevap, olcumler=[])
@@ -366,8 +393,18 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
         return
 
     cevap, arac_ciktilari = _tool_calling_multi(
-        tool_calls, mesajlar, brain, model, js_callback, calistir)
+        tool_calls, mesajlar, brain, model, js_callback, calistir, tools)
     cevap = _temizle(cevap)
+    # Saglayici bazen kendi dusunme metnini cevap sanip gonderiyor
+    # ("We need to answer..."). Dil kontrolu araciz yolda vardi, araclli
+    # yolda YOKTU — sizinti buradan geciyordu (2026-08-23 olcumu).
+    if cevap and _ingilizce_sizinti_mi(cevap):
+        logger.info("Ingilizce sizinti: model cevabi atildi, ham olcum verildi")
+        ham = ham_olcum_satirlari(arac_ciktilari)
+        cevap = (HAM_BASLIK + "\n" + "\n".join(ham)) if ham else YEDEK_CUMLE
+        _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
+                        speaker=aktif_konusmaci)
+        return
     # Kapı araç çıktılarına karşı da denetler ([Ö] alıntısı birebir olmalı)
     cevap, _kapi = cikis_kapisi(cevap, olcumler=arac_ciktilari)
     # Kapi modelin butun cumlelerini elediyse kullaniciyi bos birakma:
@@ -379,45 +416,67 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=aktif_konusmaci)
 
 
-def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calistir):
+TUR_SINIRI = 3   # "sunu bul, sonra kaydet" gibi isler icin arac turu sayisi
+
+
+def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
+                        calistir, tools=None, tur_siniri=TUR_SINIRI):
     """Tool sonuclarini modele geri gondererek anlamlil cevap uretir.
+
+    Cok adimli isler icin DONGU: model sonucu gorduk ten sonra yeni bir arac
+    isteyebilir ("araclari say" -> "deftere kaydet"). Eskiden tek tur vardi,
+    bu yuzden ikinci adim hicbir zaman calismiyordu (2026-08-23 olcumu).
+    Son turda arac verilmez ki dongu kapansin.
 
     Donus: (cevap_metni, arac_ciktilari) — ciktilar (arac_adi, metin)
     ciftleri olarak doner; cikis kapisi hem birebirligi hem ATFI denetler
     (cumle hangi araca dayandigini soyluyorsa alinti o aracin ciktisinda
     gecmeli).
     """
-    tool_sonuclari = []
-    for call in tool_calls:
-        func = call.get("function", {})
-        tool_name = func.get("name", "")
-        args = _parse_args(func.get("arguments", "{}"))
-        js_callback("BasakUI.toolStatus(" + _j(
-            TOOL_LABELS.get(tool_name, "Isleniyor...")) + ")")
-        sonuc = calistir(tool_name, args, KNOWLEDGE_DIR, GOREVLER_FILE)
-        net = _sonucu_donustur(tool_name, sonuc)
-        tool_sonuclari.append((tool_name, net))
+    tum_sonuclar = []
+    expanded = list(mesajlar)
 
-    tool_msg = [{"role": "assistant", "content": None, "tool_calls": tool_calls}]
-    tool_result_msgs = []
-    for i, (isim, sonuc) in enumerate(tool_sonuclari):
-        tool_result_msgs.append({
-            "role": "tool",
-            "tool_call_id": tool_calls[i].get("id", "call_%d" % i),
-            "content": sonuc,
-        })
+    for tur in range(tur_siniri):
+        tur_sonuclari = []
+        for call in tool_calls:
+            func = call.get("function", {})
+            tool_name = func.get("name", "")
+            args = _parse_args(func.get("arguments", "{}"))
+            js_callback("BasakUI.toolStatus(" + _j(
+                TOOL_LABELS.get(tool_name, "Isleniyor...")) + ")")
+            sonuc = calistir(tool_name, args, KNOWLEDGE_DIR, GOREVLER_FILE)
+            net = _sonucu_donustur(tool_name, sonuc)
+            tur_sonuclari.append((tool_name, net))
 
-    expanded = mesajlar + tool_msg + tool_result_msgs
-    try:
-        son_yanit, _ = brain.cevapla(expanded, model, tools=None)
+        expanded = expanded + [
+            {"role": "assistant", "content": None, "tool_calls": tool_calls}]
+        for i, (_isim, sonuc) in enumerate(tur_sonuclari):
+            expanded.append({
+                "role": "tool",
+                "tool_call_id": tool_calls[i].get("id", "call_%d" % i),
+                "content": sonuc,
+            })
+        tum_sonuclar.extend(tur_sonuclari)
+
+        # Son turda arac verilmez: model artik cevabi yazmak zorunda.
+        sonraki_araclar = tools if tur < tur_siniri - 1 else None
+        try:
+            son_yanit, _ = brain.cevapla(expanded, model,
+                                         tools=sonraki_araclar)
+        except Exception:
+            break
+
+        yeni_cagrilar = son_yanit.get("tool_calls")
+        if yeni_cagrilar:
+            tool_calls = yeni_cagrilar
+            continue
+
         son_cevap = _temizle(son_yanit.get("content", ""))
         if son_cevap:
-            return (son_cevap, list(tool_sonuclari))
-    except Exception:
-        pass
+            return (son_cevap, tum_sonuclar)
+        break
 
-    return ("\n".join(sonuc for _, sonuc in tool_sonuclari),
-            list(tool_sonuclari))
+    return ("\n".join(sonuc for _, sonuc in tum_sonuclar), tum_sonuclar)
 
 
 def _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=""):

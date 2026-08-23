@@ -266,3 +266,84 @@ class TestHamOlcum:
         from olcu import ham_olcum_satirlari
         s = ham_olcum_satirlari(["duz cikti"])
         assert s == ['badge::Ö::araç "duz cikti"']
+
+
+class TestCokAdim:
+    """Arac dongusu: "sunu bul, sonra kaydet" iki tur ister (2026-08-23).
+
+    Eskiden tek tur vardi; ikinci adim hicbir zaman calismiyordu.
+    """
+
+    def _cagri(self, ad, args='{}', cid="1"):
+        return {"id": cid, "type": "function",
+                "function": {"name": ad, "arguments": args}}
+
+    def _kur(self, yanitlar):
+        """yanitlar: brain.cevapla'nin sirayla donecegi sozlukler."""
+        import chat as c
+
+        class SahteBrain:
+            def __init__(self):
+                self.cagrilar = []
+
+            def cevapla(self, mesajlar, model, tools=None):
+                self.cagrilar.append(tools is not None)
+                return yanitlar.pop(0), "sahte"
+
+        calistirilan = []
+
+        def calistir(ad, args, kdir, gdosya):
+            calistirilan.append(ad)
+            return {"result": "%s sonucu" % ad}
+
+        return c, SahteBrain(), calistir, calistirilan
+
+    def test_ikinci_arac_da_calisir(self):
+        c, brain, calistir, calistirilan = self._kur([
+            {"content": "", "tool_calls": [self._cagri("deftere_kaydet")]},
+            {"content": "Iki adim bitti."},
+        ])
+        cevap, ciktilar = c._tool_calling_multi(
+            [self._cagri("dosya_bilgi")], [], brain, "m",
+            lambda code: None, calistir, tools=[{"x": 1}])
+        assert calistirilan == ["dosya_bilgi", "deftere_kaydet"]
+        assert cevap == "Iki adim bitti."
+        assert [ad for ad, _ in ciktilar] == ["dosya_bilgi", "deftere_kaydet"]
+
+    def test_son_turda_arac_verilmez(self):
+        # Dongu kapanmali: son cagrida tools None gitmeli.
+        c, brain, calistir, _ = self._kur([
+            {"content": "", "tool_calls": [self._cagri("a")]},
+            {"content": "", "tool_calls": [self._cagri("b")]},
+            {"content": "bitti"},
+        ])
+        c._tool_calling_multi([self._cagri("ilk")], [], brain, "m",
+                              lambda code: None, calistir, tools=[{"x": 1}],
+                              tur_siniri=3)
+        assert brain.cagrilar == [True, True, False]
+
+    def test_tek_adimda_eski_davranis(self):
+        c, brain, calistir, calistirilan = self._kur([
+            {"content": "Tek adim yeter."},
+        ])
+        cevap, ciktilar = c._tool_calling_multi(
+            [self._cagri("list_tasks")], [], brain, "m",
+            lambda code: None, calistir, tools=[{"x": 1}])
+        assert calistirilan == ["list_tasks"] and cevap == "Tek adim yeter."
+
+
+class TestIngilizceSizinti:
+    """Saglayici dusunme metnini cevap sanip gonderirse kullaniciya gitmemeli."""
+
+    def test_ingilizce_dusunme_metni_yakalanir(self):
+        import chat as c
+        sizinti = ("We need to answer the user's request. We must interpret "
+                   "the question and then decide which tool to call first.")
+        assert c._ingilizce_sizinti_mi(sizinti) is True
+
+    def test_turkce_cevap_gecer(self):
+        import chat as c
+        assert c._ingilizce_sizinti_mi(
+            "VixRex şu anda main dalında, son commit Faz 4 değişikliği.") is False
+        assert c._ingilizce_sizinti_mi(
+            "Görev listende bir iş var: yarın saat 15:00'te yedek al.") is False
