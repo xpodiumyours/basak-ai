@@ -30,6 +30,12 @@ EMBED_DIM = 768
 PARCA_BOYUTU = 700
 VEKTOR_KAPALI = "vektor_kapali"
 
+# Sohbet hafizasinin satir tavani (2026-08-24, Casper'in buldugu bosluk:
+# "hafiza temizlendi" gercekte temizlemiyordu; ayrica DB sinirsiz buyuyordu).
+# En eskiler otomatik budanir — dosyalardan turetilen semantic kayitlar
+# (knowledge/defter/obsidian) bu sinira girmez.
+EPISODIK_LIMIT = 1000
+
 
 def _vec_yukle(conn):
     """sqlite-vec eklentisini yükler; olmazsa None döner."""
@@ -98,14 +104,19 @@ class HafizaMotoru:
             " source TEXT NOT NULL DEFAULT '',"
             " created_at REAL NOT NULL,"
             " has_vec INTEGER NOT NULL DEFAULT 0,"
-            " speaker TEXT DEFAULT '')"
+            " speaker TEXT DEFAULT '',"
+            " onem INTEGER NOT NULL DEFAULT 1)"
         )
-        # Eski DB'de speaker sütunu yoksa ekle (migrasyon)
-        try:
-            cur.execute("SELECT speaker FROM memories LIMIT 1")
-        except sqlite3.OperationalError:
-            cur.execute("ALTER TABLE memories ADD COLUMN speaker TEXT DEFAULT ''")
-            logger.info("memories tablosuna speaker sutunu eklendi")
+        # Eski DB'de eksik sutunlar varsa ekle (migrasyon)
+        for sutun_tanimi in ("speaker TEXT DEFAULT ''",
+                             "onem INTEGER NOT NULL DEFAULT 1"):
+            sutun = sutun_tanimi.split()[0]
+            try:
+                cur.execute("SELECT %s FROM memories LIMIT 1" % sutun)
+            except sqlite3.OperationalError:
+                cur.execute("ALTER TABLE memories ADD COLUMN %s"
+                            % sutun_tanimi)
+                logger.info("memories tablosuna %s sutunu eklendi", sutun)
         cur.execute(
             "CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts "
             "USING fts5(text)"
@@ -127,7 +138,8 @@ class HafizaMotoru:
 
     # ---------- yazma ----------
 
-    def ekle(self, metin, kind="episodic", kaynak="", zaman=None, speaker=""):
+    def ekle(self, metin, kind="episodic", kaynak="", zaman=None, speaker="",
+             onem=1):
         """Bir ani ekler. Vektor alinamazsa BM25-only olarak kaydeder.
 
         Args:
@@ -136,6 +148,7 @@ class HafizaMotoru:
             kaynak: Kaynak etiketi.
             zaman: Unix timestamp (None ise simdi).
             speaker: Konuşmacı adı (opsiyonel).
+            onem: Onem puani 0-3 (1=sohbet, 3=acikca hatirlanmasi istendi).
         """
         metin = (metin or "").strip()
         if not metin:
@@ -145,9 +158,10 @@ class HafizaMotoru:
 
         with self._lock:
             cur = self.conn.execute(
-                "INSERT INTO memories (kind, text, source, created_at, has_vec, speaker)"
-                " VALUES (?, ?, ?, ?, ?, ?)",
-                (kind, metin, kaynak, zaman, 1 if vektor else 0, speaker or ""),
+                "INSERT INTO memories (kind, text, source, created_at,"
+                " has_vec, speaker, onem) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (kind, metin, kaynak, zaman, 1 if vektor else 0,
+                 speaker or "", max(0, min(3, int(onem or 1)))),
             )
             rowid = cur.lastrowid
             self.conn.execute(
@@ -166,16 +180,65 @@ class HafizaMotoru:
                     self.conn.execute(
                         "UPDATE memories SET has_vec=0 WHERE id=?", (rowid,))
             self.conn.commit()
+        if kind == "episodic":
+            self._budu()
         return True
 
-    def episodik_kaydet(self, soru, cevap, kaynak="sohbet", speaker=""):
+    # ---------- unutma / budama ----------
+
+    def _satirlari_sil(self, ids):
+        """Verilen id'leri ana tablo + FTS + vektor'den birlikte siler."""
+        with self._lock:
+            for rowid in ids:
+                self.conn.execute(
+                    "DELETE FROM memories_fts WHERE rowid=?", (rowid,))
+                if self.vektor_var:
+                    self.conn.execute(
+                        "DELETE FROM memories_vec WHERE rowid=?", (rowid,))
+                self.conn.execute("DELETE FROM memories WHERE id=?", (rowid,))
+            self.conn.commit()
+
+    def episodik_temizle(self):
+        """Sohbetten ogrenilen TUM episodic anilari unutur.
+
+        knowledge/defter/obsidian indeksleri DOKUNULMAZ — onlar dosyalardan
+        turetilir, sohbet degil. Donus: silinen kayit sayisi.
+        """
+        ids = [r[0] for r in self.conn.execute(
+            "SELECT id FROM memories WHERE kind='episodic'")]
+        if not ids:
+            return 0
+        self._satirlari_sil(ids)
+        logger.info("Episodik hafiza temizlendi: %d kayit", len(ids))
+        return len(ids)
+
+    def _budu(self, kind="episodic", limit=EPISODIK_LIMIT):
+        """Turden en degersiz kayitlari kisar.
+
+        Koruma sirasi: once YUKSEK onem, sonra en yeni. Yani budananlar:
+        dusuk onemli ve eski kayitlar (2026-08-24, Kademe 2: "onemli
+        plan kalir, gevezelik gider").
+        """
+        koru = {r[0] for r in self.conn.execute(
+            "SELECT id FROM memories WHERE kind=?"
+            " ORDER BY onem DESC, id DESC LIMIT ?", (kind, limit))}
+        tumu = [r[0] for r in self.conn.execute(
+            "SELECT id FROM memories WHERE kind=?", (kind,))]
+        eski = [i for i in tumu if i not in koru]
+        if not eski:
+            return 0
+        self._satirlari_sil(eski)
+        logger.info("Hafiza budandi (%s): %d dusuk-onem/eski kayit silindi",
+                    kind, len(eski))
+        return len(eski)
+
+    def episodik_kaydet(self, soru, cevap, kaynak="sohbet", speaker="",
+                        onem=1):
         """Soru-cevap ciftini tarih etiketiyle episodic hafizaya yazar.
 
-        Args:
-            soru: Kullanıcı sorusu.
-            cevap: Asistan cevabı.
-            kaynak: Kaynak etiketi (varsayılan "sohbet").
-            speaker: Konuşmacı adı (opsiyonel, ör: "Casper").
+        Birebir ayni cift tekrar yazilmaz (dedupe) — probe/tekrar denemeleri
+        DB'yi sisirmesin. onem: 1=sohbet, 3=kullanicinin hatirlanmasini
+        istedigi/acik kayit (budamada son kurban onemli olanlar).
         """
         from datetime import datetime
         tarih = datetime.now().strftime("%Y-%m-%d")
@@ -184,7 +247,13 @@ class HafizaMotoru:
             "%s (%s): %s\nBaşak: %s"
             % (konusmaci, tarih, (soru or "").strip()[:1000], (cevap or "").strip()[:1000])
         )
-        return self.ekle(metin, kind="episodic", kaynak=kaynak, speaker=speaker)
+        var_mi = self.conn.execute(
+            "SELECT 1 FROM memories WHERE kind='episodic' AND text=? LIMIT 1",
+            (metin,)).fetchone()
+        if var_mi:
+            return False
+        return self.ekle(metin, kind="episodic", kaynak=kaynak,
+                         speaker=speaker, onem=onem)
 
     def kaynak_sil(self, kaynak):
         """Belirli bir kaynagin tum parcalarini siler (yeniden indeks icin)."""

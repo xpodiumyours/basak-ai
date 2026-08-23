@@ -324,6 +324,30 @@ def _dinamik_araclar(text_lower, tools):
     return [t for t in tools if t["function"]["name"] in istenen]
 
 
+# Kademe 1 (2026-08-24, Casper onayli): anilara onem puani. Kod belirler,
+# model tahmin etmez — acik istek veya yazma araci kosmasi = 3, sohbet = 1.
+_ONEM_KELIMELERI = ("hatırla", "not al", "kaydet", "önemli", "unutma",
+                    "deftere yaz")
+_ONEM_YAZMA_ARACLARI = frozenset(("save_note", "deftere_kaydet", "add_task",
+                                  "complete_task", "write_file_tool"))
+
+
+def _onem_puanla(text, arac_ciktilari=None):
+    """Sohbet anisina baslangic onem puani (0-3).
+
+    - 3: kullanici acikca hatirlanmasini istedi VEYA bu turde bir yazma
+      araci gercekten kosti (kayit zaten kalici yere alinmis)
+    - 1: siradan sohbet
+    """
+    t = (text or "").lower()
+    if any(k in t for k in _ONEM_KELIMELERI):
+        return 3
+    if arac_ciktilari and any(ad in _ONEM_YAZMA_ARACLARI
+                              for ad, _ in arac_ciktilari):
+        return 3
+    return 1
+
+
 def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     from tools import calistir
 
@@ -450,7 +474,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
 
         # Çıkış kapısı (Ö-0): işaretsiz/uydurma cümle kullanıcıya gitmez
         cevap, _kapi = cikis_kapisi(cevap, olcumler=[])
-        _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=aktif_konusmaci)
+        _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
+                        speaker=aktif_konusmaci,
+                        onem=_onem_puanla(text))
         return
 
     # YETKİ TAVANI: donguye SUZULMUŞ set girer — ham `tools` degil.
@@ -470,7 +496,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
         ham = ham_olcum_satirlari(arac_ciktilari)
         cevap = (HAM_BASLIK + "\n" + "\n".join(ham)) if ham else YEDEK_CUMLE
         _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
-                        speaker=aktif_konusmaci)
+                        speaker=aktif_konusmaci,
+                        onem=_onem_puanla(text, arac_ciktilari))
         return
     # Kapı araç çıktılarına karşı da denetler ([Ö] alıntısı birebir olmalı)
     cevap, _kapi = cikis_kapisi(cevap, olcumler=arac_ciktilari)
@@ -480,7 +507,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
         ham = ham_olcum_satirlari(arac_ciktilari)
         if ham:
             cevap = HAM_BASLIK + "\n" + "\n".join(ham)
-    _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=aktif_konusmaci)
+    _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
+                    speaker=aktif_konusmaci,
+                    onem=_onem_puanla(text, arac_ciktilari))
 
 
 TUR_SINIRI = 3   # "sunu bul, sonra kaydet" gibi isler icin arac turu sayisi
@@ -550,7 +579,8 @@ def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
     return ("\n".join(sonuc for _, sonuc in tum_sonuclar), tum_sonuclar)
 
 
-def _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=""):
+def _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker="",
+                    onem=1):
     gecmis += [{"role": "user", "content": text, "oturum": OTURUM_ID},
                {"role": "assistant", "content": cevap, "oturum": OTURUM_ID}]
     kaydet(HISTORY_FILE, gecmis[-40:])
@@ -559,7 +589,7 @@ def _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=""):
     motor = _hafiza_al()
     if motor and cevap:
         try:
-            motor.episodik_kaydet(text, cevap, speaker=speaker)
+            motor.episodik_kaydet(text, cevap, speaker=speaker, onem=onem)
         except Exception as e:
             logger.warning("Ani kaydedilemedi: %s", e)
 

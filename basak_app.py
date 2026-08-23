@@ -194,11 +194,30 @@ class Api:
         return {"ok": True, "tts_on": self.tts_on}
 
     def clear(self):
+        """Sohbet hafizasini temizler (2026-08-24 duzeltme).
+
+        Eskiden yalniz gecmis.json siliniyordu ama UI "hafiza temizlendi"
+        diyordu — episodic anilar basak.db'de kaliyordu. Artik:
+        - gecmis.json silinir (kisa vadeli pencere)
+        - episodic anilar unutulur (sohbetten ogrenilenler)
+        - knowledge/defter/obsidian indeksleri KALIR — onlar dosyalardan
+          turetilir, sohbet degil; tamamen silme istenmemisti.
+        """
         try:
             os.remove(HISTORY_FILE)
         except OSError:
             pass
-        return {"ok": True}
+
+        unutulan = 0
+        try:
+            from chat import _hafiza_al
+            motor = _hafiza_al()
+            if motor:
+                unutulan = motor.episodik_temizle()
+        except Exception as e:
+            logger.warning("Episodik temizleme atlandi: %s", e)
+
+        return {"ok": True, "unutulan_ani": unutulan}
 
     def knowledge(self):
         try:
