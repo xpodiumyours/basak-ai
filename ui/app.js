@@ -161,6 +161,25 @@ function setOrb(s) {
 
 /* ---------------- Python'dan gelen geri çağrılar ---------------- */
 window.BasakUI = {
+  // E-3: tools/zamanlayici.py bu karti SORULMADAN gonderir (2 saatte bir,
+  // 10:00-20:00 arasi). Python tarafi hazirdi, ekrana basacak taraf eksikti:
+  // evaluate_js tanimsiz fonksiyona dusuyor, hata basak_app'teki try/except'e
+  // takiliyor ve kart sessizce kayboluyordu.
+  kartGoster(metin, deneme) {
+    // Kullanici o an cevap bekliyorsa araya girme. Bir sure bekler, sonra
+    // vazgecer — zamanlayici.py'deki "cevaplanmazsa dirdir etmez" kurali
+    // burada da gecerli; bekleyen kartlar birikip toplu dokulmemeli.
+    const n = deneme || 0;
+    if (state.busy) {
+      if (n < 6) setTimeout(() => window.BasakUI.kartGoster(metin, n + 1), 5000);
+      return;
+    }
+    const div = Chat.add("basak", metin);
+    div.classList.add("kart");
+    setStatus("ok", "Başak'tan kart");
+    setOrb("cevapliyor");
+    setTimeout(() => setOrb("bekliyor"), 2200);
+  },
   thinking() {
     Chat.thinking();
     state.busy = true;

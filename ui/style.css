@@ -207,6 +207,14 @@ body {
   display: flex; gap: 6px; align-items: center;
   min-height: 36px; padding: 14px 18px;
 }
+/* E-3 karti: Basak'in SORULMADAN gonderdigi periyodik ozet. Cevaptan
+   ayrilmasi gerekiyor — kullanici bir sey sormadigi halde geldigi icin,
+   sohbet balonuyla ayni gorunurse "ben bunu ne zaman sordum" olur. */
+.msg.basak.kart .msg-bubble {
+  background: linear-gradient(135deg, rgba(234,179,8,0.10), rgba(234,179,8,0.04));
+  border-color: rgba(234,179,8,0.22);
+  border-left: 3px solid rgba(234,179,8,0.55);
+}
 .msg.thinking .dot {
   width: 7px; height: 7px; border-radius: 50%;
   background: var(--accent);
