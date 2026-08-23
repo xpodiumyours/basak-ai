@@ -127,9 +127,10 @@ function mdKacis(s) {
 }
 /* Olcu rozetleri: badge::B:: → <span class="olcu-rozet bilmiyorum">B</span> */
 function badge_cevir(s) {
-  var h = { O: 'olcum', A: 'alinti', C: 'cikarim', B: 'bilmiyorum' };
-  var l = { O: 'Ö', A: 'A', C: 'Ç', B: 'B' };
-  return s.replace(/badge::([OACB])::/g, function(_, t) {
+  var h = { O: 'olcum', A: 'alinti', C: 'cikarim', B: 'bilmiyorum',
+            Y: 'yanit' };
+  var l = { O: 'Ö', A: 'A', C: 'Ç', B: 'B', Y: 'Y' };
+  return s.replace(/badge::([OACBY])::/g, function(_, t) {
     return '<span class="olcu-rozet ' + (h[t] || '') + '">' + (l[t] || t) + '</span>';
   });
 }

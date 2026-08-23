@@ -26,6 +26,7 @@ Başak'ın ürettiği her cümle bir işaret taşır:
 | **ALINTI** | `[A]` | Bir kaynak böyle diyor | dosya adı + satır |
 | **ÇIKARIM** | `[Ç]` | En az iki ölçümden çıkardım | dayandığı ölçümlerin kimlikleri |
 | **BİLMİYORUM** | `[B]` | Desteklenemiyor | neyin ölçülmesi gerektiği |
+| **YANIT** | `[Y]` | Ayakta kalan ölçümü/alıntıyı insan diline çeviriyorum | altındaki `[Ö]`/`[A]` satırları |
 
 **Tahmin beşinci tip olurdu. Yoktur.** Bu yüzden bir tahmin ancak `[B]` olarak dışarı çıkabilir.
 
@@ -37,6 +38,7 @@ Cevap kullanıcıya gitmeden önce her cümle tek tek denetlenir:
 2. **`[Ö]` işaretli cümle** → o ölçüm bu turda gerçekten alınmış mı, defterde kaydı var mı? Yoksa silinir.
 3. **`[A]` işaretli cümle** → belirtilen dosya:satır **gerçekten o metni içeriyor mu?** Birebir metin araması yapılır. Eşleşmezse silinir. *(Uydurma alıntıyı bitiren şey budur.)*
 4. **`[Ç]` işaretli cümle** → dayandığı ölçümlerin ikisi de defterde var mı? Yoksa silinir.
+4b. **`[Y]` işaretli cümle** → aynı cevapta ayakta kalan bir `[Ö]` ya da `[A]` var mı? Yoksa silinir. *(`[Y]` yeni bir iddia taşımaz; kanıtı okunur Türkçeye çevirir. Kanıt düşerse çeviri de düşer — 23 Ağustos 2026'da eklendi, sebebi: kapı doğru çalışırken cevaplar makine çıktısı gibi okunuyordu.)*
 5. Silinen cümlelerin yerine tek satır geçer: *"Bunu ölçemedim."*
 
 Kapı bir yapay zekâ değildir. Metin kontrolü ve dosya aramasıdır. Kandırılamaz.

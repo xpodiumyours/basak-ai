@@ -193,3 +193,76 @@ class TestAtif:
         s = '[Ö1] web_search "saatte 200 istek"'
         temiz, rapor = cikis_kapisi(s, olcumler=karisik)
         assert rapor == [] and "badge::Ö::" in temiz
+
+
+class TestYanit:
+    """[Y] — ayakta kalan olcumun sade Turkce cevirisi (2026-08-23).
+
+    Sebep: kapi dogru calisirken cevaplar makine ciktisi gibi okunuyordu.
+    [Y] yeni iddia tasimaz; dayanagi duserse kendisi de duser.
+    """
+
+    OLCUMLER = [("git_durum", "Proje: vixrex Dal: main Son commit: 20da1a7")]
+
+    def test_olcumle_birlikte_yasar(self):
+        metin = ('[Y] VixRex su an main dalinda, son commit Faz 4.\n'
+                 '[Ö1] git_durum "Dal: main Son commit: 20da1a7"')
+        temiz, rapor = cikis_kapisi(metin, olcumler=self.OLCUMLER)
+        assert rapor == []
+        assert "badge::Y::" in temiz and "badge::Ö::" in temiz
+        assert temiz.index("badge::Y::") < temiz.index("badge::Ö::")
+
+    def test_dayanaksiz_Y_olur(self):
+        metin = '[Y] VixRex su an main dalinda.'
+        temiz, rapor = cikis_kapisi(metin, olcumler=self.OLCUMLER)
+        assert temiz == YEDEK_CUMLE
+        assert len(rapor) == 1 and "dayanaksiz" in rapor[0]
+
+    def test_olcum_duserse_Y_de_duser(self):
+        # Olcum uydurma → elenir; ona yaslanan [Y] de ayakta kalamaz.
+        metin = ('[Y] VixRex su an develop dalinda.\n'
+                 '[Ö1] git_durum "Dal: develop"')
+        temiz, rapor = cikis_kapisi(metin, olcumler=self.OLCUMLER)
+        assert temiz == YEDEK_CUMLE and len(rapor) == 2
+
+    def test_alintiya_da_yaslanabilir(self):
+        metin = ('[Y] Notlarima gore favori cayim Caykur.\n'
+                 '[A] AGENTS.md "Basak — tamamen yerel calisan"')
+        temiz, rapor = cikis_kapisi(metin)
+        assert "badge::Y::" in temiz and "badge::A::" in temiz
+        assert rapor == []
+
+    def test_B_tek_basina_Y_yi_ayakta_tutmaz(self):
+        metin = ('[Y] Muhtemelen main dalindadir.\n'
+                 '[B] Bunu olcemedim.')
+        temiz, rapor = cikis_kapisi(metin, olcumler=self.OLCUMLER)
+        assert "badge::Y::" not in temiz
+        assert "badge::B::" in temiz
+
+
+class TestHamOlcum:
+    """Kapi her cumleyi elediginde kullanici bos ekran gormemeli."""
+
+    def test_ham_satir_uretiliyor(self):
+        from olcu import ham_olcum_satirlari
+        s = ham_olcum_satirlari([("git_durum", "Dal: main\nSon commit: abc")])
+        assert s == ['badge::Ö::git_durum "Dal: main Son commit: abc"']
+
+    def test_uzun_cikti_kisaltilir(self):
+        from olcu import ham_olcum_satirlari
+        s = ham_olcum_satirlari([("belge_ara", "x" * 900)], sinir=100)
+        assert len(s[0]) < 200 and s[0].endswith('..."')
+
+    def test_tirnak_bozmaz(self):
+        from olcu import ham_olcum_satirlari
+        s = ham_olcum_satirlari([("list_files", 'izin yok: "brain"')])
+        assert s[0].count('"') == 2
+
+    def test_bos_cikti_atlanir(self):
+        from olcu import ham_olcum_satirlari
+        assert ham_olcum_satirlari([("a", ""), ("b", None)]) == []
+
+    def test_eski_bicim_de_calisir(self):
+        from olcu import ham_olcum_satirlari
+        s = ham_olcum_satirlari(["duz cikti"])
+        assert s == ['badge::Ö::araç "duz cikti"']

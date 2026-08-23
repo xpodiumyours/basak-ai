@@ -21,3 +21,4 @@
 | basak-o3-tamamlandi.md | O-3 tamamlandi: otomatik sinav + karne, 219/219 test yesil | freebuff | 2026-08-22 | 30g |
 | kilo-gateway-zincire-baglandi.md | Kilo Gateway zincire baglandi | claude | 2026-08-23 | 30g |
 | olcu-kapisinda-atif-denetimi.md | Olcu kapisinda atif denetimi | claude | 2026-08-23 | 30g |
+| cevaplar-makine-ciktisi-gibi-okunuyordu.md | Cevaplar makine ciktisi gibi okunuyordu | claude | 2026-08-23 | 30g |

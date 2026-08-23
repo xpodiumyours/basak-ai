@@ -13,7 +13,8 @@ import re
 import threading
 import uuid
 
-from olcu import cikis_kapisi, PROMPT_BLOGU
+from olcu import (cikis_kapisi, PROMPT_BLOGU, YEDEK_CUMLE, HAM_BASLIK,
+                  ham_olcum_satirlari)
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,9 @@ TOOL_YONLENDIRME = (
 OLCU_YONLENDIRME = (
     "\nÖLÇÜM ÖNCE GELİR — ZORUNLU AKIŞ:\n"
     "1) Proje adı, durum, değişiklik, commit sorularında ÖNCE git_durum veya belge_ara veya dosya_bilgi araçlarını çalıştır.\n"
-    "2) Cevabı YALNIZCA araç çıktısından kur. Modelin kendi bilgisinden/önceki bilgisinden cümle katma.\n"
+    "2) Cevabın DAYANAĞI yalnızca araç çıktısı olsun — kendi bilginden/önceki bilgiden olgu katma.\n"
+    "   Ama çıktıyı olduğu gibi yapıştırma: kısa bir birebir alıntıyı kanıt olarak taşı, "
+    "sonra sorunun cevabını KENDİ Türkçe cümlenle söyle. Kullanıcı makine çıktısı değil, cevap okur.\n"
     "3) Ölçülemeyen şeyde '[B] Bunun ölçümü yapılamıyor: ...' de.\n"
     "4) Araç kullanmadan cevap verme — measurement tools her zaman mevcut.\n"
     "KURAL: Proje durumu/değişiklik/commit/dosya sorularında measurement tool kullanmadan cevap vermek YASAKTIR.\n"
@@ -367,6 +370,12 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     cevap = _temizle(cevap)
     # Kapı araç çıktılarına karşı da denetler ([Ö] alıntısı birebir olmalı)
     cevap, _kapi = cikis_kapisi(cevap, olcumler=arac_ciktilari)
+    # Kapi modelin butun cumlelerini elediyse kullaniciyi bos birakma:
+    # olcum gercekten alindiysa ham halini KOD uretir (birebirligi kesin).
+    if cevap.strip() == YEDEK_CUMLE:
+        ham = ham_olcum_satirlari(arac_ciktilari)
+        if ham:
+            cevap = HAM_BASLIK + "\n" + "\n".join(ham)
     _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=aktif_konusmaci)
 
 

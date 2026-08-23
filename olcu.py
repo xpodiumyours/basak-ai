@@ -26,7 +26,7 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 # Kapinin acmayi reddettigi desenler — sifirlar disariya/sayaca girmez
 _YASAKLI = ("ayarlar", ".env", "api_key", "_key", "gecmis.json")
 
-_MARKER = re.compile(r"^\[(Ö|O|Ç|C|B|A)\s*(\d*)\]", re.IGNORECASE)
+_MARKER = re.compile(r"^\[(Ö|O|Ç|C|B|A|Y)\s*(\d*)\]", re.IGNORECASE)
 _ALINTI = re.compile(r'"([^"]{3,400})"')
 _KONUM_A = re.compile(r'^\[A\]\s*([^\s"]+)', re.IGNORECASE)
 # [Ö1] arac-adi "cikti" → cumlenin dayandigini SOYLEDIGI arac
@@ -178,6 +178,10 @@ def cikis_kapisi(metin, olcumler=None):
 
     gecen, rapor = [], []
     gecen_o_nolari = set()
+    # [Y] cumleleri once yer tutucu olarak girer; ayni cevapta ayakta kalan
+    # bir [O]/[A] varsa yasar, yoksa elenir (dayanaksiz yorum cikmasin).
+    y_yerleri = []
+    dayanak_hayatta = False
 
     # Eger hicbir cumlede isaret yoksa — sohbet/nezaket cevabi — oldugu gibi gecer
     if not hic_isaret_var_mi and tum_cumleler:
@@ -192,12 +196,19 @@ def cikis_kapisi(metin, olcumler=None):
         elif tip == "B":
             gecen.append(_isaret_degistir(cumle, "B"))
 
+        elif tip == "Y":
+            # Kararı sona birakiyoruz: dayanak ayakta mi, cevabin tamami
+            # denetlenmeden bilinmez.
+            y_yerleri.append(len(gecen))
+            gecen.append(_isaret_degistir(cumle, "Y"))
+
         elif tip == "A":
             alinti = _ALINTI.search(cumle)
             konum = _KONUM_A.match(cumle)
             if (alinti and konum
                     and _alinti_dogrula(konum.group(1), alinti.group(1))):
                 gecen.append(_isaret_degistir(cumle, "A"))
+                dayanak_hayatta = True
             else:
                 rapor.append("SILINDI ([A] dogrulanamadi): " + cumle[:80])
 
@@ -230,6 +241,7 @@ def cikis_kapisi(metin, olcumler=None):
                 continue
 
             gecen.append(_isaret_degistir(cumle, "Ö"))
+            dayanak_hayatta = True
             if no:
                 gecen_o_nolari.add(no)
 
@@ -240,6 +252,13 @@ def cikis_kapisi(metin, olcumler=None):
                 gecen.append(_isaret_degistir(cumle, "Ç"))
             else:
                 rapor.append("SILINDI ([C] dayanak eksik): " + cumle[:80])
+
+    # [Y] ancak ayakta kalan bir olcume/alintiya yaslanabilir
+    if y_yerleri and not dayanak_hayatta:
+        for i in reversed(y_yerleri):
+            rapor.append("SILINDI ([Y] dayanaksiz — ayakta olcum/alinti yok): "
+                         + gecen[i][:80])
+            del gecen[i]
 
     temiz = "\n".join(gecen).strip()
     if rapor and temiz:
@@ -252,15 +271,55 @@ def cikis_kapisi(metin, olcumler=None):
     return temiz, rapor
 
 
+HAM_BASLIK = "Cümleyi kuramadım, ölçümün kendisi şu:"
+
+
+def ham_olcum_satirlari(olcumler, sinir=400):
+    """Model cumlesi elendiginde gosterilecek GERCEK olcum satirlari.
+
+    Kapi modelin cumlesini eledigi zaman kullaniciya bos ekran birakmak
+    dogru degil: olcum gercekten alindiysa ham hali gosterilir. Bu satirlari
+    model degil KOD uretir — bu yuzden birebirligi tanim geregi kesindir.
+    """
+    satirlar = []
+    for o in (olcumler or []):
+        if isinstance(o, (tuple, list)) and len(o) == 2:
+            ad, cikti = o
+        else:
+            ad, cikti = "", o
+        cikti = re.sub(r"\s+", " ", str(cikti or "")).strip()
+        if not cikti:
+            continue
+        if len(cikti) > sinir:
+            cikti = cikti[:sinir].rstrip() + "..."
+        cikti = cikti.replace('"', "'")
+        satirlar.append('badge::Ö::%s "%s"' % (ad or "araç", cikti))
+    return satirlar
+
+
 PROMPT_BLOGU = (
     "\nCEVAP BİÇİMİ — ÖLÇÜ KURALI (ZORUNLU):\n"
+    "Ölçüm ya da alıntı yaptıysan cevabın İLK satırı [Y] olsun: sorunun "
+    "cevabını sade Türkçe, tek cümlede söyle. Kanıt satırları ([Ö]/[A]) "
+    "onun ALTINA gelir. Kullanıcı önce cevabı okur, kanıtı sonra.\n"
     "Her cümle şu işaretlerden biriyle BAŞLAR:\n"
+    "0) Ölçüme/alıntıya dayanan sade cevap cümlesi → [Y] cevap\n"
+    "   (yeni olgu EKLEME — yalnız altındaki ölçümü insan diline çevir; "
+    "ölçüm yoksa [Y] kullanma)\n"
     '1) Belge/not/defter alıntısı → [A] dosya-adi.md "belgedeki satırın '
     'AYNISI"\n'
     '   (bağlamdaki not bloklarının başlığında dosya adı yazar; örn: '
     '[A] casper-hakkinda.md "Furkan Ankara\'da yaşıyor")\n'
     "2) Bu turda çalıştırdığın aracın çıktısı → "
-    '[Ö1] arac-adı "aracın döndürdüğü metnin AYNISI"\n'
+    '[Ö1] arac-adı "çıktıdan KISA birebir parça" — sonra kendi '
+    "cümlenle Türkçe anlat\n"
+    "   Alıntı kanıttır, cevap değildir: en fazla bir-iki satır al, "
+    "gerisini insan gibi anlat. Çıktının tamamını yapıştırma.\n"
+    '   DOĞRU: [Ö1] git_durum "Dal: main" — VixRex şu an main dalında, '
+    "son commit Faz 4 değişikliği.\n"
+    '   YANLIŞ: [Ö1] git_durum "Proje: vixrex Dal: main Son commit: '
+    '20da1a7 | 2026-08-23 16:31 | feat(vitrin)... Commit edilmemis '
+    'dosya: 2 ??..."\n'
     "3) En az iki ölçümden çıkardığın sonuç → "
     "[Ç] [Ö1][Ö2] tek cümlelik sonuc\n"
     "4) Bilmiyorsan, bağlamda kaynağı yoksa, geleceğe dönükse ya da "
