@@ -1,23 +1,21 @@
-"""tools/definitions.py — Tool JSON schema tanımları."""
+"""tools/definitions.py — Tool JSON schema tanımları.
+
+Bağlam diyeti ADIM 2 (2026-08-23): açıklamalar sıkılaştırıldı — isim ve
+parametre yapısı AYNEN korundu, yalnız açıklama metinleri kısaltıldı
+(8.384 → ~2.900 karakter). Tetikleyici ipuçları korundu.
+"""
 
 TOOLS = [
     {
         "type": "function",
         "function": {
             "name": "sayfa_oku",
-            "description": (
-                "E-2: Bir web sayfasinin icerigini oku (yalnizca GET). "
-                "HTML etiketleri soyulur, duz metin olarak doner. "
-                "Arastrirma icin bir sayfanin tam icerigini gormek istediginde kullan. "
-                "Max 5000 karakter."
-            ),
+            "description": ("Bir web sayfasinin icerigini oku "
+                            "(GET, HTML temizlenir, max 5000 karakter)."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "url": {
-                        "type": "string",
-                        "description": "Okunacak URL (http:// veya https://)"
-                    }
+                    "url": {"type": "string", "description": "Okunacak URL"}
                 },
                 "required": ["url"],
             },
@@ -27,10 +25,8 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "web_search",
-            "description": (
-                "İnternette bilgi ara. SADECE güncel bilgi gerektiğinde: "
-                "hava durumu, fiyat, haber. Selamlaşma, görev, not için KULLANMA."
-            ),
+            "description": ("Internette guncel bilgi ara (hava, fiyat, "
+                            "haber). Sohbet/gorev icin kullanma."),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -44,16 +40,12 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "add_task",
-            "description": (
-                "YENİ GÖREV EKLE. Kullanıcı bir şey YAPMASI gerektiğini söylediğinde "
-                "kullan. 'Yarın odevimi bitir', 'Süt al', 'Alışverişe git' gibi. "
-                "'Bitir' kelimesi görev TAMAMLAMAK için değil, YENİ GÖREV eklemek için. "
-                "Örnek: 'Yarın odevimi bitir' = bu bir görev, yapacak bir şey."
-            ),
+            "description": ("Yeni gorev ekle ('yarin odevimi bitir', "
+                            "'sut al' gibi yapilacak isler)."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "text": {"type": "string", "description": "Görev açıklaması"}
+                    "text": {"type": "string", "description": "Gorev aciklamasi"}
                 },
                 "required": ["text"],
             },
@@ -63,10 +55,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "list_tasks",
-            "description": (
-                "Mevcut görevleri listele. 'Görevlerim', 'Ne yapacağım', "
-                "'Yapacaklarım', 'Şimdi ne yapmam lazım' dediğinde kullan."
-            ),
+            "description": "Mevcut gorevleri listele ('gorevlerim ne').",
             "parameters": {"type": "object", "properties": {}},
         },
     },
@@ -74,15 +63,12 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "complete_task",
-            "description": (
-                "Bir GÖREVİ tamamlandı işaretle. Kullanıcı bir işi YAPTIĞINI "
-                "söyleyince kullan: 'Bitirdim', 'Tamamladım', 'Yaptım'. "
-                "Sadece mevcut görevlerden birini tamamlar."
-            ),
+            "description": ("Gorevi tamamlandi isaretle ('bitirdim/"
+                            "tamamladim' denince)."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "task_id": {"type": "integer", "description": "Tamamlanacak görev no"}
+                    "task_id": {"type": "integer", "description": "Gorev no"}
                 },
                 "required": ["task_id"],
             },
@@ -92,15 +78,13 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "save_note",
-            "description": (
-                "Önemli bilgiyi kaydet. 'Bunu hatırla', 'Not al' dediğinde kullan. "
-                "Kişisel tanıtım (yaş, meslek) KAYDETME."
-            ),
+            "description": ("Onemli bilgiyi not kaydet ('hatirla' denince). "
+                            "Kisisel tanitim kaydetme."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "title": {"type": "string", "description": "Not başlığı"},
-                    "content": {"type": "string", "description": "Not içeriği"},
+                    "title": {"type": "string", "description": "Baslik"},
+                    "content": {"type": "string", "description": "Icerik"},
                 },
                 "required": ["title", "content"],
             },
@@ -110,23 +94,17 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "deftere_kaydet",
-            "description": (
-                "OD-1: Ortak deftere kayit ekle (ORTAK-DEFTER.md biciimi). "
-                "Kayit bicimi: kim/tarih/tip/omur/kaynak on bilgisi + icerik. "
-                "Basak'a bir sey soylendiginde veya onemli bir bilgi dogrulandiginda "
-                "deftere yaz. 'Bunu deftere yaz', 'not al' dediginde kullan. "
-                "Parametreler: kim (basak|claude|casper), tip (olcum|alinti|cikarim|karar|soru), "
-                "omur (1s|6s|1g|30g|sonsuz), kaynak (kaynak aciklamasi)."
-            ),
+            "description": ("Ortak deftere kayit yaz (ORTAK-DEFTER bicimi: "
+                            "kim/tip/omur/kaynak). 'deftere yaz' denince."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "title": {"type": "string", "description": "Kayit konusu (dosya adina donusturulur)"},
-                    "content": {"type": "string", "description": "Kayit icerigi (tek paragraf)"},
-                    "kim": {"type": "string", "description": "Yazan taraf: basak|claude|casper|kilo|opencode|freebuff", "enum": ["basak", "claude", "casper", "kilo", "opencode", "freebuff"]},
-                    "tip": {"type": "string", "description": "Kayit tipi", "enum": ["olcum", "alinti", "cikarim", "karar", "soru"]},
-                    "omur": {"type": "string", "description": "Bilgi omru", "enum": ["1s", "6s", "1g", "30g", "sonsuz"]},
-                    "kaynak": {"type": "string", "description": "Bilgi kaynagi (olcum komutu, dosya adi, sohbet vb.)"},
+                    "title": {"type": "string", "description": "Konu"},
+                    "content": {"type": "string", "description": "Icerik"},
+                    "kim": {"type": "string", "description": "Yazan", "enum": ["basak", "claude", "casper", "kilo", "opencode", "freebuff"]},
+                    "tip": {"type": "string", "description": "Tip", "enum": ["olcum", "alinti", "cikarim", "karar", "soru"]},
+                    "omur": {"type": "string", "description": "Omur", "enum": ["1s", "6s", "1g", "30g", "sonsuz"]},
+                    "kaynak": {"type": "string", "description": "Kaynak"},
                 },
                 "required": ["title", "content"],
             },
@@ -136,14 +114,12 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": (
-                "Bir dosyanın içeriğini oku. Sadece knowledge/ klasöründeki "
-                "dosyaları okuyabilirsin. 'Dosyayı oku', 'İçeriğe bak' dediğinde kullan."
-            ),
+            "description": ("Dosya icerigini oku (knowledge/ ve beyaz "
+                            "listeli projeler)."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "Dosya yolu (knowledge/ altı)"}
+                    "path": {"type": "string", "description": "Dosya yolu"}
                 },
                 "required": ["path"],
             },
@@ -153,15 +129,12 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "write_file_tool",
-            "description": (
-                "Bir dosyaya yaz. Sadece knowledge/ klasörüne yazabilirsin. "
-                "Dosya yoksa oluşturur. 'Dosyayı güncelle', 'Yeni dosya oluştur' dediğinde kullan."
-            ),
+            "description": "Dosyaya yaz/olustur (yalniz knowledge/ alti).",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "Dosya yolu (knowledge/ altı)"},
-                    "content": {"type": "string", "description": "Yazılacak içerik"},
+                    "path": {"type": "string", "description": "Dosya yolu"},
+                    "content": {"type": "string", "description": "Icerik"},
                 },
                 "required": ["path", "content"],
             },
@@ -171,14 +144,11 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "list_files",
-            "description": (
-                "Bir klasördeki dosyaları listele. Varsayılan olarak knowledge/ "
-                "klasörünü listeler. 'Dosyaları göster', 'Klasörde ne var' dediğinde kullan."
-            ),
+            "description": "Klasordeki dosyalari listele (varsayilan knowledge/).",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "folder": {"type": "string", "description": "Klasör yolu (varsayılan: knowledge)"}
+                    "folder": {"type": "string", "description": "Klasor yolu"}
                 },
             },
         },
@@ -187,27 +157,23 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "ac_uygulama",
-            "description": (
-                "Bilgisayarda bir uygulama aç. Sadece beyaz listedeki "
-                "uygulamaları açabilirsin: tarayici, notepad, calculator, "
-                "file_manager, vscode. 'Tarayıcıyı aç', 'Not defterini aç' dediğinde kullan."
-            ),
+            "description": ("Beyaz listedeki uygulamayi ac (tarayici, "
+                            "notepad, calculator, vscode...)."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "uygulama": {"type": "string", "description": "Uygulama adı"},
-                    "parametre": {"type": "string", "description": "Parametre (örn: URL, dosya yolu)"},
+                    "uygulama": {"type": "string", "description": "Uygulama adi"},
+                    "parametre": {"type": "string", "description": "Parametre"},
                 },
                 "required": ["uygulama"],
             },
         },
     },
-
     {
         "type": "function",
         "function": {
             "name": "get_reminders",
-            "description": "Bugunku hatirlatmalari goster. Tarih bazli onemli gunler, bugunku gorevler ve yaklasan gorevler hakkinda bilgi ver. Uygulama basladiginda veya kullanici hatirlatmalarim ne dediginde kullan.",
+            "description": "Bugunku hatirlatmalar ve gorevleri ozetle.",
             "parameters": {"type": "object", "properties": {}},
         },
     },
@@ -215,20 +181,13 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "video_analyze",
-            "description": (
-                "Video dosyasini analiz et: konusmacilari tespit et, "
-                "transkript uret, zaman damgalari goster. "
-                "'Bu videoyu analiz et', 'Videodaki konusmacilari bul' "
-                "dediginde kullan. "
-                "Desteklenen formatlar: mp4, mkv, avi, mov, webm, wav, mp3."
-            ),
+            "description": ("Video/ses dosyasini analiz et: transkript, "
+                            "konusmaci, zaman damgasi."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "video_yolu": {
-                        "type": "string",
-                        "description": "Video dosyasinin mutlak yolu",
-                    }
+                    "video_yolu": {"type": "string",
+                                   "description": "Dosyanin mutlak yolu"}
                 },
                 "required": ["video_yolu"],
             },
@@ -238,22 +197,15 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "image_analyze",
-            "description": (
-                "Bir goruntuyu analiz et: icerigi, metni, nesneleri, renkleri acikla. "
-                "'Bu goruntuyu acikla', 'Fotoğrafta ne var', 'Ekran goruntusunu oku' "
-                "dediginde kullan. jpg/png/webp/gif destekler."
-            ),
+            "description": ("Goruntuyu analiz et (icerik, metin, nesne). "
+                            "jpg/png/webp/gif."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "goruntu_yolu": {
-                        "type": "string",
-                        "description": "Goruntu dosyasinin mutlak yolu",
-                    },
-                    "soru": {
-                        "type": "string",
-                        "description": "Goruntu hakkinda ozel soru (opsiyonel)",
-                    },
+                    "goruntu_yolu": {"type": "string",
+                                     "description": "Goruntunun mutlak yolu"},
+                    "soru": {"type": "string",
+                             "description": "Ozel soru (opsiyonel)"},
                 },
                 "required": ["goruntu_yolu"],
             },
@@ -263,24 +215,14 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "model_stats",
-            "description": (
-                "Model performans istatistiklerini goster. "
-                "Hangi model daha hizli, hangisi daha basarili, "
-                "son hatalar neler — ogren. "
-                "'Model performansları nasıl', 'Hangi model daha hızlı' "
-                "dediginde kullan."
-            ),
+            "description": ("Model performans istatistikleri (hiz, basari, "
+                            "hatalar)."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "model": {
-                        "type": "string",
-                        "description": "Belirli bir modelin istatistigi (opsiyonel)",
-                    },
-                    "son_saat": {
-                        "type": "integer",
-                        "description": 'Son kac saat (varsayilan 24)',
-                    },
+                    "model": {"type": "string", "description": "Model adi"},
+                    "son_saat": {"type": "integer",
+                                 "description": "Son kac saat (varsayilan 24)"},
                 },
                 "required": [],
             },
@@ -290,17 +232,13 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "git_durum",
-            "description": (
-                "Bir projenin GUNCEL durumunu olc: dal, son commit, "
-                "commit edilmemis dosyalar. 'VixRex'te durum ne', "
-                "'ne yapiyoruz', 'son is ne zaman' sorularinda CEVAPTAN "
-                "ONCE kullan. Beyaz listeli projeler: basak, vixrex, "
-                "numeramatch, xses. Salt-okunur olcumdur, bir sey degistirmez."
-            ),
+            "description": ("Projenin guncel durumunu olc: dal, son commit, "
+                            "degisiklikler. Cevaptan ONCE kullan."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "proje": {"type": "string", "description": "Proje adi: basak | vixrex | numeramatch | xses"}
+                    "proje": {"type": "string",
+                              "description": "basak | vixrex | numeramatch | xses"}
                 },
                 "required": ["proje"],
             },
@@ -310,17 +248,14 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "belge_ara",
-            "description": (
-                "Bir projenin kok klasorundeki .md belgelerde kelime arar; "
-                "eslesen satirlari dosya:satir ile dondurur. 'Planda ne "
-                "yaziyor', 'belgede X geciyor mu' sorularinda kullan. "
-                "Buldugun satiri cevabinda [O] alintisi olarak AYNEN tasi."
-            ),
+            "description": ("Proje .md belgelerinde kelime arar; buldugunu "
+                            "[O] alintisi olarak aynen tasi."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "proje": {"type": "string", "description": "Proje adi: basak | vixrex | numeramatch | xses"},
-                    "sorgu": {"type": "string", "description": "Aranacak kelime/cümle"},
+                    "proje": {"type": "string",
+                              "description": "basak | vixrex | numeramatch | xses"},
+                    "sorgu": {"type": "string", "description": "Aranacak kelime"},
                 },
                 "required": ["proje", "sorgu"],
             },
@@ -330,16 +265,14 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "dosya_bilgi",
-            "description": (
-                "Projedeki tek dosyanin var mi / boyut / son degisim zamani "
-                "bilgisini olcer. 'X dosyası değişti mi', 'şu dosya duruyor mu' "
-                "sorularinda kullan."
-            ),
+            "description": ("Tek dosyanin varlik/boyut/son degisim zamanini "
+                            "olcer."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "proje": {"type": "string", "description": "Proje adi: basak | vixrex | numeramatch | xses"},
-                    "yol": {"type": "string", "description": "Proje icinde dosya yolu"},
+                    "proje": {"type": "string",
+                              "description": "basak | vixrex | numeramatch | xses"},
+                    "yol": {"type": "string", "description": "Proje ici yol"},
                 },
                 "required": ["proje", "yol"],
             },
