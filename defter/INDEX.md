@@ -39,3 +39,5 @@
 | kapanista-db-kapanisi.md | Kapanista DB gercekten kapanir: quit yanlis nesneye (self._hafiza) bakiyordu, artik chat globali; 346/346 yesil | opencode | 2026-08-24 | sonsuz |
 | ollama-bagimsizlik.md | Ollama kapaliyken bulut ayaktaysa sohbet surer: dur kosulu "ikisi de yok"; boot ok bulutla acilir; 350/350 yesil | opencode | 2026-08-24 | sonsuz |
 | e2e-akis-ve-retry-duzeltmesi.md | E2E oturum senaryosu kuruldu; siradan sohbetin cift cagri hatasi yakalandi-duzeltildi; 352/352 yesil + canli duman testi | opencode | 2026-08-24 | 30g |
+| arac-logu-kirmalama.md | Arac logu kirmalama: hassas alanlar uzunlukla, anahtar desenleri maskeli; 362/362 yesil | opencode | 2026-08-24 | sonsuz |
+| not-kayitlari-benzersiz.md | Ayni adli not/defter kayitlari ezilmiyor: -2/-3 sonekli yeni dosya, INDEX iki satir; 368/368 yesil | opencode | 2026-08-24 | sonsuz |

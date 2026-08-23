@@ -17,20 +17,40 @@ _DEFTER_TIPLER = ("olcum", "alinti", "cikarim", "karar", "soru")
 _DEFTER_OMURLAR = ("1s", "6s", "1g", "30g", "sonsuz")
 
 
+def _slug(title, varsayilan="not"):
+    """Başlıktan güvenli dosya adı gövdesi üretir."""
+    govde = re.sub(r"[^\w\s-]", "", title.lower())
+    govde = re.sub(r"\s+", "-", govde.strip())[:40]
+    return govde or varsayilan
+
+
+def _benzersiz_yol(klasor, dosya_adi):
+    """Aynı ada çarpmadan yeni yol döndürür.
+
+    ÜZERİNE YAZILMAZ kuralı (2026-08-24, Casper'in bulgusu): hedef varsa
+    '-2', '-3'... sonekiyle boş ad bulunur. Eski kayıt her zaman yaşar.
+    """
+    kok, uzanti = os.path.splitext(dosya_adi)
+    aday = os.path.join(klasor, dosya_adi)
+    sira = 2
+    while os.path.exists(aday):
+        aday = os.path.join(klasor, "%s-%d%s" % (kok, sira, uzanti))
+        sira += 1
+        if sira > 999:
+            # teorik taşma — zaman damgasıyla garantili benzersiz
+            aday = os.path.join(
+                klasor, "%s-%s%s" % (kok,
+                                     datetime.now().strftime("%H%M%S%f"),
+                                     uzanti))
+            break
+    return aday
+
+
 def save_note(title: str, content: str, knowledge_dir: str) -> dict:
     """Notu knowledge/ altına kaydeder ve INDEX.md'yi günceller.
 
-    Dosya adı title'dan türetilir: özel karakterler temizlenir,
-    boşluklar tire ile değiştirilir, maximum 40 karakter.
-
-    Args:
-        title: Not başlığı.
-        content: Not içeriği.
-        knowledge_dir: knowledge/ klasörünün yolu.
-
-    Returns:
-        {"result": str} formatında başarı mesajı veya
-        {"error": str} formatında hata mesajı.
+    Dosya adı title'dan türetilir; AYNI ADA denk gelirse eski dosya
+    korunur ve yeni not '-2', '-3'... sonekli dosyaya yazılır.
     """
     if not title or not title.strip():
         return {"error": "Not başlığı boş olamaz"}
@@ -38,14 +58,13 @@ def save_note(title: str, content: str, knowledge_dir: str) -> dict:
         return {"error": "Not içeriği boş olamaz"}
 
     try:
-        # Dosya adını title'dan türet
-        dosya_adi = re.sub(r"[^\w\s-]", "", title.lower())
-        dosya_adi = re.sub(r"\s+", "-", dosya_adi.strip())[:40] + ".md"
+        dosya_adi = _slug(title) + ".md"
 
         # knowledge/ klasörü yoksa oluştur
         os.makedirs(knowledge_dir, exist_ok=True)
 
-        dosya_yolu = os.path.join(knowledge_dir, dosya_adi)
+        dosya_yolu = _benzersiz_yol(knowledge_dir, dosya_adi)
+        dosya_adi = os.path.basename(dosya_yolu)
 
         with open(dosya_yolu, "w", encoding="utf-8") as f:
             f.write(f"# {title.strip()}\n\n{content.strip()}\n")
@@ -158,11 +177,13 @@ def deftere_kaydet(title: str, content: str, defter_dir: str,
 
     try:
         # Dosya adını title'dan türet (ORTAK-DEFTER.md biçimi)
-        dosya_adi = re.sub(r"[^\w\s-]", "", title.lower())
-        dosya_adi = re.sub(r"\s+", "-", dosya_adi.strip())[:40] + ".md"
+        dosya_adi = _slug(title, varsayilan="kayit") + ".md"
 
         os.makedirs(defter_dir, exist_ok=True)
-        dosya_yolu = os.path.join(defter_dir, dosya_adi)
+        # ÜZERİNE YAZILMAZ (ORTAK-DEFTER.md): aynı ad varsa yeni sonekli
+        # dosyaya yazılır — eski kayıt asla ezilmez.
+        dosya_yolu = _benzersiz_yol(defter_dir, dosya_adi)
+        dosya_adi = os.path.basename(dosya_yolu)
 
         tarih = datetime.now().strftime("%Y-%m-%d")
 
