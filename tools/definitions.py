@@ -4,6 +4,28 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "sayfa_oku",
+            "description": (
+                "E-2: Bir web sayfasinin icerigini oku (yalnizca GET). "
+                "HTML etiketleri soyulur, duz metin olarak doner. "
+                "Arastrirma icin bir sayfanin tam icerigini gormek istediginde kullan. "
+                "Max 5000 karakter."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "Okunacak URL (http:// veya https://)"
+                    }
+                },
+                "required": ["url"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "web_search",
             "description": (
                 "İnternette bilgi ara. SADECE güncel bilgi gerektiğinde: "
@@ -79,6 +101,32 @@ TOOLS = [
                 "properties": {
                     "title": {"type": "string", "description": "Not başlığı"},
                     "content": {"type": "string", "description": "Not içeriği"},
+                },
+                "required": ["title", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "deftere_kaydet",
+            "description": (
+                "OD-1: Ortak deftere kayit ekle (ORTAK-DEFTER.md biciimi). "
+                "Kayit bicimi: kim/tarih/tip/omur/kaynak on bilgisi + icerik. "
+                "Basak'a bir sey soylendiginde veya onemli bir bilgi dogrulandiginda "
+                "deftere yaz. 'Bunu deftere yaz', 'not al' dediginde kullan. "
+                "Parametreler: kim (basak|claude|casper), tip (olcum|alinti|cikarim|karar|soru), "
+                "omur (1s|6s|1g|30g|sonsuz), kaynak (kaynak aciklamasi)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Kayit konusu (dosya adina donusturulur)"},
+                    "content": {"type": "string", "description": "Kayit icerigi (tek paragraf)"},
+                    "kim": {"type": "string", "description": "Yazan taraf: basak|claude|casper|kilo|opencode|freebuff", "enum": ["basak", "claude", "casper", "kilo", "opencode", "freebuff"]},
+                    "tip": {"type": "string", "description": "Kayit tipi", "enum": ["olcum", "alinti", "cikarim", "karar", "soru"]},
+                    "omur": {"type": "string", "description": "Bilgi omru", "enum": ["1s", "6s", "1g", "30g", "sonsuz"]},
+                    "kaynak": {"type": "string", "description": "Bilgi kaynagi (olcum komutu, dosya adi, sohbet vb.)"},
                 },
                 "required": ["title", "content"],
             },
@@ -235,6 +283,65 @@ TOOLS = [
                     },
                 },
                 "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_durum",
+            "description": (
+                "Bir projenin GUNCEL durumunu olc: dal, son commit, "
+                "commit edilmemis dosyalar. 'VixRex'te durum ne', "
+                "'ne yapiyoruz', 'son is ne zaman' sorularinda CEVAPTAN "
+                "ONCE kullan. Beyaz listeli projeler: basak, vixrex, "
+                "numeramatch, xses. Salt-okunur olcumdur, bir sey degistirmez."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "proje": {"type": "string", "description": "Proje adi: basak | vixrex | numeramatch | xses"}
+                },
+                "required": ["proje"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "belge_ara",
+            "description": (
+                "Bir projenin kok klasorundeki .md belgelerde kelime arar; "
+                "eslesen satirlari dosya:satir ile dondurur. 'Planda ne "
+                "yaziyor', 'belgede X geciyor mu' sorularinda kullan. "
+                "Buldugun satiri cevabinda [O] alintisi olarak AYNEN tasi."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "proje": {"type": "string", "description": "Proje adi: basak | vixrex | numeramatch | xses"},
+                    "sorgu": {"type": "string", "description": "Aranacak kelime/cümle"},
+                },
+                "required": ["proje", "sorgu"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "dosya_bilgi",
+            "description": (
+                "Projedeki tek dosyanin var mi / boyut / son degisim zamani "
+                "bilgisini olcer. 'X dosyası değişti mi', 'şu dosya duruyor mu' "
+                "sorularinda kullan."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "proje": {"type": "string", "description": "Proje adi: basak | vixrex | numeramatch | xses"},
+                    "yol": {"type": "string", "description": "Proje icinde dosya yolu"},
+                },
+                "required": ["proje", "yol"],
             },
         },
     },

@@ -29,11 +29,11 @@ class TestBolme:
 
 
 class TestIsaretsiz:
-    def test_isaretsiz_cumle_silinir(self):
+    def test_tamamen_isaretsiz_sohbet_gecer(self):
+        """Hicbir cumlede isaret yoksa — sohbet/nezaket — oldugu gibi gecer."""
         temiz, rapor = cikis_kapisi("Bu cumlenin hicbir isareti yok.")
-        assert "isaretsiz" not in temiz
-        assert temiz == YEDEK_CUMLE
-        assert len(rapor) == 1
+        assert temiz == "Bu cumlenin hicbir isareti yok."
+        assert rapor == []
 
     def test_karısık_cevapta_sadece_isaretliler_kalir(self):
         metin = ('Merhaba!\n'
@@ -127,9 +127,19 @@ class TestBilmiyorum:
         temiz, rapor = cikis_kapisi("[B] Bunun cevabini ölçemiyorum.")
         assert rapor == [] and "[B]" in temiz
 
-    def test_hepsi_elinirse_tek_yedek_cumle(self):
+    def test_hepsi_isaretsiz_sohbet_gecer(self):
+        """Hicbir cumlede isaret yoksa sohbet cevabi oldugu gibi gecer."""
         metin = ("İşaretsiz bir.\n"
                  'İşaretsiz iki.\n')
         temiz, _ = cikis_kapisi(metin)
-        assert temiz == YEDEK_CUMLE
-        assert temiz.count(YEDEK_CUMLE) == 1
+        assert temiz == metin.strip()
+        assert YEDEK_CUMLE not in temiz
+
+    def test_karisik_isaretsizler_elenir(self):
+        """İşaretli + işaretsiz karışımında işaretsizler silinir."""
+        metin = ("İşaretsiz bir.\n"
+                 '[B] İşaretli iki.')
+        temiz, rapor = cikis_kapisi(metin)
+        assert '[B]' in temiz
+        assert 'İşaretsiz bir' not in temiz
+        assert len(rapor) == 1

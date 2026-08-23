@@ -97,8 +97,8 @@ SAGLAYICILAR = {
 # Varsayilan oncelik sirasi (gorev turuna gore secici yeniden siralar).
 # Ucretli saglayici sonda: kazayla cagrilmasin.
 VARSAYILAN_SIRA = [
-    "groq", "gemini", "glm", "cloudflare", "cohere", "nvidia",
-    "openrouter",
+    "groq", "glm", "cloudflare", "cohere", "nvidia",
+    "openrouter", "qwen", "gemini",
 ]
 
 

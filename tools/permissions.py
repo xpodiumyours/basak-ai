@@ -13,10 +13,12 @@ Etiket sozlugu:
 
 ETIKETLER = {
     "web_search": ["internet"],
+    "sayfa_oku": ["internet"],
     "add_task": ["yazma"],
     "list_tasks": ["salt-okunur"],
     "complete_task": ["yazma"],
     "save_note": ["yazma"],
+    "deftere_kaydet": ["yazma"],
     "read_file": ["salt-okunur"],
     "write_file_tool": ["yazma"],
     "list_files": ["salt-okunur"],
@@ -25,6 +27,9 @@ ETIKETLER = {
     "video_analyze": ["salt-okunur"],  # video okur, yazmaz
     "image_analyze": ["salt-okunur"],  # goruntu okur, yazmaz
     "model_stats": ["salt-okunur"],   # istatistik okur
+    "git_durum": ["salt-okunur"],     # OLCU: sabit okuma komutlari, shell yok
+    "belge_ara": ["salt-okunur"],     # OLCU: kok .md belgelerde arama
+    "dosya_bilgi": ["salt-okunur"],   # OLCU: var/mtime/boyut olcumu
 }
 
 

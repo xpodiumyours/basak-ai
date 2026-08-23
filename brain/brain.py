@@ -17,6 +17,7 @@ from brain.nvidia import NvidiaClient
 from brain.openrouter import OpenRouterClient
 from brain.cloudflare import CloudflareClient
 from brain.cohere import CohereClient
+from brain.qwen import QwenClient
 from brain.ollama import OllamaClient
 from brain.stats import model_stats_al
 from brain.kota import KotaYoneticisi
@@ -152,14 +153,24 @@ class Brain:
             except ValueError as e:
                 logger.warning("Cohere baslatilamadi: %s", e)
 
+        # Onuncu bulut saglayici: QwenCloud (DashScope)
+        self.dashscope_key = (
+            os.environ.get("DASHSCOPE_API_KEY")
+            or ayar.get("dashscope_key") or ""
+        )
+        self._qwen = None
+        if self.dashscope_key:
+            try:
+                self._qwen = QwenClient(self.dashscope_key)
+            except ValueError as e:
+                logger.warning("QwenCloud baslatilamadi: %s", e)
+
     def _bulut_zinciri(self) -> list:
-        """Oncelik sirasi: Groq -> Gemini -> GLM -> Cloudflare -> Cohere
-        -> NVIDIA -> OpenRouter. (qwen/deepseek 2026-08-22'de cikarildi.)"""
+        """Oncelik sirasi: Groq -> GLM -> Cloudflare -> Cohere -> NVIDIA
+        -> OpenRouter -> QwenCloud -> Gemini. Son care: Ollama (yerel)."""
         zincir = []
         if self._groq is not None and self._groq.musait():
             zincir.append(("groq", self._groq))
-        if self._gemini is not None and self._gemini.musait():
-            zincir.append(("gemini", self._gemini))
         if self._glm is not None and self._glm.musait():
             zincir.append(("glm", self._glm))
         if self._cloudflare is not None and self._cloudflare.musait():
@@ -170,6 +181,10 @@ class Brain:
             zincir.append(("nvidia", self._nvidia))
         if self._openrouter is not None and self._openrouter.musait():
             zincir.append(("openrouter", self._openrouter))
+        if self._qwen is not None and self._qwen.musait():
+            zincir.append(("qwen", self._qwen))
+        if self._gemini is not None and self._gemini.musait():
+            zincir.append(("gemini", self._gemini))
         return zincir
 
     def bulut_musait(self) -> bool:

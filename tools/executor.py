@@ -4,23 +4,26 @@ Tool ismine göre ilgili fonksiyonu çağırır ve sonucu döndürür.
 Her çalışma arac.log'a yazılır.
 """
 
-from tools.web_search import web_search
+from tools.web_search import web_search, sayfa_oku
 from tools.tasks import add_task, list_tasks, complete_task
-from tools.notes import save_note
+from tools.notes import save_note, deftere_kaydet
 from tools.file_ops import read_file, write_file_ops, list_files
 from tools.app_launcher import ac_uygulama
 from tools.reminders import bugunku_hatirlatmalar
 from tools.video_analyzer import video_analyze
+from tools.olcum import git_durum, belge_ara, dosya_bilgi
 from tools.tool_logger import log_tool_call
 from tools.permissions import izinli_mi, etiketler
 
 # Tool isimlerini fonksiyonlara eşleştiren harita
 TOOL_MAP = {
     "web_search": web_search,
+    "sayfa_oku": sayfa_oku,
     "add_task": add_task,
     "list_tasks": list_tasks,
     "complete_task": complete_task,
     "save_note": save_note,
+    "deftere_kaydet": deftere_kaydet,
     "read_file": read_file,
     "write_file_tool": write_file_ops,
     "list_files": list_files,
@@ -56,7 +59,9 @@ def calistir(tool_name: str, arguments: dict, knowledge_dir: str = "",
             "Bu araç kullanılamaz.")}
 
     # Tool'a göre doğru parametreleri hazırla ve çalıştır
-    if tool_name == "web_search":
+    if tool_name == "sayfa_oku":
+        sonuc = sayfa_oku(arguments.get("url", ""))
+    elif tool_name == "web_search":
         sonuc = web_search(arguments.get("query", ""))
     elif tool_name == "add_task":
         sonuc = add_task(arguments.get("text", ""), gorevler_file)
@@ -69,6 +74,18 @@ def calistir(tool_name: str, arguments: dict, knowledge_dir: str = "",
             arguments.get("title", ""),
             arguments.get("content", ""),
             knowledge_dir,
+        )
+    elif tool_name == "deftere_kaydet":
+        # OD-1: defter/ klasoru knowledge_dir'in bir ustunde
+        defter_dir = os.path.join(base_dir, "defter")
+        sonuc = deftere_kaydet(
+            arguments.get("title", ""),
+            arguments.get("content", ""),
+            defter_dir,
+            kim=arguments.get("kim", "basak"),
+            tip=arguments.get("tip", "alinti"),
+            omur=arguments.get("omur", "30g"),
+            kaynak=arguments.get("kaynak", "sohbet"),
         )
     elif tool_name == "read_file":
         sonuc = read_file(arguments.get("path", ""), base_dir)
@@ -105,6 +122,14 @@ def calistir(tool_name: str, arguments: dict, knowledge_dir: str = "",
         else:
             ozet = istat.siralama(son_saat=son_saat)
         sonuc = {"result": ozet}
+    elif tool_name == "git_durum":
+        sonuc = git_durum(arguments.get("proje", ""))
+    elif tool_name == "belge_ara":
+        sonuc = belge_ara(arguments.get("proje", ""),
+                          arguments.get("sorgu", ""))
+    elif tool_name == "dosya_bilgi":
+        sonuc = dosya_bilgi(arguments.get("proje", ""),
+                            arguments.get("yol", ""))
     else:
         return {"error": f"Tool eşleştirilemedi: {tool_name}"}
 

@@ -155,3 +155,85 @@ def _temizle(text):
     if text and not text.endswith('.') and not text.endswith('...'):
         text += '.'
     return text
+
+
+# E-2: Sayfa okuma aracı — yalnizca GET, 5000 karakter siniri
+_MAX_SAYFA = 5000
+
+
+def sayfa_oku(url: str) -> dict:
+    """E-2: Bir URL'den sayfa icerigini okur (yalnizca GET).
+
+    HTML icerikten etiketler soyulur, duz metin olarak dondurulur.
+    Max 5000 karakter okunur.
+
+    Args:
+        url: Okunacak URL (http:// veya https://).
+
+    Returns:
+        {"result": str} veya {"error": str}.
+    """
+    if not url or not url.strip():
+        return {"error": "URL bos olamaz"}
+
+    url = url.strip()
+
+    # URL dogrulama — yalnizca http/https
+    if not url.startswith(("http://", "https://")):
+        return {"error": "Yalnizca http/https URL'leri okunabilir"}
+
+    # Tehlikeli domain kontrolu (basit whitelist)
+    yasakli = ["localhost", "127.0.0.1", "0.0.0.0"]
+    for y in yasakli:
+        if y in url.lower():
+            return {"error": "Guvenlik engeli: %s adresine erisilemez" % y}
+
+    try:
+        import urllib.request
+        import html as html_mod
+
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Basak/1.0 (arastrirma)",
+            "Accept": "text/html, text/plain",
+        })
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            # Icerik turunu kontrol et
+            content_type = resp.headers.get("Content-Type", "")
+            if "text/html" not in content_type and \
+               "text/plain" not in content_type:
+                return {"error": "Desteklenen icerik tipi degil: %s"
+                                 % content_type[:50]}
+
+            ham = resp.read(_MAX_SAYFA + 1000).decode(
+                "utf-8", errors="replace")
+
+        # HTML etiketlerini temizle
+        if "text/html" in content_type:
+            # <script> ve <style> bloklarini kaldir
+            temiz = re.sub(r'<(script|style)[^>]*>.*?</\1>', '',
+                           ham, flags=re.DOTALL | re.IGNORECASE)
+            # HTML etiketlerini kaldir
+            temiz = re.sub(r'<[^>]+>', ' ', temiz)
+            # HTML entity'leri coz
+            temiz = html_mod.unescape(temiz)
+        else:
+            temiz = ham
+
+        # Bosluklari temizle
+        temiz = re.sub(r'\s+', ' ', temiz).strip()
+
+        if len(temiz) > _MAX_SAYFA:
+            temiz = temiz[:_MAX_SAYFA] + "\n...(ilk %d karakter)" % _MAX_SAYFA
+
+        if not temiz:
+            return {"error": "Sayfa icerigi bos"}
+
+        return {"result": temiz}
+
+    except urllib.error.HTTPError as e:
+        return {"error": "HTTP hatasi %d: %s" % (e.code, url[:60])}
+    except urllib.error.URLError as e:
+        return {"error": "Baglanti hatasi: %s" % str(e.reason)[:80]}
+    except Exception as e:
+        logger.error("Sayfa okuma hatasi: %s", e)
+        return {"error": "Sayfa okunamadi: %s" % str(e)[:80]}

@@ -136,13 +136,24 @@ def cikis_kapisi(metin, olcumler=None):
 
     olcumler: bu turda calisan arac ciktilarinin metinleri;
     [O] cumleleri bunlara karsi dogrulanir.
+
+    Sohbet/nezaket cevaplari (hicbir cumlede isaret yoksa) oldugu gibi
+    gecer — kucuk modeller (qwen2.5:3b) sohbette isaret kullanmaz,
+    hepsini silmek konusmayi oldurur.
     """
     olcum_norm = [_norm(o) for o in (olcumler or []) if o]
+
+    tum_cumleler = bol_cumleler(metin)
+    hic_isaret_var_mi = any(_tip_bul(c)[0] is not None for c in tum_cumleler)
 
     gecen, rapor = [], []
     gecen_o_nolari = set()
 
-    for cumle in bol_cumleler(metin):
+    # Eger hicbir cumlede isaret yoksa — sohbet/nezaket cevabi — oldugu gibi gecer
+    if not hic_isaret_var_mi and tum_cumleler:
+        return metin.strip(), []
+
+    for cumle in tum_cumleler:
         tip, no = _tip_bul(cumle)
 
         if tip is None:

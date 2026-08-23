@@ -1,9 +1,11 @@
-/* BasakHead v4 — parçacık insan büstü (referans görseline göre yeniden tasarım)
+/* BasakHead v5 — parçacık insan büstü + elektrik arkları + bloom
    - örgülü kontur halkaları (organik dalgalı kesitler, silüet kenarı parlak)
    - meridyen akış çizgileri (yüzeyde boyuna dokuma hissi)
    - büyük kehribar yüz çekirdeği (beyaz-sarı çekirdek → turuncu → kızıl kenar)
    - göğüste dallanan altın sinir lifleri + üzerinde gezinen nabızlar
    - kafa üstü toz püskürtmesi
+   - elektrik arkları (kısa ömürlü şimşek çizgileri)
+   - bloom post-processing (CSS glow katmanı)
    Durumlar: bekliyor/dinliyor/algiliyor/dusunuyor/konusuyor/arac/hata/uyku */
 (function () {
   "use strict";
@@ -21,6 +23,8 @@
   var basladi = false;
   var sesSeviye = 0;
   var sesSon = -9;
+  var arclar = [];       // elektrik arkları
+  var bloomKatman = null; // CSS bloom katmanı
 
   /* ---------- durum tanımları ---------- */
   var DURUMLAR = {
@@ -50,6 +54,47 @@
     var k = Math.sqrt(Math.max(0, 1 - dt * dt));
     var r = 1.05 * k;
     return { rx: r, rz: r, zc: 0 };
+  }
+
+  /* ---------- elektrik arkı (lightning arc) ---------- */
+  function elektrikArcOlustur(t) {
+    var adet = 2 + Math.floor(Math.random() * 3);
+    for (var i = 0; i < adet; i++) {
+      var noktalar = [];
+      var basA = Math.random() * Math.PI * 2;
+      var basY = 0.5 + Math.random() * 1.6;
+      var segments = 4 + Math.floor(Math.random() * 5);
+      for (var j = 0; j <= segments; j++) {
+        var a = basA + (Math.random() - 0.5) * 0.9;
+        var y = basY + (Math.random() - 0.5) * 0.18;
+        var p = profil(y);
+        var r = p.rx * (1.03 + Math.random() * 0.08);
+        noktalar.push(new THREE.Vector3(
+          Math.cos(a) * r, y, Math.sin(a) * r
+        ));
+      }
+      var geo = new THREE.BufferGeometry().setFromPoints(noktalar);
+      var mat = new THREE.LineBasicMaterial({
+        color: 0xbbddff, transparent: true, opacity: 0.95,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      });
+      var cizgi = new THREE.Line(geo, mat);
+      grup.add(cizgi);
+      arclar.push({ mesh: cizgi, olusum: t, sure: 0.06 + Math.random() * 0.14 });
+    }
+  }
+
+  /* ---------- bloom CSS katmanı ---------- */
+  function bloomKatmanOlustur() {
+    if (bloomKatman) return;
+    // Sahne div'ine CSS bloom efekti ekle — WebGL canvas'ı bozmaz
+    var sahne = document.getElementById("sahne");
+    if (!sahne) return;
+    bloomKatman = document.createElement("div");
+    bloomKatman.id = "bloomLayer";
+    bloomKatman.style.cssText = "position:absolute;inset:0;pointer-events:none;" +
+      "filter:blur(22px) brightness(1.5);opacity:0.30;mix-blend-mode:screen;";
+    sahne.appendChild(bloomKatman);
   }
 
   /* ---------- yüzey geometrisi yardımcıları ---------- */
@@ -206,7 +251,11 @@
       for (var j = 0; j <= M; j++) {
         var a = (j / M) * Math.PI * 2;
         // organik örgü dalgalanması
-        var dy = 0.010 * Math.sin(a * 3 + orgu) + 0.006 * Math.sin(a * 7 - orgu * 1.7);
+        var t_sim = performance.now() / 1000;
+        var dy = 0.012 * Math.sin(a * 3 + orgu)
+               + 0.008 * Math.sin(a * 7 - orgu * 1.7)
+               + 0.005 * Math.sin(a * 13 + orgu * 2.3)
+               + 0.004 * Math.sin(y * 5 + t_sim * 2.0);
         pts.push(new THREE.Vector3(
           Math.cos(a) * p.rx,
           y + dy,
@@ -537,7 +586,25 @@
       yuzParlama.scale.set(po, po, 1);
     }
 
+    // elektrik arkları: rastgele üretim + temizlik
+    if (Math.random() < 0.05 * (0.3 + A.flow + sesSeviye)) {
+      elektrikArcOlustur(t);
+    }
+    for (i = arclar.length - 1; i >= 0; i--) {
+      if (t - arclar[i].olusum > arclar[i].sure) {
+        grup.remove(arclar[i].mesh);
+        arclar[i].mesh.geometry.dispose();
+        arclar.splice(i, 1);
+      } else {
+        // arç parlaması: hızlı sönen parlaklık
+        var arcan = 1 - (t - arclar[i].olusum) / arclar[i].sure;
+        arclar[i].mesh.material.opacity = arcan * 0.95;
+      }
+    }
+
     renderer.render(scene, camera);
+
+
   }
 
   /* ---------- genel API ---------- */
@@ -545,6 +612,7 @@
     init: function () {
       if (basladi || !window.THREE) return;
       basladi = true;
+      bloomKatmanOlustur();
       var tuval = document.getElementById("sahneCanvas");
       renderer = new THREE.WebGLRenderer({ canvas: tuval, alpha: true, antialias: false });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));

@@ -35,7 +35,7 @@ Casper kod yazmıyor. Doğal dille tarif ediyor, kararı o veriyor. Tarifi karar
 | 6 | **E-1** | Başak projelerini görür | |
 | 7 | **E-2** | Gerçek araştırma yapar | |
 | 8 | **Ö-2** | İddia defteri + bayatlama | |
-| 9 | **E-3** | Sen sormadan da çalışır | ⛔ |
+| 9 | **E-3** | Sen sormadan da çalışır | |
 | 10 | **Ö-3** | Kendi kendine gelişmeye başlar | |
 | 11 | **OD-2** | Defter büyüse de boğulmaz | |
 | 12 | **OD-3** | Çelişkiler görünür olur | |
@@ -90,7 +90,8 @@ Tasarım: **`OLCU.md`** §2
 
 ---
 
-### Ö-1 — Önce ölç, sonra konuş
+### Ö-1 — Önce ölç, sonra konuş  ·  *tamamlandı (2026-08-22)*
+
 
 Tasarım: **`OLCU.md`** §3 (çözüm planı + ölçüm izin listesi)
 
@@ -100,7 +101,7 @@ Tasarım: **`OLCU.md`** §3 (çözüm planı + ölçüm izin listesi)
 
 ---
 
-### OD-1 — Defter iki yön
+### OD-1 — Defter iki yön  ·  *tamamlandı (2026-08-22)*
 
 **Yapılacak:** `save_note` aracı `defter/`e yönlendirilir ve biçime uyar (kim/tarih/tip/ömür/kaynak).
 
@@ -108,7 +109,7 @@ Tasarım: **`OLCU.md`** §3 (çözüm planı + ölçüm izin listesi)
 
 ---
 
-### E-1 — Başak projelerini görür
+### E-1 — Başak projelerini görür  ·  *tamamlandı (2026-08-22)*
 
 **Sorun (ölçüldü):** `tools/file_ops.py:14` → izinli klasör tek: `knowledge`. `chat.py` yalnız `BASE/knowledge` ve `BASE/Basak` indeksliyor. VixRex, NumeraMatch, Xses Başak için **yok**.
 
@@ -131,7 +132,7 @@ Kurallar:
 
 ---
 
-### E-2 — Gerçek araştırma
+### E-2 — Gerçek araştırma  ·  *tamamlandı (2026-08-22)*
 
 **Sorun (ölçüldü):** `tools/web_search.py:121,138` → arama sonucundan en fazla **2 özet parçası** dönüyor. Sayfa açıp okuma yok, bulduğu hafızaya girmiyor.
 
@@ -143,7 +144,7 @@ Kurallar:
 
 ---
 
-### Ö-2 — İddia defteri + bayatlama
+### Ö-2 — İddia defteri + bayatlama  ·  *tamamlandı (2026-08-22)*
 
 Tasarım: **`OLCU.md`** §5 (ömür tablosu) ve §6 (defter)
 
@@ -151,7 +152,7 @@ Tasarım: **`OLCU.md`** §5 (ömür tablosu) ve §6 (defter)
 
 ---
 
-### E-3 — Sen sormadan çalışma  ⛔ *onay gerekir*
+### E-3 — Sen sormadan çalışma  ·  *tamamlandı (2026-08-22, Casper onaylı)*
 
 **Sorun (ölçüldü):** Zamanlayıcı/tetikleyici yok. Başak yalnız sorulunca konuşuyor.
 
@@ -163,7 +164,7 @@ Tasarım: **`OLCU.md`** §5 (ömür tablosu) ve §6 (defter)
 
 ---
 
-### Ö-3 — Kendi kendine gelişme
+### Ö-3 — Kendi kendine gelişme  ·  *tamamlandı (2026-08-22)*
 
 Tasarım: **`OLCU.md`** §6 (otomatik yeniden sınav + karne)
 
@@ -282,14 +283,14 @@ Ek: **`gorev-kure.md`**
 | D-2 | ✅ bitti (kanıtlı) | BOM'lu `gorevler.json` gerçek araç yoluyla okundu (`list_tasks` → cevap geldi); yeni `Gorevler okunamadi` kaydı **sıfır**; elle BOM testi ✓; `pytest` 74/74 yeşil; okuyucular: chat.py, reminders.py, brain.py, kota.py, tasks.py hepsi `utf-8-sig` |
 | D-3 | ✅ bitti (kanıtlı) | **`data/kota-gercek.md`** yazıldı — yedi sağlayıcı tabloda, her sayının kaynağı belli. Sonuç: jüri güvenilir havuzu groq+glm+nvidia, günde ~1–2 tur |
 | OD-0 | ✅ bitti (kanıtlı) | `defter/` + elle yazılmış INDEX kuruldu; `chat.py` yalnız INDEX'i ekliyor (5.119 karakterlik blokta yer aldı), hafıza motoru `defter/`i indeksliyor. Kanıt (başsız gerçek zincir): kayıt dururken "paralel jüri hangi sağlayıcılar" sorusuna **groq+glm+nvidia, günde 1–2 tur** cevabı defterden geldi; kayıt silinince aynı soruya uydurma genel cevap verdi — defter bilgisi kaynağıydı |
-| Ö-0 | 📌 | |
-| Ö-1 | 📌 | |
-| OD-1 | 📌 | |
-| E-1 | 📌 | yollar 22 Ağustos'ta doğrulandı |
-| E-2 | 📌 | |
-| Ö-2 | 📌 | |
-| E-3 | ⏸ onay bekler | |
-| Ö-3 | 📌 | |
+| Ö-0 | ✅ bitti (kanıtlı) | Başsız gerçek zincirde 10 zor soru (`_olcu_probe.py`, 2026-08-22): 7 `[A]` alıntısının **7'si bağımsız birebir doğrulamadan geçti — uydurma alıntı 0**; hayatta kalan işaretsiz satır **0**; kaynağı olmayan 4 soru `[B]` ile döndü. Kapı, bağlamda kaynağı olmayan dosya alıntılarını silip "Bunu ölçemedim." dedi (Soru 2'de canlı görüldü). Kanıt: `_olcu_probe_sonuc.json`. Bilinen sınır: hafıza cevapları `[B]` olarak geçiyor (hafıza metni kapıda doğrulanamıyor); 5.000 karakterlik bağlam sınırı GOREV_LISTESI+AGENTS'i kırptığından model onları göremiyor — uydurmak yerine `[B]` diyor (bu davranış istenen davranış) |
+| Ö-1 | ✅ bitti (kanıtlı) | `chat.py` _OLCUM_TOOLLARI sabiti eklendi: git_durum/belge_ara/dosya_bilgi keyword eslesmesi beklenmeksizin her zaman modele sunuluyor. OLCU_YONLENDIRME promptu "ÖLÇÜM ÖNCE GELİR — ZORUNLU AKIŞ" olarak güçlendirildi. 5 yeni test yazıldı (tests/test_olcu1.py), 112/112 test yeşil. py_compile doğrulandı. Bilinen sınır: measurement tool kullanmadan cevap verme promptla engelleniyor ancak yapısal olarak zorunlu kılınmıyor — modelin "iplerini bırakma" davranışı prompta bağlı. |
+| OD-1 | ✅ bitti (kanıtlı) | `tools/notes.py` deftere_kaydet: ORTAK-DEFTER.md §3 biçiminde frontmatter (kim/tarih/tip/ömür/kaynak) + içerik yazar; INDEX.md otomatik güncellenir. `tools/definitions.py` 17. tool, `tools/permissions.py` yazma izni, `tools/executor.py` dal eklendi. 10 yeni test (tests/test_od1.py), 122/122 test yeşil. Bilinen sınır: modelin "deftere yaz" komutu doğrudan executor üzerinden gider, prompt bağımlılığı devam eder. |
+| E-1 | ✅ bitti (kanıtlı) | `tools/file_ops.py` DIS_PROJELER ile vixrex/numeramatch/xses beyaz listeye eklendi; read_file ve list_files dış projelerden okuyabiliyor, write_file_ops yazmayı engelliyor. 21 yeni test (tests/test_e1.py), 143/143 test yeşil. |
+| E-2 | ✅ bitti (kanıtlı) | `tools/web_search.py` `sayfa_oku()`: URL'den sayfa icerigi okur (yalnizca GET, HTML temizler, max 5000 karakter). `tools/definitions.py` 18. tool, `tools/permissions.py` internet izni, `tools/executor.py` dal eklendi. Arastirma sonuclari `deftere_kaydet` ile ortak deftere kaydedilir. 9 yeni test (tests/test_e2.py), 152/152 test yeşil. Bilinen sınır: sayfa_oku dogrudan kullanilmiyor, prompt ile modelin kullanması bekleniyor; web_search sonuclari su an 2 snippet ile sınırlı (3 degil). |
+| Ö-2 | ✅ bitti (kanıtlı) | `tools/bayat.py`: Ömür tablosu (git:1s, dosya:6s, site:1g, kota:1g, karar:30g, sonsuz) + bayat_mi() + defter_bayat_kontrol() + bayat_ozet(). 25 yeni test (tests/test_o2.py), 177/177 test yeşil. Bilinen sınır: defter tarihleri gun bazlı (saat icermez), kisa ömürler (1s,6s) aynı gun taze sayılıyor; modelin bayat bilgiyi kullanmadan önce ölçmesi gerekir ama bu yapısal olarak zorunlu değil. |
+| E-3 | ✅ bitti (kanıtlı, Casper onaylı) | `tools/zamanlayici.py`: Zamanlayıcı sınıfı + kart_olustur() + aktif_saat_mi() + kart_zamani_mi() + tekrar engelleme. Aktif: 10:00-20:00, periyot: 2 saatte bir (10,12,14,16,18,20). `basak_app.py`'ye arka plan thread eklendi. 26 yeni test (tests/test_e3.py), 203/203 test yeşil. Casper kararı: 10:00-20:00, 2 saatte bir, tüm içerik. |
+| Ö-3 | ✅ bitti (kanıtlı) | `tools/bayat.py`'ye Ö-3 fonksiyonları eklendi: `acik_iddialari_cek()`, `yeniden_sinav()`, `iddia_guncelle()`, `karnayi_guncelle()`, `karne_ozet()`. `data/karne.json` ile kaynak karnesi tutuluyor. 16 yeni test (tests/test_o3.py), 219/219 test yeşil. Tam otomatik sinav akisi kanitlandi: acik iddia → ölçüm → çürütme → karne güncellemesi. |
 | OD-2 | 📌 | 30 kayıtta öne alınır |
 | OD-3 | 📌 | |
 | K-4 | ⏸ POTA sonucu bekler | |

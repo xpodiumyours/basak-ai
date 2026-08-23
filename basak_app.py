@@ -253,6 +253,16 @@ def main():
         baslat(_pencere_goster, _pencere_gizle, api.quit)
 
     threading.Thread(target=_tepsi_baslat, daemon=True).start()
+
+    # E-3: Zamanlayiciyi baslat (arka plan, sessiz)
+    try:
+        from tools.zamanlayici import Zamanlayici
+        zamanlayici = Zamanlayici(
+            js_callback=api._js, beyin=api.brain)
+        zamanlayici.baslat()
+    except Exception as e:
+        logger.warning("Zamanlayici baslatilamadi: %s", e)
+
     webview.start()
 
 

@@ -2,6 +2,7 @@
 
 Sadece izin verilen klasörlerde çalışır (whitelist).
 Varsayılan olarak sadece knowledge/ klasörüne izin verilir.
+E-1: dış projeler (vixrex, numeramatch, xses) salt-okunur olarak eklendi.
 Her işlem loglanır.
 """
 
@@ -10,24 +11,61 @@ import os
 
 logger = logging.getLogger(__name__)
 
-# İzin verilen klasörler (whitelist)
+# İzin verilen iç klasörler (whitelist)
 IZINLI_KLASORLER = [
     "knowledge",
     "research-engine",
 ]
 
+# E-1: Dış projeler — salt okunur, yazma yasak.
+# Model yol veremez; yalnız bu anahtarlardan seçer.
+DIS_PROJELER = {
+    "vixrex": r"C:\Projects\vixrex",
+    "numeramatch": r"C:\Users\Casper\source\NumeraMatch",
+    "xses": r"C:\Projects\xses",
+}
+
+
+def _dis_proje_ayarla(yol, base_dir):
+    """E-1: Yol dış projeden mi? Öyleyse (proje_adi, mutlak_kok) döner."""
+    if not yol:
+        return None, None
+    yol_lower = yol.strip().lower()
+    for ad, kok in DIS_PROJELER.items():
+        # "vixrex/AGENTS.md" → "vixrex" eşleşir
+        if yol_lower == ad or yol_lower.startswith(ad + "/") or \
+           yol_lower.startswith(ad + "\\"):
+            return ad, kok
+    return None, None
+
 
 def _klasor_kontrol(yol, base_dir):
-    """Verilen yolun izin verilen bir klasör içinde olup olmadığını kontrol eder."""
+    """Verilen yolun izin verilen bir klasör içinde olup olmadığını kontrol eder.
+
+    E-1: Dış projeler de kontrol edilir (salt okunur).
+    """
     try:
+        # E-1: Dış proje kontrolü — yol "vixrex/..." şeklinde gelir
+        dis_proje, dis_kok = _dis_proje_ayarla(yol, base_dir)
+        if dis_proje:
+            # Dış projede relative yol
+            rel_yol = yol.strip()
+            if rel_yol.lower().startswith(dis_proje + "/"):
+                rel_yol = rel_yol[len(dis_proje) + 1:]
+            elif rel_yol.lower().startswith(dis_proje + "\\"):
+                rel_yol = rel_yol[len(dis_proje) + 1:]
+            mutlak_yol = os.path.abspath(os.path.join(dis_kok, rel_yol))
+            if not mutlak_yol.startswith(os.path.realpath(dis_kok)):
+                return False, "Yol dış proje dizininin dışında"
+            return True, "dis:%s" % dis_proje
+
+        # İç proje kontrolü (mevcut mantık)
         mutlak_yol = os.path.abspath(os.path.join(base_dir, yol))
         base_mutlak = os.path.abspath(base_dir)
 
-        # Yol base_dir altında mı?
         if not mutlak_yol.startswith(base_mutlak):
             return False, "Yol proje dizininin dışında"
 
-        # Hangi alt klasörde?
         iliski = os.path.relpath(mutlak_yol, base_mutlak)
         birinci_klasor = iliski.split(os.sep)[0]
 
@@ -44,10 +82,11 @@ def read_file(yol: str, base_dir: str) -> dict:
     """Bir dosyanın içeriğini okur.
 
     Sadece izin verilen klasörlerdeki dosyaları okur.
+    E-1: dış projelerden de okunabilir (salt okunur).
     Max 5000 karakter okunur.
 
     Args:
-        yol: Dosya yolu (base_dir'e göre).
+        yol: Dosya yolu. Dış proje için "vixrex/AGENTS.md" gibi.
         base_dir: Proje kök dizini.
 
     Returns:
@@ -61,7 +100,16 @@ def read_file(yol: str, base_dir: str) -> dict:
         return {"error": mesaj}
 
     try:
-        mutlak_yol = os.path.abspath(os.path.join(base_dir, yol))
+        # E-1: Dış proje ise onun kökünden çöz
+        if mesaj.startswith("dis:"):
+            dis_proje = mesaj.split(":")[1]
+            dis_kok = DIS_PROJELER[dis_proje]
+            rel_yol = yol.strip()
+            if rel_yol.lower().startswith(dis_proje + "/"):
+                rel_yol = rel_yol[len(dis_proje) + 1:]
+            mutlak_yol = os.path.abspath(os.path.join(dis_kok, rel_yol))
+        else:
+            mutlak_yol = os.path.abspath(os.path.join(base_dir, yol))
 
         if not os.path.exists(mutlak_yol):
             return {"error": f"Dosya bulunamadı: {yol}"}
@@ -104,6 +152,11 @@ def write_file_ops(yol: str, icerik: str, base_dir: str) -> dict:
     if not izinli:
         return {"error": mesaj}
 
+    # E-1: Dış projelere yazma yasak (salt okunur)
+    if mesaj.startswith("dis:"):
+        return {"error": ("Güvenlik engeli: '%s' dış projesine yazma izni yok. "
+                          "Dış projeler salt okunur.") % mesaj.split(":")[1]}
+
     try:
         mutlak_yol = os.path.abspath(os.path.join(base_dir, yol))
 
@@ -124,9 +177,10 @@ def list_files(klasor: str, base_dir: str) -> dict:
     """Bir klasördeki dosyaları listeler.
 
     Sadece izin verilen klasörleri listeler.
+    E-1: dış projelerin kök klasörleri de listelenebilir.
 
     Args:
-        klasor: Klasör yolu (base_dir'e göre). Boşsa knowledge/ listelenir.
+        klasor: Klasör yolu. Dış proje için "vixrex" gibi. Boşsa knowledge/ listelenir.
         base_dir: Proje kök dizini.
 
     Returns:
@@ -140,7 +194,19 @@ def list_files(klasor: str, base_dir: str) -> dict:
         return {"error": mesaj}
 
     try:
-        mutlak_yol = os.path.abspath(os.path.join(base_dir, klasor))
+        # E-1: Dış proje ise onun kökünden listele
+        if mesaj.startswith("dis:"):
+            dis_proje = mesaj.split(":")[1]
+            dis_kok = DIS_PROJELER[dis_proje]
+            rel_yol = klasor.strip()
+            if rel_yol.lower().startswith(dis_proje + "/"):
+                rel_yol = rel_yol[len(dis_proje) + 1:]
+            elif rel_yol.lower() == dis_proje:
+                rel_yol = ""
+            mutlak_yol = os.path.abspath(
+                os.path.join(dis_kok, rel_yol)) if rel_yol else dis_kok
+        else:
+            mutlak_yol = os.path.abspath(os.path.join(base_dir, klasor))
 
         if not os.path.isdir(mutlak_yol):
             return {"error": f"Bu bir klasör değil: {klasor}"}
