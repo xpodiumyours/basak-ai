@@ -3,6 +3,10 @@
 const $ = (id) => document.getElementById(id);
 let sesZamanlayici = null;
 const state = { busy: false, ready: false, model: null, dinliyor: false, ttsOn: false };
+/* Son gonderilen mesaj. Hata/zaman asimi sonrasi "tekrar dene" bunu
+   kullanir — eskiden metin input'tan silindigi icin elle yeniden
+   yazmaktan baska yol yoktu. */
+let sonGonderilen = "";
 
 window.addEventListener("error", function (ev) {
   const ds = document.getElementById("durumSatiri");
@@ -113,20 +117,140 @@ const Orb = (function () {
   return { init, setState };
 })();
 
+/* ---------------- Metin bicimleme ---------------- */
+/* Kucuk markdown: kod blogu, satir ici kod, kalin. Disaridan kutuphane
+   yuklenmiyor — uygulama cevrimdisi de acilmali, CDN'e bagimli olamaz.
+   Model ciktisi guvenilmez metindir: once HTML kacisi yapilir, bicimleme
+   ANCAK ondan sonra uygulanir. */
+function mdKacis(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function mdRender(metin) {
+  const parcalar = String(metin == null ? "" : metin).split("```");
+  let html = "";
+  for (let i = 0; i < parcalar.length; i++) {
+    if (i % 2 === 1) {
+      // Tek indisler kod blogu. Ilk satir dil adi olabilir ("python" gibi);
+      // bosluk iceriyorsa dil degil, kodun kendisidir — dokunma.
+      const satirlar = parcalar[i].split("\n");
+      const bas = (satirlar[0] || "").trim();
+      const dil = /^[a-z0-9+#._-]{1,15}$/i.test(bas) ? satirlar.shift().trim() : "";
+      const kod = satirlar.join("\n").replace(/^\n+|\n+$/g, "");
+      html += '<div class="kod-blok"><div class="kod-bas">'
+        + '<span class="kod-dil">' + mdKacis(dil || "kod") + "</span>"
+        + '<button class="kod-kopya" type="button">kopyala</button></div>'
+        + "<pre><code>" + mdKacis(kod) + "</code></pre></div>";
+    } else {
+      html += mdKacis(parcalar[i])
+        .replace(/`([^`\n]+)`/g, '<code class="satir-kod">$1</code>')
+        .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+    }
+  }
+  return html;
+}
+
+/* Panoya kopyalama. pywebview'da Clipboard API her zaman acik degil —
+   basarisiz olursa gizli textarea + execCommand'a duser. */
+function kopyalaGeriBildirim(btn) {
+  const eski = btn.textContent;
+  btn.textContent = "kopyalandı";
+  btn.classList.add("ok");
+  setTimeout(() => { btn.textContent = eski; btn.classList.remove("ok"); }, 1400);
+}
+function kopyala(metin, btn) {
+  const bitti = () => kopyalaGeriBildirim(btn);
+  const yedek = () => {
+    const ta = document.createElement("textarea");
+    ta.value = metin;
+    ta.style.position = "fixed"; ta.style.opacity = "0"; ta.style.pointerEvents = "none";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); bitti(); } catch (e) {}
+    ta.remove();
+  };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(metin).then(bitti, yedek);
+    } else { yedek(); }
+  } catch (e) { yedek(); }
+}
+
 /* ---------------- Sohbet ---------------- */
 const Chat = (function () {
   const scroll = $("chatScroll"), list = $("messages"), empty = $("chatEmpty");
+
+  /* Kullanici yukari cikip eski mesaj okuyorsa yeni mesaj onu asagi
+     ZORLAMAMALI. Olcum mesaj eklenmeden ONCE yapilir; sonra olculurse
+     scrollHeight zaten buyumus olur ve hep "dipte degil" cikar. */
+  function dipteMi() {
+    return scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 80;
+  }
+  function dibeKaydir() { scroll.scrollTop = scroll.scrollHeight; }
+
+  function saatEtiketi() {
+    return new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  }
+
   function add(role, text) {
     empty.style.display = "none";
     document.body.classList.add("goster-mesajlar");   // sinema modunda perde otomatik açılsın
+    const dipte = dipteMi();
     const div = document.createElement("div");
     div.className = "msg " + role;
-    div.innerHTML = '<div class="msg-avatar">' + (role === "basak" ? "B" : "S") + '</div><div class="msg-body"><div class="msg-name">' + (role === "basak" ? "BAŞAK" : "SEN") + '</div><div class="msg-bubble"></div></div>';
-    div.querySelector(".msg-bubble").textContent = text;
+    div.innerHTML = '<div class="msg-avatar">' + (role === "basak" ? "B" : "S")
+      + '</div><div class="msg-body"><div class="msg-name">'
+      + (role === "basak" ? "BAŞAK" : "SEN")
+      + '<span class="msg-saat">' + saatEtiketi() + "</span>"
+      + '<button class="msg-kopya" type="button" title="Mesajı kopyala">kopyala</button>'
+      + '</div><div class="msg-bubble"></div></div>';
+    div.querySelector(".msg-bubble").innerHTML = mdRender(text);
+    // Kopyalama bicimlenmis HTML'i degil ham metni vermeli.
+    div._ham = String(text == null ? "" : text);
     list.appendChild(div);
-    scroll.scrollTop = scroll.scrollHeight;
+    if (dipte) dibeKaydir();
     return div;
   }
+
+  /* Sistem satiri: baglanti hatasi, zaman asimi gibi UYGULAMA olaylari.
+     Basak'in soyledigi bir cumle degil — sohbet balonu gibi gorunmemeli,
+     yoksa "beyin bunu mu dedi" karisikligi olur. */
+  function sistem(metin, tekrarVar) {
+    empty.style.display = "none";
+    document.body.classList.add("goster-mesajlar");
+    const dipte = dipteMi();
+    const div = document.createElement("div");
+    div.className = "msg sistem";
+    div.innerHTML = '<div class="sistem-govde"><span class="sistem-ikon">!</span>'
+      + '<span class="sistem-metin"></span></div>';
+    div.querySelector(".sistem-metin").textContent = metin;
+    if (tekrarVar && sonGonderilen) {
+      const b = document.createElement("button");
+      b.className = "sistem-tekrar";
+      b.type = "button";
+      b.textContent = "tekrar dene";
+      b.addEventListener("click", () => { div.remove(); tekrarGonder(); });
+      div.querySelector(".sistem-govde").appendChild(b);
+    }
+    list.appendChild(div);
+    if (dipte) dibeKaydir();
+    return div;
+  }
+
+  // Kopyala dugmeleri tek dinleyiciyle: mesajlar sonradan eklendigi icin
+  // her birine ayri dinleyici baglamak sizinti kaynagi olurdu.
+  list.addEventListener("click", (e) => {
+    const mesajBtn = e.target.closest(".msg-kopya");
+    if (mesajBtn) {
+      const msg = mesajBtn.closest(".msg");
+      kopyala(msg._ham || msg.querySelector(".msg-bubble").textContent, mesajBtn);
+      return;
+    }
+    const kodBtn = e.target.closest(".kod-kopya");
+    if (kodBtn) {
+      const kod = kodBtn.closest(".kod-blok").querySelector("code");
+      kopyala(kod.textContent, kodBtn);
+    }
+  });
   function thinking() {
     empty.style.display = "none";
     document.body.classList.add("goster-mesajlar");
@@ -138,8 +262,36 @@ const Chat = (function () {
     return div;
   }
   function remove(el) { el.remove(); }
-  return { add, thinking, remove };
+  return { add, sistem, thinking, remove, dibeKaydir };
 })();
+
+/* ---------------- Mesgul kilidi ---------------- */
+/* thinking() gonder dugmesini kilitler; aciligi tek yer reply()/error()
+   idi. Python tarafi cokup hic donmezse kilit sonsuza kadar kapali
+   kaliyordu — tek cikis uygulamayi kapatip acmakti. Artik ust sinir var. */
+let busyTimer = null;
+const YANIT_UST_SINIR_MS = 90000;   // olculen en yavas model 27.9s (kimi-k3)
+
+function kilidiKapat() {
+  state.busy = true;
+  $("btnSend").disabled = true;
+  clearTimeout(busyTimer);
+  busyTimer = setTimeout(() => {
+    if (!state.busy) return;
+    kilidiAc();
+    const el = document.querySelector(".msg.basak.thinking");
+    if (el) el.remove();
+    Chat.sistem("Yanıt gelmedi (90 sn içinde). Beyin takılmış olabilir.", true);
+    setOrb("hata");
+    setStatus("err", "yanıt gelmedi");
+  }, YANIT_UST_SINIR_MS);
+}
+function kilidiAc() {
+  clearTimeout(busyTimer);
+  busyTimer = null;
+  state.busy = false;
+  $("btnSend").disabled = false;
+}
 
 /* ---------------- Durum ---------------- */
 function setStatus(kind, label) {
@@ -182,8 +334,7 @@ window.BasakUI = {
   },
   thinking() {
     Chat.thinking();
-    state.busy = true;
-    $("btnSend").disabled = true;
+    kilidiKapat();
     setStatus("busy", "Başak düşünüyor...");
     setOrb("dusunuyor");
   },
@@ -196,8 +347,7 @@ window.BasakUI = {
   reply(text, modelInfo) {
     Chat.add("basak", text);
     brainKaynakEtiketi(modelInfo);
-    state.busy = false;
-    $("btnSend").disabled = false;
+    kilidiAc();
     setOrb("cevapliyor");
     if (!state.ttsOn) setTimeout(() => setOrb("bekliyor"), 2200);
     const ml = modelInfo || state.model || "yerel beyin";
@@ -205,9 +355,11 @@ window.BasakUI = {
     $("input").focus();
   },
   error(msg) {
-    Chat.add("basak", "Üzgünüm, bir sorun var: " + msg);
-    state.busy = false;
-    $("btnSend").disabled = false;
+    // Hata Basak'in AGZINDAN cikmis gibi gorunmemeli: eskiden sohbet
+    // balonuna "Uzgunum, bir sorun var: ..." diye ekleniyordu ve baglanti
+    // hatasi ile gercek cevap ayni yerde duruyordu.
+    Chat.sistem("Bağlantı sorunu: " + msg, true);
+    kilidiAc();
     setOrb("hata");
     setStatus("err", "beyin yanıt vermedi");
   },
@@ -257,7 +409,11 @@ async function loadKnowledge() {
     list.innerHTML = '<li>📁 <span class="muted">Henüz dosya yok — Başak\\knowledge klasörüne ekle</span></li>';
     return;
   }
-  list.innerHTML = files.map((f) => '<li><span class="file-ico">📄</span> ' + f + "</li>").join("");
+  // Dosya adlari innerHTML'e dogrudan giriyordu: yerel veri oldugu icin
+  // risk dusuktu ama "<" iceren bir ad listeyi bozardi.
+  list.innerHTML = files
+    .map((f) => '<li><span class="file-ico">📄</span> ' + mdKacis(f) + "</li>")
+    .join("");
 }
 
 /* ---------------- Gönder ---------------- */
@@ -269,10 +425,19 @@ function send() {
     setStatus("err", "Başak henüz hazırlanıyor, birkaç saniye bekle");
     return;
   }
+  sonGonderilen = text;
   input.value = "";
   input.style.height = "auto";
   Chat.add("user", text);
+  Chat.dibeKaydir();   // kendi mesajina her zaman in
   api().mesaj(text);
+}
+
+function tekrarGonder() {
+  if (!sonGonderilen || state.busy) return;
+  Chat.add("user", sonGonderilen);
+  Chat.dibeKaydir();
+  api().mesaj(sonGonderilen);
 }
 
 /* ---------------- Olaylar ---------------- */
@@ -283,16 +448,36 @@ $("btnTts").addEventListener("click", () => {
   api().set_tts(state.ttsOn);
   $("btnTts").classList.toggle("active", state.ttsOn);
 });
-$("btnClear").addEventListener("click", async () => {
+/* Hafizayi temizleme geri alinamaz, eskiden tek tiklaydi. Iki asamali
+   onay: ikinci tik 4 saniye icinde gelmezse iptal olur. confirm() yerine
+   bu desen secildi — pywebview'da yerel diyalog her zaman guvenilir
+   davranmiyor ve pencereyi kilitleyebiliyor. */
+let temizleOnayi = null;
+async function hafizaTemizle(btn) {
+  if (temizleOnayi !== btn) {
+    if (temizleOnayi) temizleOnayi.classList.remove("onay-bekliyor");
+    temizleOnayi = btn;
+    btn.classList.add("onay-bekliyor");
+    setStatus("busy", "Hafızayı silmek için tekrar bas");
+    clearTimeout(hafizaTemizle._t);
+    hafizaTemizle._t = setTimeout(() => {
+      if (temizleOnayi) temizleOnayi.classList.remove("onay-bekliyor");
+      temizleOnayi = null;
+      setStatus("ok", (state.model || "hazır") + "");
+    }, 4000);
+    return;
+  }
+  clearTimeout(hafizaTemizle._t);
+  btn.classList.remove("onay-bekliyor");
+  temizleOnayi = null;
   await api().clear();
   $("messages").innerHTML = "";
   $("chatEmpty").style.display = "block";
-});
-$("btnClear2").addEventListener("click", async () => {
-  await api().clear();
-  $("messages").innerHTML = "";
-  $("chatEmpty").style.display = "block";
-});
+  sonGonderilen = "";
+  setStatus("ok", "hafıza temizlendi");
+}
+$("btnClear").addEventListener("click", (e) => hafizaTemizle(e.currentTarget));
+$("btnClear2").addEventListener("click", (e) => hafizaTemizle(e.currentTarget));
 $("btnClose").addEventListener("click", () => api().quit());
 $("btnMesajlar").addEventListener("click", () => {
   document.body.classList.toggle("goster-mesajlar");
@@ -340,7 +525,8 @@ async function boot() {
       }
       const sel = $("modelSelect");
       if (status.models && status.models.length) {
-        sel.innerHTML = status.models.map((m) => "<option>" + m + "</option>").join("");
+        sel.innerHTML = status.models
+          .map((m) => "<option>" + mdKacis(m) + "</option>").join("");
         sel.value = status.model || status.models[0];
         sel.onchange = () => { state.model = sel.value; api().set_model(sel.value); setStatus("ok", sel.value + " hazır"); };
       }

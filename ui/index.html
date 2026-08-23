@@ -72,7 +72,9 @@
             <h2>Merhaba, ben Başak</h2>
             <p>Ne istediğini yaz. Soru, araştırma, özet, fikir — her şey.</p>
           </div>
-          <div class="messages" id="messages"></div>
+          <!-- role/aria-live: ekran okuyucu yeni mesaji duyurabilsin.
+               "polite" secildi: kullanicinin yazdigini yarida kesmez. -->
+          <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Sohbet"></div>
         </div>
         <div id="durumSatiri">BAŞAK dinliyor</div>
         <div class="composer-wrap">

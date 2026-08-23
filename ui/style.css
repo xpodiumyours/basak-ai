@@ -215,6 +215,118 @@ body {
   border-color: rgba(234,179,8,0.22);
   border-left: 3px solid rgba(234,179,8,0.55);
 }
+
+/* ---- Mesaj basligi: saat + kopyala ---- */
+.msg-name { display: flex; align-items: center; gap: 8px; }
+.msg-saat {
+  font-size: 10px; font-weight: 400; letter-spacing: 0;
+  color: rgba(255,255,255,0.30);
+}
+.msg-kopya {
+  margin-left: auto;
+  background: none; border: 0; cursor: pointer;
+  font: inherit; font-size: 10px; letter-spacing: 0;
+  color: rgba(255,255,255,0.28);
+  padding: 2px 6px; border-radius: 5px;
+  opacity: 0; transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+.msg:hover .msg-kopya, .msg-kopya:focus-visible { opacity: 1; }
+.msg-kopya:hover { color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.06); }
+.msg-kopya.ok { opacity: 1; color: #34D399; }
+
+/* ---- Kod blogu ---- */
+/* Cevaplar duz metin olarak basiliyordu; kod modelleri (kimi, step, GLM)
+   kullanildigi icin kodun okunur ve kopyalanabilir olmasi gerekiyor. */
+.kod-blok {
+  margin: 10px 0;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(8, 11, 17, 0.72);
+}
+.kod-bas {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 10px;
+  background: rgba(255,255,255,0.035);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.kod-dil {
+  font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: rgba(255,255,255,0.38);
+}
+.kod-kopya {
+  background: none; border: 0; cursor: pointer;
+  font: inherit; font-size: 10px;
+  color: rgba(255,255,255,0.38);
+  padding: 2px 6px; border-radius: 5px;
+  transition: color 0.15s, background 0.15s;
+}
+.kod-kopya:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.07); }
+.kod-kopya.ok { color: #34D399; }
+.kod-blok pre {
+  margin: 0; padding: 11px 13px;
+  overflow-x: auto;              /* uzun satir balonu tasirmasin */
+  white-space: pre;              /* kod girintileri korunur */
+}
+.kod-blok code, .satir-kod {
+  font-family: "Cascadia Code", "Consolas", "SF Mono", monospace;
+  font-size: 12.5px; line-height: 1.55;
+  color: #cbd5e1;
+}
+.satir-kod {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
+.msg-bubble strong { color: #fff; font-weight: 600; }
+
+/* ---- Sistem satiri ---- */
+/* Uygulama olayi (baglanti hatasi, zaman asimi) — Basak'in cumlesi degil.
+   Bu yuzden avatar/balon duzeni kullanmaz, ortada ince bir serit olarak
+   durur; okuyan "bunu beyin mi soyledi" diye tereddut etmesin. */
+.msg.sistem { display: block; margin: 10px 0; }
+.sistem-govde {
+  display: flex; align-items: center; gap: 9px;
+  margin: 0 auto; max-width: 82%;
+  padding: 8px 13px;
+  font-size: 12.5px; line-height: 1.5;
+  color: rgba(248,113,113,0.95);
+  background: rgba(248,113,113,0.07);
+  border: 1px solid rgba(248,113,113,0.22);
+  border-radius: 10px;
+}
+.sistem-ikon {
+  flex: 0 0 auto;
+  width: 16px; height: 16px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 700;
+  background: rgba(248,113,113,0.22); color: #fecaca;
+}
+.sistem-metin { flex: 1 1 auto; }
+.sistem-tekrar {
+  flex: 0 0 auto;
+  background: rgba(248,113,113,0.16);
+  border: 1px solid rgba(248,113,113,0.30);
+  color: #fecaca;
+  font: inherit; font-size: 11.5px;
+  padding: 4px 10px; border-radius: 7px; cursor: pointer;
+  transition: background 0.15s;
+}
+.sistem-tekrar:hover { background: rgba(248,113,113,0.28); }
+
+/* ---- Silme onayi bekleyen dugme ---- */
+.icon-btn.onay-bekliyor {
+  background: rgba(248,113,113,0.18);
+  border-color: rgba(248,113,113,0.45);
+  color: #fecaca;
+  animation: onayNabzi 1s ease-in-out infinite;
+}
+@keyframes onayNabzi {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.35); }
+  50%      { box-shadow: 0 0 0 5px rgba(248,113,113,0); }
+}
 .msg.thinking .dot {
   width: 7px; height: 7px; border-radius: 50%;
   background: var(--accent);
