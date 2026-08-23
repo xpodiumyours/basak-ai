@@ -1,0 +1,29 @@
+2026-08-22 21:33:19 | OK kaynak=groq | 0.0 sn | tools=False | istek=5 | genel sohbet → varsayilan sira
+2026-08-22 21:33:19 | HATA kaynak=groq (0.0 sn): patladi
+2026-08-22 21:33:19 | OK kaynak=glm | 0.0 sn | tools=False | istek=5 | genel sohbet → varsayilan sira
+2026-08-22 21:33:19 | ATLANDI kaynak=groq | neden=gunluk istek limiti doldu (80/80)
+2026-08-22 21:33:19 | OK kaynak=glm | 0.0 sn | tools=False | istek=1 | genel sohbet → varsayilan sira
+2026-08-22 21:33:19 | ATLANDI kaynak=deepseek | neden=ucretli cagri varsayilan engelli
+2026-08-22 21:33:19 | OK kaynak=yerel | 0.0 sn | tools=False | istek=5 | dustu=1 bulut
+2026-08-22 21:36:35 | OK kaynak=groq | 0.5 sn | tools=False | istek=23 | genel sohbet → varsayilan sira
+2026-08-22 21:40:10 | OK kaynak=groq | 0.7 sn | tools=False | istek=24 | genel sohbet → varsayilan sira
+2026-08-22 21:40:11 | OK kaynak=groq | 1.1 sn | tools=False | istek=25 | genel sohbet → varsayilan sira
+2026-08-22 21:40:15 | HATA kaynak=groq (0.1 sn): Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organi
+2026-08-22 21:40:15 | ATLANDI kaynak=gemini | neden=gunluk istek limiti doldu (20/20)
+2026-08-22 21:40:17 | OK kaynak=glm | 1.8 sn | tools=False | istek=49 | genel sohbet → varsayilan sira
+2026-08-22 21:40:17 | ATLANDI kaynak=groq | neden=429 sonrasi soguma (317 sn)
+2026-08-22 21:40:17 | ATLANDI kaynak=gemini | neden=gunluk istek limiti doldu (20/20)
+2026-08-22 21:40:18 | OK kaynak=glm | 1.0 sn | tools=False | istek=50 | genel sohbet → varsayilan sira
+2026-08-22 21:40:21 | ATLANDI kaynak=groq | neden=429 sonrasi soguma (313 sn)
+2026-08-22 21:40:21 | ATLANDI kaynak=gemini | neden=gunluk istek limiti doldu (20/20)
+2026-08-22 21:40:23 | OK kaynak=glm | 2.5 sn | tools=False | istek=51 | genel sohbet → varsayilan sira
+2026-08-22 21:40:23 | ATLANDI kaynak=groq | neden=429 sonrasi soguma (311 sn)
+2026-08-22 21:40:23 | ATLANDI kaynak=gemini | neden=gunluk istek limiti doldu (20/20)
+2026-08-22 21:40:26 | OK kaynak=glm | 2.6 sn | tools=False | istek=52 | genel sohbet → varsayilan sira
+2026-08-23 10:53:44 | OK kaynak=groq | 0.0 sn | tools=False | istek=1 | genel sohbet → varsayilan sira
+2026-08-23 10:53:44 | HATA kaynak=groq (0.0 sn): patladi
+2026-08-23 10:53:44 | OK kaynak=glm | 0.0 sn | tools=False | istek=1 | genel sohbet → varsayilan sira
+2026-08-23 10:53:44 | ATLANDI kaynak=groq | neden=gunluk istek limiti doldu (80/80)
+2026-08-23 10:53:44 | OK kaynak=glm | 0.0 sn | tools=False | istek=1 | genel sohbet → varsayilan sira
+2026-08-23 10:53:44 | ATLANDI kaynak=deepseek | neden=ucretli cagri varsayilan engelli
+2026-08-23 10:53:44 | OK kaynak=yerel | 0.0 sn | tools=False | istek=1 | dustu=1 bulut

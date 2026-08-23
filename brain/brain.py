@@ -13,13 +13,12 @@ from datetime import datetime
 from brain.groq import GroqClient, MODELLER
 from brain.gemini import GeminiClient
 from brain.glm import GLMClient
-from brain.deepseek import DeepSeekClient
-from brain.qwen import QwenClient
 from brain.nvidia import NvidiaClient
 from brain.openrouter import OpenRouterClient
 from brain.cloudflare import CloudflareClient
 from brain.cohere import CohereClient
 from brain.ollama import OllamaClient
+from brain.stats import model_stats_al
 from brain.kota import KotaYoneticisi
 from brain import secici, registry
 
@@ -101,36 +100,15 @@ class Brain:
             except ValueError as e:
                 logger.warning("GLM baslatilamadi: %s", e)
 
-        # Dorduncu bulut saglayici: DeepSeek (ucretli — bakiye yoksa atlanir)
-        self.deepseek_key = (
-            os.environ.get("DEEPSEEK_API_KEY") or ayar.get("deepseek_key") or ""
-        )
-        self._deepseek = None
-        if self.deepseek_key:
-            try:
-                self._deepseek = DeepSeekClient(self.deepseek_key)
-            except ValueError as e:
-                logger.warning("DeepSeek baslatilamadi: %s", e)
-
-        # Besinci bulut saglayici: Qwen (QwenCloud/DashScope)
-        self.dashscope_key = (
-            os.environ.get("DASHSCOPE_API_KEY") or ayar.get("dashscope_key") or ""
-        )
-        self._qwen = None
-        if self.dashscope_key:
-            try:
-                self._qwen = QwenClient(self.dashscope_key)
-            except ValueError as e:
-                logger.warning("Qwen baslatilamadi: %s", e)
-
-        # Altinci bulut saglayici: NVIDIA NIM (Nemotron)
+        # Altinci bulut saglayici: NVIDIA NIM (GPT-OSS / Nemotron / Kimi)
         self.nvidia_key = (
             os.environ.get("NVIDIA_API_KEY") or ayar.get("nvidia_key") or ""
         )
         self._nvidia = None
         if self.nvidia_key:
             try:
-                self._nvidia = NvidiaClient(self.nvidia_key)
+                self._nvidia = NvidiaClient(
+                    self.nvidia_key, model=ayar.get("nvidia_model"))
             except ValueError as e:
                 logger.warning("NVIDIA baslatilamadi: %s", e)
 
@@ -175,7 +153,8 @@ class Brain:
                 logger.warning("Cohere baslatilamadi: %s", e)
 
     def _bulut_zinciri(self) -> list:
-        """Oncelik sirasi: Groq -> Gemini -> GLM -> Cloudflare -> NVIDIA -> OpenRouter -> DeepSeek."""
+        """Oncelik sirasi: Groq -> Gemini -> GLM -> Cloudflare -> Cohere
+        -> NVIDIA -> OpenRouter. (qwen/deepseek 2026-08-22'de cikarildi.)"""
         zincir = []
         if self._groq is not None and self._groq.musait():
             zincir.append(("groq", self._groq))
@@ -189,12 +168,8 @@ class Brain:
             zincir.append(("cohere", self._cohere))
         if self._nvidia is not None and self._nvidia.musait():
             zincir.append(("nvidia", self._nvidia))
-        if self._qwen is not None and self._qwen.musait():
-            zincir.append(("qwen", self._qwen))
         if self._openrouter is not None and self._openrouter.musait():
             zincir.append(("openrouter", self._openrouter))
-        if self._deepseek is not None and self._deepseek.musait():
-            zincir.append(("deepseek", self._deepseek))
         return zincir
 
     def bulut_musait(self) -> bool:
@@ -284,36 +259,45 @@ class Brain:
                 hatalar.append("%s: %s" % (ad, engel))
                 continue
 
+            istat = model_stats_al()
             t0 = time.time()
             try:
                 if tools:
                     yanit = istemci.cevapla(messages, tools=tools)
                 else:
                     yanit = istemci.cevapla(messages)
+                sure = time.time() - t0
                 istek_no = self.kota.harca(ad)
                 _audit("OK kaynak=%s | %.1f sn | tools=%s | istek=%d | %s" %
-                       (ad, time.time() - t0, bool(tools), istek_no, gerekce))
+                       (ad, sure, bool(tools), istek_no, gerekce))
+                istat.kaydet(ad, sure, basarili=True, tools=bool(tools))
                 # Secim gorunur olsun: one alinma varsa gosterimde tasi
                 gosterim = ad
                 if tip in ("kod", "arastirma", "hiz") and ad in sirali[:2]:
                     gosterim = "%s · %s isi" % (ad, tip)
                 return yanit, gosterim
             except Exception as e:
+                sure = time.time() - t0
                 logger.warning("%s hatasi, siradaki deneniyor: %s", ad, e)
                 hatalar.append("%s: %s" % (ad, str(e)[:80]))
                 self.kota.hata_isle(ad, str(e))
                 _audit("HATA kaynak=%s (%.1f sn): %s" %
-                       (ad, time.time() - t0, str(e)[:100]))
+                       (ad, sure, str(e)[:100]))
+                istat.kaydet(ad, sure, basarili=False, hata=str(e)[:100], tools=bool(tools))
 
         # Tum bulutlar dustu → yerel Ollama
+        istat = model_stats_al()
         try:
             t0 = time.time()
             yanit = self._ollama.cevapla(messages, yerel_model, tools=tools)
+            sure = time.time() - t0
             istek_no = self.kota.harca("yerel")
             _audit("OK kaynak=yerel | %.1f sn | tools=%s | istek=%d | dustu=%d bulut"
-                   % (time.time() - t0, bool(tools), istek_no, len(hatalar)))
+                   % (sure, bool(tools), istek_no, len(hatalar)))
+            istat.kaydet("yerel", sure, basarili=True, tools=bool(tools))
             return yanit, "yerel"
         except Exception as e:
+            istat.kaydet("yerel", 0, basarili=False, hata=str(e)[:100], tools=bool(tools))
             detay = "; ".join(hatalar) if hatalar else str(e)
             _audit("TAM BASARISIZLIK: %s" % detay[:150])
             raise RuntimeError(f"Hicbir model calismadi ({detay})") from e

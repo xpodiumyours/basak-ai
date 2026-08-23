@@ -355,3 +355,30 @@ body.sinema .chat-scroll {
 body.sinema.goster-mesajlar .chat-scroll { display: block; animation: rise 0.25s ease-out; }
 body.sinema.goster-mesajlar #sahne { opacity: .55; }
 body.sinema.goster-mesajlar #btnMesajlar { color: var(--accent); background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.45); }
+
+/* Status chip stilleri - brain ve token durumu */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.status-chip .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+.status-chip.active {
+  background: rgba(59, 130, 246, 0.3);
+  color: var(--accent);
+}

@@ -163,4 +163,79 @@ TOOLS = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "video_analyze",
+            "description": (
+                "Video dosyasini analiz et: konusmacilari tespit et, "
+                "transkript uret, zaman damgalari goster. "
+                "'Bu videoyu analiz et', 'Videodaki konusmacilari bul' "
+                "dediginde kullan. "
+                "Desteklenen formatlar: mp4, mkv, avi, mov, webm, wav, mp3."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "video_yolu": {
+                        "type": "string",
+                        "description": "Video dosyasinin mutlak yolu",
+                    }
+                },
+                "required": ["video_yolu"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "image_analyze",
+            "description": (
+                "Bir goruntuyu analiz et: icerigi, metni, nesneleri, renkleri acikla. "
+                "'Bu goruntuyu acikla', 'Fotoğrafta ne var', 'Ekran goruntusunu oku' "
+                "dediginde kullan. jpg/png/webp/gif destekler."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "goruntu_yolu": {
+                        "type": "string",
+                        "description": "Goruntu dosyasinin mutlak yolu",
+                    },
+                    "soru": {
+                        "type": "string",
+                        "description": "Goruntu hakkinda ozel soru (opsiyonel)",
+                    },
+                },
+                "required": ["goruntu_yolu"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "model_stats",
+            "description": (
+                "Model performans istatistiklerini goster. "
+                "Hangi model daha hizli, hangisi daha basarili, "
+                "son hatalar neler — ogren. "
+                "'Model performansları nasıl', 'Hangi model daha hızlı' "
+                "dediginde kullan."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "model": {
+                        "type": "string",
+                        "description": "Belirli bir modelin istatistigi (opsiyonel)",
+                    },
+                    "son_saat": {
+                        "type": "integer",
+                        "description": 'Son kac saat (varsayilan 24)',
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
 ]

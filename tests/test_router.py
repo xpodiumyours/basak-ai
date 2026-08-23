@@ -31,11 +31,11 @@ class TestRegistry:
         for ad, k in registry.SAGLAYICILAR.items():
             assert "ucretsiz" in k and "tools" in k and "gucleri" in k, ad
 
-    def test_varsayilan_sirada_ucretli_sonda(self):
-        sira = registry.VARSAYILAN_SIRA
-        assert sira.index("deepseek") == len(sira) - 1 or \
-            all(not registry.ucretli_mi(a)
-                for a in sira[sira.index("deepseek") + 1:])
+    def test_varsayilan_zincirde_ucretli_yok(self):
+        # Ucretli saglayici (deepseek) zincirden tamamen cikarildi;
+        # kazayla cagrilmasin diye varsayilan zincir tamamen ucretsiz olmali.
+        for ad in registry.VARSAYILAN_SIRA:
+            assert registry.ucretli_mi(ad) is False, f"{ad} ucretli, zincire giremez"
 
 
 class TestSiniflandirma:
@@ -74,8 +74,11 @@ class TestSecici:
 
     def test_genel_varsayilan_sira(self):
         sirali, gerekce = secici.sec(text="naber")
-        assert sirali[0] == "groq"  # varsayilan zincir basi
-        assert "varsayilan" in gerekce
+        # Genel sohbette ilk 3 saglayici rastgele siralanir (dagitim)
+        ilk_3 = set(registry.VARSAYILAN_SIRA[:3])
+        assert sirali[0] in ilk_3, "ilk saglayici ilk 3 icinden olmali"
+        assert len(sirali) == len(registry.VARSAYILAN_SIRA)
+        assert "dagitilmis" in gerekce
 
 
 @pytest.fixture

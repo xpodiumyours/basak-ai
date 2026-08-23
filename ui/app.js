@@ -198,9 +198,13 @@ window.BasakUI = {
     $("btnMic").disabled = on;
     setOrb(on ? "dinliyor" : "bekliyor");
   },
-  sttResult(text) {
+  sttResult(text, speaker) {
     const input = $("input");
-    input.value = text;
+    if (speaker && speaker.isim && speaker.isim !== "Bilinmeyen") {
+      input.value = text + " [" + speaker.isim + "]";
+    } else {
+      input.value = text;
+    }
     send();
   },
   ses(seviye) {
@@ -310,6 +314,11 @@ async function boot() {
       state.model = status.model;
       state.ttsOn = !!status.tts_on;
       setStatus("ok", (status.cloud ? "hızlı bulut hazır" : (status.model || "yerel beyin") + " hazır"));
+      // Token durumu gösterimi
+      if (status.token_durumu) {
+        $("tokenLabel").textContent = "token: " + status.token_durumu;
+        $("tokenStatus").style.display = "block";
+      }
       const sel = $("modelSelect");
       if (status.models && status.models.length) {
         sel.innerHTML = status.models.map((m) => "<option>" + m + "</option>").join("");

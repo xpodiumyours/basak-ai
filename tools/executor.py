@@ -10,6 +10,7 @@ from tools.notes import save_note
 from tools.file_ops import read_file, write_file_ops, list_files
 from tools.app_launcher import ac_uygulama
 from tools.reminders import bugunku_hatirlatmalar
+from tools.video_analyzer import video_analyze
 from tools.tool_logger import log_tool_call
 from tools.permissions import izinli_mi, etiketler
 
@@ -86,6 +87,24 @@ def calistir(tool_name: str, arguments: dict, knowledge_dir: str = "",
             arguments.get("uygulama", ""),
             arguments.get("parametre", ""),
         )
+    elif tool_name == "video_analyze":
+        sonuc = video_analyze(arguments.get("video_yolu", ""))
+    elif tool_name == "image_analyze":
+        from tools.image_analyzer import image_analyze
+        sonuc = image_analyze(
+            arguments.get("goruntu_yolu", ""),
+            soru=arguments.get("soru"),
+        )
+    elif tool_name == "model_stats":
+        from brain.stats import model_stats_al
+        istat = model_stats_al()
+        model = arguments.get("model")
+        son_saat = arguments.get("son_saat", 24)
+        if model:
+            ozet = istat.ozet(model=model, son_saat=son_saat)
+        else:
+            ozet = istat.siralama(son_saat=son_saat)
+        sonuc = {"result": ozet}
     else:
         return {"error": f"Tool eşleştirilemedi: {tool_name}"}
 

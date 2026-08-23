@@ -13,6 +13,9 @@ import re
 import threading
 import uuid
 
+from olcu import cikis_kapisi, PROMPT_BLOGU
+from brain import secici
+
 logger = logging.getLogger(__name__)
 
 # P3 Session Manager: uygulama acilista bir oturum kimligi uretir;
@@ -53,6 +56,9 @@ TOOL_LABELS = {
     "list_tasks": "Görevler listeleniyor...",
     "complete_task": "Tamamlanıyor...",
     "save_note": "Kaydediliyor...",
+    "git_durum": "Ölçülüyor (git)...",
+    "belge_ara": "Belgeler taranıyor...",
+    "dosya_bilgi": "Dosya ölçülüyor...",
 }
 
 TOOL_YONLENDIRME = (
@@ -64,6 +70,16 @@ TOOL_YONLENDIRME = (
     "- Güncel bilgi gerektiğinde (hava, fiyat, haber) → web_search\n"
     "- Selamlaşma, veda, basit sohbet → tool KULLANMA, doğrudan cevap ver\n\n"
     "ÖNEMLİ: Tool çağrısından sonra tool sonucunu kullanıcıya sun."
+)
+
+# O-1: once olc, sonra konus (OLCU.md §3)
+OLCU_YONLENDIRME = (
+    "\nÖLÇÜM ÖNCE GELİR — ZORUNLU AKIŞ:\n"
+    "1) Proje adı, durum, değişiklik, commit sorularında ÖNCE git_durum veya belge_ara veya dosya_bilgi araçlarını çalıştır.\n"
+    "2) Cevabı YALNIZCA araç çıktısından kur. Modelin kendi bilgisinden/önceki bilgisinden cümle katma.\n"
+    "3) Ölçülemeyen şeyde '[B] Bunun ölçümü yapılamıyor: ...' de.\n"
+    "4) Araç kullanmadan cevap verme — measurement tools her zaman mevcut.\n"
+    "KURAL: Proje durumu/değişiklik/commit/dosya sorularında measurement tool kullanmadan cevap vermek YASAKTIR.\n"
 )
 
 # Tool gerektiren anahtar kelimeler
@@ -78,6 +94,11 @@ _TOOL_KELIMELERI = {
                   "aklında tut"],
     "web_search": ["hava", "sıcaklık", "fiyat", "haber", "güncel",
                    "para", "dolar", "euro", "kur", "borsa", "döviz"],
+    # O-1 olcum araclari: proje adi gecen her soru once olculur
+    "git_durum": ["vixrex", "numeramatch", "xses",
+                  "durumu ne", "durum ne", "son commit", "ne yapiyoruz"],
+    "belge_ara": ["planda ne", "belgede ne", "listede ne yaziyor",
+                  "dokumanda", "gorev listesinde"],
 }
 
 
@@ -121,6 +142,8 @@ def _dil_kontrol(text):
 _knowledge_cache = None
 _knowledge_lock = threading.Lock()
 
+KNOWLEDGE_EMBED_CHARS = 2000  # Sadece bu kadar direkt embed edilir, geri kalan BM25
+
 
 def _load_knowledge():
     global _knowledge_cache
@@ -134,7 +157,7 @@ def _load_knowledge():
         return
 
     parcalar = []
-    kalan = KNOWLEDGE_MAX_CHARS
+    kalan = KNOWLEDGE_EMBED_CHARS  # 2000 char embed için sınır
 
     if "INDEX.md" in dosyalar:
         dosyalar.remove("INDEX.md")
@@ -166,7 +189,29 @@ def _load_knowledge():
         parcalar.append("### " + ad + "\n" + icerik)
         kalan -= len(icerik)
 
-    _knowledge_cache = "\n\n".join(parcalar)
+    # TÜM BILGI TABANININ %20'İNYI KORU, GERİ KALAN BM25'E BıLDİRIR
+    if KNOWLEDGE_EMBED_CHARS < 12000:
+        try:
+            with open(os.path.join(KNOWLEDGE_DIR, "README.md"), "r",
+                       encoding="utf-8", errors="replace") as f:
+                readme = f.read().strip()
+            # Toplam bilgi miktarını hesapla
+            toplam_bilgi = KNOWLEDGE_EMBED_CHARS
+            for ad in dosyalar:
+                try:
+                    yol = os.path.join(KNOWLEDGE_DIR, ad)
+                    if not os.path.exists(yol):
+                        yol = os.path.join(BASE, ad)
+                    with open(yol, "r", encoding="utf-8", errors="replace") as f:
+                        toplam_bilgi += len(f.read())
+                except OSError:
+                    pass
+            kartik = f"\n\n--- BILGI EKSİĞİ: {toplam_bilgi - KNOWLEDGE_EMBED_CHARS} karakter BM25 hafızasına bırakıldı ---"
+            _knowledge_cache = "\n\n".join(parcalar) + kartik
+        except OSError:
+            _knowledge_cache = "\n\n".join(parcalar)
+    else:
+        _knowledge_cache = "\n\n".join(parcalar)
 
 
 def yukle(path, varsayilan):
@@ -186,6 +231,14 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     from tools import calistir
 
     text = (text or "").strip()
+
+    # Konuşmacı bilgisini çıkar: "Merhaba [Casper]" → "Merhaba", aktif_konusmaci="Casper"
+    aktif_konusmaci = None
+    konusmaci_eslesme = re.search(r"\[([^\]]+)\]\s*$", text)
+    if konusmaci_eslesme:
+        aktif_konusmaci = konusmaci_eslesme.group(1)
+        text = text[:konusmaci_eslesme.start()].strip()
+
     js_callback("BasakUI.thinking()")
     if not text:
         js_callback("BasakUI.error(" + _j("Bos mesaj") + ")")
@@ -203,7 +256,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     raw_gecmis = [m for m in yukle(HISTORY_FILE, []) if m.get("role") != "system"]
     gecmis = _temizle_history(raw_gecmis)
 
-    tam_prompt = system_prompt + TOOL_YONLENDIRME
+    tam_prompt = system_prompt + TOOL_YONLENDIRME + OLCU_YONLENDIRME + PROMPT_BLOGU
+    if aktif_konusmaci:
+        tam_prompt += "\n\n[ANLIK DURUM] An itibarıyla konuşan kişi: %s. Ona göre hitap et." % aktif_konusmaci
     mesajlar = [{"role": "system", "content": tam_prompt}]
 
     with _knowledge_lock:
@@ -233,12 +288,39 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     # Tool gerekli mi kontrol et
     tools_gerekli, hangi_toollar = _tool_gerekli_mi(text)
 
+    # O-1: measurement araçları her zaman sunulur (OLCU.md §3).
+    # Model measurement tool'ları pip-kelime beklemeksizin kullanabilir;
+    # diğer tool'lar keyword eşleşmesiyle eklenir.
+    _OLCUM_TOOLLARI = {"git_durum", "belge_ara", "dosya_bilgi"}
+    if tools:
+        olcum_set = {t["function"]["name"] for t in tools
+                     if t["function"]["name"] in _OLCUM_TOOLLARI}
+        if tools_gerekli:
+            aktif_toollar = tools
+        else:
+            # Yalnız measurement araçlarını sun (token tasarrufu)
+            aktif_toollar = [t for t in tools
+                             if t["function"]["name"] in olcum_set]
+    else:
+        aktif_toollar = None
+
     # Tum mesajlar brain.cevapla uzerinden gider:
-    # once bulut zinciri (Groq → Gemini), hepsi duserse yerel Ollama.
+    # Model seçimi: Kullanıcı isteğine göre intent bazlı routing
+    hedef_model, model_sebep = secici.route_by_intent(text, modeller)
+    # Eğer route func model belirleyemediyse, kullanılan modeli koru
+    calistir_model = hedef_model if hedef_model else model
+    # UI'da model seçimi bilgisi gönder
     try:
         yanit, kaynak = brain.cevapla(
-            mesajlar, model,
-            tools=tools if tools_gerekli else None)
+            mesajlar, calistir_model,
+            tools=aktif_toollar if aktif_toollar else None)
+    except Exception as e:
+        hata_str = str(e)
+        if "429" in hata_str or "rate" in hata_str.lower():
+            js_callback("BasakUI.error(" + _j("Cok fazla istek, biraz bekle") + ")")
+        else:
+            js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
+        return
     except Exception as e:
         hata_str = str(e)
         if "429" in hata_str or "rate" in hata_str.lower():
@@ -267,15 +349,25 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
             except Exception:
                 pass
 
-        _save_and_reply(text, cevap, kaynak, gecmis, js_callback)
+        # Çıkış kapısı (Ö-0): işaretsiz/uydurma cümle kullanıcıya gitmez
+        cevap, _kapi = cikis_kapisi(cevap, olcumler=[])
+        _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=aktif_konusmaci)
         return
 
-    cevap = _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calistir)
-    _save_and_reply(text, cevap, kaynak, gecmis, js_callback)
+    cevap, arac_ciktilari = _tool_calling_multi(
+        tool_calls, mesajlar, brain, model, js_callback, calistir)
+    cevap = _temizle(cevap)
+    # Kapı araç çıktılarına karşı da denetler ([Ö] alıntısı birebir olmalı)
+    cevap, _kapi = cikis_kapisi(cevap, olcumler=arac_ciktilari)
+    _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=aktif_konusmaci)
 
 
 def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calistir):
-    """Tool sonuclarini modele geri gondererek anlamlil cevap uretir."""
+    """Tool sonuclarini modele geri gondererek anlamlil cevap uretir.
+
+    Donus: (cevap_metni, arac_ciktilari) — ciktilar cikis kapisinin [O]
+    denetimi icin gecer.
+    """
     tool_sonuclari = []
     for call in tool_calls:
         func = call.get("function", {})
@@ -301,14 +393,15 @@ def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calisti
         son_yanit, _ = brain.cevapla(expanded, model, tools=None)
         son_cevap = _temizle(son_yanit.get("content", ""))
         if son_cevap:
-            return son_cevap
+            return (son_cevap, [s for _, s in tool_sonuclari])
     except Exception:
         pass
 
-    return "\n".join(sonuc for _, sonuc in tool_sonuclari)
+    return ("\n".join(sonuc for _, sonuc in tool_sonuclari),
+            [s for _, s in tool_sonuclari])
 
 
-def _save_and_reply(text, cevap, kaynak, gecmis, js_callback):
+def _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=""):
     gecmis += [{"role": "user", "content": text, "oturum": OTURUM_ID},
                {"role": "assistant", "content": cevap, "oturum": OTURUM_ID}]
     kaydet(HISTORY_FILE, gecmis[-40:])
@@ -317,7 +410,7 @@ def _save_and_reply(text, cevap, kaynak, gecmis, js_callback):
     motor = _hafiza_al()
     if motor and cevap:
         try:
-            motor.episodik_kaydet(text, cevap)
+            motor.episodik_kaydet(text, cevap, speaker=speaker)
         except Exception as e:
             logger.warning("Ani kaydedilemedi: %s", e)
 

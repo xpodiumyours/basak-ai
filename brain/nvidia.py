@@ -5,7 +5,7 @@ https://integrate.api.nvidia.com/v1
 Anahtar: env NVIDIA_API_KEY veya ayarlar.json -> nvidia_key (nvapi-... ile baslar).
 
 Model secimi:
-- varsayilan: TERCIH_SIRASI'ndaki ilk hesapta acik Nemotron varyanti
+- varsayilan: TERCIH_SIRASI'ndaki ilk hesapta acik model (GPT-OSS-20b)
 - ayarlar.json -> "nvidia_model" ile sabit model secilebilir
   (orn. deepseek-v4-flash). Bu model "thinking" modundadir ve yaniti
   gecikebilir; o yuzden cevapla() model duzeyinde yedegine dusen
@@ -23,31 +23,58 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://integrate.api.nvidia.com/v1"
 
-# Tercih sirasi: guncel NVIDIA NIM modelleri (agustos 2026)
-#
-# MiniMax M3 (2026-08-23): Nemotron/GLM/GPT-OSS ailelerinden bagimsiz ikinci
-# bir aile — P4'teki karsilikli denetim icin ayni aileden iki model ise
-# yaramaz. Canli olcum: 1.0s, Turkce dogru, content dolu (reasoning tuzagi
-# yok, dusuk max_tokens ile bile bos donmuyor). 2. siraya konuldu: varsayilan
-# (lightning) degismesin ama cevapla()'daki sirali[:4] penceresine girsin —
-# listenin sonuna eklenirse hicbir zaman denenmezdi.
+# Tercih sirasi: NIM ucretsiz modeller — hepsi 2026-08-22 canli testli
+# (_zincir_probe.py): calismayanlar (gpt-oss-120b timeout, laguna 503,
+# kimi-k2.6/mistral-large-2 404, diffusiongemma timeout) listede YOK.
 TERCIH_SIRASI = [
-    "nvidia/nemotron-3.5-lightning-30b-a3b",
-    "minimaxai/minimax-m3",
-    "nvidia/nemotron-3-super-120b-a12b",
+    # CANLI TESTLI — 22.08.2026 sirasiyla hiza gore siralanmistir
+    # --- En hizli (0-2s) ---
+    "nvidia/nemotron-3-nano-30b-a3b",        # 0.9s, 30b hafif
+    "minimaxai/minimax-m3",                  # 1.0s, ayri aile (23.08 olcum)
+    "meta/muse-glimmer-30b",                 # 1.2s, metin+goruntu
+    "nvidia/nvidia-nemotron-nano-9b-v2",      # 1.5s, 9b en hafif
+    "nvidia/nemotron-3.5-lightning-30b-a3b", # 1.8s, hizli
+    # --- Hizli (2-4s) ---
+    "nvidia/nemotron-3-super-120b-a12b",     # 2.2s, 120b MoE
+    "stepfun-ai/step-3.7-flash",             # 2.5s, MoE kod
+    "thinkingmachines/inkling",              # 2.8s, dusunen
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",  # 3.0s, TURKCE + multimodal
+    "openai/gpt-oss-20b",                    # 4.1s, tool destekli
+    # --- Orta (4-10s) ---
+    "nvidia/nemotron-3-ultra-550b-a55b",     # 6.5s, 1M baglam
+    # --- Yavas (10s+) ---
+    "moonshotai/kimi-k3",                    # 27.9s, TURKCE + kod
+    # --- Calismayanlar (listede tutuldu, fallback icin) ---
     "nvidia/llama-3.3-nemotron-super-49b-v1.5",
-    "meta/llama-3.3-70b-instruct",
-    "nvidia/nemotron-3-nano-30b-a3b",
+    "meta/llama-3.3-70b-instruct",          # 65s timeout
+    "google/gemma-4-31b-it",                 # 77s timeout
 ]
 
 DEEPSEEK_MODEL = "deepseek-ai/deepseek-v4-flash-0731"
+MINIMAX_MODEL = "minimaxai/minimax-m3"
+GPTOSS_MODEL = "openai/gpt-oss-20b"
 
 MODELLER = {
-    "varsayilan": None,          # TERCIH_SIRASI'ndan otomatik
-    "deepseek": DEEPSEEK_MODEL,
+    "varsayilan": None,          # TERCIH_SIRASI'ndan otomatik (GPT-OSS-20b)
+    "gptoss": GPTOSS_MODEL,
+    "gemma": "google/gemma-4-31b-it",            # 31b, google kod (yavas)
+    "kimi": "moonshotai/kimi-k3",
+    "ultra": "nvidia/nemotron-3-ultra-550b-a55b",
+    "glimmer": "meta/muse-glimmer-30b",
+    "omni": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",  # 4.7s, multimodal
+    "nano30b": "nvidia/nemotron-3-nano-30b-a3b",               # 30b hizli
+    "nano9b": "nvidia/nvidia-nemotron-nano-9b-v2",             # 9b hafif
+    "inkling": "thinkingmachines/inkling",
+    "step": "stepfun-ai/step-3.7-flash",
+    "minimax": MINIMAX_MODEL,    # hizli MoE, arac destegi var
+    "deepseek": DEEPSEEK_MODEL,  # dusunen model; cok yavas (~90-180 sn)
 }
 
-# DeepSeek v4 Flash: dusunerek cevap verir; normal cagrilara gore cok daha yavas
+# Dev thinking modelleri otomatik SECILMEZ (yavas); ayarlardan secilir.
+# Otomatik secim her zaman hizli Nemotron hattini tercih eder.
+
+# Buyuk modeller: dusunerek cevap verdikleri icin normalden yavastir;
+# istemci varsayilan 20 sn timeout bunlara yetmez, cagri basina uzatilir
 _THINKING_TIMEOUT = 180.0
 _NORMAL_TIMEOUT = 20.0
 
@@ -64,8 +91,11 @@ class NvidiaClient:
         self._kur()
 
     @staticmethod
-    def _thinking_mi(model_adi: str) -> bool:
-        return bool(model_adi and "deepseek" in model_adi.lower())
+    def _buyuk_model_mi(model_adi: str) -> bool:
+        """Dusunen/buyuk modeller: DeepSeek, MiniMax, Ultra, Inkling."""
+        ad = (model_adi or "").lower()
+        return ("deepseek" in ad or "minimax" in ad
+                or "ultra" in ad or "inkling" in ad)
 
     def _kur(self):
         try:
@@ -106,18 +136,20 @@ class NvidiaClient:
         return self.client is not None
 
     def _cagri_ata(self, model_adi: str, messages: list, tools: list = None) -> dict:
-        """Tek model icin cagri; DeepSeek icin thinking ayarlari eklenir."""
+        """Tek model icin cagri; buyuk modellerde timeout uzatilir."""
         kwargs = {
             "model": model_adi,
             "messages": messages,
             "temperature": 0.5,
         }
-        if self._thinking_mi(model_adi):
-            # Dusunen modelde uzun cevap uretilir; token tavanini makul tut
+        if self._buyuk_model_mi(model_adi):
             kwargs["max_tokens"] = 2048
-            kwargs["extra_body"] = {
-                "chat_template_kwargs": {"thinking": True}
-            }
+            kwargs["timeout"] = _THINKING_TIMEOUT
+            if "deepseek" in model_adi.lower():
+                # DeepSeek NIM'de dusunme modu acik olarak istenir
+                kwargs["extra_body"] = {
+                    "chat_template_kwargs": {"thinking": True}
+                }
         else:
             kwargs["max_tokens"] = 1024
         if tools:

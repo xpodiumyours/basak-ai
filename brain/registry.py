@@ -72,9 +72,9 @@ SAGLAYICILAR = {
         "ad": "NVIDIA NIM",
         "ucretsiz": True,
         "tools": True,
-        "gucleri": ["kod"],
+        "gucleri": ["kod", "goruntu", "video"],
         "gunluk_istek": None,
-        "not": "Nemotron; kod islerinde one alinir.",
+        "not": "GPT-OSS-20b + Gemma-4 + Nemotron + Omni + Kozmos; kod/goruntu/video.",
     },
     "openrouter": {
         "ad": "OpenRouter",
@@ -98,7 +98,7 @@ SAGLAYICILAR = {
 # Ucretli saglayici sonda: kazayla cagrilmasin.
 VARSAYILAN_SIRA = [
     "groq", "gemini", "glm", "cloudflare", "cohere", "nvidia",
-    "openrouter", "qwen", "deepseek",
+    "openrouter",
 ]
 
 
