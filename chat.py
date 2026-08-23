@@ -252,6 +252,51 @@ def kaydet(path, veri):
         json.dump(veri, f, ensure_ascii=False, indent=2)
 
 
+# Bağlam diyeti ADIM 1 (2026-08-23): kategori -> o tetikleyicide hangi
+# araçların KILAVUZU gider. Eskiden tek anahtar kelime 18 aracın tamamını
+# açıyordu (~3.000 token); artık yalnız ilgili aile gider.
+_OLCUM_TOOLLARI = frozenset(("git_durum", "belge_ara", "dosya_bilgi"))
+_ARAC_AILESI = {
+    "add_task": frozenset(("add_task",)),
+    "list_tasks": frozenset(("list_tasks", "get_reminders")),
+    "complete_task": frozenset(("complete_task",)),
+    "save_note": frozenset(("save_note", "deftere_kaydet")),
+    "web_search": frozenset(("web_search", "sayfa_oku")),
+    "git_durum": _OLCUM_TOOLLARI,
+    "belge_ara": _OLCUM_TOOLLARI,
+    "video_analyze": frozenset(("video_analyze",)),
+    "image_analyze": frozenset(("image_analyze",)),
+    "model_stats": frozenset(("model_stats",)),
+    "dosya_islemi": frozenset(("read_file", "write_file_tool", "list_files")),
+    "ac_uygulama": frozenset(("ac_uygulama",)),
+}
+# Bugune dek tam setle dolayli ulasilan araçlara minik tetikleyiciler
+# (dinamik sunumda erisilebilir kalmanin sarti):
+_EK_TETIKLER = {
+    "dosya_islemi": ("dosya", "klasor", "klasör"),
+    "ac_uygulama": ("uygulama", "çalıştır", "calistir"),
+    "video_analyze": ("video",),
+    "image_analyze": ("görüntü", "goruntu", "fotoğraf", "fotograf"),
+    "model_stats": ("model istatistik", "hangi model", "performans"),
+}
+
+
+def _dinamik_araclar(text_lower, tools):
+    """Soruya gore yalnız ilgili araç kılavuzlarını dondurur.
+
+    Olçüm üçlüsü HER ZAMAN dahil (O-1 kurali — ÖLÇÜ.md §3). Verilen
+    listede olmayan aile üyeleri sessizce elenir; yetki tavanı bozulmaz.
+    """
+    istenen = set(_OLCUM_TOOLLARI)
+    for ad, kelimeler in _TOOL_KELIMELERI.items():
+        if any(k in text_lower for k in kelimeler):
+            istenen |= _ARAC_AILESI.get(ad, frozenset())
+    for ad, kelimeler in _EK_TETIKLER.items():
+        if any(k in text_lower for k in kelimeler):
+            istenen |= _ARAC_AILESI.get(ad, frozenset())
+    return [t for t in tools if t["function"]["name"] in istenen]
+
+
 def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     from tools import calistir
 
@@ -310,22 +355,11 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
 
     mesajlar += gecmis[-MAX_HISTORY:] + [{"role": "user", "content": text}]
 
-    # Tool gerekli mi kontrol et
-    tools_gerekli, hangi_toollar = _tool_gerekli_mi(text)
-
-    # O-1: measurement araçları her zaman sunulur (OLCU.md §3).
-    # Model measurement tool'ları pip-kelime beklemeksizin kullanabilir;
-    # diğer tool'lar keyword eşleşmesiyle eklenir.
-    _OLCUM_TOOLLARI = {"git_durum", "belge_ara", "dosya_bilgi"}
+    # Baglam diyeti ADIM 1: anahtar kelime artik TAM SETI acmaz — yalniz
+    # ilgili arac ailesinin kilavuzu gider. Olcum uclusu her zaman acik
+    # (O-1 kurali). Yetki tavani aynen gecer: dongu bu seti asamaz.
     if tools:
-        olcum_set = {t["function"]["name"] for t in tools
-                     if t["function"]["name"] in _OLCUM_TOOLLARI}
-        if tools_gerekli:
-            aktif_toollar = tools
-        else:
-            # Yalnız measurement araçlarını sun (token tasarrufu)
-            aktif_toollar = [t for t in tools
-                             if t["function"]["name"] in olcum_set]
+        aktif_toollar = _dinamik_araclar(text.lower(), tools)
     else:
         aktif_toollar = None
 

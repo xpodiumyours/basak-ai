@@ -29,3 +29,5 @@
 | izin-katmani-politikaya-baglandi.md | Izin katmani gercek kontrol oldu: sistem araclari varsayilan kapali, opt-in ile acilir; 278/278 yesil | opencode | 2026-08-23 | sonsuz |
 | gerceklik-kapisi-isaretsiz-gecis.md | Isaretsiz gecis sinirlandi: aracli tur tam denetlenir, aracsizda proje/hash/eylem sinyali elenir; 287/287 yesil | opencode | 2026-08-23 | sonsuz |
 | y-cumlesi-kanit-baglantisi.md | Y cumlesi kanit baglantisi: olcume yaslanan Y alintiyla sozcuk kokku paylasmali, alakasiz iddia elenir; 294/294 yesil | opencode | 2026-08-23 | sonsuz |
+| taban-olcumu-arac-disiplini.md | TABAN: 10 turda %30 arca kosti, %60 durust red, %10 olcumsuz bilgi sizintisi; groq 413 TPM asimi notu | opencode | 2026-08-23 | 30g |
+| baglam-diyeti-adim1-dinamik-arac.md | ADIM 1 dinamik arac sunumu: kilavuz yuku %82 dustu, disiplin %30->%80 cikti; 303/303 yesil | opencode | 2026-08-23 | 30g |

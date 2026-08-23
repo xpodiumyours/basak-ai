@@ -73,12 +73,14 @@ class TestYetkiTavani:
         assert brain.goren[1] == ["git_durum"], (
             "Dongu ikinci turda yetkiyi genisletti: %s" % brain.goren[1])
 
-    def test_anahtar_kelimeli_is_tam_seti_bastan_alir(self, izole):
-        """Kullanici eylem istediyse tam set BASTAN sunulur; cok adimli
-        'bul, sonra kaydet' akisi bozulmadan korunur."""
+    def test_anahtar_kelimeli_is_ilgili_aileyi_bastan_alir(self, izole):
+        """Baglam diyeti: anahtar kelime ARTIK tam seti acmaz — yalniz
+        ilgili aile + olcum uclusu sunulur. Cok adimli is korunur:
+        dongu her turda AYNI seti gorur (yetki tavani)."""
         brain = SahteBrain()
-        c.mesaj_isle("VixRex durumuna bak, bunu hatirla diye kaydet.",
-                     brain, "SYS", lambda code: None, TAM_TOOLLAR)
+        c.mesaj_isle(
+            "VixRex durumuna bak, su dosyaya yaz, uygulamayi calistir.",
+            brain, "SYS", lambda code: None, TAM_TOOLLAR)
         beklenen = ["git_durum", "write_file_tool", "ac_uygulama"]
         assert brain.goren[0] == beklenen
         assert brain.goren[1] == beklenen
