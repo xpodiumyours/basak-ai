@@ -392,8 +392,14 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
         _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=aktif_konusmaci)
         return
 
+    # YETKİ TAVANI: donguye SUZULMUŞ set girer — ham `tools` degil.
+    # Ilk turda ne sunulduysa sonraki turlarda da o gorunur; model kendi
+    # yetkisini genisletemez (2026-08-23'te Casper'in buldugu acik:
+    # olcum-suzuguyle baslayan bir is ikinci turda write_file_tool,
+    # deftere_kaydet, ac_uygulama gibi aracları gorebiliyordu).
     cevap, arac_ciktilari = _tool_calling_multi(
-        tool_calls, mesajlar, brain, model, js_callback, calistir, tools)
+        tool_calls, mesajlar, brain, model, js_callback, calistir,
+        aktif_toollar)
     cevap = _temizle(cevap)
     # Saglayici bazen kendi dusunme metnini cevap sanip gonderiyor
     # ("We need to answer..."). Dil kontrolu araciz yolda vardi, araclli
@@ -427,6 +433,10 @@ def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
     isteyebilir ("araclari say" -> "deftere kaydet"). Eskiden tek tur vardi,
     bu yuzden ikinci adim hicbir zaman calismiyordu (2026-08-23 olcumu).
     Son turda arac verilmez ki dongu kapansin.
+
+    YETKİ TAVANI: `tools` parametresi tavan setidir — tum turlarda YALNIZ
+    bu set sunulur. Çağıran taraf (mesaj_isle) süzülmüş aktif_toollar
+    verir; döngü seti asla büyütmez.
 
     Donus: (cevap_metni, arac_ciktilari) — ciktilar (arac_adi, metin)
     ciftleri olarak doner; cikis kapisi hem birebirligi hem ATFI denetler

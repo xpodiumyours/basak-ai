@@ -25,3 +25,4 @@
 | cok-adimli-is-ve-dusunme-metni-sizintisi.md | Cok adimli is ve dusunme metni sizintisi | claude | 2026-08-23 | 30g |
 | basak-bekleyen-isler-sirasi.md | Basak bekleyen isler sirasi | claude | 2026-08-23 | 30g |
 | b-cumlesinde-eylem-denetimi.md | B cumlesinde eylem denetimi: kaydedildi/eklendi iddiasi arac kosmadiysa elenir; 265/265 yesil | opencode | 2026-08-23 | 30g |
+| arac-dongusu-yetki-tavani.md | Arac dongusunda yetki tavani: ikinci tur ham tools gormuyordu, artik aktif_toollar tavani; 268/268 yesil | opencode | 2026-08-23 | sonsuz |
