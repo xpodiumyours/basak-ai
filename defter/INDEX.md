@@ -42,3 +42,6 @@
 | arac-logu-kirmalama.md | Arac logu kirmalama: hassas alanlar uzunlukla, anahtar desenleri maskeli; 362/362 yesil | opencode | 2026-08-24 | sonsuz |
 | not-kayitlari-benzersiz.md | Ayni adli not/defter kayitlari ezilmiyor: -2/-3 sonekli yeni dosya, INDEX iki satir; 368/368 yesil | opencode | 2026-08-24 | sonsuz |
 | gorev-eszamanli-yazma-korumasi.md | Gorev dosyasinda kilit+atomik yazma: 10 paralel thread kayipsiz, ID benzersiz; 371/371 yesil | opencode | 2026-08-24 | sonsuz |
+| gorev-eszamanli-yazma-korumasi.md | Gorev dosyasinda kilit+atomik yazma: 10 paralel thread kayipsiz, ID benzersiz; 371/371 yesil | opencode | 2026-08-24 | sonsuz |
+| sayfa-oku-ssrf-savunmasi.md | SSRF kapandi: cozulen IP denetimi + port kilidi + guvenli redirect; 381/381 yesil | opencode | 2026-08-24 | sonsuz |
+| bekleyen-isler-6-bayat.md | Madde 6 (selam) BAYAT: kod zaten saat bazli selam yapiyor; kayitlar kodla dogrulanmali | opencode | 2026-08-24 | sonsuz |

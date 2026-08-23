@@ -4,9 +4,14 @@ Hava durumu sorguları için Open-Meteo API kullanılır (ücretsiz, API key ger
 Diğer sorgular için DuckDuckGo kullanılır.
 """
 
+import ipaddress
 import json
 import logging
 import re
+import socket
+import urllib.error
+import urllib.request
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +165,62 @@ def _temizle(text):
 # E-2: Sayfa okuma aracı — yalnizca GET, 5000 karakter siniri
 _MAX_SAYFA = 5000
 
+# SSRF korumasi (2026-08-24, Casper'in bulgusu): string tabanli "localhost"
+# aramasi 127.0.0.2, [::1], onluk IP, ozel aglar ve ic IP'ye cozunen
+# domain'leri geciriyordu. Artik hostname COZULUR ve tum IP'lerin ozellikleri
+# denetlenir; yonlendirmelerde de her adim yeniden denetlenir.
+_IZINLI_PORT = (80, 443)
+
+
+def _engelli_ip_nedeni(hostname):
+    """Hostname'in cozuldugu TUM IP'ler guvenli mi?
+
+    Engel bulursa neden IP'yi, hepsi guvenliyse None dondurur.
+    getaddrinfo tabanli oldugu icin onluk/hex/sekizlik IP yazimlari ve
+    DNS uzerinden ic adreslere yonlenen domain'ler de yakalanir.
+    """
+    try:
+        bilgiler = socket.getaddrinfo(hostname, None)
+    except (socket.gaierror, OSError):
+        return "adres cozulemedi"
+    for b in bilgiler:
+        try:
+            ip = ipaddress.ip_address(b[4][0])
+        except ValueError:
+            continue
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            return str(ip)
+    return None
+
+
+def _guvenli_adres(url):
+    """URL'in adres bilesenlerini denetler; engel varsa hata metni doner."""
+    k = urlparse(url)
+    if k.scheme not in ("http", "https"):
+        return "Yalnizca http/https URL'leri okunabilir"
+    if k.port is not None and k.port not in _IZINLI_PORT:
+        return ("Guvenlik engeli: yalnizca standart web portlari "
+                "(80/443) aciktir")
+    if not k.hostname:
+        return "Gecersiz URL: sunucu adi yok"
+    engel = _engelli_ip_nedeni(k.hostname)
+    if engel:
+        return ("Guvenlik engeli: adres ic/ağ adresine cozuldu (%s)"
+                % engel[:40])
+    return None
+
+
+class _GuvenliYonlendirme(urllib.request.HTTPRedirectHandler):
+    """Her yonlendirme adimini yeniden SSRF denetiminden gecirir."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        engel = _guvenli_adres(newurl)
+        if engel:
+            logger.warning("Yonlendirme engellendi: %s", engel[:80])
+            return None   # None = takip etme -> HTTPError firlar
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
 
 def sayfa_oku(url: str) -> dict:
     """E-2: Bir URL'den sayfa icerigini okur (yalnizca GET).
@@ -178,25 +239,20 @@ def sayfa_oku(url: str) -> dict:
 
     url = url.strip()
 
-    # URL dogrulama — yalnizca http/https
-    if not url.startswith(("http://", "https://")):
-        return {"error": "Yalnizca http/https URL'leri okunabilir"}
-
-    # Tehlikeli domain kontrolu (basit whitelist)
-    yasakli = ["localhost", "127.0.0.1", "0.0.0.0"]
-    for y in yasakli:
-        if y in url.lower():
-            return {"error": "Guvenlik engeli: %s adresine erisilemez" % y}
+    # SSRF denetimi: semantik + port + cozulen IP'ler
+    engel = _guvenli_adres(url)
+    if engel:
+        return {"error": engel}
 
     try:
-        import urllib.request
         import html as html_mod
 
+        opener = urllib.request.build_opener(_GuvenliYonlendirme())
         req = urllib.request.Request(url, headers={
             "User-Agent": "Basak/1.0 (arastrirma)",
             "Accept": "text/html, text/plain",
         })
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with opener.open(req, timeout=15) as resp:
             # Icerik turunu kontrol et
             content_type = resp.headers.get("Content-Type", "")
             if "text/html" not in content_type and \
