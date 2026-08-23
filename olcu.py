@@ -29,6 +29,8 @@ _YASAKLI = ("ayarlar", ".env", "api_key", "_key", "gecmis.json")
 _MARKER = re.compile(r"^\[(Ö|O|Ç|C|B|A)\s*(\d*)\]", re.IGNORECASE)
 _ALINTI = re.compile(r'"([^"]{3,400})"')
 _KONUM_A = re.compile(r'^\[A\]\s*([^\s"]+)', re.IGNORECASE)
+# [Ö1] arac-adi "cikti" → cumlenin dayandigini SOYLEDIGI arac
+_KONUM_O = re.compile(r'^\[(?:Ö|O)\s*\d*\]\s*([^\s"]+)', re.IGNORECASE)
 _DAYANAK = re.compile(r"\[(?:Ö|O)\s*(\d+)\]", re.IGNORECASE)
 
 _SONLANDIRAN = re.compile(
@@ -142,14 +144,34 @@ def _alinti_dogrula(konum, alinti):
 def cikis_kapisi(metin, olcumler=None):
     """Cevabi denetler. Donus: (gecen_metin, rapor).
 
-    olcumler: bu turda calisan arac ciktilarinin metinleri;
+    olcumler: bu turda calisan arac ciktilari. Iki bicim kabul edilir:
+      - ["cikti metni", ...]                  (eski bicim)
+      - [("arac_adi", "cikti metni"), ...]    (kaynak bilgili bicim)
     [O] cumleleri bunlara karsi dogrulanir.
+
+    Kaynak bilgili bicimde ATIF da denetlenir: cumle "[Ö] list_files ..."
+    diyorsa alinti list_files'in ciktisinda gecmeli. Baska bir aracin
+    ciktisindan alinip bu araca mal edilen cumle elenir — 2026-08-23'te
+    olculen gercek arıza: list_files o klasore bakamazken model uc dosya
+    adi sayip [Ö] rozeti takti, cunku metin BASKA bir aracin ciktisinda
+    geciyordu.
 
     Sohbet/nezaket cevaplari (hicbir cumlede isaret yoksa) oldugu gibi
     gecer — kucuk modeller (qwen2.5:3b) sohbette isaret kullanmaz,
     hepsini silmek konusmayi oldurur.
     """
-    olcum_norm = [_norm(o) for o in (olcumler or []) if o]
+    # Her iki bicimi de tek yapiya indir: [(arac_adi|None, normalize_cikti)]
+    olcum_kayitlari = []
+    for o in (olcumler or []):
+        if isinstance(o, (tuple, list)) and len(o) == 2:
+            ad, cikti = o   # DIKKAT: `metin` fonksiyonun kendi parametresi
+            if cikti:
+                olcum_kayitlari.append((_norm(ad) if ad else None, _norm(cikti)))
+        elif o:
+            olcum_kayitlari.append((None, _norm(o)))
+    olcum_norm = [m for _, m in olcum_kayitlari]
+    # Atif denetimi ancak arac adlari biliniyorsa yapilabilir
+    bilinen_araclar = {ad for ad, _ in olcum_kayitlari if ad}
 
     tum_cumleler = bol_cumleler(metin)
     hic_isaret_var_mi = any(_tip_bul(c)[0] is not None for c in tum_cumleler)
@@ -181,15 +203,35 @@ def cikis_kapisi(metin, olcumler=None):
 
         elif tip == "O":
             alinti = _ALINTI.search(cumle)
-            dogru = bool(alinti) and any(
-                _norm(alinti.group(1)) in o for o in olcum_norm)
-            if dogru:
-                gecen.append(_isaret_degistir(cumle, "Ö"))
-                if no:
-                    gecen_o_nolari.add(no)
-            else:
+            iddia = _KONUM_O.match(cumle)
+            iddia_edilen = _norm(iddia.group(1)) if iddia else None
+
+            if not alinti:
+                rapor.append("SILINDI ([O] alinti yok): " + cumle[:80])
+                continue
+
+            aranan = _norm(alinti.group(1))
+
+            if iddia_edilen and bilinen_araclar:
+                # Cumle bir arac adi veriyor: alinti O aracin ciktisinda olmali.
+                if iddia_edilen not in bilinen_araclar:
+                    rapor.append("SILINDI ([O] bu turda calismayan araca "
+                                 "atfedildi): " + cumle[:80])
+                    continue
+                kaynaklar = [m for ad, m in olcum_kayitlari
+                             if ad == iddia_edilen]
+                if not any(aranan in m for m in kaynaklar):
+                    rapor.append("SILINDI ([O] atif yanlis — metin o aracin "
+                                 "ciktisinda yok): " + cumle[:80])
+                    continue
+            elif not any(aranan in m for m in olcum_norm):
                 rapor.append("SILINDI ([O] bu turun ciktisinde yok): "
                              + cumle[:80])
+                continue
+
+            gecen.append(_isaret_degistir(cumle, "Ö"))
+            if no:
+                gecen_o_nolari.add(no)
 
         elif tip == "C":
             dayanaklar = _DAYANAK.findall(cumle)
@@ -224,6 +266,9 @@ PROMPT_BLOGU = (
     "4) Bilmiyorsan, bağlamda kaynağı yoksa, geleceğe dönükse ya da "
     "sohbet/nezaketse → [B] kısa açıklama\n"
     "KURALLAR: Bir cümlede TEK alıntı olur. Alıntı AYNEN taşınır. "
+    "[Ö] cümlesinde yazdığın araç adı, o metni GERÇEKTEN döndüren araç "
+    "olmalı — başka aracın çıktısını ona mal edersen cümle silinir. "
+    "Araç izin vermediyse ya da hata döndürdüyse [B] ile söyle. "
     "İşaretsiz cümle ile uydurma alıntı CEVAPTAN SİLİNİR — sessiz kalmak "
     "yanlış bilgi vermekten iyidir.\n"
 )

@@ -373,8 +373,10 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
 def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calistir):
     """Tool sonuclarini modele geri gondererek anlamlil cevap uretir.
 
-    Donus: (cevap_metni, arac_ciktilari) — ciktilar cikis kapisinin [O]
-    denetimi icin gecer.
+    Donus: (cevap_metni, arac_ciktilari) — ciktilar (arac_adi, metin)
+    ciftleri olarak doner; cikis kapisi hem birebirligi hem ATFI denetler
+    (cumle hangi araca dayandigini soyluyorsa alinti o aracin ciktisinda
+    gecmeli).
     """
     tool_sonuclari = []
     for call in tool_calls:
@@ -401,12 +403,12 @@ def _tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback, calisti
         son_yanit, _ = brain.cevapla(expanded, model, tools=None)
         son_cevap = _temizle(son_yanit.get("content", ""))
         if son_cevap:
-            return (son_cevap, [s for _, s in tool_sonuclari])
+            return (son_cevap, list(tool_sonuclari))
     except Exception:
         pass
 
     return ("\n".join(sonuc for _, sonuc in tool_sonuclari),
-            [s for _, s in tool_sonuclari])
+            list(tool_sonuclari))
 
 
 def _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker=""):

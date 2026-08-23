@@ -143,3 +143,53 @@ class TestBilmiyorum:
         assert 'badge::B::' in temiz
         assert 'İşaretsiz bir' not in temiz
         assert len(rapor) == 1
+
+
+class TestAtif:
+    """Kaynak bilgili olcumlerde ATIF denetimi (2026-08-23 gercek arizasi).
+
+    Gercek olay: list_files 'brain' klasorune bakamadi (izin yok) ama model
+    uc dosya adi sayip [O] rozeti takti — metin BASKA bir aracin ciktisinda
+    geciyordu. Eski kapi bunu geciriyordu.
+    """
+
+    OLCUMLER = [
+        ("list_files", "'brain' klasorune izin yok. Izinli: knowledge"),
+        ("belge_ara", "brain/kilo.py brain/registry.py brain.py eklendi"),
+    ]
+
+    def test_yanlis_araca_atif_olur(self):
+        s = '[Ö1] list_files "brain/kilo.py brain/registry.py brain.py"'
+        temiz, rapor = cikis_kapisi(s, olcumler=self.OLCUMLER)
+        assert temiz == YEDEK_CUMLE
+        assert len(rapor) == 1 and "atif yanlis" in rapor[0]
+
+    def test_dogru_araca_atif_yasar(self):
+        s = '[Ö1] belge_ara "brain/kilo.py brain/registry.py brain.py eklendi"'
+        temiz, rapor = cikis_kapisi(s, olcumler=self.OLCUMLER)
+        assert rapor == [] and "badge::Ö::" in temiz
+
+    def test_aracin_hata_ciktisi_durustce_alintilanabilir(self):
+        # Arac reddettiyse bunu aynen soylemek mesru olmali.
+        s = '[Ö1] list_files "\'brain\' klasorune izin yok. Izinli: knowledge"'
+        temiz, rapor = cikis_kapisi(s, olcumler=self.OLCUMLER)
+        assert rapor == [] and "izin yok" in temiz
+
+    def test_bu_turda_calismayan_arac_olur(self):
+        s = '[Ö1] git_durum "brain/kilo.py brain/registry.py brain.py eklendi"'
+        temiz, rapor = cikis_kapisi(s, olcumler=self.OLCUMLER)
+        assert temiz == YEDEK_CUMLE
+        assert "calismayan araca" in rapor[0]
+
+    def test_eski_bicim_bozulmadi(self):
+        # Duz metin listesi verildiginde atif denetimi yapilmaz (geri uyum).
+        s = '[Ö1] list_files "brain/kilo.py brain/registry.py brain.py eklendi"'
+        temiz, rapor = cikis_kapisi(
+            s, olcumler=[m for _, m in self.OLCUMLER])
+        assert rapor == [] and "badge::Ö::" in temiz
+
+    def test_karisik_bicim_calisir(self):
+        karisik = [("web_search", "saatte 200 istek"), "duz metin cikti"]
+        s = '[Ö1] web_search "saatte 200 istek"'
+        temiz, rapor = cikis_kapisi(s, olcumler=karisik)
+        assert rapor == [] and "badge::Ö::" in temiz
