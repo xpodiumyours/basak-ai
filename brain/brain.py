@@ -14,6 +14,7 @@ from brain.groq import GroqClient, MODELLER
 from brain.gemini import GeminiClient
 from brain.glm import GLMClient
 from brain.nvidia import NvidiaClient
+from brain.kilo import KiloClient
 from brain.openrouter import OpenRouterClient
 from brain.cloudflare import CloudflareClient
 from brain.cohere import CohereClient
@@ -113,6 +114,14 @@ class Brain:
             except ValueError as e:
                 logger.warning("NVIDIA baslatilamadi: %s", e)
 
+        # Kilo Gateway: TEK ANAHTARSIZ saglayici — kosulsuz kurulur.
+        # Ucretsiz katman 200 istek/saat/IP verir; kota.py 429'u yakalar.
+        self._kilo = None
+        try:
+            self._kilo = KiloClient(model=ayar.get("kilo_model"))
+        except Exception as e:
+            logger.warning("Kilo baslatilamadi: %s", e)
+
         # Yedinci bulut saglayici: OpenRouter (sadece :free modeller, son care)
         self.openrouter_key = (
             os.environ.get("OPENROUTER_API_KEY") or ayar.get("openrouter_key") or ""
@@ -167,7 +176,8 @@ class Brain:
 
     def _bulut_zinciri(self) -> list:
         """Oncelik sirasi: Groq -> GLM -> Cloudflare -> Cohere -> NVIDIA
-        -> OpenRouter -> QwenCloud -> Gemini. Son care: Ollama (yerel)."""
+        -> Kilo -> OpenRouter -> QwenCloud -> Gemini.
+        Son care: Ollama (yerel)."""
         zincir = []
         if self._groq is not None and self._groq.musait():
             zincir.append(("groq", self._groq))
@@ -179,6 +189,8 @@ class Brain:
             zincir.append(("cohere", self._cohere))
         if self._nvidia is not None and self._nvidia.musait():
             zincir.append(("nvidia", self._nvidia))
+        if self._kilo is not None and self._kilo.musait():
+            zincir.append(("kilo", self._kilo))
         if self._openrouter is not None and self._openrouter.musait():
             zincir.append(("openrouter", self._openrouter))
         if self._qwen is not None and self._qwen.musait():

@@ -76,6 +76,16 @@ SAGLAYICILAR = {
         "gunluk_istek": None,
         "not": "GPT-OSS-20b + Gemma-4 + Nemotron + Omni + Kozmos; kod/goruntu/video.",
     },
+    "kilo": {
+        "ad": "Kilo Gateway",
+        "ucretsiz": True,
+        "tools": True,
+        "gucleri": ["genel", "kod"],
+        "gunluk_istek": None,   # sinir saatlik (200 istek/saat/IP), gunluk degil
+        "not": "Anahtarsiz calisir; 200 istek/saat/IP. Ucretsiz katman "
+               "gonderilen yazilari kaydedebilir — Casper 2026-08-23'te "
+               "bunu bilerek onayladi.",
+    },
     "openrouter": {
         "ad": "OpenRouter",
         "ucretsiz": True,
@@ -99,7 +109,7 @@ SAGLAYICILAR = {
 # cloudflare cikarildi: 401 Authentication error (anahtar gecersiz, 2026-08-23 olculdu)
 VARSAYILAN_SIRA = [
     "groq", "glm", "cohere", "nvidia",
-    "openrouter", "qwen", "gemini",
+    "kilo", "openrouter", "qwen", "gemini",
 ]
 
 

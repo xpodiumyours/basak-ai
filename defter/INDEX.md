@@ -1,4 +1,4 @@
-﻿# ORTAK DEFTER — INDEX
+# ORTAK DEFTER — INDEX
 
 *Tek satır = tek kayıt. Ayrıntı için dosyanın kendisini oku. Silme yok; bayat kayıt işaretlenir, üzerine yazılmaz.*
 
@@ -19,3 +19,4 @@
 | basak-o2-tamamlandi.md | O-2 tamamlandi: bayat.py omur tablosu + kontrol, 177/177 test yesil | freebuff | 2026-08-22 | 30g |
 | basak-e3-tamamlandi.md | E-3 tamamlandi: zamanlayici 10-20, 2 saatte bir, 203/203 test yesil | freebuff | 2026-08-22 | 30g |
 | basak-o3-tamamlandi.md | O-3 tamamlandi: otomatik sinav + karne, 219/219 test yesil | freebuff | 2026-08-22 | 30g |
+| kilo-gateway-zincire-baglandi.md | Kilo Gateway zincire baglandi | claude | 2026-08-23 | 30g |
