@@ -96,8 +96,9 @@ SAGLAYICILAR = {
 
 # Varsayilan oncelik sirasi (gorev turuna gore secici yeniden siralar).
 # Ucretli saglayici sonda: kazayla cagrilmasin.
+# cloudflare cikarildi: 401 Authentication error (anahtar gecersiz, 2026-08-23 olculdu)
 VARSAYILAN_SIRA = [
-    "groq", "glm", "cloudflare", "cohere", "nvidia",
+    "groq", "glm", "cohere", "nvidia",
     "openrouter", "qwen", "gemini",
 ]
 

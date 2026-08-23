@@ -14,7 +14,6 @@ import threading
 import uuid
 
 from olcu import cikis_kapisi, PROMPT_BLOGU
-from brain import secici
 
 logger = logging.getLogger(__name__)
 
@@ -305,14 +304,12 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
         aktif_toollar = None
 
     # Tum mesajlar brain.cevapla uzerinden gider:
-    # Model seçimi: Kullanıcı isteğine göre intent bazlı routing
-    hedef_model, model_sebep = secici.route_by_intent(text, modeller)
-    # Eğer route func model belirleyemediyse, kullanılan modeli koru
-    calistir_model = hedef_model if hedef_model else model
-    # UI'da model seçimi bilgisi gönder
+    # Router v2: secici.sec() gorev turune gore saglayici sirasini belirler,
+    # route_by_intent kaldirildi — Ollama model isimleriyle calisiyordu,
+    # donusu brain.cevapla() icindeki secici.sec() tarafindan override ediliyordu.
     try:
         yanit, kaynak = brain.cevapla(
-            mesajlar, calistir_model,
+            mesajlar, model,
             tools=aktif_toollar if aktif_toollar else None)
     except Exception as e:
         hata_str = str(e)
