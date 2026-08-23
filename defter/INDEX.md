@@ -38,3 +38,4 @@
 | hafiza-onem-puani-budama.md | Kademe 1+2: anilara onem puani (kod verir), budama puana gore; onemli plan 1000 gevezelikten kalir; 343/343 yesil | opencode | 2026-08-24 | sonsuz |
 | kapanista-db-kapanisi.md | Kapanista DB gercekten kapanir: quit yanlis nesneye (self._hafiza) bakiyordu, artik chat globali; 346/346 yesil | opencode | 2026-08-24 | sonsuz |
 | ollama-bagimsizlik.md | Ollama kapaliyken bulut ayaktaysa sohbet surer: dur kosulu "ikisi de yok"; boot ok bulutla acilir; 350/350 yesil | opencode | 2026-08-24 | sonsuz |
+| e2e-akis-ve-retry-duzeltmesi.md | E2E oturum senaryosu kuruldu; siradan sohbetin cift cagri hatasi yakalandi-duzeltildi; 352/352 yesil + canli duman testi | opencode | 2026-08-24 | 30g |
