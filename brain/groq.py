@@ -46,16 +46,17 @@ class GroqClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def cevapla(self, messages: list, tools: list = None) -> dict:
+    def cevapla(self, messages: list, tools: list = None, model: str = None) -> dict:
         """Groq'a mesaj gönderir.
 
         Hız için: temperature=0.5, max_tokens=1024.
+        model: geçici model override (orn: openai/gpt-oss-120b).
         """
         if not self.client:
             raise RuntimeError("Groq bağlı değil")
 
         kwargs = {
-            "model": self.model,
+            "model": model or self.model,
             "messages": messages,
             "temperature": 0.5,
             "max_tokens": 1024,

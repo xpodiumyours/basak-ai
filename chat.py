@@ -304,29 +304,40 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
         aktif_toollar = None
 
     # Tum mesajlar brain.cevapla uzerinden gider:
-    # Router v2: secici.sec() gorev turune gore saglayici sirasini belirler,
-    # route_by_intent kaldirildi — Ollama model isimleriyle calisiyordu,
-    # donusu brain.cevapla() icindeki secici.sec() tarafindan override ediliyordu.
-    try:
-        yanit, kaynak = brain.cevapla(
-            mesajlar, model,
-            tools=aktif_toollar if aktif_toollar else None)
-    except Exception as e:
-        hata_str = str(e)
-        if "429" in hata_str or "rate" in hata_str.lower():
-            js_callback("BasakUI.error(" + _j("Cok fazla istek, biraz bekle") + ")")
-        else:
-            js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
-        return
-    except Exception as e:
-        hata_str = str(e)
-        if "429" in hata_str or "rate" in hata_str.lower():
-            js_callback("BasakUI.error(" + _j("Cok fazla istek, biraz bekle") + ")")
-        else:
-            js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
-        return
+    # Router v2: secici.sec() gorev turune gore saglayici sirasini belirler.
+    # Olcum Retry: measurement tool gerekliyse ve model tool_call dondurmediyse,
+    # guclu Groq modeliyle (openai/gpt-oss-120b) 1 kez tekrar dene.
+    _OLCUM_SET = {"git_durum", "belge_ara", "dosya_bilgi"}
+    olcum_aktif = bool(aktif_toollar and any(
+        t["function"]["name"] in _OLCUM_SET for t in aktif_toollar))
+    _GUCLU_MODEL = "openai/gpt-oss-120b"
+    _retry = 0
+    MAX_RETRY = 1
 
-    tool_calls = yanit.get("tool_calls")
+    while _retry <= MAX_RETRY:
+        try:
+            override = _GUCLU_MODEL if _retry > 0 and olcum_aktif else None
+            yanit, kaynak = brain.cevapla(
+                mesajlar, model,
+                tools=aktif_toollar if aktif_toollar else None,
+                override_model=override)
+        except Exception as e:
+            hata_str = str(e)
+            if "429" in hata_str or "rate" in hata_str.lower():
+                js_callback("BasakUI.error(" + _j("Cok fazla istek, biraz bekle") + ")")
+            else:
+                js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
+            return
+
+        tool_calls = yanit.get("tool_calls")
+        # Olcum Retry: tool_call donmediyse ve olcum sorusuysa, 1 kez tekrar dene
+        if not tool_calls and olcum_aktif and _retry < MAX_RETRY:
+            _retry += 1
+            logger.info("Olcum retry #%d: tool_call alinamadi, guclu model deneniyor", _retry)
+            continue
+        break
+
+    # tool_calls burada zaten yukarida atandi
     if not tool_calls:
         cevap = _temizle(yanit.get("content", ""))
 

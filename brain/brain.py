@@ -225,7 +225,7 @@ class Brain:
         return self._ollama.cevapla(messages, model, tools=tools)
 
     def cevapla(self, messages, yerel_model, tools=None,
-                tercih=None, gorev_tipi=None):
+                tercih=None, gorev_tipi=None, override_model=None):
         """Mesajlara cevap verir — Router v2 (P3).
 
         Akis: secici motoru sirayi belirler (gorev turune gore, gerekcesiyle)
@@ -277,7 +277,15 @@ class Brain:
             istat = model_stats_al()
             t0 = time.time()
             try:
-                if tools:
+                # override_model: GroqClient icin model degistirme (retry icin)
+                if override_model and ad == "groq" and hasattr(istemci, 'cevapla'):
+                    import inspect
+                    params = inspect.signature(istemci.cevapla).parameters
+                    if 'model' in params:
+                        yanit = istemci.cevapla(messages, tools=tools, model=override_model)
+                    else:
+                        yanit = istemci.cevapla(messages, tools=tools) if tools else istemci.cevapla(messages)
+                elif tools:
                     yanit = istemci.cevapla(messages, tools=tools)
                 else:
                     yanit = istemci.cevapla(messages)
