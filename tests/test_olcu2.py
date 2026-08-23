@@ -97,8 +97,10 @@ class TestYanlissPozitifKorumasi:
         assert engel is False
 
     def test_isaretsiz_sohbet_oldugu_gibi_gecer(self):
-        temiz, rapor = cikis_kapisi("Kaydedildi diye bir sey demiyorum, sohbet.")
-        assert temiz == "Kaydedildi diye bir sey demiyorum, sohbet."
+        # NOT: ornek cumle eylem fiili ICERMEMELI — isaretsiz geciste
+        # eylem iddiası artik elenir (2026-08-23 gerceklik kapisi).
+        temiz, rapor = cikis_kapisi("Bugun hava cok guzel, keyifler nasil?")
+        assert temiz == "Bugun hava cok guzel, keyifler nasil?"
         assert rapor == []
 
 

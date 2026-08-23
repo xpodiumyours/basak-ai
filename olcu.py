@@ -173,6 +173,41 @@ def _alinti_dogrula(konum, alinti):
     return _norm(alinti) in _norm(icerik)
 
 
+# İşaretsiz geçişte tehlike sinyalleri (ölçü-alanı): bu izler cümlede
+# varsa "sohbet" sayılmaz, kanıt bekler.
+_PROJE_ADLARI = ("vixrex", "numeramatch", "xses")
+_COMMIT_HASH = re.compile(r"\b[0-9a-f]{7,40}\b")
+
+
+def _isaretsiz_gecis(tum_cumleler):
+    """İşaretsiz + araçsız cevap için yumuşak denetim.
+
+    Düz sohbet cümleleri olduğu gibi yaşar; yalnız ölçü-alanı sinyali
+    (proje adı / commit hash / eylem iddiası) taşıyan cümleler elenir —
+    bunlar işaretle ve kanıtla gelmek zorundadır.
+    """
+    hayatta, rapor = [], []
+    for cumle in tum_cumleler:
+        norm = _norm(cumle)
+        tehlike = (any(p in norm for p in _PROJE_ADLARI)
+                   or bool(_COMMIT_HASH.search(norm))
+                   or _b_eylem_denetimi(cumle, []))
+        if tehlike:
+            rapor.append("SILINDI (isaretsiz olcu/eylem iddiasi): "
+                         + cumle[:80])
+        else:
+            hayatta.append(cumle)
+    temiz = "\n".join(hayatta).strip()
+    if rapor and temiz:
+        temiz += "\n\n" + YEDEK_CUMLE
+    elif rapor:
+        temiz = YEDEK_CUMLE
+    if rapor:
+        logger.info("Olcu kapisi %d isaretsiz tehlikeli cumleyi eledi",
+                    len(rapor))
+    return temiz, rapor
+
+
 def _b_eylem_denetimi(cumle, olcum_kayitlari):
     """Eylem iddialı [B] cümlesini bu turun araç geçmişine karşı denetler.
 
@@ -241,9 +276,23 @@ def cikis_kapisi(metin, olcumler=None):
     y_yerleri = []
     dayanak_hayatta = False
 
-    # Eger hicbir cumlede isaret yoksa — sohbet/nezaket cevabi — oldugu gibi gecer
+    # İşaretsiz serbest geçişi iki istisna sıkar (2026-08-23, Casper'in
+    # bulduğu açık: "sohbet" varsayımı denetimsizdi, uydurma olgu kaçardı):
+    # (a) bu turda araç koştuysa tam denetim — ölçüm turu işaretsiz geçemez;
+    # (b) araçsız turda bile cümle ölçü-alanı sinyali (proje adı / commit
+    #     hash) veya eylem iddiası taşıyorsa o cümle elenir. Düz sohbet
+    #     (selam, fikir, plan) olduğu gibi yaşar — küçük model konuşması
+    #     öldürülmez.
     if not hic_isaret_var_mi and tum_cumleler:
-        return metin.strip(), []
+        if olcum_kayitlari:
+            gecen = []
+            rapor = ["SILINDI (isaretsiz — ölçüm turunda işaret zorunlu): "
+                     + c[:80] for c in tum_cumleler]
+            temiz = YEDEK_CUMLE
+            logger.info("Olcu kapisi %d isaretsiz cumleyi eledi "
+                        "(olcum turu)", len(rapor))
+            return temiz, rapor
+        return _isaretsiz_gecis(tum_cumleler)
 
     for cumle in tum_cumleler:
         tip, no = _tip_bul(cumle)
