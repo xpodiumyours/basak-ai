@@ -225,6 +225,23 @@ class Api:
         except OSError:
             return []
 
+    def _hafizayi_kapat(self):
+        """Gercek hafiza nesnesini kapatir (2026-08-24, Casper'in bulgusu).
+
+        Hafiza chat.py modul-globalinde yasar (_hafiza); Api'nin UZERINDE
+        degil. Eski kod self._hafiza'ya baktigi icin bu blok hic
+        calismiyordu ve os._exit(0) DB'yi acik birakiyordu. Motor yoksa
+        YARATMAMAK uzere global'e dogrudan bakilir.
+        """
+        try:
+            import chat as _chat
+            motor = getattr(_chat, "_hafiza", None)
+            if motor:
+                motor.kapat()
+                logger.info("Hafiza DB kapatildi")
+        except Exception as e:
+            logger.warning("Hafiza DB kapanamadi: %s", e)
+
     def quit(self):
         """Tamamen kapat: tepsiyi durdur + pencereyi yok et (kill switch)."""
         import os as _os
@@ -256,13 +273,7 @@ class Api:
         #    adimlarini ATLAR — acik SQLite baglantisi kendiliginden
         #    kapanmaz. WAL crash-safe oldugu icin veri kaybi beklenmez ama
         #    checkpoint edilmemis WAL dosyasi buyuyerek kalir.
-        try:
-            from memory.engine import HafizaMotoru
-            kapat = getattr(HafizaMotoru, "kapat", None)
-            if callable(kapat) and hasattr(self, "_hafiza") and self._hafiza:
-                self._hafiza.kapat()
-        except Exception:
-            pass
+        self._hafizayi_kapat()
 
         # 5) Sureci sonlandir — 100ms bekle (pencere/DB kapanisi otursun).
         #    time.sleep, os.sleep DEGIL: os modulunde sleep yoktur, oyle

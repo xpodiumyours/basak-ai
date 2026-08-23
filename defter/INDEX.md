@@ -36,3 +36,4 @@
 | file-ops-path-kacislari.md | Path kacislari kapandi: realpath+commonpath tek cozucu, junction yazimi gercek junction'la engellendi; 322/322 yesil | opencode | 2026-08-24 | sonsuz |
 | hafiza-temizleme-yasam-dongusu.md | "Hafiza temizlendi" yalani kapandi: clear episodic'i unutur, semantic kalir, 1000 satir tavani; 331/331 yesil | opencode | 2026-08-24 | sonsuz |
 | hafiza-onem-puani-budama.md | Kademe 1+2: anilara onem puani (kod verir), budama puana gore; onemli plan 1000 gevezelikten kalir; 343/343 yesil | opencode | 2026-08-24 | sonsuz |
+| kapanista-db-kapanisi.md | Kapanista DB gercekten kapanir: quit yanlis nesneye (self._hafiza) bakiyordu, artik chat globali; 346/346 yesil | opencode | 2026-08-24 | sonsuz |
