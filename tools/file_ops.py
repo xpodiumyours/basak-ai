@@ -4,6 +4,15 @@ Sadece izin verilen klasörlerde çalışır (whitelist).
 Varsayılan olarak sadece knowledge/ klasörüne izin verilir.
 E-1: dış projeler (vixrex, numeramatch, xses) salt-okunur olarak eklendi.
 Her işlem loglanır.
+
+Path güvenliği (2026-08-24, Casper'in bulduğu üç açık sonrası):
+- Tüm kararlar os.path.realpath üzerinden verilir — symlink/junction
+  çözülür, izinli klasör içine konmuş bir bağlantı dışarıyı göstermez
+- Sınır kontrolü normcase + commonpath ile yapılır — "vixrex/../vixrex2"
+  gibi benzer isimli KOMŞU klasör önek oyunları geçmez
+- Yol tek yerde çözülür (_guvenli_yolu_coz); kontrol edilen yol ile
+  açılan yol aynı olmak zorundadır
+Bilinen sınır: kontrol ile açma arasındaki TOCTOU yarışı kapatılmadı.
 """
 
 import logging
@@ -26,56 +35,112 @@ DIS_PROJELER = {
 }
 
 
-def _dis_proje_ayarla(yol, base_dir):
-    """E-1: Yol dış projeden mi? Öyleyse (proje_adi, mutlak_kok) döner."""
-    if not yol:
-        return None, None
-    yol_lower = yol.strip().lower()
-    for ad, kok in DIS_PROJELER.items():
-        # "vixrex/AGENTS.md" → "vixrex" eşleşir
-        if yol_lower == ad or yol_lower.startswith(ad + "/") or \
-           yol_lower.startswith(ad + "\\"):
-            return ad, kok
-    return None, None
+def _gercek_norm(p):
+    """realpath (bağlantıları çözer) + normcase (Windows kiyas duygusuz)."""
+    return os.path.normcase(os.path.realpath(p))
 
 
-def _klasor_kontrol(yol, base_dir):
-    """Verilen yolun izin verilen bir klasör içinde olup olmadığını kontrol eder.
+def _altinda_mi(aday, kok):
+    """aday, kok'un GERCEK altinda mi? (baglanti/onek oyunlarina kapali)"""
+    a, k = _gercek_norm(aday), _gercek_norm(kok)
+    if a == k:
+        return True
+    try:
+        return os.path.commonpath([a, k]) == k
+    except ValueError:          # farkli suruculer (C:\ vs D:\)
+        return False
 
-    E-1: Dış projeler de kontrol edilir (salt okunur).
+
+def _dis_rel_yol(yol, ad):
+    """'vixrex/alt/yol' -> 'alt/yol'; 'vixrex' -> ''; uyumsuzsa None."""
+    rel = yol.strip()
+    low = rel.lower()
+    if low == ad:
+        return ""
+    for one in (ad + "/", ad + "\\"):
+        if low.startswith(one):
+            return rel[len(ad) + 1:]
+    return None
+
+
+def _guvenli_yolu_coz(yol, base_dir):
+    """Yolu tek merkezi kuralla cozer.
+
+    Donus: (izinli, etiket|mesaj, mutlak_yol)
+      - izinli=True : etiket 'dis:<ad>' veya izinli klasor adi,
+        mutlak_yol = realpath uygulanmis acilacak yol
+      - izinli=False: mesaj hata aciklamasi, mutlak_yol None
     """
     try:
-        # E-1: Dış proje kontrolü — yol "vixrex/..." şeklinde gelir
-        dis_proje, dis_kok = _dis_proje_ayarla(yol, base_dir)
-        if dis_proje:
-            # Dış projede relative yol
-            rel_yol = yol.strip()
-            if rel_yol.lower().startswith(dis_proje + "/"):
-                rel_yol = rel_yol[len(dis_proje) + 1:]
-            elif rel_yol.lower().startswith(dis_proje + "\\"):
-                rel_yol = rel_yol[len(dis_proje) + 1:]
-            mutlak_yol = os.path.abspath(os.path.join(dis_kok, rel_yol))
-            if not mutlak_yol.startswith(os.path.realpath(dis_kok)):
-                return False, "Yol dış proje dizininin dışında"
-            return True, "dis:%s" % dis_proje
+        if not yol or not str(yol).strip():
+            return False, "Dosya yolu boş olamaz", None
 
-        # İç proje kontrolü (mevcut mantık)
-        mutlak_yol = os.path.abspath(os.path.join(base_dir, yol))
-        base_mutlak = os.path.abspath(base_dir)
+        dis_ad = _dis_proje_adi(yol)
+        if dis_ad:
+            rel = _dis_rel_yol(yol, dis_ad)
+            dis_kok = DIS_PROJELER[dis_ad]
+            if rel is None:
+                return False, "Geçersiz dış proje yolu: %s" % yol, None
+            mutlak = os.path.realpath(
+                os.path.join(dis_kok, rel)) if rel else _gercek_norm_kok(dis_kok)
+            if not _altinda_mi(mutlak, dis_kok):
+                return False, "Yol dış proje dizininin dışında", None
+            return True, "dis:%s" % dis_ad, mutlak
 
-        if not mutlak_yol.startswith(base_mutlak):
-            return False, "Yol proje dizininin dışında"
+        # İç yol — realpath ile çöz (junction/symlink dahil)
+        mutlak = os.path.realpath(os.path.join(base_dir, yol))
+        kok = os.path.realpath(base_dir)
 
-        iliski = os.path.relpath(mutlak_yol, base_mutlak)
+        if not _altinda_mi(mutlak, kok):
+            return False, "Yol proje dizininin dışında", None
+
+        iliski = os.path.relpath(_gercek_norm(mutlak),
+                                 _gercek_norm(kok))
         birinci_klasor = iliski.split(os.sep)[0]
 
         if birinci_klasor in IZINLI_KLASORLER:
-            return True, birinci_klasor
+            return True, birinci_klasor, mutlak
 
-        return False, f"'{birinci_klasor}' klasörüne izin yok. İzinli: {', '.join(IZINLI_KLASORLER)}"
+        return False, (f"'{birinci_klasor}' klasörüne izin yok. "
+                       f"İzinli: {', '.join(IZINLI_KLASORLER)}"), None
 
     except (ValueError, OSError) as e:
-        return False, f"Yol kontrolü hatası: {e}"
+        return False, f"Yol kontrolü hatası: {e}", None
+
+
+def _gercek_norm_kok(kok):
+    """Var olan kokun gercek halini dondurur (normcase'siz, gorunum icin)."""
+    return os.path.realpath(kok)
+
+
+def _dis_proje_adi(yol):
+    """E-1: Yol dis projeye mi isaret ediyor? Oyleyse proje adi."""
+    if not yol:
+        return None
+    yol_lower = yol.strip().lower()
+    for ad in DIS_PROJELER:
+        if yol_lower == ad or yol_lower.startswith(ad + "/") or \
+           yol_lower.startswith(ad + "\\"):
+            return ad
+    return None
+
+
+# --- Geriye donuk uyumluluk sarmalayicilari -------------------------------
+
+def _dis_proje_ayarla(yol, base_dir):
+    """Eski imza: (proje_adi, kok)."""
+    ad = _dis_proje_adi(yol)
+    return (ad, DIS_PROJELER[ad]) if ad else (None, None)
+
+
+def _klasor_kontrol(yol, base_dir):
+    """Eski iki degerli donus (testler/araclar bozulmasin).
+
+    NOT: cagiran bu sonuctan YOLU kendisi turetmemeli — _guvenli_yolu_coz
+    kullanip ucuncu degerdeki cozulmus yolu acmak zorunda.
+    """
+    izinli, mesaj, _mutlak = _guvenli_yolu_coz(yol, base_dir)
+    return izinli, mesaj
 
 
 def read_file(yol: str, base_dir: str) -> dict:
@@ -84,33 +149,15 @@ def read_file(yol: str, base_dir: str) -> dict:
     Sadece izin verilen klasörlerdeki dosyaları okur.
     E-1: dış projelerden de okunabilir (salt okunur).
     Max 5000 karakter okunur.
-
-    Args:
-        yol: Dosya yolu. Dış proje için "vixrex/AGENTS.md" gibi.
-        base_dir: Proje kök dizini.
-
-    Returns:
-        {"result": str} veya {"error": str}.
     """
     if not yol or not yol.strip():
         return {"error": "Dosya yolu boş olamaz"}
 
-    izinli, mesaj = _klasor_kontrol(yol, base_dir)
+    izinli, mesaj, mutlak_yol = _guvenli_yolu_coz(yol, base_dir)
     if not izinli:
         return {"error": mesaj}
 
     try:
-        # E-1: Dış proje ise onun kökünden çöz
-        if mesaj.startswith("dis:"):
-            dis_proje = mesaj.split(":")[1]
-            dis_kok = DIS_PROJELER[dis_proje]
-            rel_yol = yol.strip()
-            if rel_yol.lower().startswith(dis_proje + "/"):
-                rel_yol = rel_yol[len(dis_proje) + 1:]
-            mutlak_yol = os.path.abspath(os.path.join(dis_kok, rel_yol))
-        else:
-            mutlak_yol = os.path.abspath(os.path.join(base_dir, yol))
-
         if not os.path.exists(mutlak_yol):
             return {"error": f"Dosya bulunamadı: {yol}"}
 
@@ -132,23 +179,16 @@ def read_file(yol: str, base_dir: str) -> dict:
 def write_file_ops(yol: str, icerik: str, base_dir: str) -> dict:
     """Bir dosyaya yazar.
 
-    Sadece izin verilen klasörlere yazar.
-    Dosya yoksa oluşturur.
-
-    Args:
-        yol: Dosya yolu (base_dir'e göre).
-        icerik: Yazılacak içerik.
-        base_dir: Proje kök dizini.
-
-    Returns:
-        {"result": str} veya {"error": str}.
+    Sadece izin verilen klasörlere yazar. Dosya yoksa oluşturur.
+    Guvenlik: hedef realpath ile cozulmustur — izinli klasor icindeki
+    disari bakan symlink/junction'a yazim BLOKLANIR.
     """
     if not yol or not yol.strip():
         return {"error": "Dosya yolu boş olamaz"}
     if not icerik:
         return {"error": "İçerik boş olamaz"}
 
-    izinli, mesaj = _klasor_kontrol(yol, base_dir)
+    izinli, mesaj, mutlak_yol = _guvenli_yolu_coz(yol, base_dir)
     if not izinli:
         return {"error": mesaj}
 
@@ -158,9 +198,6 @@ def write_file_ops(yol: str, icerik: str, base_dir: str) -> dict:
                           "Dış projeler salt okunur.") % mesaj.split(":")[1]}
 
     try:
-        mutlak_yol = os.path.abspath(os.path.join(base_dir, yol))
-
-        # Klasörü oluştur
         klasor = os.path.dirname(mutlak_yol)
         os.makedirs(klasor, exist_ok=True)
 
@@ -178,36 +215,15 @@ def list_files(klasor: str, base_dir: str) -> dict:
 
     Sadece izin verilen klasörleri listeler.
     E-1: dış projelerin kök klasörleri de listelenebilir.
-
-    Args:
-        klasor: Klasör yolu. Dış proje için "vixrex" gibi. Boşsa knowledge/ listelenir.
-        base_dir: Proje kök dizini.
-
-    Returns:
-        {"result": str} veya {"error": str}.
     """
     if not klasor or not klasor.strip():
         klasor = "knowledge"
 
-    izinli, mesaj = _klasor_kontrol(klasor, base_dir)
+    izinli, mesaj, mutlak_yol = _guvenli_yolu_coz(klasor, base_dir)
     if not izinli:
         return {"error": mesaj}
 
     try:
-        # E-1: Dış proje ise onun kökünden listele
-        if mesaj.startswith("dis:"):
-            dis_proje = mesaj.split(":")[1]
-            dis_kok = DIS_PROJELER[dis_proje]
-            rel_yol = klasor.strip()
-            if rel_yol.lower().startswith(dis_proje + "/"):
-                rel_yol = rel_yol[len(dis_proje) + 1:]
-            elif rel_yol.lower() == dis_proje:
-                rel_yol = ""
-            mutlak_yol = os.path.abspath(
-                os.path.join(dis_kok, rel_yol)) if rel_yol else dis_kok
-        else:
-            mutlak_yol = os.path.abspath(os.path.join(base_dir, klasor))
-
         if not os.path.isdir(mutlak_yol):
             return {"error": f"Bu bir klasör değil: {klasor}"}
 

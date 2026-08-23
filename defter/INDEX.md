@@ -33,3 +33,4 @@
 | baglam-diyeti-adim1-dinamik-arac.md | ADIM 1 dinamik arac sunumu: kilavuz yuku %82 dustu, disiplin %30->%80 cikti; 303/303 yesil | opencode | 2026-08-23 | 30g |
 | baglam-diyeti-adim2-kilavuz-sikilaştırma.md | ADIM 2 kilavuz sikilastirma: JSON %31 azaldi; davranis dogrulamasi saglayici karisikligi yarim, yarin taze kotalarla | opencode | 2026-08-24 | 30g |
 | baglam-diyeti-adim3-gecmis-kilo-limiti.md | ADIM 3 gecmis kilo limiti (4k kr): tepe yuku ~4.5k tokonla sinirlandi; kesim hafiza silmek degil; 311/311 yesil | opencode | 2026-08-24 | sonsuz |
+| file-ops-path-kacislari.md | Path kacislari kapandi: realpath+commonpath tek cozucu, junction yazimi gercek junction'la engellendi; 322/322 yesil | opencode | 2026-08-24 | sonsuz |
