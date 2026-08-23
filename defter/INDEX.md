@@ -23,3 +23,4 @@
 | olcu-kapisinda-atif-denetimi.md | Olcu kapisinda atif denetimi | claude | 2026-08-23 | 30g |
 | cevaplar-makine-ciktisi-gibi-okunuyordu.md | Cevaplar makine ciktisi gibi okunuyordu | claude | 2026-08-23 | 30g |
 | cok-adimli-is-ve-dusunme-metni-sizintisi.md | Cok adimli is ve dusunme metni sizintisi | claude | 2026-08-23 | 30g |
+| basak-bekleyen-isler-sirasi.md | Basak bekleyen isler sirasi | claude | 2026-08-23 | 30g |
