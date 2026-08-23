@@ -13,7 +13,7 @@ from tools.reminders import bugunku_hatirlatmalar
 from tools.video_analyzer import video_analyze
 from tools.olcum import git_durum, belge_ara, dosya_bilgi
 from tools.tool_logger import log_tool_call
-from tools.permissions import izinli_mi, etiketler
+from tools.permissions import calistirilabilir_mi
 
 # Tool isimlerini fonksiyonlara eşleştiren harita
 TOOL_MAP = {
@@ -49,14 +49,24 @@ def calistir(tool_name: str, arguments: dict, knowledge_dir: str = "",
     import os
     base_dir = os.path.dirname(knowledge_dir) if knowledge_dir else os.getcwd()
 
-    # P3 Permission Layer: etiketi tanimlanmayan arac calismaz.
-    # Model kendi yetkisini veremez — tablo kod olarak sabit.
-    if not izinli_mi(tool_name):
+    # P3 Permission Layer — ARTIK GERCEK KONTROL (2026-08-23):
+    # etiket politikasina gore otomatik/opt-in/onay. Etiketsiz veya
+    # opt-in'i acilmamis arac calismaz; model kendi yetkisini veremez.
+    if not calistirilabilir_mi(tool_name):
+        from tools.permissions import politika
+        p = politika(tool_name)
+        if p == "yasak":
+            sebep = ("'%s' aracının izin etiketi yok." % tool_name)
+        elif p == "opt-in":
+            sebep = ("'%s' sistem aracı varsayılan kapalı. Casper "
+                     "ayarlar.json'da 'sistem_araclari_acik': true "
+                     "dediğinde açılır." % tool_name)
+        else:
+            sebep = ("'%s' aracı kullanıcı onayı bekliyor (onay kuyusu "
+                     "henüz kurulmadı)." % tool_name)
         log_tool_call(tool_name, arguments,
                       {"error": "izin engeli"}, base_dir)
-        return {"error": (
-            f"Güvenlik engeli: '{tool_name}' aracının izin etiketi yok. "
-            "Bu araç kullanılamaz.")}
+        return {"error": "Güvenlik engeli: " + sebep}
 
     # Tool'a göre doğru parametreleri hazırla ve çalıştır
     if tool_name == "sayfa_oku":
