@@ -234,6 +234,43 @@ def _b_eylem_denetimi(cumle, olcum_kayitlari):
     return True
 
 
+# [Y] bağlantı denetimi (2026-08-23, Casper'in bulduğu açık): [Y] yalnızca
+# cevapta HERHANGİ bir ölçüm ayakta kaldığı için geçiyordu; gerçek git
+# çıktısının altına alakasız bir [Y] iddiası sızabiliyordu. Kapı semantik
+# anlamaz — ama sözcük çapası denetleyebilir: [Ö]'ye yaslanan [Y], hayatta
+# kalan ölçüm alıntısıyla en az bir içerik kökü paylaşmalı (Türkçe eklerine
+# toleranslı: dal ↔ dalında). Salt-[A] durumunda denetim uygulanmaz — alıntı
+# belgeyi kanıtlar, iddia bağlamdaki geniş notlardan gelebilir.
+_Y_DURAK = frozenset((
+    "bir", "ve", "ile", "icin", "bu", "su", "var", "yok", "daha", "gore",
+    "olarak", "degil", "ama", "veya", "gibi", "kadar", "sonra", "once",
+    "hangi", "cok", "en", "diye", "sey", "sen", "ben", "bunu", "buna",
+    "the", "and",
+))
+
+
+def _icerik_kokleri(metin):
+    """Durak ve kısa parçalar dışındaki içerik tokenleri (normalize metin)."""
+    return {t for t in re.findall(r"[a-z0-9]+", metin)
+            if len(t) >= 3 and t not in _Y_DURAK}
+
+
+def _baglanti_var_mi(cumle, kanit_alintilari):
+    """[Y] cümlesi kanıt alıntılarıyla içerik kökü paylaşıyor mu?"""
+    y_tok = _icerik_kokleri(_norm(cumle))
+    k_tok = set()
+    for m in kanit_alintilari:
+        k_tok |= _icerik_kokleri(m)
+    for t in y_tok:
+        if t in k_tok:
+            return True
+        for k in k_tok:
+            kisa, uzun = (t, k) if len(t) <= len(k) else (k, t)
+            if len(kisa) >= 3 and kisa in uzun:
+                return True
+    return False
+
+
 def cikis_kapisi(metin, olcumler=None):
     """Cevabi denetler. Donus: (gecen_metin, rapor).
 
@@ -275,6 +312,7 @@ def cikis_kapisi(metin, olcumler=None):
     # bir [O]/[A] varsa yasar, yoksa elenir (dayanaksiz yorum cikmasin).
     y_yerleri = []
     dayanak_hayatta = False
+    o_hayatta_alintilar = []   # ayakta kalan [Ö] alıntıları (normalize)
 
     # İşaretsiz serbest geçişi iki istisna sıkar (2026-08-23, Casper'in
     # bulduğu açık: "sohbet" varsayımı denetimsizdi, uydurma olgu kaçardı):
@@ -310,7 +348,7 @@ def cikis_kapisi(metin, olcumler=None):
         elif tip == "Y":
             # Kararı sona birakiyoruz: dayanak ayakta mi, cevabin tamami
             # denetlenmeden bilinmez.
-            y_yerleri.append(len(gecen))
+            y_yerleri.append((len(gecen), cumle))
             gecen.append(_isaret_degistir(cumle, "Y"))
 
         elif tip == "A":
@@ -353,6 +391,7 @@ def cikis_kapisi(metin, olcumler=None):
 
             gecen.append(_isaret_degistir(cumle, "Ö"))
             dayanak_hayatta = True
+            o_hayatta_alintilar.append(aranan)
             if no:
                 gecen_o_nolari.add(no)
 
@@ -364,12 +403,22 @@ def cikis_kapisi(metin, olcumler=None):
             else:
                 rapor.append("SILINDI ([C] dayanak eksik): " + cumle[:80])
 
-    # [Y] ancak ayakta kalan bir olcume/alintiya yaslanabilir
-    if y_yerleri and not dayanak_hayatta:
-        for i in reversed(y_yerleri):
-            rapor.append("SILINDI ([Y] dayanaksiz — ayakta olcum/alinti yok): "
-                         + gecen[i][:80])
-            del gecen[i]
+    # [Y] temizliği — iki kural:
+    # 1) Ayakta [Ö] varsa: her [Y] hayatta kalan ölçüm alıntısıyla sözcük
+    #    çapası paylaşmalı; alakasız iddia elenir.
+    # 2) Hiç dayanak ayakta kalmadıysa: tüm [Y]'ler düşer (eski davranış).
+    if y_yerleri:
+        if o_hayatta_alintilar:
+            for i, y_cumle in reversed(y_yerleri):
+                if not _baglanti_var_mi(y_cumle, o_hayatta_alintilar):
+                    rapor.append("SILINDI ([Y] kanitla baglantisi yok): "
+                                 + y_cumle[:80])
+                    del gecen[i]
+        elif not dayanak_hayatta:
+            for i, _c in reversed(y_yerleri):
+                rapor.append("SILINDI ([Y] dayanaksiz — ayakta olcum/alinti "
+                             "yok): " + gecen[i][:80])
+                del gecen[i]
 
     temiz = "\n".join(gecen).strip()
     if rapor and temiz:

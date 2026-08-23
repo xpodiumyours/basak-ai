@@ -28,3 +28,4 @@
 | arac-dongusu-yetki-tavani.md | Arac dongusunda yetki tavani: ikinci tur ham tools gormuyordu, artik aktif_toollar tavani; 268/268 yesil | opencode | 2026-08-23 | sonsuz |
 | izin-katmani-politikaya-baglandi.md | Izin katmani gercek kontrol oldu: sistem araclari varsayilan kapali, opt-in ile acilir; 278/278 yesil | opencode | 2026-08-23 | sonsuz |
 | gerceklik-kapisi-isaretsiz-gecis.md | Isaretsiz gecis sinirlandi: aracli tur tam denetlenir, aracsizda proje/hash/eylem sinyali elenir; 287/287 yesil | opencode | 2026-08-23 | sonsuz |
+| y-cumlesi-kanit-baglantisi.md | Y cumlesi kanit baglantisi: olcume yaslanan Y alintiyla sozcuk kokku paylasmali, alakasiz iddia elenir; 294/294 yesil | opencode | 2026-08-23 | sonsuz |
