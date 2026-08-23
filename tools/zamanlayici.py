@@ -35,10 +35,10 @@ _son_kart_lock = threading.Lock()
 
 
 def aktif_saat_mi(simdi=None):
-    """Şu an aktif saatler içinde miyiz?"""
+    """Şu an aktif saatler içinde miyiz? (10:00 - 20:00 dahil)"""
     if simdi is None:
         simdi = datetime.now()
-    return AKTIF_BASLANGIC <= simdi.hour < AKTIF_BITIS
+    return AKTIF_BASLANGIC <= simdi.hour <= AKTIF_BITIS
 
 
 def kart_zamani_mi(simdi=None):
@@ -93,10 +93,17 @@ def kart_olustur(beyin, ayarlar=None, simdi=None):
 
     parcalar = []
 
-    # 1. Tarih ve selam
+    # 1. Tarih ve selam (saate gore)
     gunler = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
     gun = gunler[simdi.weekday()]
-    parcalar.append("Günaydın — %s, %s" % (gun, simdi.strftime("%d.%m.%Y")))
+    saat = simdi.hour
+    if saat < 12:
+        selam = "Günaydın"
+    elif saat < 18:
+        selam = "İyi günler"
+    else:
+        selam = "İyi akşamlar"
+    parcalar.append("%s — %s, %s" % (selam, gun, simdi.strftime("%d.%m.%Y")))
 
     # 2. Hatırlatmalar
     try:

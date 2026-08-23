@@ -208,13 +208,49 @@ class Api:
 
     def quit(self):
         """Tamamen kapat: tepsiyi durdur + pencereyi yok et (kill switch)."""
+        import os as _os
+        import time as _time
+
+        # 1) Tepsi ikonunu durdur
         try:
             from tray import durdur
             durdur()
         except Exception:
             pass
+
+        # 2) Zamanlayiciyi durdur (SQLite yazmasin)
+        try:
+            from tools.zamanlayici import Zamanlayici
+            if hasattr(self, '_zamanlayici') and self._zamanlayici:
+                self._zamanlayici.durdur()
+        except Exception:
+            pass
+
+        # 3) Pencereyi yok et
+        try:
+            if webview.windows:
+                webview.windows[0].destroy()
+        except Exception:
+            pass
+
+        # 4) Hafiza veritabanini duzgun kapat. os._exit() Python'un temizlik
+        #    adimlarini ATLAR — acik SQLite baglantisi kendiliginden
+        #    kapanmaz. WAL crash-safe oldugu icin veri kaybi beklenmez ama
+        #    checkpoint edilmemis WAL dosyasi buyuyerek kalir.
+        try:
+            from memory.engine import HafizaMotoru
+            kapat = getattr(HafizaMotoru, "kapat", None)
+            if callable(kapat) and hasattr(self, "_hafiza") and self._hafiza:
+                self._hafiza.kapat()
+        except Exception:
+            pass
+
+        # 5) Sureci sonlandir — 100ms bekle (pencere/DB kapanisi otursun).
+        #    time.sleep, os.sleep DEGIL: os modulunde sleep yoktur, oyle
+        #    yazilirsa thread AttributeError ile coker ve _exit(0) hic
+        #    calismaz — sureç yine arkada kalirdi (2026-08-23'te yasandi).
         threading.Thread(
-            target=lambda: webview.windows[0].destroy() if webview.windows else None,
+            target=lambda: (_time.sleep(0.1), _os._exit(0)),
             daemon=True,
         ).start()
 
@@ -257,9 +293,9 @@ def main():
     # E-3: Zamanlayiciyi baslat (arka plan, sessiz)
     try:
         from tools.zamanlayici import Zamanlayici
-        zamanlayici = Zamanlayici(
+        api._zamanlayici = Zamanlayici(
             js_callback=api._js, beyin=api.brain)
-        zamanlayici.baslat()
+        api._zamanlayici.baslat()
     except Exception as e:
         logger.warning("Zamanlayici baslatilamadi: %s", e)
 

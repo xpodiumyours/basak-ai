@@ -33,10 +33,10 @@ class TestAktifSaat:
         simdi = datetime(2026, 8, 22, 19, 59)
         assert aktif_saat_mi(simdi)
 
-    def test_20_00_degil(self):
-        """20:00 artık aktif değil (bitiş dahil değil)."""
+    def test_20_00_aktif(self):
+        """20:00 aktif (son kart saati dahil)."""
         simdi = datetime(2026, 8, 22, 20, 0)
-        assert not aktif_saat_mi(simdi)
+        assert aktif_saat_mi(simdi)
 
     def test_09_59_degil(self):
         """09:59 aktif değil."""
