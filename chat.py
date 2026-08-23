@@ -31,6 +31,33 @@ DEFTER_DIR = os.path.join(BASE, "defter")
 KNOWLEDGE_MAX_CHARS = 5000
 GOREVLER_FILE = os.path.join(BASE, "gorevler.json")
 MAX_HISTORY = 20
+# Baglam diyeti ADIM 3 (2026-08-24): gecmis penceresi sayi degil KILO
+# limitiyle calisir — uzun olcum ciktilari birikip istegi sisiriyordu
+# (groq 413: Requested 9313 / Limit 8000). Kesim yalnizca MODELE GIDEN
+# pencereyi ilgilendirir; her cift zaten hafiza motoruna yazilmis olur,
+# eski kisimlar ilgili soruda motorun aramasiyla geri gelir.
+GECMIS_KILO_LIMITI = 4000
+
+
+def _gecmis_pencere(gecmis, limit=GECMIS_KILO_LIMITI, adet_siniri=MAX_HISTORY):
+    """Kilo limitli gecmis penceresi.
+
+    En YENI mesajdan geriye dogru ekler; limit dolunca durur. Mesajlar
+    BUTUN halde alinir (ortasindan kesilmez); en az bir (en yeni) mesaj
+    garantidir. Kronolojik sira korunur.
+    """
+    secilen = []
+    toplam = 0
+    for m in reversed(gecmis or []):
+        uzunluk = len(m.get("content") or "")
+        if secilen and toplam + uzunluk > limit:
+            break
+        secilen.append(m)
+        toplam += uzunluk
+        if len(secilen) >= adet_siniri:
+            break
+    secilen.reverse()
+    return secilen
 
 # P2 hafiza motoru — arka planda hazirlanir, hazir degilse sohbet etkilenmez
 _hafiza = None
@@ -353,7 +380,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
             ),
         })
 
-    mesajlar += gecmis[-MAX_HISTORY:] + [{"role": "user", "content": text}]
+    mesajlar += _gecmis_pencere(gecmis) + [{"role": "user", "content": text}]
 
     # Baglam diyeti ADIM 1: anahtar kelime artik TAM SETI acmaz — yalniz
     # ilgili arac ailesinin kilavuzu gider. Olcum uclusu her zaman acik

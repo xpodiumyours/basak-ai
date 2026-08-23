@@ -32,3 +32,4 @@
 | taban-olcumu-arac-disiplini.md | TABAN: 10 turda %30 arca kosti, %60 durust red, %10 olcumsuz bilgi sizintisi; groq 413 TPM asimi notu | opencode | 2026-08-23 | 30g |
 | baglam-diyeti-adim1-dinamik-arac.md | ADIM 1 dinamik arac sunumu: kilavuz yuku %82 dustu, disiplin %30->%80 cikti; 303/303 yesil | opencode | 2026-08-23 | 30g |
 | baglam-diyeti-adim2-kilavuz-sikilaştırma.md | ADIM 2 kilavuz sikilastirma: JSON %31 azaldi; davranis dogrulamasi saglayici karisikligi yarim, yarin taze kotalarla | opencode | 2026-08-24 | 30g |
+| baglam-diyeti-adim3-gecmis-kilo-limiti.md | ADIM 3 gecmis kilo limiti (4k kr): tepe yuku ~4.5k tokonla sinirlandi; kesim hafiza silmek degil; 311/311 yesil | opencode | 2026-08-24 | sonsuz |
