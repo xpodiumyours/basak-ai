@@ -24,8 +24,16 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://integrate.api.nvidia.com/v1"
 
 # Tercih sirasi: guncel NVIDIA NIM modelleri (agustos 2026)
+#
+# MiniMax M3 (2026-08-23): Nemotron/GLM/GPT-OSS ailelerinden bagimsiz ikinci
+# bir aile — P4'teki karsilikli denetim icin ayni aileden iki model ise
+# yaramaz. Canli olcum: 1.0s, Turkce dogru, content dolu (reasoning tuzagi
+# yok, dusuk max_tokens ile bile bos donmuyor). 2. siraya konuldu: varsayilan
+# (lightning) degismesin ama cevapla()'daki sirali[:4] penceresine girsin —
+# listenin sonuna eklenirse hicbir zaman denenmezdi.
 TERCIH_SIRASI = [
     "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "minimaxai/minimax-m3",
     "nvidia/nemotron-3-super-120b-a12b",
     "nvidia/llama-3.3-nemotron-super-49b-v1.5",
     "meta/llama-3.3-70b-instruct",
