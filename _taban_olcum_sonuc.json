@@ -1,102 +1,23 @@
 {
-  "tarih_zaman": "2026-08-24 00:15:27",
+  "tarih_zaman": "2026-08-24 01:57:41",
   "soru": "VixRex'te durum ne?",
-  "n": 10,
+  "n": 1,
   "sayilar": {
-    "ARAC_CALISTI": 0,
-    "DURUST_RED": 10,
+    "ARAC_CALISTI": 1,
+    "DURUST_RED": 0,
     "OLCUMSUZ": 0,
     "HATA": 0
   },
   "turlar": [
     {
       "tur": 1,
-      "durum": "DURUST_RED",
-      "araclar": [],
-      "kaynak_beyin": null,
-      "sure_sn": 10.7,
-      "cevap": "Bunu ölçemedim.",
-      "hata": null
-    },
-    {
-      "tur": 2,
-      "durum": "DURUST_RED",
-      "araclar": [],
-      "kaynak_beyin": null,
-      "sure_sn": 11.9,
-      "cevap": "Bunu ölçemedim.",
-      "hata": null
-    },
-    {
-      "tur": 3,
-      "durum": "DURUST_RED",
-      "araclar": [],
-      "kaynak_beyin": null,
-      "sure_sn": 2.4,
-      "cevap": "Bunu ölçemedim.",
-      "hata": null
-    },
-    {
-      "tur": 4,
-      "durum": "DURUST_RED",
-      "araclar": [],
-      "kaynak_beyin": null,
-      "sure_sn": 2.9,
-      "cevap": "Bunu ölçemedim.",
-      "hata": null
-    },
-    {
-      "tur": 5,
-      "durum": "DURUST_RED",
-      "araclar": [],
-      "kaynak_beyin": null,
-      "sure_sn": 3.0,
-      "cevap": "Bunu ölçemedim.",
-      "hata": null
-    },
-    {
-      "tur": 6,
-      "durum": "DURUST_RED",
-      "araclar": [],
-      "kaynak_beyin": null,
-      "sure_sn": 2.8,
-      "cevap": "Bunu ölçemedim.",
-      "hata": null
-    },
-    {
-      "tur": 7,
-      "durum": "DURUST_RED",
-      "araclar": [],
-      "kaynak_beyin": null,
-      "sure_sn": 2.7,
-      "cevap": "Bunu ölçemedim.",
-      "hata": null
-    },
-    {
-      "tur": 8,
-      "durum": "DURUST_RED",
-      "araclar": [],
-      "kaynak_beyin": null,
-      "sure_sn": 2.3,
-      "cevap": "Bunu ölçemedim.",
-      "hata": null
-    },
-    {
-      "tur": 9,
-      "durum": "DURUST_RED",
-      "araclar": [],
-      "kaynak_beyin": null,
-      "sure_sn": 3.0,
-      "cevap": "Bunu ölçemedim.",
-      "hata": null
-    },
-    {
-      "tur": 10,
-      "durum": "DURUST_RED",
-      "araclar": [],
-      "kaynak_beyin": null,
-      "sure_sn": 2.7,
-      "cevap": "Bunu ölçemedim.",
+      "durum": "ARAC_CALISTI",
+      "araclar": [
+        "git_durum"
+      ],
+      "kaynak_beyin": "groq",
+      "sure_sn": 6.7,
+      "cevap": "badge::Y::VixRex projesi şu anda fix/v37-v38-error-disclosure dalında ve son commit ffbe6ba, 2026-08-24 01:56'da yapılmış.\nbadge::Ö::git_durum \"Dal: fix/v37-v38-error-disclosure Son commit: ffbe6ba | 2026-08-24 01:56 | fix(V-37, V-38): error disclosure — generic messages in API routes\"",
       "hata": null
     }
   ]

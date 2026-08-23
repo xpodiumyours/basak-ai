@@ -423,11 +423,17 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
 
     # Tum mesajlar brain.cevapla uzerinden gider:
     # Router v2: secici.sec() gorev turune gore saglayici sirasini belirler.
-    # Olcum Retry: measurement tool gerekliyse ve model tool_call dondurmediyse,
-    # guclu Groq modeliyle (openai/gpt-oss-120b) 1 kez tekrar dene.
-    _OLCUM_SET = {"git_durum", "belge_ara", "dosya_bilgi"}
-    olcum_aktif = bool(aktif_toollar and any(
-        t["function"]["name"] in _OLCUM_SET for t in aktif_toollar))
+    # Olcum Retry: OLCUM SORUSUYSA ve model tool_call dondurmediyse, guclu
+    # Groq modeliyle (openai/gpt-oss-120b) 1 kez tekrar dene.
+    #
+    # 2026-08-24 E2E bulgusu: "olcum_aktif" eskiden 'sunulan sette olcum
+    # araci var' demisti — baglam diyetiyle olcum uclusu HER TURDA sunulur
+    # oldugundan bu kosul her sohbette gecerli oluyordu ve siradan sohbet
+    # de gereksiz ikinci cagri yapiyordu (2x gecikme/kota). Artik sorunun
+    # KENDISI olcum sorusu mu diye bakilir.
+    _OLCUM_KELIMELERI = tuple(_TOOL_KELIMELERI["git_durum"]) + \
+        tuple(_TOOL_KELIMELERI["belge_ara"])
+    olcum_aktif = any(k in text.lower() for k in _OLCUM_KELIMELERI)
     _GUCLU_MODEL = "openai/gpt-oss-120b"
     _retry = 0
     MAX_RETRY = 1
