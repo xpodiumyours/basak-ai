@@ -256,7 +256,13 @@ const Chat = (function () {
     document.body.classList.add("goster-mesajlar");
     const div = document.createElement("div");
     div.className = "msg basak thinking";
-    div.innerHTML = '<div class="msg-avatar">B</div><div class="msg-body"><div class="msg-name">BAŞAK</div><div class="msg-bubble"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>';
+    // msg-sure: gecen saniye. Cevap tek parca geldigi icin (hicbir
+    // saglayicida akis yok) uc nokta disinda hicbir ilerleme isareti
+    // yoktu; olculen en yavas model 27.9s (kimi-k3) ve o sure boyunca
+    // ekran donmus gibi duruyordu.
+    div.innerHTML = '<div class="msg-avatar">B</div><div class="msg-body">'
+      + '<div class="msg-name">BAŞAK<span class="msg-sure"></span></div>'
+      + '<div class="msg-bubble"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>';
     list.appendChild(div);
     scroll.scrollTop = scroll.scrollHeight;
     return div;
@@ -272,9 +278,38 @@ const Chat = (function () {
 let busyTimer = null;
 const YANIT_UST_SINIR_MS = 90000;   // olculen en yavas model 27.9s (kimi-k3)
 
+/* ---------------- Bekleme sayaci ---------------- */
+/* Akis yok: cevap tek parca geliyor, yol boyunca hicbir isaret cikmiyor.
+   Tam akis 10 saglayicinin hepsini + arac cagirma mantigini degistirmek
+   demek. Sayac o isi yapmaz ama asil sikayeti ("dondu mu?") cozer:
+   bekleme gorunur olur. */
+let sureTimer = null;
+function sureBaslat() {
+  const bas = Date.now();
+  clearInterval(sureTimer);
+  const yaz = () => {
+    const el = document.querySelector(".msg.basak.thinking .msg-sure");
+    if (!el) return;
+    const sn = Math.round((Date.now() - bas) / 1000);
+    if (sn < 2) { el.textContent = ""; return; }
+    // 20 sn'den sonra: bekleyen kisi "takildi" diye dusunmesin. Bu sure
+    // olculen en yavas modelin (27.9s) altinda secildi ki gercekten
+    // yavas modelde uyari cevaptan ONCE ciksin.
+    el.textContent = sn >= 20 ? sn + " sn · yavaş model, hâlâ bekliyor" : sn + " sn";
+    el.classList.toggle("uzun", sn >= 20);
+  };
+  yaz();
+  sureTimer = setInterval(yaz, 1000);
+}
+function sureDurdur() {
+  clearInterval(sureTimer);
+  sureTimer = null;
+}
+
 function kilidiKapat() {
   state.busy = true;
   $("btnSend").disabled = true;
+  sureBaslat();
   clearTimeout(busyTimer);
   busyTimer = setTimeout(() => {
     if (!state.busy) return;
@@ -289,6 +324,7 @@ function kilidiKapat() {
 function kilidiAc() {
   clearTimeout(busyTimer);
   busyTimer = null;
+  sureDurdur();
   state.busy = false;
   $("btnSend").disabled = false;
 }

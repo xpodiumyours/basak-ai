@@ -222,6 +222,13 @@ body {
   font-size: 10px; font-weight: 400; letter-spacing: 0;
   color: rgba(255,255,255,0.30);
 }
+/* Bekleme sayaci — cevap tek parca geldigi icin tek ilerleme isareti bu. */
+.msg-sure {
+  font-size: 10px; font-weight: 400; letter-spacing: 0;
+  color: rgba(255,255,255,0.32);
+  font-variant-numeric: tabular-nums;   /* rakam degisirken satir oynamasin */
+}
+.msg-sure.uzun { color: rgba(245,158,11,0.85); }
 .msg-kopya {
   margin-left: auto;
   background: none; border: 0; cursor: pointer;
