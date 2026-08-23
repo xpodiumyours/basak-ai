@@ -42,7 +42,7 @@ class TestIsaretsiz:
                  '[B] Sohbet cumlesi.')
         temiz, rapor = cikis_kapisi(metin)
         assert "Merhaba" not in temiz and "Kaynaksiz" not in temiz
-        assert "[B]" in temiz
+        assert "badge::B::" in temiz
         assert len(rapor) == 2
         assert temiz.endswith(YEDEK_CUMLE)
 
@@ -52,7 +52,7 @@ class TestAlinti:
 
     def test_gercek_alinti_yasar(self):
         temiz, rapor = cikis_kapisi(self.GERCEK)
-        assert rapor == [] and "[A]" in temiz
+        assert rapor == [] and "badge::A::" in temiz
 
     def test_uydurma_alinti_olur(self):
         sahte = '[A] OLCU.md "Bu cumle dosyada kesinlikle yazmıyor."'
@@ -86,7 +86,7 @@ class TestOlcum:
     def test_ciktiyla_birebir_yasar(self):
         s = '[Ö1] list_tasks "Tüm görevler tamamlanmış."'
         temiz, rapor = cikis_kapisi(s, olcumler=[self.CIKTI])
-        assert rapor == [] and "[Ö1]" in temiz
+        assert rapor == [] and "badge::Ö::" in temiz
 
     def test_ciktiyla_uyusmayan_olur(self):
         s = '[Ö1] list_tasks "12 görev var"'
@@ -114,7 +114,7 @@ class TestCikarim:
         # not: [O2] alintisi "200 OK" ciktinin normalize hâlinde yok -> elenir;
         # bu yüzden [Ç] de dayanagini kaybeder. Davranis kasitli:
         # dayanagi olmayan cikarim yasayamaz.
-        assert "[Ç]" not in temiz or rapor == []
+        assert "badge::Ç::" not in temiz or rapor == []
 
     def test_dayanaksiz_tek_basina_olur(self):
         metin = '[Ç] [Ö1][Ö2] Dayanaklari hic uretilmedi.'
@@ -125,7 +125,7 @@ class TestCikarim:
 class TestBilmiyorum:
     def test_B_her_zaman_yasar(self):
         temiz, rapor = cikis_kapisi("[B] Bunun cevabini ölçemiyorum.")
-        assert rapor == [] and "[B]" in temiz
+        assert rapor == [] and "badge::B::" in temiz
 
     def test_hepsi_isaretsiz_sohbet_gecer(self):
         """Hicbir cumlede isaret yoksa sohbet cevabi oldugu gibi gecer."""
@@ -140,6 +140,6 @@ class TestBilmiyorum:
         metin = ("İşaretsiz bir.\n"
                  '[B] İşaretli iki.')
         temiz, rapor = cikis_kapisi(metin)
-        assert '[B]' in temiz
+        assert 'badge::B::' in temiz
         assert 'İşaretsiz bir' not in temiz
         assert len(rapor) == 1

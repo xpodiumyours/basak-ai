@@ -540,3 +540,38 @@ body.sinema.goster-mesajlar #btnMesajlar { color: var(--accent); background: rgb
   background: rgba(59, 130, 246, 0.3);
   color: var(--accent);
 }
+
+
+/* ---- ÖLÇÜ rozetleri ---- */
+.olcu-rozet {
+  display: inline-block;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-right: 4px;
+  vertical-align: middle;
+  line-height: 1.5;
+  user-select: none;
+}
+.olcu-rozet.olcum {
+  background: rgba(59,130,246,0.18);
+  color: #60A5FA;
+  border: 1px solid rgba(59,130,246,0.30);
+}
+.olcu-rozet.alinti {
+  background: rgba(139,92,246,0.18);
+  color: #A78BFA;
+  border: 1px solid rgba(139,92,246,0.30);
+}
+.olcu-rozet.cikarim {
+  background: rgba(34,197,94,0.18);
+  color: #4ADE80;
+  border: 1px solid rgba(34,197,94,0.30);
+}
+.olcu-rozet.bilmiyorum {
+  background: rgba(156,163,175,0.18);
+  color: #9CA3AF;
+  border: 1px solid rgba(156,163,175,0.30);
+}

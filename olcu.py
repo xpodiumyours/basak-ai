@@ -45,6 +45,14 @@ _TURKCE_FOLD = str.maketrans({
 })
 
 
+def _isaret_degistir(cumle, tip):
+    """Cümlenin [Ö]/[A]/[Ç]/[B] prefix'ini silip badge::X:: marker'ı ekler."""
+    m = _MARKER.match(cumle)
+    if m:
+        return "badge::" + tip + "::" + cumle[m.end():].strip()
+    return cumle
+
+
 def _norm(metin):
     """Birebirlik karsilastirmasi icin esnek normalizasyon.
 
@@ -160,14 +168,14 @@ def cikis_kapisi(metin, olcumler=None):
             rapor.append("SILINDI (isaretsiz): " + cumle[:80])
 
         elif tip == "B":
-            gecen.append(cumle)
+            gecen.append(_isaret_degistir(cumle, "B"))
 
         elif tip == "A":
             alinti = _ALINTI.search(cumle)
             konum = _KONUM_A.match(cumle)
             if (alinti and konum
                     and _alinti_dogrula(konum.group(1), alinti.group(1))):
-                gecen.append(cumle)
+                gecen.append(_isaret_degistir(cumle, "A"))
             else:
                 rapor.append("SILINDI ([A] dogrulanamadi): " + cumle[:80])
 
@@ -176,7 +184,7 @@ def cikis_kapisi(metin, olcumler=None):
             dogru = bool(alinti) and any(
                 _norm(alinti.group(1)) in o for o in olcum_norm)
             if dogru:
-                gecen.append(cumle)
+                gecen.append(_isaret_degistir(cumle, "Ö"))
                 if no:
                     gecen_o_nolari.add(no)
             else:
@@ -187,7 +195,7 @@ def cikis_kapisi(metin, olcumler=None):
             dayanaklar = _DAYANAK.findall(cumle)
             if len(dayanaklar) >= 2 and all(d in gecen_o_nolari
                                             for d in dayanaklar):
-                gecen.append(cumle)
+                gecen.append(_isaret_degistir(cumle, "Ç"))
             else:
                 rapor.append("SILINDI ([C] dayanak eksik): " + cumle[:80])
 

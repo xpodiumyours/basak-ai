@@ -125,6 +125,15 @@ const Orb = (function () {
 function mdKacis(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+/* Olcu rozetleri: badge::B:: → <span class="olcu-rozet bilmiyorum">B</span> */
+function badge_cevir(s) {
+  var h = { O: 'olcum', A: 'alinti', C: 'cikarim', B: 'bilmiyorum' };
+  var l = { O: 'Ö', A: 'A', C: 'Ç', B: 'B' };
+  return s.replace(/badge::([OACB])::/g, function(_, t) {
+    return '<span class="olcu-rozet ' + (h[t] || '') + '">' + (l[t] || t) + '</span>';
+  });
+}
+
 function mdRender(metin) {
   const parcalar = String(metin == null ? "" : metin).split("```");
   let html = "";
@@ -141,9 +150,16 @@ function mdRender(metin) {
         + '<button class="kod-kopya" type="button">kopyala</button></div>'
         + "<pre><code>" + mdKacis(kod) + "</code></pre></div>";
     } else {
-      html += mdKacis(parcalar[i])
-        .replace(/`([^`\n]+)`/g, '<code class="satir-kod">$1</code>')
-        .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+      // badge_cevir KACISTAN SONRA calisir. Once calistirilirsa urettigi
+      // <span> mdKacis tarafindan kacirilir ve ekranda rozet yerine ham
+      // "&lt;span class=..." metni gorunur — [A] halinden de kotu.
+      // Kod blogu dalinda cagrilmaz: kodun icindeki badge:: metni rozete
+      // donusmemeli, oldugu gibi kalmali.
+      html += badge_cevir(
+        mdKacis(parcalar[i])
+          .replace(/`([^`\n]+)`/g, '<code class="satir-kod">$1</code>')
+          .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+      );
     }
   }
   return html;
@@ -381,6 +397,7 @@ window.BasakUI = {
     setOrb("arac");
   },
   reply(text, modelInfo) {
+    const _t = document.querySelector(".msg.basak.thinking"); if (_t) _t.remove();
     Chat.add("basak", text);
     brainKaynakEtiketi(modelInfo);
     kilidiAc();
@@ -391,6 +408,7 @@ window.BasakUI = {
     $("input").focus();
   },
   error(msg) {
+    const _t = document.querySelector(".msg.basak.thinking"); if (_t) _t.remove();
     // Hata Basak'in AGZINDAN cikmis gibi gorunmemeli: eskiden sohbet
     // balonuna "Uzgunum, bir sorun var: ..." diye ekleniyordu ve baglanti
     // hatasi ile gercek cevap ayni yerde duruyordu.
