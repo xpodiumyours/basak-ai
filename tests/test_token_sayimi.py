@@ -97,7 +97,10 @@ class TestBrainKablolama:
         monkeypatch.setattr(brain_mod, "model_stats_al", lambda: istat)
 
         b = Brain.__new__(Brain)   # __init__ agirliklari olmadan
-        b.kota = KotaYoneticisi(ucretli_engelli=True)
+        # GERCEK durum dosyasini degil, izole kotayi kullan (canli
+        # sogumalar testi etkilemesin)
+        b.kota = KotaYoneticisi(dosya=str(tmp_path / "kota.json"),
+                                ucretli_engelli=True)
         for ad in ("_glm", "_cloudflare", "_cohere", "_nvidia", "_kilo",
                    "_openrouter", "_qwen", "_gemini"):
             setattr(b, ad, None)
