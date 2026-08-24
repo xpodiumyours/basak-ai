@@ -5,14 +5,14 @@ Son güncelleme: 21 Ağustos 2026 (ox-alpha oturumu; hafıza toparlama).
 
 ## Kim, ne yapıyor
 
-- İsim: **Furkan** (bilgisayar kullanıcı adı / takma ad: Casper).
+- İsim: **Casper** diye hitap edilir (yasal adı Furkan olsa da kendisi Casper diye çağrılmayı tercih eder — 2026-08-24 canlı tercihi).
 - Doğum: **26 Ağustos 1995** — Başak burcu (asistanın adının kaynağı bu).
 - Yazılım geliştirmiyor — İngilizce ve kod bilmiyor. Projelerini yapay zekâlarla **konuşarak** yönetiyor: kararı o veriyor, kodu AI yazıyor. Buna rağmen isabetli mimari/ürün kararları alıyor; yönetiyor, üretmiyor.
 
 Şu an yürüttüğü işler:
 - **VixRex** — hazır vitrin/mağaza kiralama platformu (100 hazır vitrin → kiralık → sonra satılık/B2B). Yayında. **Xpodiumyours** çatısı altında geliştiriliyor.
 - **NumeraMatch** — numeroloji temelli bir tanışma uygulaması (Expo/Firebase).
-- **Başak** — bu proje; kendi kişisel yerel asistanı ve dijital ikiz kardeşi ("daha zeki olan" kendisi :) ).
+- **Başak** — bu proje; Casper'ın kişisel yerel asistanı. (Not: "kardeş" benzetmesi kelimenin tam anlamı DEĞİLDİR — Başak bir yazılım ürünüdür, aile üyesi değildir; kendini asistan olarak tanıtır.)
 
 İş hayatı: babasının bay/bayan/çocuk giyim dükkânında çalışıyor (müşteri, reyon, temizlik, yemek); bir dönem inşaatta da çalıştı. Projelere günün küçük boşluklarında (~10 dakikalık parçalarda) odaklanıyor, uzun kesintisiz oturum nadiren mümkün.
 

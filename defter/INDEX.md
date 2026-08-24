@@ -74,3 +74,4 @@
 | ana-plan-revizyon-onayi.md | Casper 3 onay verdi: tam yetki->kapsamli yetki metni, Ortak Calisma Sozlesmesi AGENTS.md ust norm oldu (satir 100), RPO 24 saat duzeltildi; ANA-PLAN'a faz kapisi+veri karti+1.4b-e eklendi | opencode | 2026-08-24 | sonsuz |
 | pota-tur1-karari.md | Casper (a) bekci secildi: yakalama oncelikli, gurultu cezasi hafif; adim 6: fay'in dusuk-siklik mekhanizmasi bekciyle melezlenecek, tur 2 sinavi gelecek | opencode | 2026-08-24 | sonsuz |
 | groq-tool-choice-duzeltme.md | FAZ 1.4d: groq'un aracsiz turda tool_call 400'u icin tek nudge'li retry (groq.py); 7 yeni test, 601 test fonksiyonu; kota seffafligi korundu | opencode | 2026-08-24 | sonsuz |
+| canli-triyaj-1.md | Ekran triyaji: gun sayimi off-by-one duzeltildi, gecmis saatli goreve [SAATI GECTI] etiketi, Casper hitap tercihi + kardes ifadesi knowledge'da duzeltildi; qwen2.5:3b sunulan araci kullanmiyor (FAZ 4 gerekcesi guclendi) | opencode | 2026-08-24 | sonsuz |

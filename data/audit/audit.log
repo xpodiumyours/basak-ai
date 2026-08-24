@@ -2451,3 +2451,8 @@
 2026-08-24 18:34:31 | OK kaynak=cloudflare | 0.0 sn | tools=False | istek=1 | acik tercihle siralandi
 2026-08-24 18:34:31 | HATA kaynak=glm (0.0 sn): patladi
 2026-08-24 18:34:31 | OK kaynak=yerel | 0.0 sn | tools=False | istek=1 | dustu=1 bulut
+2026-08-24 18:44:07 | OK kaynak=cloudflare | 2.0 sn | tools=False | istek=47 | genel sohbet → dagitilmis sira (Cloudflare, GLM, Groq) | karne: cohere (%35.2) sona alindi
+2026-08-24 19:01:57 | OK kaynak=cloudflare | 5.7 sn | tools=False | istek=48 | genel sohbet → dagitilmis sira (Cloudflare, GLM, Groq) | karne: cohere (%35.2) sona alindi
+2026-08-24 19:02:52 | HATA kaynak=glm (5.8 sn): Request timed out.
+2026-08-24 19:02:52 | OK kaynak=groq | 0.8 sn | tools=False | istek=94 | genel sohbet → dagitilmis sira (GLM, Groq, Cloudflare) | karne: cohere (%35.2) sona alindi
+2026-08-24 19:03:46 | OK kaynak=groq | 0.8 sn | tools=False | istek=95 | genel sohbet → dagitilmis sira (Groq, GLM, Cloudflare) | karne: cohere (%35.2) sona alindi

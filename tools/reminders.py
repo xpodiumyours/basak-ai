@@ -73,6 +73,22 @@ def _tarih_ayikla(dosya_adi: str, icerik: str) -> list:
     return bulunanlar
 
 
+def _saati_gecti_mi(metin, simdi):
+    """Gorev metnindeki 'saat HH:MM' ifadesi bugun icin gecti mi?
+
+    (2026-08-24 canli bulgu: 15:00'lik gorev 18:35 kartinda etiketsizdi.)
+    """
+    eslesme = re.search(r"saat\s+(\d{1,2})[:.](\d{2})", metin, re.IGNORECASE)
+    if not eslesme:
+        return False
+    try:
+        gorev_saati = datetime(simdi.year, simdi.month, simdi.day,
+                               int(eslesme.group(1)), int(eslesme.group(2)))
+    except ValueError:
+        return False
+    return gorev_saati < simdi
+
+
 def bugunku_hatirlatmalar(knowledge_dir: str, gorevler_file: str) -> dict:
     """Bugünkü hatırlatmaları toplar.
 
@@ -113,7 +129,9 @@ def bugunku_hatirlatmalar(knowledge_dir: str, gorevler_file: str) -> dict:
                         continue
                     gorulen.add(anahtar)
 
-                    kalan = (bilgi["tarih"] - bugun).days
+                    # Saat bileşeni hesaba karışmasın: takvim günü farkı
+                    # (2026-08-24 canli bulgu: 2 gün kala "1 gun" diyordu)
+                    kalan = (bilgi["tarih"].date() - bugun.date()).days
 
                     if kalan == 0:
                         hatirlatmalar.append(
@@ -141,9 +159,13 @@ def bugunku_hatirlatmalar(knowledge_dir: str, gorevler_file: str) -> dict:
 
             if bugunku:
                 sayi = len(bugunku)
+                etiketli = []
+                for g in bugunku[:5]:
+                    on = "[SAATI GECTI] " if _saati_gecti_mi(
+                        g.get("text", ""), bugun) else ""
+                    etiketli.append(on + g["text"][:30])
                 hatirlatmalar.append(
-                    f"BUGUN ICIN {sayi} GOREV: "
-                    + ", ".join(g["text"][:30] for g in bugunku[:5])
+                    f"BUGUN ICIN {sayi} GOREV: " + ", ".join(etiketli)
                 )
 
             # Yaklaşan görevler (1-3 gün)
