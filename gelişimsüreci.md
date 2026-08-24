@@ -302,7 +302,13 @@ Ek: **`gorev-kure.md`**
 
 ---
 
-## 7. Belge haritası
+## 7. KİLİTLİ HEDEF — Başak kendi beyni (2026-08-24, Casper kilidi)
+
+Casper kararı: hedef "Başak kendi muhakeme algoritması; free modeller yalnız hesaplama işçisi". Tam tablo ve faz sırası **`defter/kilitli-hedef-basak-beyni.md`**'de kilitli. Sıra özet: **B1** secici↔karne → **B2** borç provaları + Kilo ölçümü → **B3** token bütçesi → **DENEY-0** deney motoru tohumu → **FAY-0..3** → **DÜNYA-0** belief store → **ORKESTRA-0** OBSERVE..LEARN döngüsü → **EVRIM-0+** → **SELF-1** ⛔ çifte onay. Her faz kanıt kapılı; UX-K2 Çekirdek bu planın görüntüsüdür, önüne geçmez. Hedeften sapma ancak Casper kararıyla olur.
+
+---
+
+## 8. Belge haritası
 
 | Dosya | Rolü |
 |---|---|
@@ -318,7 +324,7 @@ Ek: **`gorev-kure.md`**
 | `AGENTS.md` | Ajan kuralları — çelişirse **o kazanır** |
 | `GOREV_LISTESI.md` | Eski ana plan. P1-P3 geçerli; **P4 buradaki ÖLÇÜ+POTA ile değişti**, P5 E-1..E-4 oldu, P6-P7 yerinde |
 
-## 8. Faz bitince
+## 9. Faz bitince
 
 1. Durum tahtası güncellenir, **kanıt yazılır**.
 2. `AGENTS.md` §2'ye tek satır işlenir.

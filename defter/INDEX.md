@@ -45,3 +45,6 @@
 | gorev-eszamanli-yazma-korumasi.md | Gorev dosyasinda kilit+atomik yazma: 10 paralel thread kayipsiz, ID benzersiz; 371/371 yesil | opencode | 2026-08-24 | sonsuz |
 | sayfa-oku-ssrf-savunmasi.md | SSRF kapandi: cozulen IP denetimi + port kilidi + guvenli redirect; 381/381 yesil | opencode | 2026-08-24 | sonsuz |
 | bekleyen-isler-6-bayat.md | Madde 6 (selam) BAYAT: kod zaten saat bazli selam yapiyor; kayitlar kodla dogrulanmali | opencode | 2026-08-24 | sonsuz |
+| yol-haritasi-kendi-beyne-gecis.md | YOL HARITASI: token sayimi->secici-karne->provalar->Kilo->UI-K2 Cekirdek; UX sonraya | opencode | 2026-08-24 | sonsuz |
+| gercek-token-sayimi.md | 9 adaptorden usage okunuyor, stats token toplamlari doluyor; 390/390 yesil | opencode | 2026-08-24 | sonsuz |
+| kilitli-hedef-basak-beyni.md | KILITLI HEDEF: Basak kendi beyni, modeller isci; ~%25 tamam; B1..SELF-1 sirasi kilitli | opencode | 2026-08-24 | sonsuz |
