@@ -54,3 +54,4 @@
 | fay-0-tamamlandi.md | FAY-0 TAMAM: uc olcen tanik + uydurmaya kapali carpistirici; canli kart uretildi; 421/421 yesil | opencode | 2026-08-24 | sonsuz |
 | dunya-0-inanc-deposu.md | DUNYA-0 TAMAM: defter+karne+bayat sorgulanabilir inanc listesi; guven notr 0.5; 429/429 yesil | opencode | 2026-08-24 | sonsuz |
 | orkestra-0-tamamlandi.md | ORKESTRA-0 TAMAM: 10 durumlu muhakeme iskeleti, izli kosum; esdegerlik sonraki dilim; 437/437 yesil | opencode | 2026-08-24 | sonsuz |
+| fay-1-paralel-juri.md | FAY-1 TAMAM: paralel jüri oylaması, 2/1 bölünme sinyali, uydurma oy geçersiz; 444/444 yesil | opencode | 2026-08-24 | sonsuz |

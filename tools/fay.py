@@ -14,6 +14,7 @@ Motor hicbir seyi duzeltmez; gosterir ve sorar. Karar Casper'in.
 """
 
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +111,127 @@ def carpistir(iddialar, beyin_cevapla):
     if cozum is None:
         return None
     return {"cift": (cozum[0], cozum[1]), "gerekce": cozum[2]}
+
+
+# ---------------------------------------------------------------------------
+# FAY-1: Paralel jüri (2026-08-24, kilitli hedef)
+#
+# Organ 2'nin tam hali: çelişki sorusu AYNI ANDA birden fazla ücretsiz
+# sağlayıcıya gider (kotalar ayrı olduğundan paralel maliyet = sıfır).
+# Oylar sayılır:
+#   - tum uyeler CELISIYOR  -> "kesin" catlak
+#   - cogunluk celisiyor ama bolum var -> "bolunme" — insan kararı
+#     tam olarak burada gerekir; karsi oy gerekcesiyle kayda gecer
+#   - cogunluk SORUN YOK    -> sessizce atilir
+# Uydurma savunmasi uye basina devam eder: tanik adi uyduran oy SAYILMAZ.
+# ---------------------------------------------------------------------------
+
+
+def _juri_oyu(uye_adi, beyin_cevapla, iddialar):
+    """Tek jüri üyesinin oyunu toplar; uydurma/hata oyu atılır."""
+    tanik_adlari = [i["tanik"] for i in iddialar]
+
+    def cevapla(messages):
+        return beyin_cevapla(messages)
+
+    try:
+        yanit = cevapla([{"role": "user",
+                          "content": _juri_talimat(iddialar)}])
+    except Exception as e:
+        return {"uye": uye_adi, "oy": None, "gerekce": str(e)[:120]}
+
+    icerik = yanit.get("content") if isinstance(yanit, dict) else str(yanit)
+    cozum = _yanit_coz(icerik, tanik_adlari)
+    if cozum is None:
+        # [SORUN YOK] mu, yoksa anlasilamayan/uydurma mi?
+        if "[sorun yok]" in (icerik or "").lower():
+            return {"uye": uye_adi, "oy": False,
+                    "gerekce": "tutarli buldu"}
+        return {"uye": uye_adi, "oy": None,
+                "gerekce": "yanit ayristirilamadi/uydurma"}
+    t1, t2, gerekce = cozum
+    return {"uye": uye_adi, "oy": True,
+            "cift": (t1, t2), "gerekce": gerekce}
+
+
+def _juri_talimat(iddialar):
+    tanik_satirlari = "\n".join(
+        "- %s: %s" % (i["tanik"], i["iddia"]) for i in iddialar)
+    return (
+        "Ayni konu hakkinda farkli olcum kaynaklarinin soyledikleri:\n"
+        + tanik_satirlari + "\n\n"
+        "Gorev: birbiriyle CELISEN ilk ikiliyi bul.\n"
+        "Yalnizca yukarida verilen kaynak adlarini kullan; yeni kaynak "
+        "uydurma. Kendi bilgini katma.\n"
+        "Cevap bicimi (ZORUNLU):\n"
+        "[CELISIYOR] <kaynak1> vs <kaynak2>: tek cumlelik gerekce\n"
+        "Celisme yoksa: [SORUN YOK]"
+    )
+
+
+def juri_carpistir(iddialar, juri_uyeleri):
+    """Paralel jüri: tüm üyeler aynı anda oy verir.
+
+    juri_uyeleri: [(uye_adi, beyin_cevapla_fn), ...]
+    Dönüş: {"karar": "kesin|bolunme|yok|belirsiz",
+            "celisen_cift": (t1,t2)|None,
+            "oylar": [{uye, oy, gerekce}, ...]}
+      oy: True=çelişiyor, False=sorun yok, None=geçersiz/uydurma
+    """
+    iddialar = list(iddialar)
+    if len(iddialar) < 2:
+        return {"karar": "yok", "celisen_cift": None,
+                "oylar": []}
+
+    oylar = []
+    kilit = threading.Lock()
+
+    def uye_kos(uye):
+        adi, fn = uye
+        oy = _juri_oyu(adi, fn, iddialar)
+        with kilit:
+            oylar.append(oy)
+
+    threads = [threading.Thread(target=uye_kos, args=(u,))
+               for u in juri_uyeleri]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    # Oylari sirala (uye sirasiyla) — rapor deterministik olsun
+    sira = {u[0]: i for i, u in enumerate(juri_uyeleri)}
+    oylar.sort(key=lambda o: sira.get(o["uye"], 99))
+
+    celisioran = [o for o in oylar if o["oy"] is True]
+    reddedilen = [o for o in oylar if o["oy"] is None]
+    gecerli = len(oylar) - len(reddedilen)
+
+    # Karar tablosu (FAY-MOTORU.md Organ 2):
+    #   tüm geçerli oylar çelişiyor          -> kesin
+    #   çelişenler >= sorun-yoklar ve karışık -> bolunme (insan kararı)
+    #   çelişenler azınlıkta / hiç yok        -> yok (sessizce atılır)
+    # Geçersiz (uydurma/hata) oylar karara katılmaz.
+    gelen_celis = [o for o in oylar if o["oy"] is True]
+    gelen_yok = [o for o in oylar if o["oy"] is False]
+
+    if gelen_celis and not gelen_yok:
+        karar = "kesin"
+    elif gelen_celis and len(gelen_celis) >= len(gelen_yok):
+        karar = "bolunme"
+    else:
+        karar = "yok"
+
+    celisen_cift = None
+    for o in celisioran:
+        if "cift" in o:
+            celisen_cift = o["cift"]
+            break
+
+    sonuc = {"karar": karar, "celisen_cift": celisen_cift, "oylar": oylar}
+    logger.info("FAY jürisi: %s (%d oy, %d geçersiz)", karar,
+                len(celisioran), len(reddedilen))
+    return sonuc
 
 
 def kart_olustur(konu, iddialar, catisma=None):
