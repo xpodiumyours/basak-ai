@@ -19,12 +19,19 @@ hata.log.out
 test_port.txt
 arac.log
 
+# Probe/arsiv kosesi (denetim 2026-08-24): gecici deneme ve log dosyalari
+# buraya tasinir; kok dizin temiz kalir. Takip edilmez.
+probe/
+DURUM.md
+
 # Runtime veritabani ve kisisel veriler
 data/memory/
 data/conversations/
 data/tasks/
 data/provider_limits/
 data/model_stats/
+data/model_stats.db
+data/karne.json
 
 # Kisisel Obsidian defteri (basak motoru tarafindan indekslenir, git'e gerek yok)
 Basak/

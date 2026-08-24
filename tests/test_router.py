@@ -143,8 +143,6 @@ class TestPermissionLayer:
     def test_tum_tanimli_araclar_etiketli(self):
         from tools.executor import TOOL_MAP
         for ad in TOOL_MAP:
-            if ad == "get_reminders":
-                continue  # placeholder lambda, gercek arac reminders'da
             assert izinli_mi(ad), "%s etiketsiz!" % ad
 
     def test_bilinmeyen_araç_izinsiz(self):

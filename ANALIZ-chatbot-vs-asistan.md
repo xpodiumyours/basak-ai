@@ -1,5 +1,7 @@
 # Başak: Chatbot mu, Asistan mı? — Koddan Gerçek Analiz (22 Ağustos 2026)
 
+> **DURUM NOTU (2026-08-24):** Bu belge 22 Ağustos'taki anlık taramanın çıktısıdır ve **BAYATLATILDI** — güncel gerçek olarak okunmaZ. O günden beri değişenler: araç sayısı 9'dan 18'e çıktı (güncel tablo `tools/permissions.py`); E-3 zamanlayıcı ile proaktif kart üretimi eklendi ("Başak asla kendi başına mesaj atmaz" cümlesi artık doğru değil); ORKESTRA/FAY/DENEY hatları yazıldı; otomatik test paketi kuruldu. Güncel SAYILAR için kök dizindeki **DURUM.md**'ye, güncel HİKÂYE için **gelişimsüreci.md**'ye bakın.
+
 ## Tanımlar
 
 | | Chatbot | AI Asistan |

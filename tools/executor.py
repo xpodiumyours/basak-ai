@@ -28,7 +28,6 @@ TOOL_MAP = {
     "write_file_tool": write_file_ops,
     "list_files": list_files,
     "ac_uygulama": ac_uygulama,
-    "get_reminders": lambda: None,  # placeholder, asagida calistirilacak
 }
 
 

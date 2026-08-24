@@ -70,7 +70,7 @@ Her UI görevinde: önce **`ui-ux-pro-max`** skill'ini oku, sonra `ui/style.css`
 
 ## 5. Vibe coding yasakları
 
-- **Kanıtsız "çalışıyor" deme.** Değişiklikten sonra uygulamayı gerçekten çalıştır (`python basak_app.py` veya `basak.cmd`), konsol çıktısını/ekran görüntüsünü göster. Otomatik test yok — bu yüzden gerçek çalıştırma tek kanıt.
+- **Kanıtsız "çalışıyor" deme.** Değişiklikten sonra önce `python -m pytest tests -q` koş (2026-08-24 itibarıyla 470+ test var; bu madde eskiden "otomatik test yok" diyordu, o dönem bilgisi bayatladı). UI/ses değişikliğinde ayrıca uygulamayı gerçekten çalıştır (`python basak_app.py` veya `basak.cmd`), konsol çıktısını/ekran görüntüsünü göster — pytest UI davranışını görmez.
 - **Dosyayı düzenle, yeniden yazma.** Küçük bir düzeltme için `basak_app.py`/`brain.py`/`voice.py`'yi baştan üretme.
 - **Sır asla commit'e girmez.** `GROQ_API_KEY`, `ayarlar.json`, `gecmis.json` — hepsi `.gitignore`'da, öyle kalacak. Pre-commit hook bunu da kontrol ediyor (§6).
 - **Var olmayan paket kurma.** Yeni bir pip paketi eklemeden önce gerçekten var olduğunu doğrula (`pip show`/PyPI).
@@ -78,19 +78,20 @@ Her UI görevinde: önce **`ui-ux-pro-max`** skill'ini oku, sonra `ui/style.css`
 
 ## 6. Doğrulama
 
-Proje küçük, otomatik test suite'i yok — bu yüzden minimum kapı:
+(2026-08-24 güncellendi: eskiden "otomatik test suite'i yok" deniyordu; artık `tests/` altında 470+ pytest testi var ve birincil kapı bu.)
 
 | Kapı | Komut | Ne zaman |
 |---|---|---|
+| Test paketi | `python -m pytest tests -q` — TAMAMI yeşil olmalı | Her `.py` değişikliğinde |
 | Python sözdizimi | `python -m py_compile <dosya>` | Her `.py` değişikliğinde — **pre-commit hook zaten zorunlu kılıyor** |
-| Gerçek çalıştırma | `python basak_app.py` aç, özelliği elle dene | Her görev sonunda, "bitti" demeden önce |
+| Gerçek çalıştırma | `python basak_app.py` aç, özelliği elle dene | UI/ses/görsel değişikliklerinde, "bitti" demeden önce |
 | Sır sızıntı kontrolü | commit'e `ayarlar.json`/`gecmis.json` girmemiş | Pre-commit hook otomatik engelliyor |
 
 `git commit --no-verify` ile bu kapıyı atlamak, hatayı görünmez kılar — kullanma.
 
 ## 7. Bu dosya
 
-Casper ile konuşulmadan kapsamı büyütülmez (örn. "şimdi CI kuralım", "test suite yazalım" gibi ağır adımlar — proje buna henüz hazır değil, gerekirse ayrıca konuşulur).
+Casper ile konuşulmadan kapsamı büyütülmez (örn. "şimdi CI kuralım", "Docker'a taşıyayım" gibi ağır adımlar — proje buna henüz hazır değil, gerekirse ayrıca konuşulur).
 
 ## 8. Bilinen tuzaklar
 
