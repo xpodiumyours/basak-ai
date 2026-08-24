@@ -59,3 +59,4 @@
 | fay-3-aktarici.md | FAY-3 TAMAM: aktarıcı — çözülmüş karar havuzundan şekil-eşleştirme ile mekanizma önerisi; 458/458 yeşil | opencode | 2026-08-24 | sonsuz |
 | push-politikasi.md | PUSH POLİTİKASI: plan %100 + kapsamlı E2E olmadan push YOK | casper | 2026-08-24 | sonsuz |
 | evrim-0-nufus-arsivi.md | EVRIM-0 TAMAM: hipotez havuzu + nüfus arşivi + kombinasyon/mutasyon; eleme döngüsü kanıtlı; 467/467 yeşil | opencode | 2026-08-24 | sonsuz |
+| orkestra-uretim-baglantisi.md | ORKESTRA üretime bağlandı: gölge mod anahtarı (orkestra_ana_yol), yetki tavanı korundu; 468/468 yeşil | opencode | 2026-08-24 | sonsuz |

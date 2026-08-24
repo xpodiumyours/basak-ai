@@ -25,7 +25,7 @@ def bilesenler(**fazlalar):
         "dinamik_araclar": lambda t, tools: tools,
         "aday_uret": lambda mesajlar, araclar: (
             {"content": "tek aday cevap"}, "groq"),
-        "deney_kos": lambda tool_calls: None,
+        "deney_kos": lambda tc, ms: None,
         "olcu_kapisi": lambda metin, o: (metin, []),
         "ham_olcum": lambda o: [],
         "ogren": lambda s, c, onem=1: None,
@@ -61,7 +61,7 @@ class TestDeneyYolu:
     def test_arac_cagrisinda_experiment_kosar(self):
         deney_girdileri = []
 
-        def deney_kos(tool_calls):
+        def deney_kos(tool_calls, mesajlar=None):
             deney_girdileri.append(tool_calls)
             return ("olcum sonucu cevap",
                     [("git_durum", "Dal: main")])
@@ -88,7 +88,7 @@ class TestDeneyYolu:
         def kapi(metin, o):
             return "Bunu ölçemedim.", ["elenmis satir"]
         ham = lambda o: ['badge::Ö::git_durum "Dal: main"']
-        def deney_kos(tc):
+        def deney_kos(tc, ms=None):
             # arac kostu ama model cumlesi yine kapidan gecemedi
             return ("Bunu ölçemedim.", [("git_durum", "Dal: main")])
         def aday(mesajlar, araclar):

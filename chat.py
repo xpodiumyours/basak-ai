@@ -711,3 +711,99 @@ def _ilgili_anilar(sorgu, limit=4):
 
 def _j(obj):
     return json.dumps(obj, ensure_ascii=False)
+
+
+# ===========================================================================
+# ORKESTRA üretim bağlantısı (2026-08-24, kilitli hedef)
+#
+# GÖLGE MOD ilkesi: orkestra yolu AYRI bir fonksiyondur; ayarlar.json'da
+# "orkestra_ana_yol": true olana kadar mesaj_isle ESKİ yolu kullanmaya
+# devam eder. Böylece eşdeğerlik kanıtlanmadan davranış değişmez.
+# ===========================================================================
+
+def orkestra_aktif_mi():
+    """ayarlar.json'daki 'orkestra_ana_yol' anahtarını okur."""
+    return bool(yukle(SETTINGS_FILE, {}).get("orkestra_ana_yol", False))
+
+
+def orkestra_bilesenleri(brain):
+    """Mevcut doğrulanmış parçaları Orkestra'nın beklediği isimlere bağlar."""
+    from brain import secici as _secici
+    from brain.orkestra import Orkestra
+    from olcu import ham_olcum_satirlari, cikis_kapisi
+
+    def observe(soru):
+        temiz = (soru or "").strip()
+        konusmaci = None
+        m = re.search(r"\[([^\]]+)\]\s*$", temiz)
+        if m:
+            konusmaci = m.group(1)
+            temiz = temiz[:m.start()].strip()
+        return temiz, konusmaci
+
+    durum = {"araclar": None}   # QUESTION'da seçilen set — deney tavanı
+
+    def aday_uret(mesajlar, araclar):
+        durum["araclar"] = araclar
+        return brain.cevapla(mesajlar, None,
+                             tools=araclar if araclar else None)
+
+    def deney_kos(tool_calls, mesajlar):
+        # Yetki tavani korunur: döngü yalnız QUESTION'da seçilen seti görür.
+        from tools import calistir as _calistir
+        model = yukle(SETTINGS_FILE, {}).get("model") or "qwen2.5:3b"
+        return _tool_calling_multi(tool_calls, mesajlar, brain, model,
+                                   lambda c: None, _calistir,
+                                   durum.get("araclar"))
+
+    bilesenler = {
+        "observe": observe,
+        "model_baglami": lambda: (_knowledge_cache or ""),
+        "anilar": lambda s: _ilgili_anilar(s),
+        "gecmis_pencere": lambda g: g,
+        "siniflandir": _secici.siniflandir,
+        "dinamik_araclar": _dinamik_araclar,
+        "aday_uret": aday_uret,
+        "deney_kos": deney_kos,
+        "olcu_kapisi": cikis_kapisi,
+        "ham_olcum": ham_olcum_satirlari,
+        "ogren": lambda s, cev, onem=1: None,
+    }
+    return bilesenler
+
+
+def mesaj_isle_orkestra(text, brain, system_prompt, js_callback, tools):
+    """ORKESTRA yolunun giriş noktası — mesaj_isle ile aynı sözleşme.
+
+    Ayar anahtarı kapalıyken çağrILMAZ; açıkken tek fark, akışın
+    durum makinesinden geçmesi ve iz kaydı üretilmesidir.
+    """
+    from brain.orkestra import Orkestra
+    motor = _hafiza_al()
+
+    def ogren(soru, cevap, onem=1):
+        m = motor
+        if m and cevap:
+            try:
+                m.episodik_kaydet(soru, cevap, onem=onem)
+            except Exception as e:
+                logger.warning("Ani kaydedilemedi: %s", e)
+
+    bilesenler = orkestra_bilesenleri(brain)
+    bilesenler["ogren"] = ogren
+
+    js_callback("BasakUI.thinking()")
+    rapor = Orkestra(bilesenler).kos(text)
+    if rapor.get("hata"):
+        js_callback("BasakUI.error(" + _j(rapor["hata"]) + ")")
+        return
+    cevap = rapor["cevap"]
+    kaynak = rapor.get("kaynak", "")
+    gecmis = yukle(HISTORY_FILE, [])
+    gecmis += [
+        {"role": "user", "content": text, "oturum": OTURUM_ID},
+        {"role": "assistant", "content": cevap, "oturum": OTURUM_ID},
+    ]
+    kaydet(HISTORY_FILE, gecmis[-40:])
+    logger.info("Orkestra izi: %s", " -> ".join(i["durum"] for i in rapor["iz"]))
+    js_callback("BasakUI.reply(" + _j(cevap) + ", " + _j(kaynak) + ")")
