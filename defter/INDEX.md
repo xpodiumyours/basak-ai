@@ -49,3 +49,4 @@
 | gercek-token-sayimi.md | 9 adaptorden usage okunuyor, stats token toplamlari doluyor; 390/390 yesil | opencode | 2026-08-24 | sonsuz |
 | kilitli-hedef-basak-beyni.md | KILITLI HEDEF: Basak kendi beyni, modeller isci; ~%25 tamam; B1..SELF-1 sirasi kilitli | opencode | 2026-08-24 | sonsuz |
 | b1-secici-karne-baglantisi.md | B1 TAMAM: secici karneyi okuyor — esik alti saglayici sona; 396/396 yesil | opencode | 2026-08-24 | sonsuz |
+| b3-token-butcesi.md | B3 TAMAM: groq gercek token butcesiyle engellenir (200k/gun), tahmini istek sayaci kalkti; 403/403 yesil | opencode | 2026-08-24 | sonsuz |

@@ -17,7 +17,10 @@ SAGLAYICILAR = {
         "ucretsiz": True,
         "tools": True,
         "gucleri": ["hiz", "genel"],
-        "gunluk_istek": 80,   # ~200K token/gun / ~2.5K token istek tahmini
+        # B3 (2026-08-24): gercek butce token. 200000 sayisi 2026-08-22
+        # 429 mesajindan ("Used 197.355 / Limit 200.000"). Eski
+        # gunluk_istek=80 TAHMINIYDI — kota artik gercek tokeni sorar.
+        "gunluk_token": 200000,
         "not": "Ucretsiz ve cok hizli; token/gun limiti dar.",
     },
     "gemini": {

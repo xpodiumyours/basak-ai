@@ -98,7 +98,7 @@ class KotaYoneticisi:
     def engel_nedeni(self, ad, kart=None):
         """Saglayici simdi kullanilamazsa neden metni; kullanilabilirse None.
 
-        kart: registry karti (ucretsiz/gunluk_istek bilgisi icin).
+        kart: registry karti (ucretsiz/gunluk_istek/gunluk_token bilgisi).
         """
         kart = kart or {}
         if not kart.get("ucretsiz", True) and self.ucretli_engelli:
@@ -113,6 +113,22 @@ class KotaYoneticisi:
             sayac = self.durum["sayac"].get(ad, {}).get("istek", 0)
             if limit is not None and sayac >= limit:
                 return "gunluk istek limiti doldu (%d/%d)" % (sayac, limit)
+
+        # B3 (2026-08-24, kilitli hedef): GERCEK TOKEN BUTCESI.
+        # registry'de gunluk_token tanimliysa istek sayaci yerine bugunun
+        # gercek token toplami esastir (stats.py'den okunur). Olcum
+        # basarisizsa engel kurulmaz — olcum sohbeti bozmasin.
+        butce = kart.get("gunluk_token")
+        if butce:
+            try:
+                from brain.stats import model_stats_al
+                giris, cikis = model_stats_al().token_bugun(ad)
+                harcanan = giris + cikis
+                if harcanan >= butce:
+                    return ("gunluk token butcesi doldu (%d/%d)"
+                            % (harcanan, butce))
+            except Exception as e:
+                logger.warning("Token butce sorgusu atlandi (%s): %s", ad, e)
         return None
 
     # ---------- yazma ----------

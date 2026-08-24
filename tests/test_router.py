@@ -208,9 +208,11 @@ class TestBrainRouterV2:
         a, c = SahteIstemci(), SahteIstemci()
         b = Brain.__new__(Brain)
         b.kota = KotaYoneticisi(dosya=str(tmp_path / "k.json"))
-        monkeypatch.setattr(b, "_bulut_zinciri", lambda: [("groq", a), ("glm", c)])
-        # Groq'un gunluk limitini tek istekte dolacak sekilde kucuk ayarla
-        b.kota.durum["sayac"]["groq"] = {"istek": registry.kart("groq")["gunluk_istek"]}
+        monkeypatch.setattr(b, "_bulut_zinciri", lambda: [("gemini", a), ("glm", c)])
+        # Gemini'nin gunluk ISTEK limitini tek istekte dolacak sekilde ayarla
+        # (B3 sonrasi groq'un limiti TOKEN butcesine tasindi — kartta
+        # gunluk_istek kalan saglayiciyla istek-yolu test edilir)
+        b.kota.durum["sayac"]["gemini"] = {"istek": registry.kart("gemini")["gunluk_istek"]}
         yanit, kaynak = b.cevapla(
             [{"role": "user", "content": "naber"}], "qwen2.5:3b")
         assert kaynak.startswith("glm")

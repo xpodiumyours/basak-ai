@@ -218,6 +218,22 @@ class ModelIstatistik:
 
         return sorted(ozet, key=lambda r: r["skor"], reverse=True)
 
+    def token_bugun(self, model):
+        """Bugun (UTC) model icin harcanan (giris, cikis) token toplami."""
+        baslangic = datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0).isoformat()
+        with self._lock:
+            conn = sqlite3.connect(self._db_yolu)
+            try:
+                row = conn.execute(
+                    "SELECT COALESCE(SUM(token_in),0),"
+                    " COALESCE(SUM(token_out),0) FROM calls"
+                    " WHERE model=? AND timestamp>=?",
+                    (model, baslangic)).fetchone()
+                return int(row[0]), int(row[1])
+            finally:
+                conn.close()
+
     def temizle(self, gun_eski: int = 30) -> int:
         """Eski kayıtları temizler (gun_eski günden eski)."""
         with self._lock:
