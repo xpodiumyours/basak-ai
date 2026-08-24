@@ -40,11 +40,13 @@ def durumlar(rapor):
 
 class TestIzDizilimi:
     def test_basit_soru_tam_dizi_ve_atlama_sebepleri(self):
+        # ORKESTRA-1: CRITICIZE artik HER ZAMAN kosar (varsayilan puan
+        # bos/yedek adayi eler, digerlerini esit tutar) — atlandi=False.
         rapor = Orkestra(bilesenler()).kos("merhaba nasilsin?")
         d = durumlar(rapor)
         beklenen = [("OBSERVE", False), ("MODEL", False),
                     ("QUESTION", False), ("HYPOTHESIZE", False),
-                    ("DIVERSIFY", True), ("CRITICIZE", True),
+                    ("DIVERSIFY", True), ("CRITICIZE", False),
                     ("EXPERIMENT", True), ("MEASURE", False),
                     ("SELECT", False), ("LEARN", False)]
         assert d == beklenen
@@ -53,8 +55,14 @@ class TestIzDizilimi:
         rapor = Orkestra(bilesenler()).kos("selam")
         sebep_durum = {i["durum"]: i["sebep"] for i in rapor["iz"]}
         assert "FAY-1" in sebep_durum["DIVERSIFY"]
-        assert "olcu kapisi" in sebep_durum["CRITICIZE"]
         assert "arac cagrisi yok" in sebep_durum["EXPERIMENT"]
+
+    def test_criticize_varsayilan_puan_yazar(self):
+        rapor = Orkestra(bilesenler()).kos("selam")
+        kritik = next(i for i in rapor["iz"]
+                      if i["durum"] == "CRITICIZE")
+        assert kritik["atlandi"] is False
+        assert "birincil=0" in kritik["ozet"]
 
 
 class TestDeneyYolu:
@@ -110,6 +118,19 @@ class TestOgrenVeGuvenlik:
         b = bilesenler(ogren=lambda s, c, onem=1: cagrilan.append((s, c)))
         Orkestra(b).kos("merhaba")
         assert len(cagrilan) == 1
+
+    def test_sistem_promptu_modele_tasinir(self):
+        """ORKESTRA-1: kişilik promptu (KISILIK) sabit 'SYS' yerine
+        kos()'a verilen sistem metniyle gider."""
+        gorulen = {}
+
+        def aday(mesajlar, araclar):
+            gorulen["ilk"] = mesajlar[0]["content"]
+            return {"content": "ok"}, "groq"
+
+        b = bilesenler(aday_uret=aday)
+        Orkestra(b).kos("merhaba", sistem="BEN BASAK'IM")
+        assert gorulen["ilk"] == "BEN BASAK'IM"
 
     def test_bos_soru_hata_ile_doner(self):
         rapor = Orkestra(bilesenler()).kos("   ")

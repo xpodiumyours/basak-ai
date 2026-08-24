@@ -1,4 +1,4 @@
-"""brain/orkestra.py — ORKESTRA-0: 10 durumlu muhakeme iskeleti.
+"""brain/orkestra.py — ORKESTRA: 10 durumlu muhakeme iskeleti.
 
 Kilitli hedefin merkezi. Tasarim: defter/orkestra-0-tasarim.md
 
@@ -6,9 +6,17 @@ ILKELER:
 - mesaj_isle yeniden yazilmaz; Orkestra dogrulanmis parcalari durumlarina
   baglayan acik cercevedir. Bilesenler disaridan enjekte edilir.
 - Her kosum IZ birakir: {durum, atlandi, sebep, ozet} — sessiz atlama yasak.
-- v0 davranisi bugunku akisla esdegerdir; yeni yetenekler sonraki
-  dilimlerde durumlarin icine eklenir (DIVERSIFY=FAY-1 jürisi vb).
 - Uretim anahtari sonra: once gölge mod/eşdeğerlik kanıtı.
+
+v1 (2026-08-24, ORKESTRA-1): DIVERSIFY ve CRITICIZE dolduruldu.
+- DIVERSIFY: OPSIYONEL "ek_adaylar" bileseni varsa birincilden BASKA
+  saglayicilar PARALEL olarak ayni soruyu yanıtlar (FAY-1 ruhu).
+  Bilesen yoksa v0 davranisi aynen korunur (izde sebep bildirilir).
+- CRITICIZE: OPSIYONEL "aday_puanla" bileseni adaylara DETERMINISTIK
+  puan verir (kapı hükmi; yapay zeka yorumu YOK — OLCU ilkesi).
+  Varsayilan puan: bos/"ölçemedim" adayı eler, digerleri eşittir.
+- SELECT: en yüksek puani alan kazanir; eşitlikte BIRINCIL kazanir.
+  Kazananin kaynak bilgisi rapora tasinir.
 
 Kullanim:
     o = Orkestra(bilesenler)
@@ -16,7 +24,13 @@ Kullanim:
     rapor["cevap"], rapor["iz"]
 """
 
+import logging
+import threading
 from enum import Enum
+
+logger = logging.getLogger(__name__)
+
+YEDEK_CUMLE = "Bunu ölçemedim."
 
 
 class Durum(Enum):
@@ -40,11 +54,15 @@ _GEREKLI_BILESENLER = (
     "siniflandir",       # metin -> gorev tipi
     "dinamik_araclar",   # (metin, tools) -> sunulacak arac seti
     "aday_uret",         # (mesajlar, araclar) -> (yanit_dict, kaynak)
-    "deney_kos",         # (tool_calls) -> (cevap, arac_ciktilari) | None
+    "deney_kos",         # (tool_calls, mesajlar) -> (cevap, arac_ciktilari)|None
     "olcu_kapisi",       # (metin, olcumler) -> (temiz, rapor)
     "ham_olcum",         # olcumler -> satir listesi
     "ogren",             # (soru, cevap, onem) -> None
 )
+
+# Opsiyonel bilesenler (ORKESTRA-1): yoksa ilgili durum v0 gibi ATLANDI
+# kaydiyla gecer — davranis degismez.
+_OPSIYONEL = ("ek_adaylar", "aday_puanla")
 
 
 class Orkestra:
@@ -64,10 +82,24 @@ class Orkestra:
         self.iz.append({"durum": durum.value, "atlandi": atlandi,
                         "sebep": sebep, "ozet": ozet[:120]})
 
+    @staticmethod
+    def _icerik(yanit):
+        return yanit.get("content") if isinstance(yanit, dict) \
+            else str(yanit or "")
+
+    @staticmethod
+    def _tool_calls(yanit):
+        return yanit.get("tool_calls") if isinstance(yanit, dict) else None
+
     # ---------- kosum ----------
 
-    def kos(self, soru, gecmis=None, tools=None, onem=1):
-        """Soruyu durum makinesinden gecirir; rapor dondurur."""
+    def kos(self, soru, gecmis=None, tools=None, onem=1, sistem="SYS"):
+        """Soruyu durum makinesinden gecirir; rapor dondurur.
+
+        sistem: modele giden kisilik/kural promptu (uretimde KISILIK).
+        v0'da sabit "SYS" kalmisti — ana yola geciste kimlik kaybini
+        onlemek icin tasinabilir yapildi.
+        """
         self.iz = []
 
         # --- OBSERVE ---
@@ -91,8 +123,8 @@ class Orkestra:
         self._adim(Durum.QUESTION,
                    ozet="tip=%s, arac=%d" % (tip, len(aktif_araclar)))
 
-        # --- HYPOTHESIZE (v0: tek aday) ---
-        mesajlar = [{"role": "system", "content": "SYS"}]
+        # --- HYPOTHESIZE (birincil aday) ---
+        mesajlar = [{"role": "system", "content": sistem}]
         if baglam:
             mesajlar.append({"role": "system",
                              "content": "Notlar:\n" + baglam})
@@ -108,51 +140,149 @@ class Orkestra:
         self.kaynak = kaynak
         self._adim(Durum.HYPOTHESIZE, ozet="kaynak=%s" % kaynak)
 
-        # --- DIVERSIFY (v0: atlandi — FAY-1 jürisi bekler) ---
-        self._adim(Durum.DIVERSIFY, atlandi=True,
-                   sebep="tek aday yeterli; FAY-1 bekleniyor")
+        # Aday havuzu: [(etiket, kaynak, yanit)] — birincil hep ilk sırada
+        adaylar = [("birincil", kaynak, yanit)]
 
-        # --- CRITICIZE (v0: atlandi — FAY hattı bekler) ---
-        self._adim(Durum.CRITICIZE, atlandi=True,
-                   sebep="yerini olcu kapisi tutuyor; FAY-1 bekleniyor")
-
-        # --- EXPERIMENT ---
-        tool_calls = yanit.get("tool_calls") if isinstance(yanit, dict) \
-            else None
-        olcumler = []
-        if tool_calls:
-            deney_sonucu = self.b["deney_kos"](tool_calls)
-            if deney_sonucu:
-                cevap, olcumler = deney_sonucu
-                yanit = {"content": cevap}
-                self._adim(Durum.EXPERIMENT,
-                           ozet="%d arac kostu" % len(tool_calls))
+        # --- DIVERSIFY (v1: opsiyonel paralel ek adaylar) ---
+        if "ek_adaylar" in self.b:
+            try:
+                alternatifler = self.b["ek_adaylar"](
+                    self.kaynak, mesajlar,
+                    arac_var=bool(self._tool_calls(yanit)))
+            except Exception as e:
+                logger.warning("ek_adaylar hatasi: %s", e)
+                alternatifler = None
+            if alternatifler is None:
+                self._adim(Durum.DIVERSIFY, atlandi=True,
+                           sebep="juri kurulum hatasi")
+            elif not alternatifler:
+                self._adim(Durum.DIVERSIFY, atlandi=True,
+                           sebep="juri bileşeni var ama uygun aday yok "
+                                 "(anahtar kapali/kota/tek saglayici)")
             else:
-                self._adim(Durum.EXPERIMENT, atlandi=True,
-                           sebep="dongu kapandi")
+                sonuclar = []
+                kilit = threading.Lock()
+
+                def _kos(ad_fn):
+                    ad, fn = ad_fn
+                    try:
+                        r = fn(mesajlar)
+                    except Exception as e:
+                        logger.warning("Juri adadi %s hata verdi: %s", ad, e)
+                        r = None
+                    with kilit:
+                        sonuclar.append((ad, r))
+
+                threads = [threading.Thread(target=_kos, args=(af,))
+                           for af in alternatifler]
+                for t in threads:
+                    t.start()
+                for t in threads:
+                    t.join()
+
+                gelen = [(ad, r) for ad, r in sonuclar if r is not None]
+                gelen.sort(key=lambda x: x[0])
+                for ad, r in gelen:
+                    adaylar.append((ad, ad, r))
+                self._adim(Durum.DIVERSIFY,
+                           ozet="%d ek aday (%s)"
+                                % (len(gelen),
+                                   ", ".join(ad for ad, _ in gelen)))
+        else:
+            self._adim(Durum.DIVERSIFY, atlandi=True,
+                       sebep="tek aday yeterli; FAY-1 bekleniyor")
+
+        # --- CRITICIZE (v1: deterministik puan; AI yorumu YOK) ---
+        # Adayların ŞU ANKİ metni kapıdan geçirilip puanlanır. Araçsız
+        # adayların metni burada nihaidir; araçlı adaylar EXPERIMENT
+        # sonrası yeniden değerlendirilir.
+        olcumler_map = {}      # etiket -> arac_ciktilari
+
+        def _varsayilan_puan(tem, elenen):
+            # Bos / tamamen elenmis aday elenir; digerleri esittir.
+            if not tem or tem.strip() == YEDEK_CUMLE:
+                return -50
+            return 0
+
+        puanla = self.b.get("aday_puanla", _varsayilan_puan)
+        skorlar = {}
+        for etiket, _, yanit_a in adaylar:
+            tem = self._icerik(yanit_a)
+            try:
+                _, kapi_raporu = self.b["olcu_kapisi"](
+                    tem, olcumler_map.get(etiket, []))
+                skorlar[etiket] = puanla(tem, len(kapi_raporu))
+            except Exception as e:
+                logger.warning("aday_puanla hatasi (%s): %s", etiket, e)
+                skorlar[etiket] = -100
+        ozet = ", ".join("%s=%s" % (o[0], skorlar.get(o[0]))
+                         for o in adaylar)
+        self._adim(Durum.CRITICIZE, ozet="puan: " + ozet)
+
+        # --- EXPERIMENT (aday basina; yetki tavani QUESTION'da sabit) ---
+        deney_kosan = 0
+        tool_cagiran = False
+        for i, (etiket, kyk, yanit_a) in enumerate(adaylar):
+            tool_calls = self._tool_calls(yanit_a)
+            if not tool_calls:
+                continue
+            tool_cagiran = True
+            deney_sonucu = self.b["deney_kos"](tool_calls, mesajlar)
+            if deney_sonucu:
+                cevap, olc = deney_sonucu
+                adaylar[i] = (etiket, kyk, {"content": cevap})
+                olcumler_map[etiket] = olc
+                deney_kosan += 1
+                # Araç cevabını değiştirdi → puanı tazele
+                yeni_tem = self._icerik(adaylar[i][2])
+                try:
+                    _, kr = self.b["olcu_kapisi"](yeni_tem, olc)
+                    skorlar[etiket] = puanla(yeni_tem, len(kr))
+                except Exception:
+                    pass
+        if deney_kosan:
+            self._adim(Durum.EXPERIMENT,
+                       ozet="%d adayda arac kostu" % deney_kosan)
+        elif tool_cagiran:
+            self._adim(Durum.EXPERIMENT, atlandi=True,
+                       sebep="dongu kapandi")
         else:
             self._adim(Durum.EXPERIMENT, atlandi=True,
                        sebep="arac cagrisi yok")
 
-        # --- MEASURE ---
-        ham_metin = yanit.get("content") if isinstance(yanit, dict) \
-            else str(yanit or "")
-        temiz_cevap, kapi_raporu = self.b["olcu_kapisi"](ham_metin,
-                                                         olcumler)
+        # --- MEASURE (nihai geçiş: her aday kapıdan bir kez daha) ---
+        olculen = []           # [etiket, kaynak, temiz, elenen_sayisi]
+        for etiket, kyk, yanit_a in adaylar:
+            ham_metin = self._icerik(yanit_a)
+            temiz_cevap, kapi_raporu = self.b["olcu_kapisi"](
+                ham_metin, olcumler_map.get(etiket, []))
+            olculen.append([etiket, kyk, temiz_cevap,
+                            len(kapi_raporu)])
+        toplam_elenen = sum(o[3] for o in olculen)
         self._adim(Durum.MEASURE,
-                   ozet="kapidan gecen=%d kr, elenen=%d"
-                        % (len(temiz_cevap), len(kapi_raporu)))
+                   ozet="aday=%d, kapidan gecen=%d, elenen=%d"
+                        % (len(olculen),
+                           sum(1 for o in olculen if o[2]), toplam_elenen))
 
-        # --- SELECT (v0: tek aday; kapi bos ise ham olcum) ---
-        if temiz_cevap == "Bunu ölçemedim." and olcumler:
-            satirlar = self.b["ham_olcum"](olcumler)
-            temiz_cevap = ("\n".join(satirlar)) if satirlar else temiz_cevap
-        self._adim(Durum.SELECT, ozet="secildi (%d kr)"
-                                        % len(temiz_cevap))
+        # --- SELECT ---
+        # max ilk maksimumu alir; birincil listede ilk sirada oldugundan
+        # esitlikte birincil kazanir — v0 davranisi varsayilan olarak korunur.
+        en_iyi = max(olculen,
+                     key=lambda o: (skorlar.get(o[0], -100), -o[3]))
+        kazanan_etiket, kazanan_kaynak, kazanan_temiz, _ = en_iyi
+        if kazanan_temiz == YEDEK_CUMLE \
+                and olcumler_map.get(kazanan_etiket):
+            satirlar = self.b["ham_olcum"](olcumler_map[kazanan_etiket])
+            if satirlar:
+                kazanan_temiz = "\n".join(satirlar)
+        self.kaynak = kazanan_kaynak
+        self._adim(Durum.SELECT,
+                   ozet="kazanan=%s (%d kr)" % (kazanan_etiket,
+                                                len(kazanan_temiz)))
 
         # --- LEARN ---
-        self.b["ogren"](temiz, temiz_cevap, onem)
+        self.b["ogren"](temiz, kazanan_temiz, onem)
         self._adim(Durum.LEARN, ozet="episodic+karneler")
 
-        return {"cevap": temiz_cevap, "iz": self.iz,
+        return {"cevap": kazanan_temiz, "iz": self.iz,
                 "kaynak": self.kaynak, "konusmaci": konusmaci}

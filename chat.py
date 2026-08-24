@@ -349,6 +349,14 @@ def _onem_puanla(text, arac_ciktilari=None):
 
 
 def mesaj_isle(text, brain, system_prompt, js_callback, tools):
+    # ORKESTRA ana yolu (ORKESTRA-1): "orkestra_ana_yol": true ise
+    # akış durum makinesinden geçer. Sözleşme aynı: hata → BasakUI.error,
+    # cevap → BasakUI.reply; kişilik promptu (system_prompt) aynen taşınır.
+    if orkestra_aktif_mi():
+        mesaj_isle_orkestra(text, brain, system_prompt, js_callback,
+                            tools, kaydet_acik=True)
+        return
+
     from tools import calistir
 
     text = (text or "").strip()
@@ -730,7 +738,12 @@ def golge_kos(text, brain, eski_cevap):
     - Geçmişe/hafızaya yazmaz (kaydet_acik=False).
     - Çıktı: data/orkestra_golge.log satırları
       ts | benzerlik | eski=.. | yeni=..
+    - Ana yol zaten orkestaysa gölge anlamsızdır (öz-eşdeğerlik ölçmek
+      boşa kota yakar) — sessizce atlanır.
     """
+    if orkestra_aktif_mi():
+        return
+
     from datetime import datetime
 
     kutu = {"cevap": None}
@@ -780,10 +793,23 @@ def orkestra_aktif_mi():
     return bool(yukle(SETTINGS_FILE, {}).get("orkestra_ana_yol", False))
 
 
+def juri_acik_mi():
+    """ayarlar.json'daki 'orkestra_juri' anahtarı (DIVERSIFY paralel jüri).
+
+    Kapalıyken ORKESTRA v0 gibi tek adayla çalışır — davranış değişmez,
+    ek kota harcanmaz.
+    """
+    return bool(yukle(SETTINGS_FILE, {}).get("orkestra_juri", False))
+
+
+_JURI_MAX = 2   # birincilin yanında en fazla kaç alternatif aday
+
+
 def orkestra_bilesenleri(brain):
     """Mevcut doğrulanmış parçaları Orkestra'nın beklediği isimlere bağlar."""
     from brain import secici as _secici
-    from brain.orkestra import Orkestra
+    from brain import registry as _registry
+    from brain.orkestra import Orkestra, YEDEK_CUMLE as _YEDEK
     from olcu import ham_olcum_satirlari, cikis_kapisi
 
     def observe(soru):
@@ -810,6 +836,75 @@ def orkestra_bilesenleri(brain):
                                    lambda c: None, _calistir,
                                    durum.get("araclar"))
 
+    def _tek_aday(ad, istemci, mesajlar):
+        """Jüri adayı: tek sağlayıcıya doğrudan çağrı; hata → None.
+
+        brain.cevapla'yı BYPASS eder (zincir yeniden denemesi istenmez);
+        karne doğru kalması için istatistik yine de yazılır (B1).
+        """
+        import time as _time
+        t0 = _time.time()
+        try:
+            yanit = istemci.cevapla(mesajlar)
+        except Exception as e:
+            try:
+                from brain.stats import model_stats_al
+                model_stats_al().kaydet(ad, _time.time() - t0,
+                                        basarili=False,
+                                        hata=str(e)[:100], tools=False)
+            except Exception:
+                pass
+            logger.warning("Jüri adayı %s başarısız: %s", ad, e)
+            return None
+        sure = _time.time() - t0
+        try:
+            from brain.stats import model_stats_al
+            model_stats_al().kaydet(ad, sure, basarili=True, tools=False)
+        except Exception:
+            pass
+        try:
+            brain.kota.harca(ad)
+        except Exception:
+            pass
+        return yanit if isinstance(yanit, dict) else {"content": str(yanit)}
+
+    def ek_adaylar(birincil_kaynak, mesajlar, arac_var=False):
+        """DIVERSIFY jürisi: birincilden BAŞKA ücretsiz sağlayıcı adayları.
+
+        Kurallar:
+        - anahtar ('orkestra_juri') kapalıysa []
+        - bulut zincirinde <2 sağlayıcı varsa []
+        - ARAÇ ÇAĞRILAN turda koşmaz: ölçüm sorusunda tek doğruluk yolu
+          vardır; jüri yalnız serbest sohbetin kalite varyansında anlamlı
+        - ücretli ve 429 soğumasındakiler elenir; en fazla _JURI_MAX
+        """
+        if not juri_acik_mi():
+            return []
+        if arac_var:
+            return []
+        zincir = dict(brain._bulut_zinciri())
+        if len(zincir) < 2:
+            return []
+        uygun = [a for a in _registry.VARSAYILAN_SIRA
+                 if a in zincir and a != birincil_kaynak
+                 and not brain.kota.engel_nedeni(a, _registry.kart(a))]
+        secilen = uygun[:_JURI_MAX]
+        return [(ad, (lambda ms, _ad=ad, _ist=zincir[ad]:
+                      _tek_aday(_ad, _ist, ms)))
+                for ad in secilen]
+
+    def aday_puanla(temiz, elenen):
+        """Deterministik eleştirmen (OLCU ilkesi: AI yorumu YOK).
+
+        Puan tablosu:
+        - boş veya tamamen "Bunu ölçemedim." kalan aday: -50 (elenecek)
+        - kapıdan cümle elenmeyen: 0; her elenen cümle -5
+        Eşitlikte birincil kazanır (SELECT eşitlik kuralı).
+        """
+        if not temiz or temiz.strip() == _YEDEK:
+            return -50
+        return -elenen * 5
+
     bilesenler = {
         "observe": observe,
         "model_baglami": lambda: (_knowledge_cache or ""),
@@ -818,6 +913,8 @@ def orkestra_bilesenleri(brain):
         "siniflandir": _secici.siniflandir,
         "dinamik_araclar": _dinamik_araclar,
         "aday_uret": aday_uret,
+        "ek_adaylar": ek_adaylar,
+        "aday_puanla": aday_puanla,
         "deney_kos": deney_kos,
         "olcu_kapisi": cikis_kapisi,
         "ham_olcum": ham_olcum_satirlari,
@@ -850,7 +947,7 @@ def mesaj_isle_orkestra(text, brain, system_prompt, js_callback, tools,
     bilesenler["ogren"] = ogren
 
     js_callback("BasakUI.thinking()")
-    rapor = Orkestra(bilesenler).kos(text)
+    rapor = Orkestra(bilesenler).kos(text, sistem=system_prompt)
     if rapor.get("hata"):
         js_callback("BasakUI.error(" + _j(rapor["hata"]) + ")")
         return

@@ -63,3 +63,4 @@
 | golge-mod-hazir.md | Gölge mod hazır: orkestra gölgede koşar, benzerlik loga düşer, kullanıcı cevabı değişmez; 475/475 yeşil | opencode | 2026-08-24 | sonsuz |
 | b2-hukmu-saglayici-farkliligi.md | B2 HÜKÜM: disiplin saglayiciya göre değişiyor (groq %100, nvidia ~%40, glm red); kilo hiç devralmıyor | opencode | 2026-08-24 | 30g |
 | e2e-beyin-zinciri.md | E2E ZİNCİR: tanık->çarpıştırıcı->kuyruk->deney->arşiv->dünya tek senaryoda; SELF-1 tasarımı | opencode | 2026-08-24 | sonsuz |
+| orkestra-1-juri.md | ORKESTRA-1: DIVERSIFY (paralel jüri, orkestra_juri anahtarı) + CRITICIZE (deterministik puan) dolduruldu; eşitlikte birincil; 493/493 yeşil | opencode | 2026-08-24 | sonsuz |
