@@ -65,3 +65,4 @@
 | e2e-beyin-zinciri.md | E2E ZİNCİR: tanık->çarpıştırıcı->kuyruk->deney->arşiv->dünya tek senaryoda; SELF-1 tasarımı | opencode | 2026-08-24 | sonsuz |
 | orkestra-1-juri.md | ORKESTRA-1: DIVERSIFY (paralel jüri, orkestra_juri anahtarı) + CRITICIZE (deterministik puan) dolduruldu; eşitlikte birincil; 493/493 yeşil | opencode | 2026-08-24 | sonsuz |
 | ana-yol-gecti.md | ANA YOL: orkestra_ana_yol açıldı (Casper kararı, kanıt penceresi kısaltıldı); KISILIK taşınması + yönlendirme önce kuruldu; geri dönüş tek anahtar | opencode | 2026-08-24 | sonsuz |
+| faz1-canary-savunma.md | FAZ 1: canary modu (yazma+sistem tam engel) + 19 saldırı testi + gsk_/hf_/nvapi_ log zafiyatı kapatıldı; CANLI-KAPISI.md kabul tablosu | opencode | 2026-08-24 | sonsuz |

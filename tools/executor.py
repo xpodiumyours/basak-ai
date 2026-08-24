@@ -49,20 +49,12 @@ def calistir(tool_name: str, arguments: dict, knowledge_dir: str = "",
     base_dir = os.path.dirname(knowledge_dir) if knowledge_dir else os.getcwd()
 
     # P3 Permission Layer — ARTIK GERCEK KONTROL (2026-08-23):
-    # etiket politikasina gore otomatik/opt-in/onay. Etiketsiz veya
-    # opt-in'i acilmamis arac calismaz; model kendi yetkisini veremez.
+    # etiket politikasina gore otomatik/opt-in/onay + CANARY modu (2026-08-24).
+    # Etiketsiz veya opt-in'i acilmamis arac calismaz; model kendi
+    # yetkisini veremez.
     if not calistirilabilir_mi(tool_name):
-        from tools.permissions import politika
-        p = politika(tool_name)
-        if p == "yasak":
-            sebep = ("'%s' aracının izin etiketi yok." % tool_name)
-        elif p == "opt-in":
-            sebep = ("'%s' sistem aracı varsayılan kapalı. Casper "
-                     "ayarlar.json'da 'sistem_araclari_acik': true "
-                     "dediğinde açılır." % tool_name)
-        else:
-            sebep = ("'%s' aracı kullanıcı onayı bekliyor (onay kuyusu "
-                     "henüz kurulmadı)." % tool_name)
+        from tools.permissions import engel_sebebi
+        sebep = engel_sebebi(tool_name) or "bilinmeyen engel"
         log_tool_call(tool_name, arguments,
                       {"error": "izin engeli"}, base_dir)
         return {"error": "Güvenlik engeli: " + sebep}

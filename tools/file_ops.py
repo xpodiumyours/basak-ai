@@ -77,6 +77,10 @@ def _guvenli_yolu_coz(yol, base_dir):
 
         dis_ad = _dis_proje_adi(yol)
         if dis_ad:
+            if not _canary_dis_izinli(dis_ad):
+                return False, ("Canary modu: '%s' dış projesi "
+                               "izinli_projeler listesinde yok."
+                               % dis_ad), None
             rel = _dis_rel_yol(yol, dis_ad)
             dis_kok = DIS_PROJELER[dis_ad]
             if rel is None:
@@ -123,6 +127,20 @@ def _dis_proje_adi(yol):
            yol_lower.startswith(ad + "\\"):
             return ad
     return None
+
+
+def _canary_dis_izinli(ad):
+    """CANARY modunda dis projeler yalnizca ayarlardaki izinli_projeler
+    listesindeysese acilir. Ayar okunamazsa kilitleme yapmaz (normal
+    davranis) — canli test hatti karari icin bakiniz: CANLI-KAPISI.md"""
+    try:
+        from tools.permissions import _ayar_deger, calisma_modu
+        if calisma_modu() != "canary":
+            return True
+        liste = _ayar_deger("izinli_projeler", []) or []
+        return str(ad).lower() in [str(x).lower() for x in liste]
+    except Exception:
+        return True
 
 
 # --- Geriye donuk uyumluluk sarmalayicilari -------------------------------

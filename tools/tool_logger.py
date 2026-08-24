@@ -29,11 +29,17 @@ _SONUCU_GIZLI_ARACLAR = frozenset(("read_file",))
 
 
 def _kirmala(metin):
-    """Bilinen şifre/anahtar desenlerini maskeleyip döndürür."""
+    """Bilinen şifre/anahtar desenlerini maskeleyip döndürür.
+
+    (2026-08-24 savunma denetimi): saglayici onekleri genisletildi —
+    gsk_ (Groq), hf_ (HuggingFace), nvapi- (NVIDIA), sk-or-v1-
+    (OpenRouter) oncelikleri loga HAM giremez."""
     metin = re.sub(r"(?i)(bearer\s+)\S+", r"\1***", metin)
     metin = re.sub(r"\bsk-[A-Za-z0-9_-]{8,}", "sk-***", metin)
-    metin = re.sub(r"\b(?:ghp_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,})",
-                   "ghp-***", metin)
+    metin = re.sub(r"\bsk-or-v1-[A-Za-z0-9]{8,}", "sk-or-***", metin)
+    metin = re.sub(r"\bgsk_[A-Za-z0-9]{10,}", "gsk-***", metin)
+    metin = re.sub(r"\bhf_[A-Za-z0-9]{10,}", "hf-***", metin)
+    metin = re.sub(r"\bnvapi-[A-Za-z0-9_-]{10,}", "nvapi-***", metin)
     metin = re.sub(
         r"(?i)\b(api[_-]?key|token|parola|password|sifre|secret|anahtar)"
         r"(\s*[=:]\s*)(?:\"[^\"]*\"|'[^']*'|\S+)",
