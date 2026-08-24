@@ -1,11 +1,11 @@
 {
-  "tarih_zaman": "2026-08-24 01:57:41",
+  "tarih_zaman": "2026-08-24 04:54:49",
   "soru": "VixRex'te durum ne?",
-  "n": 1,
+  "n": 10,
   "sayilar": {
-    "ARAC_CALISTI": 1,
-    "DURUST_RED": 0,
-    "OLCUMSUZ": 0,
+    "ARAC_CALISTI": 4,
+    "DURUST_RED": 4,
+    "OLCUMSUZ": 2,
     "HATA": 0
   },
   "turlar": [
@@ -16,8 +16,95 @@
         "git_durum"
       ],
       "kaynak_beyin": "groq",
-      "sure_sn": 6.7,
-      "cevap": "badge::Y::VixRex projesi şu anda fix/v37-v38-error-disclosure dalında ve son commit ffbe6ba, 2026-08-24 01:56'da yapılmış.\nbadge::Ö::git_durum \"Dal: fix/v37-v38-error-disclosure Son commit: ffbe6ba | 2026-08-24 01:56 | fix(V-37, V-38): error disclosure — generic messages in API routes\"",
+      "sure_sn": 13.8,
+      "cevap": "badge::Y::VixRex'te son commit a93e34e ve 22 dosyada değişiklik yapılmıştır.\nbadge::Ö::git_durum \"Dal: fix/v50-sharedpreferences-localstorage Son commit: a93e34e | 2026-08-24 03:20 | fix(V-50): SharedPreferences/localStorage — migrate sensitive keys to flutter_secure_storage\"",
+      "hata": null
+    },
+    {
+      "tur": 2,
+      "durum": "DURUST_RED",
+      "araclar": [],
+      "kaynak_beyin": "glm",
+      "sure_sn": 14.6,
+      "cevap": "Bunu ölçemedim.",
+      "hata": null
+    },
+    {
+      "tur": 3,
+      "durum": "DURUST_RED",
+      "araclar": [],
+      "kaynak_beyin": "nvidia",
+      "sure_sn": 18.6,
+      "cevap": "Bunu ölçemedim.",
+      "hata": null
+    },
+    {
+      "tur": 4,
+      "durum": "ARAC_CALISTI",
+      "araclar": [
+        "git_durum"
+      ],
+      "kaynak_beyin": "nvidia",
+      "sure_sn": 14.0,
+      "cevap": "Cümleyi kuramadım, ölçümün kendisi şu:\nbadge::Ö::git_durum \"Proje: vixrex Dal: fix/v50-sharedpreferences-localstorage Son commit: a93e34e | 2026-08-24 03:20 | fix(V-50): SharedPreferences/localStorage — migrate sensitive keys to flutter_secure_storage Commit edilmemis dosya: 22 M linux/flutter/gener",
+      "hata": null
+    },
+    {
+      "tur": 5,
+      "durum": "DURUST_RED",
+      "araclar": [],
+      "kaynak_beyin": "nvidia",
+      "sure_sn": 15.6,
+      "cevap": "Bunu ölçemedim.",
+      "hata": null
+    },
+    {
+      "tur": 6,
+      "durum": "OLCUMSUZ",
+      "araclar": [],
+      "kaynak_beyin": "nvidia (dil duzeltme)",
+      "sure_sn": 20.5,
+      "cevap": "Bu değişiklik, hassas anahtarların güvenli depolama sistemine taşınmasını içerir.\n\nBunu ölçemedim.",
+      "hata": null
+    },
+    {
+      "tur": 7,
+      "durum": "ARAC_CALISTI",
+      "araclar": [
+        "git_durum"
+      ],
+      "kaynak_beyin": "nvidia",
+      "sure_sn": 8.4,
+      "cevap": "badge::Y::VixRex'te son commit a93e34e ve 22 dosyada değişiklik yapılmıştır.\nbadge::Ö::git_durum \"Proje: vixrex Dal: fix/v50-sharedpreferences-localstorage Son commit: a93e34e | 2026-08-24 03:20 | fix(V-50): SharedPreferences/localStorage — migrate sensitive keys to flutter_secure_storage\"",
+      "hata": null
+    },
+    {
+      "tur": 8,
+      "durum": "DURUST_RED",
+      "araclar": [],
+      "kaynak_beyin": "nvidia",
+      "sure_sn": 8.8,
+      "cevap": "Bunu ölçemedim.",
+      "hata": null
+    },
+    {
+      "tur": 9,
+      "durum": "ARAC_CALISTI",
+      "araclar": [
+        "git_durum"
+      ],
+      "kaynak_beyin": "nvidia",
+      "sure_sn": 10.9,
+      "cevap": "Cümleyi kuramadım, ölçümün kendisi şu:\nbadge::Ö::git_durum \"Proje: vixrex Dal: fix/v50-sharedpreferences-localstorage Son commit: a93e34e | 2026-08-24 03:20 | fix(V-50): SharedPreferences/localStorage — migrate sensitive keys to flutter_secure_storage Commit edilmemis dosya: 22 M linux/flutter/gener",
+      "hata": null
+    },
+    {
+      "tur": 10,
+      "durum": "OLCUMSUZ",
+      "araclar": [],
+      "kaynak_beyin": "nvidia",
+      "sure_sn": 29.5,
+      "cevap": "Bu değişiklik, hassas anahtarların güvenli depolama sistemine taşınmasını içerir.\nBunu ölçemedim.",
       "hata": null
     }
   ]
