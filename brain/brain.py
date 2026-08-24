@@ -62,6 +62,24 @@ def _ayar_kaydet(veri: dict):
         logger.error("Ayarlar kaydedilemedi: %s", e)
 
 
+# FAZ 1.1: yapi sozlesmesi destegi self-healing kesfi — saglayici bir kez
+# yapi'yi 400/invalid_request_error ile reddederse burada False isaretlenir
+# ve sonraki cagrilarda yapi hic gonderilmez (registry karti degismez).
+_YAPI_DENEME = {}
+
+
+def _yapi_desteksiz_mi(hata) -> bool:
+    """Hata, yapi/response_format desteklenmeyen istekten mi kaynaklaniyor?
+
+    Mesajinda response_format/format/json gecen VE bad-request turunde
+    (400 / invalid_request_error / bad request) istisnalar sayilir.
+    """
+    s = str(hata).lower()
+    if not any(k in s for k in ("response_format", "format", "json")):
+        return False
+    return any(k in s for k in ("400", "invalid_request_error", "bad request"))
+
+
 class Brain:
     def __init__(self):
         ayar = _ayar_yukle()
@@ -241,8 +259,26 @@ class Brain:
     def yerel_cevap(self, messages, model, tools=None):
         return self._ollama.cevapla(messages, model, tools=tools)
 
+    def _tek_cagri(self, istemci, ad, messages, tools, override_model,
+                   yapi_deger):
+        """Tek saglayiciya cagri kurar; yapi_deger None ise eski davranis.
+
+        FAZ 1.1: yapi_deger verildiginde adaptore yapi sozlesmesi tasınır.
+        """
+        ekstra = {"yapi": yapi_deger} if yapi_deger else {}
+        # override_model: GroqClient icin model degistirme (retry icin)
+        if override_model and ad == "groq" and hasattr(istemci, 'cevapla'):
+            import inspect
+            params = inspect.signature(istemci.cevapla).parameters
+            if 'model' in params:
+                return istemci.cevapla(
+                    messages, tools=tools, model=override_model, **ekstra)
+        if tools:
+            return istemci.cevapla(messages, tools=tools, **ekstra)
+        return istemci.cevapla(messages, **ekstra)
+
     def cevapla(self, messages, yerel_model, tools=None,
-                tercih=None, gorev_tipi=None, override_model=None):
+                tercih=None, gorev_tipi=None, override_model=None, yapi=None):
         """Mesajlara cevap verir — Router v2 (P3).
 
         Akis: secici motoru sirayi belirler (gorev turune gore, gerekcesiyle)
@@ -252,6 +288,9 @@ class Brain:
         Donus: (yanit, gosterim) — gosterim "nvidia · kod isi" tarzinda
         seffaf secim bilgisi tasir.
         tercih: eski cagri uyumlulugu icin acik sira zorlamasi.
+        yapi: sozlesme modu (FAZ 1.1) — dict|None; destekleyen saglayiciya
+        tasınır, 400/invalid_request_error ile reddedilirse ayni saglayici
+        yapi'siz bir kez daha denenir (_YAPI_DENEME self-healing onbellegi).
         """
         zincir = self._bulut_zinciri()
         mevcutlar = [ad for ad, _ in zincir]
@@ -294,19 +333,26 @@ class Brain:
 
             istat = model_stats_al()
             t0 = time.time()
+            # FAZ 1.1: yapi istenmisse ve saglayici daha once kirmamissa
+            # sozlesme tasınır; kirtilmis saglayicida yapi hic gonderilmez.
+            yapi_bu = yapi if (yapi and _YAPI_DENEME.get(ad, True)) else None
             try:
-                # override_model: GroqClient icin model degistirme (retry icin)
-                if override_model and ad == "groq" and hasattr(istemci, 'cevapla'):
-                    import inspect
-                    params = inspect.signature(istemci.cevapla).parameters
-                    if 'model' in params:
-                        yanit = istemci.cevapla(messages, tools=tools, model=override_model)
+                try:
+                    yanit = self._tek_cagri(
+                        istemci, ad, messages, tools, override_model, yapi_bu)
+                except Exception as e:
+                    # Saglayici yapi'yi bad-request ile reddetti → isaretle,
+                    # ayni saglayiciyi yapısız HEMEN tekrar dene; hata zinciri
+                    # bugunku gibi islenir (kota harcanmaz).
+                    if yapi_bu is not None and _yapi_desteksiz_mi(e):
+                        _YAPI_DENEME[ad] = False
+                        logger.warning(
+                            "%s yapi'yi kabul etmedi (%s) — yapısız tek deneme",
+                            ad, str(e)[:120])
+                        yanit = self._tek_cagri(
+                            istemci, ad, messages, tools, override_model, None)
                     else:
-                        yanit = istemci.cevapla(messages, tools=tools) if tools else istemci.cevapla(messages)
-                elif tools:
-                    yanit = istemci.cevapla(messages, tools=tools)
-                else:
-                    yanit = istemci.cevapla(messages)
+                        raise
                 sure = time.time() - t0
                 istek_no = self.kota.harca(ad)
                 _audit("OK kaynak=%s | %.1f sn | tools=%s | istek=%d | %s" %
@@ -338,7 +384,11 @@ class Brain:
         istat = model_stats_al()
         try:
             t0 = time.time()
-            yanit = self._ollama.cevapla(messages, yerel_model, tools=tools)
+            if yapi:
+                yanit = self._ollama.cevapla(
+                    messages, yerel_model, tools=tools, yapi=yapi)
+            else:
+                yanit = self._ollama.cevapla(messages, yerel_model, tools=tools)
             sure = time.time() - t0
             istek_no = self.kota.harca("yerel")
             _audit("OK kaynak=yerel | %.1f sn | tools=%s | istek=%d | dustu=%d bulut"

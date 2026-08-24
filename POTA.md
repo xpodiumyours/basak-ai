@@ -131,6 +131,11 @@ POTA — Tur 1 sonucu
 
 Casper'ın cevabı sadece kazananı seçmez — **puan ağırlıklarını günceller.** Sürekli sessiz olanı seçiyorsa "gürültü" ağırlığı yükselir. Yani pota, turlar geçtikçe **Casper'ın zevkini öğrenir.**
 
+**TUR 1 KARARI (2026-08-24, Casper canlı cevabı):** **(a) Bekçi kazandı.**
+- Ağırlık güncellemesi: `yakalama` öncelikli puan; `gürültü` cezası hafif tutulur ama ölçüm şart kuralı yerinde durur (bıkkınlık ileride tur 2+ sorusu olarak döner).
+- Adım 6 uygulanır: fay'ın ayırt edici mekanizması (düşük konuşma sıklığı) alınır, bekçiyle melezlenir, yeni adaylar tur 2 sınavına girer.
+- Kayıt: mimar ajan, Casper'in opencode oturumundaki canlı cevabından işlendi.
+
 ### Adım 6 — Melezleme ve yeni tur
 
 Kazanan nihai değil. İkinciden ayırt edici mekanizması alınır, kazananla melezlenir, yeni adaylarla birlikte tekrar sınava girer.

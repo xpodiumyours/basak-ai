@@ -494,3 +494,233 @@ PROMPT_BLOGU = (
     "İşaretsiz cümle ile uydurma alıntı CEVAPTAN SİLİNİR — sessiz kalmak "
     "yanlış bilgi vermekten iyidir.\n"
 )
+
+
+# ---------------------------------------------------------------------------
+# FAZ 1.2 — Cevap sözleşmesi kapısı (answer contract gate)
+#
+# Model artık işaretli serbest metin yerine TEK bir JSON sözleşme üretir:
+#   {"yanit": ..., "iddialar": [{"metin","tur","dayanak":{"arac"}}]}
+# Kapı; beyan edilen "olcum" iddialarını bu turda koşan araçlara karşı
+# denetler, beyan edilmemiş eylem/ölçüm cümlelerini eler. Düz sohbet sözleşme
+# modunda asla elenmez. Kapı yine yapay zeka değil; yapı + sözcük kontrolü.
+
+import json
+
+SOZLESME_PROMPTU = (
+    'CEVAP SOZLESMESI (ZORUNLU): Yalnizca kucultulmus JSON dondur; baska '
+    "metin, markdown citi veya aciklama YOK. Sem:\n"
+    '{"yanit":"<kullaniciya gorunecek tam cevap>","iddialar":[{"metin":'
+    '"<yanit icindeki iddia cumlesi/koku>","tur":"olcum"|"yok",'
+    '"dayanak":{"arac":"<arac adi>"}}]}\n'
+    'tur "olcum" = dosya/git/gorev/sistem hakkindaki HER olgu veya eylem '
+    "iddiasi; dayanak.arac bu iddiayi KANITLAYAN aracin TAM adi olmali "
+    "(git_durum, list_tasks gibi). Emin degilsen iddia bildirme, supheni "
+    'yanit icinde duz cumleyle soyle. Gorus/sohbet icin tur "yok"; salt '
+    'konusmada iddialar: [] birak.\n'
+    'Ornek: {"yanit":"Gorev listenizde 2 acik gorev var.","iddialar":'
+    '[{"metin":"2 acik gorev var","tur":"olcum","dayanak":{"arac":'
+    '"list_tasks"}}]}'
+)
+
+_SOZLESME_TURLERI = frozenset(("olcum", "yok"))
+
+# Beyan edilmemis eylem kokleri — _norm Turkce katlamasiyla eslesir,
+# noktali/noktasiz yazim farkini tek kok yakalar (tamamlandi == tamamlandı).
+_EYLEM_KOKLERI = frozenset((
+    "kaydedildi", "kaydettim", "eklendi", "ekledim", "silindi", "sildim",
+    "tamamlandi", "tamamlandı", "olusturuldu", "oluşturuldu",
+    "yazildi", "yazıldı", "guncellendi", "güncellendi",
+    "gonderildi", "gönderildi", "ayarlandi", "ayarlandı",
+    "kuruldu", "kurdum", "bulundu", "listedim",
+))
+
+# Olcu-alani sinyali: arac kosan turda beyansiz gecemez (AGENTS.md §18 felsefesi)
+_DOSYA_YOLU = re.compile(
+    r"(?:[\w\-.]+/)+[\w\-.]+|\b[\w\-.]+\.(?:py|md|txt|json|toml|ya?ml|"
+    r"cfg|ini|html|css|js|ts|sh|bat)\b")
+
+
+def _eylem_sinyali(norm_cumle):
+    """Pozitif eylem kökü var mı? Olumsuz ('eklenmedi') iddia değildir."""
+    if not norm_cumle:
+        return False
+    if any(x in norm_cumle for x in _OLUMSUZ_EYLEM):
+        return False
+    return any(k in norm_cumle for k in _EYLEM_KOKLERI)
+
+
+def _olcu_alani_sinyali(norm_cumle):
+    """Ölçü-alanı izi: proje adı / commit hash / dosya yolu / dal-commit."""
+    if not norm_cumle:
+        return False
+    if any(p in norm_cumle for p in _PROJE_ADLARI):
+        return True
+    if _COMMIT_HASH.search(norm_cumle) or _DOSYA_YOLU.search(norm_cumle):
+        return True
+    return "dal:" in norm_cumle or "commit" in norm_cumle
+
+
+def sozlesme_gecerli_mi(s):
+    """Sözleşme şeması denetimi. Ekstra anahtarlar umursanmaz."""
+    try:
+        if not isinstance(s, dict):
+            return False
+        yanit = s.get("yanit")
+        if not isinstance(yanit, str) or not yanit.strip():
+            return False
+        iddialar = s.get("iddialar")
+        if not isinstance(iddialar, list):
+            return False
+        for i in iddialar:
+            if not isinstance(i, dict):
+                return False
+            metin = i.get("metin")
+            if not isinstance(metin, str) or not metin.strip():
+                return False
+            if i.get("tur") not in _SOZLESME_TURLERI:
+                return False
+            if i["tur"] == "olcum":
+                dayanak = i.get("dayanak")
+                arac = dayanak.get("arac") if isinstance(dayanak, dict) else None
+                if not isinstance(arac, str) or not arac.strip():
+                    return False
+        return True
+    except Exception:
+        return False
+
+
+def _dengeli_json_bul(metin):
+    """İlk dengeli {...} bloğu; string içi süslü parantez ve kaçışlı
+    tırnak saygılı. Yoksa None."""
+    baslangic = metin.find("{")
+    while baslangic != -1:
+        derinlik = 0
+        icinde_str = kacti = False
+        for i in range(baslangic, len(metin)):
+            c = metin[i]
+            if icinde_str:
+                if kacti:
+                    kacti = False
+                elif c == "\\":
+                    kacti = True
+                elif c == '"':
+                    icinde_str = False
+                continue
+            if c == '"':
+                icinde_str = True
+            elif c == "{":
+                derinlik += 1
+            elif c == "}":
+                derinlik -= 1
+                if derinlik == 0:
+                    return metin[baslangic:i + 1]
+        baslangic = metin.find("{", baslangic + 1)
+    return None
+
+
+def sozlesme_coz(metin):
+    """Ham model çıktısından sözleşme JSON'unu çıkarır: dict | None.
+
+    ```json çitlerini ve çevre prosi soyar, ilk dengeli {...} bloğunu
+    bulur; şema geçerliyse dict döndürür. Asla yükseltmez.
+    """
+    try:
+        ham = metin
+        if isinstance(ham, bytes):
+            ham = ham.decode("utf-8", errors="replace")
+        ham = str(ham or "")
+        ham = re.sub(r"```(?:json)?", "", ham)
+        blok = _dengeli_json_bul(ham)
+        if not blok:
+            return None
+        veri = json.loads(blok)
+        if sozlesme_gecerli_mi(veri):
+            return veri
+        return None
+    except Exception:
+        return None
+
+
+def sozlesme_kapisi(sozlesme, olcumler=None):
+    """Sözleşme kapısı: (temiz_metin, rapor).
+
+    olcumler: cikis_kapisi ile aynı bicim — [("arac","cikti")] veya
+    ["cikti"]. Dönüşteki rapor:
+      {"kullanan_yapi", "gecerli", "elnen_sayisi", "elennen",
+       "kosan_araclar"}
+    Tüm cümle elenirse araç koştuysa HAM ölçüm satırları, koşmadıysa
+    YEDEK_CUMLE döndürülür. Asla yükseltmez.
+    """
+    rapor = {"kullanan_yapi": True, "gecerli": False, "elnen_sayisi": 0,
+             "elennen": [], "kosan_araclar": []}
+    try:
+        if isinstance(sozlesme, str):
+            sozlesme = sozlesme_coz(sozlesme)
+        if not sozlesme_gecerli_mi(sozlesme):
+            return YEDEK_CUMLE, rapor
+        rapor["gecerli"] = True
+
+        # cikis_kapisi ile aynı normalizasyon: [(arac|None, cikti)]
+        kayitlar = []
+        for o in (olcumler or []):
+            if isinstance(o, (tuple, list)) and len(o) == 2:
+                ad, cikti = o
+                if cikti:
+                    kayitlar.append((_norm(ad) if ad else None, cikti))
+            elif o:
+                kayitlar.append((None, o))
+        kosan = {ad for ad, _ in kayitlar if ad}
+        rapor["kosan_araclar"] = sorted(kosan)
+
+        cumleler = bol_cumleler(sozlesme.get("yanit"))
+        normlar = [_norm(c) for c in cumleler]
+
+        # İddia → cümle eşlemesi (normalize alt-küme, iki yönlü)
+        beyanli, kanitsiz = set(), set()
+        for iddia in (sozlesme.get("iddialar") or []):
+            metin_norm = _norm(iddia.get("metin") or "")
+            yer = None
+            if metin_norm:
+                for i, n in enumerate(normlar):
+                    if n and (metin_norm in n or n in metin_norm):
+                        yer = i
+                        break
+            if yer is None:
+                continue
+            beyanli.add(yer)
+            if iddia.get("tur") == "olcum":
+                dayanak = iddia.get("dayanak")
+                arac = _norm(dayanak.get("arac")) \
+                    if isinstance(dayanak, dict) else ""
+                if arac and arac not in kosan:
+                    kanitsiz.add(yer)
+
+        hayatta, elennen = [], []
+        for i, cumle in enumerate(cumleler):
+            n = normlar[i]
+            if i in kanitsiz:
+                elennen.append({"metin": cumle, "neden": "kanit_yok"})
+            elif i in beyanli:
+                hayatta.append(cumle)
+            elif _eylem_sinyali(n):
+                elennen.append(
+                    {"metin": cumle, "neden": "beyan_edilmemis_eylem"})
+            elif kosan and _olcu_alani_sinyali(n):
+                elennen.append(
+                    {"metin": cumle, "neden": "olcum_alani_beyansiz"})
+            else:
+                hayatta.append(cumle)
+
+        rapor["elnen_sayisi"] = len(elennen)
+        rapor["elennen"] = elennen
+
+        if hayatta:
+            return "\n".join(hayatta).strip(), rapor
+        if kosan:
+            ham = "\n".join(ham_olcum_satirlari(olcumler)).strip()
+            return (ham or YEDEK_CUMLE), rapor
+        return YEDEK_CUMLE, rapor
+    except Exception:
+        logger.exception("Sozlesme kapisi beklenmedik hata")
+        return YEDEK_CUMLE, rapor

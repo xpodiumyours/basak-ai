@@ -72,8 +72,11 @@ class QwenClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def cevapla(self, messages: list, tools: list = None) -> dict:
-        """Qwen'e mesaj gönderir. Dönen şekil groq.py ile aynıdır."""
+    def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
+        """Qwen'e mesaj gönderir. Dönen şekil groq.py ile aynıdır.
+
+        yapi: sozlesme modu icin; bu saglayici su an yok sayar.
+        """
         if not self.client:
             raise RuntimeError("Qwen bağlı değil")
 

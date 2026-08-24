@@ -43,13 +43,15 @@ class OllamaClient:
         except requests.RequestException:
             return []
 
-    def cevapla(self, messages: list, model: str, tools: list = None) -> dict:
+    def cevapla(self, messages: list, model: str,
+                tools: list = None, yapi=None) -> dict:
         """Yerel modele mesaj gonderir ve yanit alir.
 
         Args:
             messages: Mesaj listesi (OpenAI formatinda).
             model: Kullanilacak model ismi (orn: qwen2.5:3b).
             tools: Tool tanimlari (opsiyonel). Gecilirse Ollama tool calling kullanir.
+            yapi: Sozlesme modu — verildiginde govdeye "format": "json" eklenir.
 
         Returns:
             dict: {"content": str, "tool_calls": list} formatinda yanit.
@@ -68,6 +70,8 @@ class OllamaClient:
         }
         if tools:
             payload["tools"] = tools
+        if yapi is not None:
+            payload["format"] = "json"
 
         r = requests.post(
             f"{self.base_url}/api/chat",

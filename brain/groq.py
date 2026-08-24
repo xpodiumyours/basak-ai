@@ -25,6 +25,11 @@ MODELLER = {
 class GroqClient:
     """Groq API istemcisi."""
 
+    # FAZ 1.4d: aracsız turda model yine de tool_call üretirse Groq 400 döner
+    # ("Tool choice is none, but model called a tool"). Tek nudge'lı tekrar.
+    _NUDGE = {"role": "system",
+              "content": "Bu turda arac yok; yalniz duz metinle yanit ver."}
+
     def __init__(self, api_key: str, model: str = None):
         if not api_key or not api_key.strip():
             raise ValueError("Groq API anahtarı boş olamaz")
@@ -48,11 +53,14 @@ class GroqClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def cevapla(self, messages: list, tools: list = None, model: str = None) -> dict:
+    def cevapla(self, messages: list, tools: list = None,
+                model: str = None, yapi=None) -> dict:
         """Groq'a mesaj gönderir.
 
         Hız için: temperature=0.5, max_tokens=1024.
         model: geçici model override (orn: openai/gpt-oss-120b).
+        yapi: sozlesme modu — verildiginde JSON yanit zorlanir
+        (response_format={"type": "json_object"}).
         """
         if not self.client:
             raise RuntimeError("Groq bağlı değil")
@@ -65,8 +73,20 @@ class GroqClient:
         }
         if tools:
             kwargs["tools"] = tools
+        if yapi is not None:
+            kwargs["response_format"] = {"type": "json_object"}
 
-        resp = self.client.chat.completions.create(**kwargs)
+        try:
+            resp = self.client.chat.completions.create(**kwargs)
+        except Exception as e:
+            if not self._tool_choice_hatasi_mi(e):
+                raise
+            logger.warning(
+                "groq aracsız turda tool_call üretti (%s) — "
+                "metin-nudge ile tek tekrar", str(e)[:120])
+            kwargs = dict(kwargs)
+            kwargs["messages"] = list(messages) + [self._NUDGE]
+            resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
 
         if msg.tool_calls:
@@ -87,3 +107,10 @@ class GroqClient:
                           "tool_calls": tool_calls}, resp)
 
         return kullanim_ekle({"content": msg.content or ""}, resp)
+
+    @staticmethod
+    def _tool_choice_hatasi_mi(hata) -> bool:
+        """Groq'un 'tools yokken model tool_call üretti' 400'unu tanir."""
+        metin = str(hata)
+        return ("tool_use_failed" in metin
+                and "Tool choice is none" in metin)

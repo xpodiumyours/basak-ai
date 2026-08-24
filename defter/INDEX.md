@@ -68,3 +68,9 @@
 | faz1-canary-savunma.md | FAZ 1: canary modu (yazma+sistem tam engel) + 19 saldırı testi + gsk_/hf_/nvapi_ log zafiyatı kapatıldı; CANLI-KAPISI.md kabul tablosu | opencode | 2026-08-24 | sonsuz |
 | faz2-canli-hat.md | FAZ 2: tests/live/ kuruldu (--live anahtarı, normalde atlanır); ilk GERÇEK koşum 11/11 — failover, hafıza yaşam döngüsü, budama kanıtlı | opencode | 2026-08-24 | sonsuz |
 | faz3-is-kuyrugu.md | FAZ 3: kalıcı iş kuyruğu — tek JSON+atomik yazım; onaylanmış adım iki kez koşmaz, restart'ta kaldığı yerden sürer, bütçe/onay kapıları; 12 sözleşme testi | opencode | 2026-08-24 | sonsuz |
+| faz0-eval-tabani.md | FAZ 0 eval bankasi + taban: disiplin %33.3, sizinti 4, T3 kanitsiz eylem iddiasi kapidan gecti | opencode | 2026-08-24 | sonsuz |
+| faz1-sozlesme-ab.md | FAZ 1 altyapisi 49 testle insa edildi; canli A/B sizinti 5>4, sozlesme_modu=kapali cevrildi; kok neden: JSON uretilemedi + saglayici firtinasi | opencode | 2026-08-24 | sonsuz |
+| saglayici-dokuman-arastirmasi.md | OpenAI/Anthropic/Kimi/DeepSeek resmi dokumanlari dogrulandi; kapı v2'ye ok/refusal/incomplete/invalid durum makinesi karari; DeepSeek+Kimi veri karti olmadan zincire alinmaz | opencode | 2026-08-24 | 30g |
+| ana-plan-revizyon-onayi.md | Casper 3 onay verdi: tam yetki->kapsamli yetki metni, Ortak Calisma Sozlesmesi AGENTS.md ust norm oldu (satir 100), RPO 24 saat duzeltildi; ANA-PLAN'a faz kapisi+veri karti+1.4b-e eklendi | opencode | 2026-08-24 | sonsuz |
+| pota-tur1-karari.md | Casper (a) bekci secildi: yakalama oncelikli, gurultu cezasi hafif; adim 6: fay'in dusuk-siklik mekhanizmasi bekciyle melezlenecek, tur 2 sinavi gelecek | opencode | 2026-08-24 | sonsuz |
+| groq-tool-choice-duzeltme.md | FAZ 1.4d: groq'un aracsiz turda tool_call 400'u icin tek nudge'li retry (groq.py); 7 yeni test, 601 test fonksiyonu; kota seffafligi korundu | opencode | 2026-08-24 | sonsuz |

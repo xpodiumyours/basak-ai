@@ -71,3 +71,33 @@ class TestDinamikSunum:
 
     def test_bosluk_listesi_none_kalir(self):
         assert _dinamik_araclar("hava", []) == []
+
+
+class TestDosyaSinyali:
+    """2026-08-24 canli bulgu: yol/proje adi gorunce dosya ailesi acilmali.
+    SINIF: yalniz OKUMA acilir; write_file_tool yetki tavani geregi kapali."""
+
+    def test_windows_yolu_dosya_ailesini_acar(self):
+        secilen = _dinamik_araclar(
+            r"c:\users\casper\source\numeramatch".lower(), TUMU)
+        adlar = {t["function"]["name"] for t in secilen}
+        assert {"read_file", "list_files"} <= adlar
+        assert "write_file_tool" not in adlar
+
+    def test_dis_proje_adi_dosya_ailesini_acar(self):
+        secilen = _dinamik_araclar("numeramatch projesine bak", TUMU)
+        adlar = {t["function"]["name"] for t in secilen}
+        assert "read_file" in adlar
+        assert "write_file_tool" not in adlar
+
+    def test_proje_kelimesi_dosya_ailesini_acar(self):
+        secilen = _dinamik_araclar("proje geliştirmek için", TUMU)
+        adlar = {t["function"]["name"] for t in secilen}
+        assert "read_file" in adlar
+        assert "write_file_tool" not in adlar
+
+    def test_sade_sohbet_dosya_ailesini_acmaz(self):
+        secilen = _dinamik_araclar("bugün hava nasıl", TUMU)
+        adlar = {t["function"]["name"] for t in secilen}
+        assert "read_file" not in adlar
+        assert "write_file_tool" not in adlar

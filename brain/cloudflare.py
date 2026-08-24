@@ -58,10 +58,11 @@ class CloudflareClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def cevapla(self, messages: list, tools: list = None) -> dict:
+    def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
         """Cloudflare'a mesaj gonderir.
 
         Hiz icin: temperature=0.5, max_tokens=1024.
+        yapi: sozlesme modu icin; bu saglayici su an yok sayar.
         """
         if not self.client:
             raise RuntimeError("Cloudflare bagli degil")

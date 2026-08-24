@@ -116,3 +116,744 @@
 [2026-08-22 16:14:40] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
 [2026-08-22 16:21:26] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
 [2026-08-22 16:53:42] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 17:08:36] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 17:12:16] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 17:12:18] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 17:12:19] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 17:12:19] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 17:15:35] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 17:15:38] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 17:15:40] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 17:15:40] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 17:32:22] HATA | read_file | {'path': 'knowledge/OLCU.md'} | {'error': 'Dosya bulunamadı: knowledge/OLCU.md'}
+[2026-08-22 17:35:43] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 17:35:47] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 17:35:47] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 17:36:16] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 17:36:18] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 17:36:18] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 17:36:19] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 17:47:38] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 17:47:39] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 17:47:39] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 17:47:40] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 17:47:58] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 17:48:00] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 17:48:00] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 17:48:48] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 17:48:50] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 17:48:52] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 17:48:52] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 17:50:07] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 17:50:09] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 17:50:11] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 17:50:11] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 17:54:15] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 17:54:18] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 17:54:19] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 17:54:19] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 17:57:00] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 17:57:02] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 17:57:03] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 17:57:03] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 17:58:28] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 17:58:30] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 17:58:31] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 17:58:31] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 17:58:54] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 17:58:56] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 17:58:56] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 17:59:14] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 17:59:16] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 17:59:17] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 17:59:17] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 18:02:41] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:02:42] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 4...
+[2026-08-22 18:02:43] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 18:02:45] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 18:02:45] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 18:06:06] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:06:08] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 18:06:09] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 18:06:09] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 18:13:15] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:13:17] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 18:13:21] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 18:13:21] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 18:14:42] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:14:45] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 18:14:47] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 18:14:47] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 18:16:35] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:16:36] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 18:16:37] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 18:16:37] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 18:21:50] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:21:54] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 18:21:55] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 18:21:56] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 18:24:00] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:24:02] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 18:24:03] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 18:24:03] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 18:29:31] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:29:33] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 18:29:34] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 18:29:34] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 18:32:09] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:32:11] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 18:32:13] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 18:32:13] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 18:36:59] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:37:00] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 18:37:01] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 18:37:01] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 18:40:30] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:41:33] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:41:35] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 18:41:36] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 18:41:36] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 18:47:40] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:47:42] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 18:47:44] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 18:47:44] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 18:56:16] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:56:19] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 18:56:22] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 18:56:22] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 18:57:10] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 18:57:13] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 18:57:15] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 18:57:15] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 20:35:02] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 20:35:03] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 20:35:05] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 20:35:05] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 21:03:08] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 21:03:11] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 21:03:12] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 21:03:12] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-22 21:19:53] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-22 21:19:56] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-22 21:19:58] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-22 21:19:58] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 11:19:37] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 11:19:39] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 11:19:40] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 11:19:41] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 11:35:18] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 11:35:20] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 11:35:21] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 11:35:21] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 12:02:56] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 12:02:58] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 12:03:00] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 12:03:00] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 12:31:15] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 12:31:17] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 12:31:20] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 12:31:20] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 12:36:59] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 12:37:01] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 12:37:02] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 12:37:02] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 12:40:36] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 12:40:38] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 12:40:40] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 12:40:40] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 12:42:18] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 12:42:19] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 12:42:21] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 12:42:21] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 12:55:44] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 12:55:45] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 12:55:47] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 12:55:47] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 13:03:38] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 13:03:40] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 13:03:41] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 13:03:41] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 13:15:22] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 13:16:53] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 13:18:58] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 13:31:25] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 13:31:27] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 13:31:28] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 13:31:28] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 13:39:42] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 13:39:43] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 13:39:45] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 13:39:45] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 14:04:48] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:10:02] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:10:09] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:10:17] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:10:29] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:10:37] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:10:47] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:11:02] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:11:08] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:11:22] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:11:31] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:27:23] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:27:31] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:27:39] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:27:51] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:27:52] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:28:09] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:28:15] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:28:29] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:28:53] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:29:08] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:29:21] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:29:34] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:29:50] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:30:06] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:30:20] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:30:35] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:30:57] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:31:13] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:31:27] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:31:35] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:32:24] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:32:32] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:32:46] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:32:59] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:33:20] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:33:27] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:33:37] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:33:45] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:33:58] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:34:06] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:34:29] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:34:50] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:35:01] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:35:17] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:35:30] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:35:38] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:35:54] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:36:14] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:36:26] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: faz4/balon-maskot-mobil-uyumlu-v2\nSon commit: 1c566d2 | 2026-08-22 06:57 | fix(vitrin): harita kararı efektten düğmeye taşındı — lint hatası\nCommit edilmemis dosya: 6...
+[2026-08-23 14:37:16] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 14:37:18] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 14:37:20] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 14:37:20] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 15:01:41] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 15:01:48] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 15:01:54] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 15:01:54] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 15:02:49] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 15:02:51] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 15:02:52] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 15:02:52] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 15:37:57] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 15:37:59] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 15:38:05] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 15:38:05] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 16:53:52] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 16:53:55] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 16:53:57] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 16:53:57] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 17:01:19] OK | add_task | {'text': "Yarın saat 15:00'te discine yedek al"} | {'result': "Görev eklendi: saat 15:00'te discine yedek al (2026-08-24)"}
+[2026-08-23 17:01:22] OK | list_tasks | {} | {'result': "- [1] saat 15:00'te discine yedek al (2026-08-24)"}
+[2026-08-23 17:01:26] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-23 17:01:34] OK | web_search | {'query': 'Kilo Gateway ücretsiz katman saatlik istek limiti'} | {'result': 'March 15, 2026 - Estimate how much you will spend on Kilo Gateway Deprecated Kilo Auto Free API. See pricing, capabilities, and context window details. | March 15, 2026 - Estimate how much...
+[2026-08-23 17:01:44] OK | belge_ara | {'proje': 'basak', 'sorgu': 'tool'} | {'result': "AGENTS.md:24: 4. **ŞU AN: P3 Router v2 kod tamamlandı (2026-08-22), Casper canlı onayı bekleniyor.** `brain/registry.py` + `brain/secici.py` + `brain/kota.py` + `tools/permis\nAGENTS.md:28...
+[2026-08-23 17:07:56] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 17:07:58] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 17:08:00] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 17:08:00] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 17:08:47] HATA | list_files | {'folder': 'brain'} | {'error': "'brain' klasörüne izin yok. İzinli: knowledge, research-engine"}
+[2026-08-23 17:12:55] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 17:12:56] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 17:12:58] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 17:12:58] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 17:13:25] HATA | list_files | {'folder': 'brain'} | {'error': "'brain' klasörüne izin yok. İzinli: knowledge, research-engine"}
+[2026-08-23 17:16:33] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 17:16:35] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 17:16:37] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 17:16:37] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 17:17:50] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-23 17:21:20] HATA | list_files | {'folder': 'brain'} | {'error': "'brain' klasörüne izin yok. İzinli: knowledge, research-engine"}
+[2026-08-23 17:22:29] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-23 17:27:47] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-23 17:28:16] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-23 17:30:48] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 17:30:49] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 17:30:55] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 17:30:55] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 17:32:06] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-23 17:51:13] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 17:51:16] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 17:51:17] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 17:51:17] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 17:54:06] OK | git_durum | {'proje': 'basak'} | {'result': 'Proje: basak\nDal: master\nSon commit: 91ffed9 | 2026-08-23 17:34 | feat(olcu): [Y] yanit isareti — cevaplar makine ciktisi olmaktan cikti\nCommit edilmemis dosya: 11\nM arac.log\n M chat....
+[2026-08-23 17:58:46] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 17:58:48] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 17:58:51] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 17:58:51] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 17:59:48] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 17:59:49] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 17:59:50] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 17:59:50] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 18:00:45] HATA | list_files | {'folder': 'basak'} | {'error': "'basak' klasörüne izin yok. İzinli: knowledge, research-engine"}
+[2026-08-23 18:00:48] OK | list_files | {'folder': 'knowledge'} | {'result': 'knowledge/ (4 öğe):\n  INDEX.md (924 bayt)\n  README.md (376 bayt)\n  casper-hakkinda.md (3115 bayt)\n  takvim-ve-hatirlatmalar.md (478 bayt)'}
+[2026-08-23 18:00:52] HATA | read_file | {'path': 'casper-hakkinda.md'} | {'error': "'casper-hakkinda.md' klasörüne izin yok. İzinli: knowledge, research-engine"}
+[2026-08-23 18:01:26] HATA | list_files | {'folder': 'basak'} | {'error': "'basak' klasörüne izin yok. İzinli: knowledge, research-engine"}
+[2026-08-23 18:01:30] OK | list_files | {'folder': 'knowledge'} | {'result': 'knowledge/ (4 öğe):\n  INDEX.md (924 bayt)\n  README.md (376 bayt)\n  casper-hakkinda.md (3115 bayt)\n  takvim-ve-hatirlatmalar.md (478 bayt)'}
+[2026-08-23 18:01:32] OK | list_files | {'folder': 'research-engine'} | {'result': 'research-engine/ (15 öğe):\n  .env.example (340 bayt)\n  .git/ (klasör)\n  .gitignore (286 bayt)\n  .pytest_cache/ (klasör)\n  Makefile (117 bayt)\n  README.md (11353 bayt)\n  config/ (kla...
+[2026-08-23 18:04:41] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 18:04:42] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 18:04:43] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 18:04:43] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 18:06:26] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-23 20:36:18] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 20:36:22] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 20:36:24] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 20:36:24] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 20:47:56] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 20:47:58] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 20:48:01] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 20:48:01] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 22:56:09] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 22:56:10] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 22:56:12] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 22:56:12] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 23:08:34] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-23 23:08:34] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-23 23:08:34] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 23:08:47] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-23 23:08:47] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-23 23:08:51] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 23:08:53] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 23:08:56] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 23:08:56] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 23:17:14] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-23 23:17:14] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-23 23:17:17] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 23:17:19] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 23:17:22] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 23:17:22] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 23:29:01] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-23 23:29:01] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-23 23:29:04] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-23 23:29:07] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-23 23:29:08] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-23 23:29:08] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-23 23:41:48] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-23 23:42:52] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-23 23:43:37] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-24 00:02:10] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 00:02:10] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 00:02:16] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 00:02:18] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 00:02:20] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 00:02:20] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 00:02:47] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 00:02:47] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 00:02:50] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 00:02:52] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 00:02:52] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 00:02:52] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 00:03:22] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-24 00:03:56] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-24 00:04:11] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-24 00:04:43] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-24 00:05:33] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-24 00:06:00] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-24 00:06:31] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-24 00:07:05] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-24 00:09:27] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 00:09:27] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 00:09:35] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 00:09:37] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 00:09:39] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 00:09:39] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 00:10:22] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-24 00:10:40] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-24 00:11:09] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-24 00:11:43] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-24 00:12:13] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: main\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit edilmemis dosya: 2\n?? .obsid...
+[2026-08-24 00:26:36] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 00:26:36] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 00:26:44] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 00:26:46] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 00:26:48] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 00:26:48] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 00:28:39] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 00:28:39] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 00:28:42] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 00:28:44] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 00:28:46] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 00:28:46] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 00:34:52] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 00:34:52] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 00:34:57] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 00:34:59] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 00:35:02] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 00:35:02] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 00:36:25] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 00:36:25] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 00:36:33] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 00:36:36] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 00:36:39] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 00:36:39] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 00:48:39] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 00:48:39] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 00:48:47] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 00:48:50] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 00:48:51] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 00:48:51] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 01:18:08] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 01:18:08] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 01:18:25] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 01:18:26] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 01:18:28] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 01:18:28] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 01:35:06] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 01:35:06] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 01:35:29] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 01:35:31] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 01:35:32] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 01:35:32] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 01:45:59] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 01:45:59] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 01:46:25] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 01:46:27] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 01:46:29] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 01:46:29] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 01:56:03] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 01:56:03] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 01:56:46] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 01:56:47] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 01:56:49] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 01:56:49] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 01:57:36] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: fix/v37-v38-error-disclosure\nSon commit: ffbe6ba | 2026-08-24 01:56 | fix(V-37, V-38): error disclosure — generic messages in API routes\nCommit edilmemis dosya: 8\n??...
+[2026-08-24 02:05:48] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 02:05:48] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 02:06:52] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 02:06:55] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 02:06:58] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 02:06:58] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 02:13:20] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 02:13:20] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 02:14:12] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 02:14:15] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 02:14:18] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 02:14:18] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 02:23:33] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 02:23:33] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 02:23:50] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 02:23:52] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 02:23:54] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 02:23:54] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 02:31:53] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 02:31:53] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 02:32:24] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 02:32:26] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 02:32:28] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 02:32:28] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 02:36:16] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 02:36:16] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 02:36:35] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 02:36:38] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 02:36:39] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 02:36:39] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 02:37:00] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: fix/v11-jwt-edit-token-plaintext\nSon commit: 20da1a7 | 2026-08-23 16:31 | feat(vitrin): balon ve maskot mobil uyumlu, panel sayfayı kapatmasın (Faz 4) (#326)\nCommit e...
+[2026-08-24 02:54:28] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 02:54:28] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 02:54:44] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 02:54:47] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 02:54:49] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 02:54:49] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 03:04:17] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 03:04:17] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 03:04:32] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 03:04:34] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 03:04:38] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 03:04:38] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 03:10:13] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 03:10:13] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 03:10:30] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 03:10:32] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 03:10:34] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 03:10:34] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 03:17:04] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 03:17:04] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 03:17:25] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 03:17:28] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 03:17:29] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 03:17:29] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 03:18:46] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 03:18:46] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 03:19:05] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 03:19:07] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 03:19:09] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 03:19:09] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 03:22:53] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 03:22:53] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 03:23:11] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 03:23:13] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 03:23:15] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 03:23:15] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 03:31:17] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 03:31:17] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 03:31:37] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 03:31:39] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 03:31:42] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 03:31:42] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 03:32:18] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: fix/v50-sharedpreferences-localstorage\nSon commit: a93e34e | 2026-08-24 03:20 | fix(V-50): SharedPreferences/localStorage — migrate sensitive keys to flutter_secure_st...
+[2026-08-24 03:32:18] HATA | belge_ara | {'proje': 'vixrex', 'sorgu': 'kiralik vitrin plan'} | {'error': "Belgelerde bulunamadi: 'kiralik vitrin plan'"}
+[2026-08-24 03:32:18] HATA | dosya_bilgi | {'proje': 'vixrex', 'yol': 'app.py'} | {'error': 'Dosya yok: app.py'}
+[2026-08-24 03:43:14] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 03:43:14] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 03:43:31] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 03:43:33] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 03:43:35] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 03:43:35] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 03:51:11] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 03:51:11] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 03:51:27] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 03:51:30] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 03:51:31] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 03:51:31] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 03:52:39] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 03:52:39] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 03:52:59] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 03:53:02] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 03:53:04] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 03:53:04] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 03:54:27] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 03:54:27] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 03:54:54] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 03:54:57] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 03:55:00] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 03:55:00] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 03:59:20] OK | belge_ara | {'proje': 'basak', 'sorgu': 'vibe coding yasaklar'} | {'result': 'AGENTS.md:71: ## 5. Vibe coding yasakları'}
+[2026-08-24 03:59:22] OK | belge_ara | {'proje': 'basak', 'sorgu': 'yasak'} | {'result': 'AGENTS.md:28: 8. **Ö-1 BİTTİ (2026-08-22, kanıtlı):** `chat.py` measurement araçları (`git_durum`, `belge_ara`, `dosya_bilgi`) her zaman modele sunuluyor — keyword eşleşmesi \nAGENTS.md:65...
+[2026-08-24 03:59:23] OK | belge_ara | {'proje': 'basak', 'sorgu': '5. Vibe coding yasakları'} | {'result': 'AGENTS.md:71: ## 5. Vibe coding yasakları'}
+[2026-08-24 04:04:08] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 04:04:08] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 04:04:24] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: fix/v50-sharedpreferences-localstorage\nSon commit: a93e34e | 2026-08-24 03:20 | fix(V-50): SharedPreferences/localStorage — migrate sensitive keys to flutter_secure_st...
+[2026-08-24 04:04:29] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 04:04:31] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 04:04:33] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 04:04:33] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 04:13:57] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 04:13:57] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 04:14:24] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 04:14:27] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 04:14:29] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 04:14:29] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 04:15:40] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 04:15:40] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 04:16:30] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 04:16:34] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 04:16:36] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 04:16:36] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 04:20:38] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 04:20:38] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 04:21:26] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 04:21:32] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 04:21:42] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 04:21:42] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 04:27:58] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 04:27:58] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 04:28:40] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 04:28:43] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 04:28:46] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 04:28:46] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 04:34:27] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 04:34:27] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 04:34:49] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 04:34:51] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 04:34:53] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 04:34:53] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 04:36:42] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 04:36:42] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 04:37:01] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 04:37:04] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 04:37:05] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 04:37:05] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 04:45:06] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 04:45:06] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 04:45:22] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 04:45:24] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 04:45:25] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 04:45:25] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 04:51:09] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: fix/v50-sharedpreferences-localstorage\nSon commit: a93e34e | 2026-08-24 03:20 | fix(V-50): SharedPreferences/localStorage — migrate sensitive keys to flutter_secure_st...
+[2026-08-24 04:52:20] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: fix/v50-sharedpreferences-localstorage\nSon commit: a93e34e | 2026-08-24 03:20 | fix(V-50): SharedPreferences/localStorage — migrate sensitive keys to flutter_secure_st...
+[2026-08-24 04:53:31] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: fix/v50-sharedpreferences-localstorage\nSon commit: a93e34e | 2026-08-24 03:20 | fix(V-50): SharedPreferences/localStorage — migrate sensitive keys to flutter_secure_st...
+[2026-08-24 04:54:04] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: fix/v50-sharedpreferences-localstorage\nSon commit: a93e34e | 2026-08-24 03:20 | fix(V-50): SharedPreferences/localStorage — migrate sensitive keys to flutter_secure_st...
+[2026-08-24 05:11:21] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 05:11:21] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 05:11:37] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 05:11:39] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 05:11:41] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 05:11:41] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 05:13:34] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 05:13:34] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 05:13:51] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 05:13:54] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 05:13:55] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 05:13:55] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 05:15:53] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 05:15:53] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 05:16:28] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 05:16:32] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 05:16:33] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 05:16:33] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 05:17:06] OK | git_durum | {'proje': 'vixrex'} | {'result': 'Proje: vixrex\nDal: fix/v50-sharedpreferences-localstorage\nSon commit: a93e34e | 2026-08-24 03:20 | fix(V-50): SharedPreferences/localStorage — migrate sensitive keys to flutter_secure_st...
+[2026-08-24 05:26:51] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 05:26:51] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 05:27:18] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 05:27:21] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 05:27:23] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 05:27:23] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 05:49:25] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 05:49:25] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 05:49:52] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 05:49:54] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 05:49:55] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 05:49:55] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 05:51:21] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 05:51:21] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 05:51:43] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 05:51:46] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 05:51:47] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 05:51:47] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 06:04:08] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 06:04:08] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 06:04:22] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 06:04:25] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 06:04:27] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 06:04:27] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 06:05:35] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 06:05:35] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 06:06:09] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 06:06:13] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 06:06:14] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 06:06:14] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 06:25:27] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 06:25:27] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 06:25:53] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 06:25:56] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 06:25:58] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 06:25:58] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 06:26:47] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 06:26:47] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 06:27:07] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 06:27:10] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 06:27:14] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 06:27:14] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 06:29:30] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 06:29:30] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 06:29:49] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 06:29:52] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 06:29:53] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 06:29:53] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 12:27:45] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 12:27:45] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 12:28:08] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 12:28:14] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 12:28:16] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 12:28:16] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 12:29:33] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 12:29:33] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 12:29:50] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 12:29:53] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 12:29:55] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 12:29:55] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 12:58:07] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-08-24 12:58:07] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '../../ayarlar.json'} | {'error': 'Yol proje disina tasiyor: ../../ayarlar.json'}
+[2026-08-24 12:58:58] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 12:58:58] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 12:59:13] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 12:59:14] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-08-24 12:59:14] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '../../ayarlar.json'} | {'error': 'Yol proje disina tasiyor: ../../ayarlar.json'}
+[2026-08-24 12:59:16] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 12:59:19] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 12:59:19] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 12:59:29] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-08-24 12:59:29] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '../../ayarlar.json'} | {'error': 'Yol proje disina tasiyor: ../../ayarlar.json'}
+[2026-08-24 13:01:02] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 13:01:02] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 13:01:18] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 13:01:18] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-08-24 13:01:18] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '../../ayarlar.json'} | {'error': 'Yol proje disina tasiyor: ../../ayarlar.json'}
+[2026-08-24 13:01:22] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 13:01:23] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 13:01:23] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 13:07:20] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 13:07:20] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 13:07:39] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 13:07:39] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-08-24 13:07:39] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '../../ayarlar.json'} | {'error': 'Yol proje disina tasiyor: ../../ayarlar.json'}
+[2026-08-24 13:07:41] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 13:07:43] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 13:07:43] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 13:10:13] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 13:10:13] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 13:10:31] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 13:10:31] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-08-24 13:10:31] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '../../ayarlar.json'} | {'error': 'Yol proje disina tasiyor: ../../ayarlar.json'}
+[2026-08-24 13:10:34] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 13:10:35] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 13:10:35] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 13:21:56] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 13:21:56] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 13:22:11] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 13:22:11] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-08-24 13:22:11] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '../../ayarlar.json'} | {'error': 'Yol proje disina tasiyor: ../../ayarlar.json'}
+[2026-08-24 13:22:14] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 13:22:16] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 13:22:16] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 13:23:41] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 13:23:41] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 13:24:00] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 13:24:00] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-08-24 13:24:00] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '../../ayarlar.json'} | {'error': 'Yol proje disina tasiyor: ../../ayarlar.json'}
+[2026-08-24 13:24:03] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 13:24:04] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 13:24:04] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 13:25:11] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 13:25:11] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 13:25:29] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 13:25:29] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-08-24 13:25:29] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '../../ayarlar.json'} | {'error': 'Yol proje disina tasiyor: ../../ayarlar.json'}
+[2026-08-24 13:25:32] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 13:25:34] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 13:25:34] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 16:12:02] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 16:23:50] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 16:23:50] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 16:24:30] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 16:24:30] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-08-24 16:24:30] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '../../ayarlar.json'} | {'error': 'Yol proje disina tasiyor: ../../ayarlar.json'}
+[2026-08-24 16:24:35] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 16:24:37] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 16:24:37] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 16:36:26] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 16:36:26] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 16:37:11] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 16:37:11] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-08-24 16:37:11] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '../../ayarlar.json'} | {'error': 'Yol proje disina tasiyor: ../../ayarlar.json'}
+[2026-08-24 16:37:18] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 16:37:19] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 16:37:19] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 18:13:08] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 18:13:08] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 18:14:09] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 18:14:10] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-08-24 18:14:10] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '../../ayarlar.json'} | {'error': 'Yol proje disina tasiyor: ../../ayarlar.json'}
+[2026-08-24 18:14:14] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 18:14:16] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 18:14:16] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-08-24 18:33:46] HATA | ac_uygulama | {'uygulama': 'notepad'} | {'error': 'izin engeli'}
+[2026-08-24 18:33:46] HATA | dosya_sil | {} | {'error': 'izin engeli'}
+[2026-08-24 18:34:22] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-08-24 18:34:22] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-08-24 18:34:22] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '../../ayarlar.json'} | {'error': 'Yol proje disina tasiyor: ../../ayarlar.json'}
+[2026-08-24 18:34:29] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-08-24 18:34:31] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-08-24 18:34:31] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}

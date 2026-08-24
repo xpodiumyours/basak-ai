@@ -50,8 +50,11 @@ class GeminiClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def cevapla(self, messages: list, tools: list = None) -> dict:
-        """Gemini'ye mesaj gönderir. Dönen şekil groq.py ile aynıdır."""
+    def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
+        """Gemini'ye mesaj gönderir. Dönen şekil groq.py ile aynıdır.
+
+        yapi: sozlesme modu icin; bu saglayici su an yok sayar.
+        """
         if not self.client:
             raise RuntimeError("Gemini bağlı değil")
 

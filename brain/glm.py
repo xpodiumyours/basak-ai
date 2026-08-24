@@ -50,10 +50,11 @@ class GLMClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def cevapla(self, messages: list, tools: list = None) -> dict:
+    def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
         """GLM'e mesaj gönderir. Dönen şekil groq.py ile aynıdır.
 
         Not: dusunme (thinking) modu kapatilir — sohbet icin hiz onceliklidir.
+        yapi: sozlesme modu icin; bu saglayici su an yok sayar.
         """
         if not self.client:
             raise RuntimeError("GLM bağlı değil")

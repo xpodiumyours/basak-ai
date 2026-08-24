@@ -69,11 +69,12 @@ class KiloClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def cevapla(self, messages: list, tools: list = None) -> dict:
+    def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
         """Kilo'ya mesaj gönderir. Dönen şekil groq.py ile aynıdır.
 
         `reasoning` / `reasoning_details` alanları bilerek dışarı
         verilmez — kullanıcı düşünme metnini görmemeli.
+        yapi: sozlesme modu icin; bu saglayici su an yok sayar.
         """
         if not self.client:
             raise RuntimeError("Kilo bağlı değil")

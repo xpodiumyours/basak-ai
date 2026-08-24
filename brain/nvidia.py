@@ -179,11 +179,12 @@ class NvidiaClient:
 
         return kullanim_ekle({"content": msg.content or ""}, resp)
 
-    def cevapla(self, messages: list, tools: list = None) -> dict:
+    def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
         """NVIDIA NIM'e mesaj gönderir.
 
         Secili model basarisizsa (zaman asimi/hata) siradaki aday modele
         dusen tek seferlik geri donus vardir; boylece zincir kesilmez.
+        yapi: sozlesme modu icin; bu saglayici su an yok sayar.
         """
         if not self.client:
             raise RuntimeError("NVIDIA bağlı değil")
