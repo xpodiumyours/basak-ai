@@ -60,3 +60,4 @@
 | push-politikasi.md | PUSH POLİTİKASI: plan %100 + kapsamlı E2E olmadan push YOK | casper | 2026-08-24 | sonsuz |
 | evrim-0-nufus-arsivi.md | EVRIM-0 TAMAM: hipotez havuzu + nüfus arşivi + kombinasyon/mutasyon; eleme döngüsü kanıtlı; 467/467 yeşil | opencode | 2026-08-24 | sonsuz |
 | orkestra-uretim-baglantisi.md | ORKESTRA üretime bağlandı: gölge mod anahtarı (orkestra_ana_yol), yetki tavanı korundu; 468/468 yeşil | opencode | 2026-08-24 | sonsuz |
+| golge-mod-hazir.md | Gölge mod hazır: orkestra gölgede koşar, benzerlik loga düşer, kullanıcı cevabı değişmez; 475/475 yeşil | opencode | 2026-08-24 | sonsuz |

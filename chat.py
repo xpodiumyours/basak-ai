@@ -709,6 +709,60 @@ def _ilgili_anilar(sorgu, limit=4):
         return []
 
 
+def golge_mod_aktif_mi():
+    """ayarlar.json'daki 'golge_mod' anahtarını okur (eşdeğerlik ölçümü)."""
+    return bool(yukle(SETTINGS_FILE, {}).get("golge_mod", False))
+
+
+def _benzerlik(a, b):
+    """İki cevabın kelime-Jaccard benzerliği (0..2 normalize 0..1)."""
+    from tools.aktarici import _kelimeler
+    ka, kb = _kelimeler(a), _kelimeler(b)
+    if not ka or not kb:
+        return 0.0
+    return round(len(ka & kb) / len(ka | kb), 2)
+
+
+def golge_kos(text, brain, eski_cevap):
+    """ORKESTRA yolunu GÖLGEDE koşturur; eşdeğerliği loga yazar.
+
+    - Kullanıcıya dönen cevap DEĞİŞMEZ (eski yolun cevabıdır).
+    - Geçmişe/hafızaya yazmaz (kaydet_acik=False).
+    - Çıktı: data/orkestra_golge.log satırları
+      ts | benzerlik | eski=.. | yeni=..
+    """
+    from datetime import datetime
+
+    kutu = {"cevap": None}
+
+    def yakalayan(code):
+        if code.startswith("BasakUI.reply("):
+            ic = code[code.index("(") + 1: code.rindex(")")]
+            kutu["cevap"] = json.loads("[" + ic + "]")[0]
+
+    try:
+        mesaj_isle_orkestra(text, brain, "SYS", yakalayan, None,
+                            kaydet_acik=False)
+    except Exception as e:
+        logger.warning("Golge kosum hatasi: %s", e)
+        return
+
+    yeni = kutu["cevap"] or ""
+    benzerlik = _benzerlik(eski_cevap or "", yeni)
+    satir = "%s | benzerlik=%s | eski=%s | yeni=%s" % (
+        datetime.now().isoformat(timespec="seconds"), benzerlik,
+        (eski_cevap or "")[:80].replace("\n", " "),
+        yeni[:80].replace("\n", " "))
+    try:
+        log_yolu = os.path.join(BASE, "data", "orkestra_golge.log")
+        os.makedirs(os.path.dirname(log_yolu), exist_ok=True)
+        with open(log_yolu, "a", encoding="utf-8") as f:
+            f.write(satir + "\n")
+    except OSError as e:
+        logger.warning("Golge log yazilamadi: %s", e)
+    logger.info("Golge mod: %s", satir)
+
+
 def _j(obj):
     return json.dumps(obj, ensure_ascii=False)
 
@@ -772,20 +826,23 @@ def orkestra_bilesenleri(brain):
     return bilesenler
 
 
-def mesaj_isle_orkestra(text, brain, system_prompt, js_callback, tools):
+def mesaj_isle_orkestra(text, brain, system_prompt, js_callback, tools,
+                        kaydet_acik=True):
     """ORKESTRA yolunun giriş noktası — mesaj_isle ile aynı sözleşme.
 
     Ayar anahtarı kapalıyken çağrILMAZ; açıkken tek fark, akışın
     durum makinesinden geçmesi ve iz kaydı üretilmesidir.
+
+    kaydet_acik=False (GÖLGE MOD): geçmişe ve hafızaya YAZMADAN akışı
+    koşturur — yan yana eşdeğerlik ölçümü için.
     """
     from brain.orkestra import Orkestra
-    motor = _hafiza_al()
+    motor = None if not kaydet_acik else _hafiza_al()
 
     def ogren(soru, cevap, onem=1):
-        m = motor
-        if m and cevap:
+        if motor and cevap:
             try:
-                m.episodik_kaydet(soru, cevap, onem=onem)
+                motor.episodik_kaydet(soru, cevap, onem=onem)
             except Exception as e:
                 logger.warning("Ani kaydedilemedi: %s", e)
 
@@ -799,11 +856,14 @@ def mesaj_isle_orkestra(text, brain, system_prompt, js_callback, tools):
         return
     cevap = rapor["cevap"]
     kaynak = rapor.get("kaynak", "")
-    gecmis = yukle(HISTORY_FILE, [])
-    gecmis += [
-        {"role": "user", "content": text, "oturum": OTURUM_ID},
-        {"role": "assistant", "content": cevap, "oturum": OTURUM_ID},
-    ]
-    kaydet(HISTORY_FILE, gecmis[-40:])
-    logger.info("Orkestra izi: %s", " -> ".join(i["durum"] for i in rapor["iz"]))
+
+    if kaydet_acik:
+        gecmis = yukle(HISTORY_FILE, [])
+        gecmis += [
+            {"role": "user", "content": text, "oturum": OTURUM_ID},
+            {"role": "assistant", "content": cevap, "oturum": OTURUM_ID},
+        ]
+        kaydet(HISTORY_FILE, gecmis[-40:])
+    logger.info("Orkestra izi: %s",
+                " -> ".join(i["durum"] for i in rapor["iz"]))
     js_callback("BasakUI.reply(" + _j(cevap) + ", " + _j(kaynak) + ")")

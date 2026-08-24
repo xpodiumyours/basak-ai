@@ -107,6 +107,22 @@ class Api:
             except Exception:
                 pass
 
+        # GÖLGE MOD (ayrı ayar, 2026-08-24): eşdeğerlik ölçümü.
+        # Kullanıcıya dönen cevap değişmez; orkestra yolu gölgede koşar,
+        # benzerlik data/orkestra_golge.log'a yazılır.
+        try:
+            from chat import golge_kos, golge_mod_aktif_mi
+            if text.strip() and golge_mod_aktif_mi():
+                son_cevap = ""
+                gecmis = yukle(HISTORY_FILE, [])
+                for m in reversed(gecmis):
+                    if m.get("role") == "assistant":
+                        son_cevap = m.get("content", "")
+                        break
+                golge_kos(text, self.brain, son_cevap)
+        except Exception as e:
+            logger.warning("Golge mod atlandi: %s", e)
+
     def dinle(self):
         threading.Thread(target=self._dinle, daemon=True).start()
 
