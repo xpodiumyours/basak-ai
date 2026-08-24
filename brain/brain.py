@@ -175,9 +175,14 @@ class Brain:
                 logger.warning("QwenCloud baslatilamadi: %s", e)
 
     def _bulut_zinciri(self) -> list:
-        """Oncelik sirasi: Groq -> GLM -> Cloudflare -> Cohere -> NVIDIA
-        -> Kilo -> OpenRouter -> QwenCloud -> Gemini.
-        Son care: Ollama (yerel)."""
+        """Musait bulut istemcilerini toplar: [(ad, istemci)].
+
+        DIKKAT: Bu listenin sirasi ONCELIK SIRASI DEGILDIR. Gercek
+        sirayi secici.sec() belirler (registry.VARSAYILAN_SIRA temel;
+        gorev tipi + karne yeniden dizer). Buradaki sira yalnizca
+        secici'ye mevcut havuzi vermek ve 'tercih'siz eski cagilarda
+        yedek siralamak icindir. Son care her zaman Ollama (yerel).
+        """
         zincir = []
         if self._groq is not None and self._groq.musait():
             zincir.append(("groq", self._groq))

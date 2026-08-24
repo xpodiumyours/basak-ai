@@ -6,68 +6,14 @@ saglayiciyi one aldigi acikca yazilir.
 
 Genel sohbette saglayicilar sirayla distribute edilerek
 boylece tek bir saglayicinin token limiti hici dolmaz (P3 optimizasyonu).
+
+Not: Eski `route_by_intent` fonksiyonu 2026-08-24 denetiminde silindi —
+hicbir yerden cagrilmiyordu (Router v2'nin yerini sec()/siniflandir()
+aldi).
 """
 
-
-def route_by_intent(text, available_models):
-    """Kullanıcı isteğine göre en uygun modeli seçer (intent bazlı routing).
-
-    Args:
-        text: Kullanıcı mesajı.
-        available_models: Kullanılabilir model listesi (brain.yerel_modeller() çıktısı).
-
-    Returns:
-        (model_adi, sebep) tuple'u - seçilen model ve Selection sebebi.
-
-    Kurallar:
-    1. Kod/software işleri → NVIDIA model (code generation optimization)
-    2. Yaratıcı yazı/öneri → Qwen model (dengeli yaratıcılık)
-    3. Detaylı analiz/karşılaştırma → Groq (70b versatile)
-    4. Diğer tümler → Varsayılan/local model
-    """
-    text_lower = (text or "").lower()
-
-    # 1. KOD İŞI → NVIDIA
-    kod_kelimeler = ["kod", "function", "sınıf", "import", "debug",
-                     "script", "yap", "geliştir", "program"]
-    if any(k in text_lower for k in kod_kelimeler):
-        for m in available_models:
-            if m.lower() in ["nvidia", "glm", "nvidia-neemotron"]:
-                return (m, "kod isi: NVIDIA model one alindi")
-        # Eğer NVIDIA yoksa, ilk available modeli döndür
-        return (available_models[0] if available_models else None,
-                "kod isi: NVIDIA bulunamaya, varsayilan kullanildi")
-
-    # 2. YARATICI YAZI -> Qwen
-    yaratici_kelimeler = ["hikaye", "poe", "tavsiye", "artikel", "siri",
-                          "yarat", "etikat", "kriyatif"]
-    if any(k in text_lower for k in yaratici_kelimeler):
-        for m in available_models:
-            if "qwen" in m.lower():
-                return (m, "yaratici yazı: Qwen model one alindi")
-        for m in available_models:
-            if m != available_models[0]:
-                return (m, "yaratici yazı: Qwen yok,kinci tercih alindi")
-        return (available_models[0] if available_models else None,
-                "yaratici yazı: Qwen bulunamaya, varsayılan kullanildi")
-
-    # 3. DETAİLİ ANALİZ/KAŞIF → Groq
-    analiz_kelimeler = ["detaylı", "analiz", "karşılaştırma", "derin",
-                        "hakkında", "karşılaştır", "derinlemesine"]
-    if any(k in text_lower for k in analiz_kelimeler):
-        for m in available_models:
-            if "groq" in m.lower() or "llama-3" in m.lower():
-                return (m, "detaylı analiz: Groq/llama-3 one alindi")
-        # Groq yoksa, en güçlü available model
-        return (available_models[1] if len(available_models) > 1 else available_models[0] if available_models else None,
-                "detaylı analiz: Groq bulunamaya, ikinci model kullanıldı")
-
-    # 4. DEFAULT → Varsayılan/local model
-    if available_models:
-        return (available_models[0], "varsayılan model kullanıldı")
-    return (None, "model bulunamadı")
-
 import random
+
 from brain import registry
 
 # --- B1: Karne katmani (2026-08-24, kilitli hedef ilk halka) ---
