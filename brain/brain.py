@@ -268,7 +268,8 @@ class Brain:
                     break
             sirali, gerekce = secici.sec(
                 text=soru, gorev_tipi=gorev_tipi,
-                tools=bool(tools), mevcutlar=mevcutlar)
+                tools=bool(tools), mevcutlar=mevcutlar,
+                karne_kullan=True)   # B1: deneyim sirayi geriye itebilir
             tip = secici.siniflandir(soru)
 
         istemciler = dict(zincir)

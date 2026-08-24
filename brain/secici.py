@@ -70,6 +70,27 @@ def route_by_intent(text, available_models):
 import random
 from brain import registry
 
+# --- B1: Karne katmani (2026-08-24, kilitli hedef ilk halka) ---
+# Kurallar temel sirayi verir; AMA yeterli ornekleme olan ve basari
+# oranini esik altina dusuren saglayici deneyime gore SONA atilir.
+# Terfi (bandit tarzi one alma) sonraki dilimdir — once guvenli indirim.
+_MIN_ORNEKLEM = 5        # bu kadar cagri yoksa karne sesini cikarmaz
+_BASARI_ESIK = 50.0      # altinda kalan zayif sayilir
+
+
+def _karne_ozetleri(mevcutlar):
+    """Son 72 saatin yeterli orneklemli performans ozetleri."""
+    try:
+        from brain.stats import model_stats_al
+        istat = model_stats_al()
+        ozetler = istat.ozet(son_saat=72)
+    except Exception:
+        return {}
+    return {o["model"]: o for o in ozetler
+            if o["model"] in set(mevcutlar)
+            and o.get("toplam", 0) >= _MIN_ORNEKLEM}
+
+
 # Gorev turleri ve anahtar kelimeleri (chat.py'deki eski _beyin_tercihi
 # mantiginin genisletilmis hali)
 _GOREV_KELIMELERI = {
@@ -98,12 +119,15 @@ def siniflandir(text):
     return "genel"
 
 
-def sec(text=None, gorev_tipi=None, tools=False, mevcutlar=None):
+def sec(text=None, gorev_tipi=None, tools=False, mevcutlar=None,
+        karne_kullan=False):
     """Saglayici sirasini ve gerekceyi dondurur: (sirali_adlar, gerekce).
 
     - mevcutlar: su an kullanilabilir saglayici adlari (brain zinciri).
       None ise registry varsayilan sirasi kullanilir (test icin).
     - tools=True: tool destegi olmayan saglayicilar sona atilir.
+    - karne_kullan=True: yeterli ornekleme olan ve basarisi esik alti
+      olan saglayici SONA atilir (B1 — uretimde brain.cevapla acar).
     - Gerekce seffaf: "kod isi → nvidia one alindi" gibi okunabilir metin.
     """
     tip = gorev_tipi or siniflandir(text)
@@ -143,5 +167,20 @@ def sec(text=None, gorev_tipi=None, tools=False, mevcutlar=None):
         mevcutlar = ilk_3 + kalan
         gerekce = "genel sohbet → dagitilmis sira (" + ", ".join(
             registry.kart(a)["ad"] for a in ilk_3) + ")"
+
+    # B1 karne katmani: deneyim, kural sirasini yalnizca GERIYE itebilir.
+    # Yeterli ornekleme (>=5 cagri) olan ve basari orani esik alti olan
+    # saglayici sona alinir; gerekceye seffaf yazilir.
+    if karne_kullan:
+        karne = _karne_ozetleri(mevcutlar)
+        zayif = [a for a in mevcutlar
+                 if a in karne
+                 and karne[a]["basari_orani"] < _BASARI_ESIK]
+        if zayif:
+            saglam = [a for a in mevcutlar if a not in zayif]
+            detay = ", ".join(
+                "%s (%%%s)" % (a, karne[a]["basari_orani"]) for a in zayif)
+            mevcutlar = saglam + zayif
+            gerekce += " | karne: %s sona alindi" % detay
 
     return list(mevcutlar), gerekce
