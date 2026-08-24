@@ -32,6 +32,8 @@ data/provider_limits/
 data/model_stats/
 data/model_stats.db
 data/karne.json
+data/jobs/
+data/canli-rapor/
 
 # Kisisel Obsidian defteri (basak motoru tarafindan indekslenir, git'e gerek yok)
 Basak/

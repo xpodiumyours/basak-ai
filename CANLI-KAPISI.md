@@ -39,8 +39,8 @@ Canary modu → güvenlik saldırı testleri → canlı model testleri
 | 3 | Kontrolsüz ücretli çağrı | 0 | `test_router.py` + audit taraması | ✅ Mevcut |
 | 4 | Model cevabının izni değiştirmesi | 0 | enjeksiyon testleri (savunma paketi) | ✅ Faz 1 |
 | 5 | 8 saatte çökme | 0 | sonda modu (Faz 4) | ⏳ |
-| 6 | Görev kaybı / yarım görev | 0 | job queue çökme testi (Faz 3) | ⏳ |
-| 7 | Yeniden başlatınca devam | %100 | job queue resume testi (Faz 3) | ⏳ |
+| 6 | Görev kaybı / yarım görev | 0 | `tests/test_is_kuyrugu.py` (Faz 3) | ✅ Kuruldu — süreç yeniden doğumu kanıtlı |
+| 7 | Yeniden başlatınca devam | %100 | `tests/test_is_kuyrugu.py` (Faz 3) | ✅ Kuruldu — OS-restart provası Faz 4'te |
 | 8 | Model failover başarısı | ≥%95 | `tests/live/test_provider_failover.py` (Faz 2) | ✅ Kuruldu — ilk koşum 4/4 |
 | 9 | İzinli araç başarı oranı | ≥%95 | sonda raporu (Faz 4) | ⏳ |
 | 10 | Temizlenen hafızanın geri gelmesi | 0 | `tests/live/test_memory_lifecycle.py` (Faz 2) | ✅ Kuruldu — ilk koşum 4/4 |
@@ -62,12 +62,29 @@ tekrar kayıt dedupe. Raporlar: `data/canli-rapor/`.
 - Her canlı test kendi sonucunu `data/canli-rapor/` altına JSON yazar
 - Başarısız canlı test = faz kapanmaz; "canlıda düştü" meşru bulgudur
 
-## Job queue taslağı (Faz 3'te inşa edilecek)
+## Job queue (Faz 3 — KURULDU: `tools/is_kuyrugu.py`)
 
-`data/jobs/{pending,running,completed,failed}.json`; alanlar:
-`id, durum, mevcut_adim, maksimum_deneme, son_hata, kullanici_onayi`.
-Kural: aynı adım iki kez koşamaz; kota açılınca kaldığı adımdan sürer.
-`maksimum_gorev_suresi` ayarı bu fazda devreye girer.
+Saklama: plan taslağındaki 4 ayrı dosya YERİNE tek `data/jobs/kuyruk.json`
++ atomik yazım (tmp+rename) — çökme iki dosya arasında yakalanırsa görev
+bölünür; tek dosyada durum her zaman tutarlıdır. Planın `durum` alanı
+job içinde aynen korunur.
+
+Alanlar: `id, baslik, adimlar[], mevcut_adim, calisan_adim, durum,
+maksimum_deneme, deneme_sayisi, son_hata, kullanici_onayi,
+onay_gerekli, ciktilar`.
+
+Garantiler (testle kilitli):
+- Her adım ÖNCE `calisiyor`+`calisan_adim`, SONRA `mevcut_adim+1`
+  olarak diske yazılır → çökmede kaldığı yer görünür
+- ONAYLANMIŞ adım asla iki kez koşmaz; yarım kalan adım en fazla
+  `maksimum_deneme` kez denenir (adımlar idempotent yazılmalı)
+- `sure_butcesi` / ayarlardaki `maksimum_gorev_suresi` dolunca iş
+  BEKLIYOR'a döner — sonraki `kos_bekleyenleri()` çağrısı kaldığı
+  adımdan sürer ("kota açılınca devam")
+- `onay_gerekli=True` işler `onayla(id)` edilene kadar atlanır
+
+ENTEGRASYON NOTU: Kuyruk bağımsız modül olarak kabul testlerinden
+geçti; zamanlayıcıya/sunuma bağlanması ayrı küçük dilimdir (Faz 3b).
 
 ## Sonda (Faz 4)
 

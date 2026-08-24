@@ -67,3 +67,4 @@
 | ana-yol-gecti.md | ANA YOL: orkestra_ana_yol açıldı (Casper kararı, kanıt penceresi kısaltıldı); KISILIK taşınması + yönlendirme önce kuruldu; geri dönüş tek anahtar | opencode | 2026-08-24 | sonsuz |
 | faz1-canary-savunma.md | FAZ 1: canary modu (yazma+sistem tam engel) + 19 saldırı testi + gsk_/hf_/nvapi_ log zafiyatı kapatıldı; CANLI-KAPISI.md kabul tablosu | opencode | 2026-08-24 | sonsuz |
 | faz2-canli-hat.md | FAZ 2: tests/live/ kuruldu (--live anahtarı, normalde atlanır); ilk GERÇEK koşum 11/11 — failover, hafıza yaşam döngüsü, budama kanıtlı | opencode | 2026-08-24 | sonsuz |
+| faz3-is-kuyrugu.md | FAZ 3: kalıcı iş kuyruğu — tek JSON+atomik yazım; onaylanmış adım iki kez koşmaz, restart'ta kaldığı yerden sürer, bütçe/onay kapıları; 12 sözleşme testi | opencode | 2026-08-24 | sonsuz |
