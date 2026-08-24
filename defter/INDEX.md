@@ -53,3 +53,4 @@
 | deney-0-tohumu.md | DENEY-0 TAMAM: hipotez->kural->salt-okunur arac->rapor motoru tohumu; beyaz liste disina ulasilmiyor; 411/411 yesil | opencode | 2026-08-24 | sonsuz |
 | fay-0-tamamlandi.md | FAY-0 TAMAM: uc olcen tanik + uydurmaya kapali carpistirici; canli kart uretildi; 421/421 yesil | opencode | 2026-08-24 | sonsuz |
 | dunya-0-inanc-deposu.md | DUNYA-0 TAMAM: defter+karne+bayat sorgulanabilir inanc listesi; guven notr 0.5; 429/429 yesil | opencode | 2026-08-24 | sonsuz |
+| orkestra-0-tamamlandi.md | ORKESTRA-0 TAMAM: 10 durumlu muhakeme iskeleti, izli kosum; esdegerlik sonraki dilim; 437/437 yesil | opencode | 2026-08-24 | sonsuz |
