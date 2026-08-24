@@ -57,3 +57,5 @@
 | fay-1-paralel-juri.md | FAY-1 TAMAM: paralel jüri oylaması, 2/1 bölünme sinyali, uydurma oy geçersiz; 444/444 yesil | opencode | 2026-08-24 | sonsuz |
 | fay-2-gerilim-kuyruk.md | FAY-2 TAMAM: gerilim=yayilma x tazelik x maliyet; gunde tek kart, esik alti birikir; 453/453 yesil | opencode | 2026-08-24 | sonsuz |
 | fay-3-aktarici.md | FAY-3 TAMAM: aktarıcı — çözülmüş karar havuzundan şekil-eşleştirme ile mekanizma önerisi; 458/458 yeşil | opencode | 2026-08-24 | sonsuz |
+| push-politikasi.md | PUSH POLİTİKASI: plan %100 + kapsamlı E2E olmadan push YOK | casper | 2026-08-24 | sonsuz |
+| evrim-0-nufus-arsivi.md | EVRIM-0 TAMAM: hipotez havuzu + nüfus arşivi + kombinasyon/mutasyon; eleme döngüsü kanıtlı; 467/467 yeşil | opencode | 2026-08-24 | sonsuz |
