@@ -305,7 +305,15 @@ class Brain:
                 istek_no = self.kota.harca(ad)
                 _audit("OK kaynak=%s | %.1f sn | tools=%s | istek=%d | %s" %
                        (ad, sure, bool(tools), istek_no, gerekce))
-                istat.kaydet(ad, sure, basarili=True, tools=bool(tools))
+                # Gercek token sayimi (2026-08-24): adaptorden gelen
+                # kullanim bilgisini ayikla ve istatistige yaz.
+                kullanim = None
+                if isinstance(yanit, dict):
+                    kullanim = yanit.pop("_kullanim", None)
+                istat.kaydet(
+                    ad, sure, basarili=True, tools=bool(tools),
+                    token_in=(kullanim or {}).get("giris", 0),
+                    token_out=(kullanim or {}).get("cikis", 0))
                 # Secim gorunur olsun: one alinma varsa gosterimde tasi
                 gosterim = ad
                 if tip in ("kod", "arastirma", "hiz") and ad in sirali[:2]:

@@ -14,6 +14,8 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
+from brain.kullanim import kullanim_ekle
+
 BASE_URL = "https://api.z.ai/api/paas/v4/"
 MODELLER = {
     # ucretsiz katmanda bakiyesiz calisan model (2026-08 dogrulandi)
@@ -83,6 +85,7 @@ class GLMClient:
                         "arguments": args,
                     }
                 })
-            return {"content": msg.content or "", "tool_calls": tool_calls}
+            return kullanim_ekle({"content": msg.content or "",
+                          "tool_calls": tool_calls}, resp)
 
-        return {"content": msg.content or ""}
+        return kullanim_ekle({"content": msg.content or ""}, resp)

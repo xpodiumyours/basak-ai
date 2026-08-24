@@ -14,6 +14,8 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
+from brain.kullanim import kullanim_ekle
+
 # OpenAI uyumlu Gemini ucu + ucretsiz modeller
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 MODELLER = {
@@ -79,6 +81,7 @@ class GeminiClient:
                         "arguments": args,
                     }
                 })
-            return {"content": msg.content or "", "tool_calls": tool_calls}
+            return kullanim_ekle({"content": msg.content or "",
+                          "tool_calls": tool_calls}, resp)
 
-        return {"content": msg.content or ""}
+        return kullanim_ekle({"content": msg.content or ""}, resp)

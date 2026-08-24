@@ -14,6 +14,8 @@ import cohere
 
 logger = logging.getLogger(__name__)
 
+from brain.kullanim import kullanim_ekle
+
 MODELLER = {
     "hizli": "command-a-03-2025",
     "guclu": "command-a-03-2025",
@@ -122,7 +124,8 @@ class CohereClient:
                         "arguments": args,
                     },
                 })
-            return {"content": resp.message.content or "", "tool_calls": tool_calls}
+            return kullanim_ekle({"content": resp.message.content or "",
+                          "tool_calls": tool_calls}, resp)
 
         # Icerik
         icerik = ""
@@ -134,4 +137,4 @@ class CohereClient:
             else:
                 icerik = str(resp.message.content)
 
-        return {"content": icerik}
+        return kullanim_ekle({"content": icerik}, resp)

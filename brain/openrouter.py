@@ -12,6 +12,8 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
+from brain.kullanim import kullanim_ekle
+
 BASE_URL = "https://openrouter.ai/api/v1"
 
 # Sadece ücretsiz modeller (":free" suffix'li) - paid modeller KULLANILMAZ
@@ -135,6 +137,7 @@ class OpenRouterClient:
                         "arguments": args,
                     }
                 })
-            return {"content": msg.content or "", "tool_calls": tool_calls}
+            return kullanim_ekle({"content": msg.content or "",
+                          "tool_calls": tool_calls}, resp)
 
-        return {"content": msg.content or ""}
+        return kullanim_ekle({"content": msg.content or ""}, resp)

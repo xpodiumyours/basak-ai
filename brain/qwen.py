@@ -17,6 +17,8 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
+from brain.kullanim import kullanim_ekle
+
 BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
 
 # Tercih sirasi: hizli/ucuz → guclu. Ilk bulunan kullanilir.
@@ -101,6 +103,7 @@ class QwenClient:
                         "arguments": args,
                     }
                 })
-            return {"content": msg.content or "", "tool_calls": tool_calls}
+            return kullanim_ekle({"content": msg.content or "",
+                          "tool_calls": tool_calls}, resp)
 
-        return {"content": msg.content or ""}
+        return kullanim_ekle({"content": msg.content or ""}, resp)

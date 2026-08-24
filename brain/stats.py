@@ -137,6 +137,8 @@ class ModelIstatistik:
                         ROUND(AVG(sure_ms)) as ortalama_ms,
                         MIN(sure_ms) as min_ms,
                         MAX(sure_ms) as max_ms,
+                        SUM(token_in) as token_in_toplam,
+                        SUM(token_out) as token_out_toplam,
                         (SELECT hata FROM calls c2 WHERE c2.model = calls.model
                          AND c2.basarili = 0 ORDER BY c2.id DESC LIMIT 1) as son_hata,
                         (SELECT timestamp FROM calls c3 WHERE c3.model = calls.model
@@ -157,8 +159,12 @@ class ModelIstatistik:
                         "ortalama_ms": r[5] or 0,
                         "min_ms": r[6] or 0,
                         "max_ms": r[7] or 0,
-                        "son_hata": r[8] or "",
-                        "son_cagri": r[9] or "",
+                        # Gercek token sayimi (2026-08-24): adaptorden gelen
+                        # usage bilgisi artik burada birikir.
+                        "token_in_toplam": r[8] or 0,
+                        "token_out_toplam": r[9] or 0,
+                        "son_hata": r[10] or "",
+                        "son_cagri": r[11] or "",
                     }
                     for r in rows
                 ]

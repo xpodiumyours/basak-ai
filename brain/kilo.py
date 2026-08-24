@@ -19,6 +19,8 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
+from brain.kullanim import kullanim_ekle
+
 BASE_URL = "https://api.kilo.ai/api/gateway/v1"
 
 # openai paketi boş anahtar kabul etmiyor; Kilo'nun ücretsiz katmanı
@@ -103,7 +105,8 @@ class KiloClient:
                         "arguments": args,
                     }
                 })
-            return {"content": msg.content or "", "tool_calls": tool_calls}
+            return kullanim_ekle({"content": msg.content or "",
+                          "tool_calls": tool_calls}, resp)
 
         icerik = msg.content or ""
         if not icerik.strip():
@@ -114,4 +117,4 @@ class KiloClient:
                 "Kilo bos cevap dondu (finish_reason=%s) — dusunme metni "
                 "jeton butcesini bitirmis olabilir" % neden)
 
-        return {"content": icerik}
+        return kullanim_ekle({"content": icerik}, resp)

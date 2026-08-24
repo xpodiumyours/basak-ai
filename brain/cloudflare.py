@@ -15,6 +15,8 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
+from brain.kullanim import kullanim_ekle
+
 # Ucretsiz modeller (tool calling destekli)
 MODELLER = {
     "hizli": "@cf/meta/llama-3.2-3b-instruct",
@@ -90,6 +92,7 @@ class CloudflareClient:
                         "arguments": args,
                     },
                 })
-            return {"content": msg.content or "", "tool_calls": tool_calls}
+            return kullanim_ekle({"content": msg.content or "",
+                          "tool_calls": tool_calls}, resp)
 
-        return {"content": msg.content or ""}
+        return kullanim_ekle({"content": msg.content or ""}, resp)

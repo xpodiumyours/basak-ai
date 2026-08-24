@@ -21,6 +21,8 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
+from brain.kullanim import kullanim_ekle
+
 BASE_URL = "https://integrate.api.nvidia.com/v1"
 
 # Tercih sirasi: NIM ucretsiz modeller — hepsi 2026-08-22 canli testli
@@ -172,9 +174,10 @@ class NvidiaClient:
                         "arguments": args,
                     }
                 })
-            return {"content": msg.content or "", "tool_calls": tool_calls}
+            return kullanim_ekle({"content": msg.content or "",
+                          "tool_calls": tool_calls}, resp)
 
-        return {"content": msg.content or ""}
+        return kullanim_ekle({"content": msg.content or ""}, resp)
 
     def cevapla(self, messages: list, tools: list = None) -> dict:
         """NVIDIA NIM'e mesaj gönderir.
