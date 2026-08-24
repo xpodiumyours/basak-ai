@@ -41,10 +41,19 @@ Canary modu → güvenlik saldırı testleri → canlı model testleri
 | 5 | 8 saatte çökme | 0 | sonda modu (Faz 4) | ⏳ |
 | 6 | Görev kaybı / yarım görev | 0 | job queue çökme testi (Faz 3) | ⏳ |
 | 7 | Yeniden başlatınca devam | %100 | job queue resume testi (Faz 3) | ⏳ |
-| 8 | Model failover başarısı | ≥%95 | `tests/live/test_provider_failover.py` (Faz 2) | ⏳ |
+| 8 | Model failover başarısı | ≥%95 | `tests/live/test_provider_failover.py` (Faz 2) | ✅ Kuruldu — ilk koşum 4/4 |
 | 9 | İzinli araç başarı oranı | ≥%95 | sonda raporu (Faz 4) | ⏳ |
-| 10 | Temizlenen hafızanın geri gelmesi | 0 | `tests/live/test_memory_lifecycle.py` (Faz 2) | ⏳ |
+| 10 | Temizlenen hafızanın geri gelmesi | 0 | `tests/live/test_memory_lifecycle.py` (Faz 2) | ✅ Kuruldu — ilk koşum 4/4 |
 | 11 | Kanıtsız durum iddiası | 0 | olcu.py kapısı istatistiği (Faz 4 raporu) | ⏳ |
+
+## Faz 2 durumu (2026-08-24)
+
+`tests/live/` kuruldu; normal pytest'te otomatik ATLANIR, yalnız
+`python -m pytest tests/live --live -q` ile koşar. **İlk gerçek koşum:
+11/11 geçti (36 sn)** — açılış provası, geçersiz anahtarla gerçek HTTP
+devri, kapalı portta açık hata, ücretli engeli, kapat-aç hatırlama,
+temizlik semantiği, bin kayıt budamasında önemli anının korunması,
+tekrar kayıt dedupe. Raporlar: `data/canli-rapor/`.
 
 ## Canlı hat disiplini (Faz 2 kuralları)
 
