@@ -56,3 +56,4 @@
 | orkestra-0-tamamlandi.md | ORKESTRA-0 TAMAM: 10 durumlu muhakeme iskeleti, izli kosum; esdegerlik sonraki dilim; 437/437 yesil | opencode | 2026-08-24 | sonsuz |
 | fay-1-paralel-juri.md | FAY-1 TAMAM: paralel jüri oylaması, 2/1 bölünme sinyali, uydurma oy geçersiz; 444/444 yesil | opencode | 2026-08-24 | sonsuz |
 | fay-2-gerilim-kuyruk.md | FAY-2 TAMAM: gerilim=yayilma x tazelik x maliyet; gunde tek kart, esik alti birikir; 453/453 yesil | opencode | 2026-08-24 | sonsuz |
+| fay-3-aktarici.md | FAY-3 TAMAM: aktarıcı — çözülmüş karar havuzundan şekil-eşleştirme ile mekanizma önerisi; 458/458 yeşil | opencode | 2026-08-24 | sonsuz |
