@@ -1,0 +1,42 @@
+"""chat/prompts.py — Prompt blokları ve sözleşme sabitleri.
+
+Circular import önlemek için ayrı modül:
+- brain/orkestra.py buradan import eder (chat.py'den değil)
+- _chat_legacy.py buradan import eder
+- chat/flow.py buradan import eder
+
+Bu dosyada proje içi bağımlılık YOKTUR — sadece string sabitleri tutar.
+"""
+
+# ── Tool Yönendirme Promptu ──────────────────────────────────────────
+TOOL_YONLENDIRME = (
+    "\n*** ZORUNLU KURAL: Kullanıcı dosya, klasör, belge veya liste sorduğunda MUTLAKA tool çağır. "
+    "Tool çağırma, açıklama yapma! Tool çağrısı yapmadan cevap verirsen YANLIŞ yaparsın. ***\n\n"
+    "ARAÇ KULLANIMI:\n"
+    "- Dosya/klasör listeleme → list_files(folder=\"klasor_adi\") — HEMEN ÇAĞIR\n"
+    "- Dosya okuma → read_file(path=\"dosya_yolu\") — HEMEN ÇAĞIR\n"
+    "- Görev ekleme → add_task(title=\"gorev\") — HEMEN ÇAĞIR\n"
+    "- Görev listesi → list_tasks() — HEMEN ÇAĞIR\n"
+    "- Görev tamamlama → complete_task(id=\"id\") — HEMEN ÇAĞIR\n"
+    "- Not kaydetme → save_note(title=\"baslik\", content=\"icerik\") — HEMEN ÇAĞIR\n"
+    "- Web arama → web_search(query=\"arama\") — HEMEN ÇAĞIR\n"
+    "- Selamlaşma/basit sohbet → tool KULLANMA, doğrudan cevap ver\n\n"
+    "DOSYA SORULARI İÇİN:\n"
+    "- 'bilgisayarımda ne var' → list_files(folder=\"belgeler\")\n"
+    "- 'klasörlerde ne var' → list_files(folder=\"belgeler\")\n"
+    "- 'masaüstünde ne var' → list_files(folder=\"masaustu\")\n"
+    "- 'indirilenlerde ne var' → list_files(folder=\"indirilenler\")\n\n"
+    "ÖNEMLİ: Tool çağrısından sonra tool sonucunu kullanıcıya TÜRKÇE Özetle."
+)
+
+# ── Ölçüm Yönendirme Promptu ────────────────────────────────────────
+OLCU_YONLENDIRME = (
+    "\nÖLÇÜM ÖNCE GELİR — ZORUNLU AKIŞ:\n"
+    "1) Proje adı, durum, değişiklik, commit sorularında ÖNCE git_durum veya belge_ara veya dosya_bilgi araçlarını çalıştır.\n"
+    "2) Cevabın DAYANAĞI yalnızca araç çıktısı olsun — kendi bilginden/önceki bilgiden olgu katma.\n"
+    "   Ama çıktıyı olduğu gibi yapıştırma: kısa bir birebir alıntıyı kanıt olarak taşı, "
+    "sonra sorunun cevabını KENDİ Türkçe cümlenle söyle. Kullanıcı makine çıktısı değil, cevap okur.\n"
+    "3) Ölçülemeyen şeyde '[B] Bunun ölçümü yapılamıyor: ...' de.\n"
+    "4) Araç kullanmadan cevap verme — measurement tools her zaman mevcut.\n"
+    "KURAL: Proje durumu/değişiklik/commit/dosya sorularında measurement tool kullanmadan cevap vermek YASAKTIR.\n"
+)
