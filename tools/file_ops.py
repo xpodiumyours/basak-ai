@@ -382,7 +382,7 @@ def write_file_ops(yol: str, icerik: str, base_dir: str) -> dict:
 
     # BEYAZ LISTE KONTROLU: Yalnizca knowledge/ ve research-engine/
     if not _yazma_izni_var_mi(mutlak_yol, base_dir):
-        return {"error": ("Güvenlik engeli: yazma izni yok. "
+        return {"error": ("Güvenlik engeli: salt okunur. Yazma izni yok. "
                           "Yalnızca knowledge/ ve research-engine/ yazılabilir.")}
 
     try:
