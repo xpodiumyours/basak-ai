@@ -70,13 +70,50 @@ KLASOR_HARITASI = {
 # sadece knowledge/ ve research-engine/'e yazabilir.
 # Mutlak yolların izinli kökleri (realpath ile çözülür, connection/symlink
 # outside'a bakmaz).
+# 2026-08-25: Casper sikayeti — C:\Projects okunamiyordu.
+# Okuma tum bilgisayara acildi; yazma bugunki gibi dar kaliyor.
 IZINLI_KOKLER = [
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                  "knowledge"),
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                  "research-engine"),
     os.path.expanduser("~"),  # Ev dizini — salt okunur
+    r"C:\Projects",          # Proje dizini — salt okunur
 ]
+
+# Kara liste: OKUMA bile yasak (kimlik/parola sızmasın)
+YASAK_YOLLAR = (
+    r"C:\Windows",
+    r"C:\Program Files",
+    r"C:\Program Files (x86)",
+    os.path.join(os.path.expanduser("~"), ".ssh"),
+    os.path.join(os.path.expanduser("~"), ".aws"),
+    os.path.join(os.path.expanduser("~"), ".gnupg"),
+    os.path.join(os.path.expanduser("~"), ".config",
+                 "manim"),  # tools konsolu
+)
+
+# Hassas dosya kaliplari (buyuk/kucuk harf duyarsiz)
+YASAK_DOSYA_KALIPLARI = (
+    ".env", ".env.",
+    ".pem", ".key",
+    "id_rsa",
+    "ayarlar.json",  # acik API anahtarlari var
+)
+
+def _yasak_mi(mutlak_yol):
+    """Verilen yol kara listede mi? Buyuk/kucuk harf duyarsiz kontrol."""
+    yol_norm = os.path.normcase(os.path.realpath(mutlak_yol))
+    # Klasor kara listesi
+    for yk in YASAK_YOLLAR:
+        if os.path.normcase(os.path.realpath(yk)) == yol_norm or            _altinda_mi(yol_norm, os.path.normcase(os.path.realpath(yk))):
+            return True
+    # Dosya kaliplari
+    dosya_adi = os.path.basename(yol_norm)
+    for kaliptir in YASAK_DOSYA_KALIPLARI:
+        if kaliptir in dosya_adi:
+            return True
+    return False
 
 # Hangi kökün ev olduğunu belirlemek için
 EV_KOK = os.path.expanduser("~")
@@ -173,6 +210,9 @@ def _guvenli_yolu_coz(yol, base_dir):
         yol_str = str(yol).strip()
         if os.path.isabs(yol_str):
             mutlak = os.path.realpath(yol_str)
+            # Kara liste: OKUMA bile yasak
+            if _yasak_mi(mutlak):
+                return False, "Bu yol kara listede — okuma yasak.", None
             for kok in IZINLI_KOKLER:
                 if _altinda_mi(mutlak, os.path.realpath(kok)):
                     if _altinda_mi(mutlak, os.path.realpath(EV_KOK)):
@@ -183,7 +223,7 @@ def _guvenli_yolu_coz(yol, base_dir):
                     birinci = iliski.split(os.sep)[0]
                     return True, birinci, mutlak
             return False, ("Yol izinli bir klasörün altında değil. "
-                           "İzinli: ev/, knowledge/, research-engine/"), None
+                           "İzinli: ev/, C:\Projects, knowledge/, research-engine/"), None
 
         dis_ad = _dis_proje_adi(yol)
         if dis_ad:

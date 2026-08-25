@@ -284,7 +284,7 @@ _ARAC_AILESI = {
 # Bugune dek tam setle dolayli ulasilan araçlara minik tetikleyiciler
 # (dinamik sunumda erisilebilir kalmanin sarti):
 _EK_TETIKLER = {
-    "dosya_islemi": ("dosya", "klasor", "klasör"),
+    "dosya_islemi": ("dosya", "dosyalar", "dosyalarim", "belge", "belgeler", "belgelerim", "klasor", "klasör", "klasorum", "masaustu", "masaüstü", "indirilenler", "indirdiklerim", "resimler", "resimlerim", "videolar", "muzik", "müzik", "listele", "goster", "göster", "bul", "oku", "aç", "ac", "icinde ne var", "içinde ne var", "ne var ne yok", "bilgisayarımda", "bilgisayardaki", "diskimde"),
     "ac_uygulama": ("uygulama", "çalıştır", "calistir"),
     "video_analyze": ("video",),
     "image_analyze": ("görüntü", "goruntu", "fotoğraf", "fotograf"),
@@ -302,7 +302,27 @@ _DIS_PROJE_ADLARI = ("vixrex", "numeramatch", "xses")
 _DOSYA_OKUMA = frozenset(("read_file", "list_files"))
 
 
+# 2026-08-25: Casper sikayeti — "belgelerimi listele" gibi cumlelerde
+# dosya araci gorunmuyordu. Tetikleyici listesi genisletildi.
+_DOSYA_TETIKLERI = frozenset((
+    "dosya", "dosyalar", "dosyalarim",
+    "belge", "belgeler", "belgelerim",
+    "klasor", "klasör", "klasorum",
+    "masaustu", "masaüstü",
+    "indirilenler", "indirdiklerim",
+    "resimler", "resimlerim",
+    "videolar", "muzik", "müzik",
+    "listele", "goster", "göster",
+    "bul", "oku", "aç", "ac",
+    "icinde ne var", "içinde ne var",
+    "ne var ne yok",
+    "bilgisayarımda", "bilgisayardaki",
+    "diskimde",
+))
+
 def _dosya_islemi_sinyali(text_lower):
+    if any(k in text_lower for k in _DOSYA_TETIKLERI):
+        return True
     if any(k in text_lower for k in ("proje", "kaynak kod", "source")):
         return True
     if _YOL_DESENI.search(text_lower):
