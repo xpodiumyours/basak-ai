@@ -112,17 +112,19 @@ def kart_olustur(beyin, ayarlar=None, simdi=None):
 
     parcalar = []
 
-    # 1. Tarih ve selam (saate gore)
-    gunler = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
-    gun = gunler[simdi.weekday()]
-    saat = simdi.hour
-    if saat < 12:
-        selam = "Günaydın"
-    elif saat < 18:
-        selam = "İyi günler"
-    else:
-        selam = "İyi akşamlar"
-    parcalar.append("%s — %s, %s" % (selam, gun, simdi.strftime("%d.%m.%Y")))
+    # 1. Karsilama (tek satir)
+    try:
+        from tools.reminders import karsila_metni_olustur
+        gorevler_file = os.path.join(BASE, "gorevler.json")
+        knowledge_dir = os.path.join(BASE, "knowledge")
+        karsilama = karsila_metni_olustur(knowledge_dir, gorevler_file)
+        parcalar.append(karsilama.get("result", ""))
+    except Exception:
+        gunler = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
+        gun = gunler[simdi.weekday()]
+        saat = simdi.hour
+        selam = "Günaydın" if saat < 12 else ("Öç günler" if saat < 18 else "Öç akşamlar")
+        parcalar.append("%s. Bugun %s, %s." % (selam, gun, simdi.strftime("%d.%m.%Y")))
 
     # 2. Hatırlatmalar
     try:
