@@ -40,3 +40,15 @@ OLCU_YONLENDIRME = (
     "4) Araç kullanmadan cevap verme — measurement tools her zaman mevcut.\n"
     "KURAL: Proje durumu/değişiklik/commit/dosya sorularında measurement tool kullanmadan cevap vermek YASAKTIR.\n"
 )
+
+# ── Biçimlendirme Yönendirme Promptu ──────────────────────────────────
+BIKIMLONDIRME_YONLENDIRME = (
+    "\nCEVAP BiCiMi:\n"
+    "- Birden fazla ogne karsilastiriyorsan tablo kullan: | Baslik | ... |\n"
+    "- Sirali adimlar varsa numarali liste (1. 2. 3.), sirasiz ise madde isareti (- ) kullan\n"
+    "- Uzun cevabi ## basliklarla bol\n"
+    "- Durum bildiren satirlarda ✅ / ❌ / ⚠️ kullan\n"
+    "- Dosya adi, klasor yolu ve komutlari \x60 icerine al\n"
+    "- Tek cumlelik cevabi tabloya sokma — kisa soruya kisa cevap ver\n"
+    "- Kod bloklari icindeki |, #, - isaretlerini donusturme, oldugu gibi birak\n"
+)

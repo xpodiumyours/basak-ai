@@ -98,7 +98,7 @@ TOOL_LABELS = {
 }
 
 # ── PROMPT BLOKLARI → chat/prompts.py'ye taşındı ────────────────────
-from chat.prompts import TOOL_YONLENDIRME, OLCU_YONLENDIRME  # noqa: F401
+from chat.prompts import TOOL_YONLENDIRME, OLCU_YONLENDIRME, BIKIMLONDIRME_YONLENDIRME  # noqa: F401
 
 # Tool gerektiren anahtar kelimeler
 _TOOL_KELIMELERI = {
@@ -446,7 +446,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     sozlesme_bloku = (PROMPT_BLOGU if _SOZLESME_MODU == "kapali"
                       else SOZLESME_PROMPTU)
     tam_prompt = (system_prompt + TOOL_YONLENDIRME + OLCU_YONLENDIRME
-                  + sozlesme_bloku)
+                  + BIKIMLONDIRME_YONLENDIRME + sozlesme_bloku)
     if aktif_konusmaci:
         tam_prompt += "\n\n[ANLIK DURUM] An itibarıyla konuşan kişi: %s. Ona göre hitap et." % aktif_konusmaci
     mesajlar = [{"role": "system", "content": tam_prompt}]

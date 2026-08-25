@@ -30,7 +30,7 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
         orkestra_aktif_mi, mesaj_isle_orkestra,
         yukle, SETTINGS_FILE, HISTORY_FILE,
         _temizle_history, _SOZLESME_MODU,
-        TOOL_YONLENDIRME, OLCU_YONLENDIRME,
+        TOOL_YONLENDIRME, OLCU_YONLENDIRME, BIKIMLONDIRME_YONLENDIRME,
         _knowledge_lock, _knowledge_cache,
         _ilgili_anilar, _gecmis_pencere,
         _dinamik_araclar, _TOOL_KELIMELERI,
@@ -80,7 +80,7 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
     sozlesme_bloku = (PROMPT_BLOGU if _SOZLESME_MODU == "kapali"
                       else SOZLESME_PROMPTU)
     tam_prompt = (system_prompt + TOOL_YONLENDIRME + OLCU_YONLENDIRME
-                  + sozlesme_bloku)
+                  + BIKIMLONDIRME_YONLENDIRME + sozlesme_bloku)
     if aktif_konusmaci:
         tam_prompt += "\n\n[ANLIK DURUM] An itibarıyla konuşan kişi: %s. Ona göre hitap et." % aktif_konusmaci
     mesajlar = [{"role": "system", "content": tam_prompt}]

@@ -68,8 +68,6 @@ function mdRender(metin) {
   let html = "";
   for (let i = 0; i < parcalar.length; i++) {
     if (i % 2 === 1) {
-      // Tek indisler kod blogu. Ilk satir dil adi olabilir ("python" gibi);
-      // bosluk iceriyorsa dil degil, kodun kendisidir — dokunma.
       const satirlar = parcalar[i].split("\n");
       const bas = (satirlar[0] || "").trim();
       const dil = /^[a-z0-9+#._-]{1,15}$/i.test(bas) ? satirlar.shift().trim() : "";
@@ -79,19 +77,100 @@ function mdRender(metin) {
         + '<button class="kod-kopya" type="button">kopyala</button></div>'
         + "<pre><code>" + mdKacis(kod) + "</code></pre></div>";
     } else {
-      // badge_cevir KACISTAN SONRA calisir. Once calistirilirsa urettigi
-      // <span> mdKacis tarafindan kacirilir ve ekranda rozet yerine ham
-      // "&lt;span class=..." metni gorunur — [A] halinden de kotu.
-      // Kod blogu dalinda cagrilmaz: kodun icindeki badge:: metni rozete
-      // donusmemeli, oldugu gibi kalmali.
-      html += badge_cevir(
-        mdKacis(parcalar[i])
-          .replace(/`([^`\n]+)`/g, '<code class="satir-kod">$1</code>')
-          .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
-      );
+      html += mdBloklaraAyr(parcalar[i]);
     }
   }
   return html;
+}
+
+function mdBloklaraAyr(metin) {
+  var satirlar = metin.split("\n");
+  var html = "";
+  var i = 0;
+  while (i < satirlar.length) {
+    var satir = satirlar[i];
+    var bos = satir.trim();
+
+    // Bos satir
+    if (bos === "") { i++; continue; }
+
+    // Tablo tespiti
+    if (bos.indexOf("|") !== -1 && i + 1 < satirlar.length &&
+        /^\s*\|?\s*[-:]+[-| :]*$/.test(satirlar[i + 1])) {
+      var tabloSatirlari = [];
+      while (i < satirlar.length && satirlar[i].trim().indexOf("|") !== -1) {
+        tabloSatirlari.push(satirlar[i]); i++;
+      }
+      html += mdTabloCevir(tabloSatirlari);
+      continue;
+    }
+
+    // Baslik
+    if (/^#{1,6}\s+/.test(bos)) {
+      var seviye = bos.match(/^(#{1,6})/)[1].length;
+      var baslikMetni = bos.replace(/^#{1,6}\s+/, "");
+      var cls = seviye <= 3 ? "md-h3" : "md-h4";
+      html += "<div class=" + cls + ">" + mdSatirIci(baslikMetni) + "</div>";
+      i++; continue;
+    }
+
+    // Ayraç
+    if (/^\s*---+\s*$/.test(bos)) {
+      html += "<hr>"; i++; continue;
+    }
+
+    // Madde listesi
+    if (/^\s*[-*]\s+/.test(bos)) {
+      html += "<ul>";
+      while (i < satirlar.length && /^\s*[-*]\s+/.test(satirlar[i])) {
+        html += "<li>" + mdSatirIci(satirlar[i].replace(/^\s*[-*]\s+/, "")) + "</li>";
+        i++;
+      }
+      html += "</ul>"; continue;
+    }
+
+    // Numarali liste
+    if (/^\s*\d+\.\s+/.test(bos)) {
+      html += "<ol>";
+      while (i < satirlar.length && /^\s*\d+\.\s+/.test(satirlar[i])) {
+        html += "<li>" + mdSatirIci(satirlar[i].replace(/^\s*\d+\.\s+/, "")) + "</li>";
+        i++;
+      }
+      html += "</ol>"; continue;
+    }
+
+    // Normal paragraf
+    html += "<p>" + mdSatirIci(bos) + "</p>";
+    i++;
+  }
+  return html;
+}
+
+function mdTabloCevir(satirlar) {
+  var baslik = satirlar[0].split("|").map(function(c) { return c.trim(); }).filter(Boolean);
+  var html = "<table><thead><tr>";
+  baslik.forEach(function(h) { html += "<th>" + mdSatirIci(h) + "</th>"; });
+  html += "</tr></thead><tbody>";
+  for (var r = 2; r < satirlar.length; r++) {
+    var hucreler = satirlar[r].split("|").map(function(c) { return c.trim(); }).filter(Boolean);
+    html += "<tr>";
+    hucreler.forEach(function(h) { html += "<td>" + mdSatirIci(h) + "</td>"; });
+    html += "</tr>";
+  }
+  html += "</tbody></table>";
+  return html;
+}
+
+function mdSatirIci(metin) {
+  var s = mdKacis(metin);
+  s = s.replace(/`([^`\n]+)`/g, '<code class="satir-kod">$1</code>');
+  s = s.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+  s = badge_cevir(s);
+  // Durum isaretleri
+  s = s.replace(/\[OK\]/g, '<span class="durum-ok">[OK]</span>');
+  s = s.replace(/\[HATA\]/g, '<span class="durum-hata">[HATA]</span>');
+  s = s.replace(/\[UYARI\]/g, '<span class="durum-uyari">[UYARI]</span>');
+  return s;
 }
 
 /* Panoya kopyalama. pywebview'da Clipboard API her zaman acik degil —

@@ -343,3 +343,41 @@ textarea#input::placeholder { color: var(--text-dim); }
   .chat-scroll { padding: 16px 12px; }
   .input-area { padding: 0 12px 12px; }
 }
+/* ═══ Markdown Biçimlendirme ═══ */
+.msg-bubble table {
+  border-collapse: collapse; width: 100%;
+  margin: 8px 0; font-size: 13px;
+  display: block; overflow-x: auto;
+}
+.msg-bubble th, .msg-bubble td {
+  border: 1px solid var(--border); padding: 6px 10px;
+  text-align: left; white-space: nowrap;
+}
+.msg-bubble th {
+  background: var(--bg-hover); font-weight: 600;
+}
+.msg-bubble .md-h3 {
+  font-size: 16px; font-weight: 700;
+  margin: 10px 0 4px; color: var(--text);
+}
+.msg-bubble .md-h4 {
+  font-size: 14px; font-weight: 600;
+  margin: 8px 0 3px; color: var(--text);
+}
+.msg-bubble ul, .msg-bubble ol {
+  margin: 4px 0; padding-left: 22px;
+}
+.msg-bubble li { margin: 2px 0; }
+.msg-bubble hr {
+  border: none; border-top: 1px solid var(--border);
+  margin: 10px 0;
+}
+.msg-bubble .durum-ok {
+  color: #22c55e; font-weight: 600;
+}
+.msg-bubble .durum-hata {
+  color: #ef4444; font-weight: 600;
+}
+.msg-bubble .durum-uyari {
+  color: #f59e0b; font-weight: 600;
+}
