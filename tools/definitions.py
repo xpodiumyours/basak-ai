@@ -114,12 +114,14 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": ("Dosya icerigini oku (knowledge/ ve beyaz "
-                            "listeli projeler)."),
+            "description": ("Dosya icerigini oku. Kullanici dosya yolu verdiyse "
+                            "onu KULLAN — 'knowledge/' yazma. Mutlak yol "
+                            "(C:\\Users\\... veya /home/...) dogrudan gider. "
+                            "Kullanici yol belirtmezse knowledge/ kullan."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "Dosya yolu"}
+                    "path": {"type": "string", "description": "Dosya yolu (kullanici verdiyse mutlak yol)"}
                 },
                 "required": ["path"],
             },
@@ -144,12 +146,16 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "list_files",
-            "description": "Klasordeki dosyalari listele (varsayilan knowledge/).",
+            "description": ("Klasordeki dosyalari listele. Kullanici klasor "
+                            "yolu verdiyse onu KULLAN — 'knowledge/' yazma. "
+                            "Mutlak yol dogrudan gider. Kullanici klasor "
+                            "belirtmezse knowledge/ kullan."),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "folder": {"type": "string", "description": "Klasor yolu"}
+                    "folder": {"type": "string", "description": "Klasor yolu (kullanici verdiyse mutlak yol)"}
                 },
+                "required": [],
             },
         },
     },

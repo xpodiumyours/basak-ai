@@ -26,6 +26,61 @@ IZINLI_KLASORLER = [
     "research-engine",
 ]
 
+# Windows klasör isim haritası — küçük model "belgeler" dediğinde
+# gerçek yola çevirir. Hem Türkçe hem İngilizce isimleri kapsar.
+KLASOR_HARITASI = {
+    # Türkçe isimler
+    "belgeler": "Documents",
+    "belge": "Documents",
+    "bilgeler": "Documents",   # Yaygın yazım hatası
+    "bilge": "Documents",
+    "masaustu": "Desktop",
+    "masaüstü": "Desktop",
+    "indirilenler": "Downloads",
+    "indirilen": "Downloads",
+    "indirme": "Downloads",
+    "resimler": "Pictures",
+    "resim": "Pictures",
+    "videolar": "Videos",
+    "video": "Videos",
+    "müzik": "Music",
+    "muzik": "Music",
+    "belgelerim": "Documents",
+    "indirilenlerim": "Downloads",
+    "resimlerim": "Pictures",
+    "videolarim": "Videos",
+    "klasör": None,  # Belirsiz — ev dizinine yönlendir
+    "klasor": None,
+    "dosyalar": "Documents",   # Yaygın alternatif
+    "dosya": "Documents",
+    # İngilizce isimler
+    "documents": "Documents",
+    "desktop": "Desktop",
+    "downloads": "Downloads",
+    "pictures": "Pictures",
+    "videos": "Videos",
+    "music": "Music",
+}
+
+# 2026-08-24: Casper'in bulgusu — Başak sadece knowledge/ ve research-engine/
+# görebiliyor, bilgisayarın diğer dosyaları erişime kapalı. Bu whitelist
+# security için gereklidir ama kullanıcının kendi dosyalarına erişimi
+# engelliyordu. Çözüm: ev dizini (ve alt klasörlerini) OKUMA açmak,
+# YAZMAYA kapalı tutmak. Security bozulmaz — write_file_ops hala
+# sadece knowledge/ ve research-engine/'e yazabilir.
+# Mutlak yolların izinli kökleri (realpath ile çözülür, connection/symlink
+# outside'a bakmaz).
+IZINLI_KOKLER = [
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                 "knowledge"),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                 "research-engine"),
+    os.path.expanduser("~"),  # Ev dizini — salt okunur
+]
+
+# Hangi kökün ev olduğunu belirlemek için
+EV_KOK = os.path.expanduser("~")
+
 # E-1: Dış projeler — salt okunur, yazma yasak.
 # Model yol veremez; yalnız bu anahtarlardan seçer.
 DIS_PROJELER = {
@@ -63,10 +118,38 @@ def _dis_rel_yol(yol, ad):
     return None
 
 
+def _klasor_cevir(klasor_adi):
+    r"""Kullanicinin tanidigi klasor isimlerini gercek Windows yollarina cevirir.
+
+    'belgeler' -> C:\Users\Casper\Documents
+    'masaustu' -> C:\Users\Casper\Desktop
+    'bilgisayarimda ki belgeler klasorunde kileri listele' -> Belgeler klasoru
+
+    Donus: (cozulmus_yol, orijinal_mi) -- orijinal_mi=True ise dokunulmamis.
+    """
+    if not klasor_adi:
+        return klasor_adi, True
+    temiz = klasor_adi.strip().lower()
+    # Tam eşleşme
+    if temiz in KLASOR_HARITASI:
+        hedef = KLASOR_HARITASI[temiz]
+        if hedef is None:
+            # Belirsiz "klasör" → ev dizini
+            return os.path.expanduser("~"), False
+        return os.path.join(os.path.expanduser("~"), hedef), False
+    # Kısmi eşleşme: "bilgisayarımdaki belgeler" içinde "belgeler" ara
+    for anahtar, hedef in KLASOR_HARITASI.items():
+        if anahtar in temiz:
+            if hedef is None:
+                return os.path.expanduser("~"), False
+            return os.path.join(os.path.expanduser("~"), hedef), False
+    return klasor_adi, True
+
+
 def _guvenli_yolu_coz(yol, base_dir):
     """Yolu tek merkezi kuralla cozer.
 
-    Donus: (izinli, etiket|mesaj, mutlak_yol)
+    Dönüş: (izinli, etiket|mesaj, mutlak_yol)
       - izinli=True : etiket 'dis:<ad>' veya izinli klasor adi,
         mutlak_yol = realpath uygulanmis acilacak yol
       - izinli=False: mesaj hata aciklamasi, mutlak_yol None
@@ -74,6 +157,33 @@ def _guvenli_yolu_coz(yol, base_dir):
     try:
         if not yol or not str(yol).strip():
             return False, "Dosya yolu boş olamaz", None
+
+        # AKILLI YOL ÇEVİRME: "belgeler", "masaüstü" gibi klasör isimlerini
+        # gerçek Windows yollarına çevir. Model küçükse doğru yol üretemez.
+        cozulmus, orijinal = _klasor_cevir(yol)
+        if not orijinal:
+            yol = cozulmus
+
+        # MUTLAK YOL — bilgisayarın herhangi bir yerinde (2026-08-24):
+        # Başak sadece knowledge/ ve research-engine/ görebiliyordu;
+        # kullanıcının kendi dosyalarına erişimi engelleniyordu.
+        # Çözüm: izinli köklerin (knowledge/, research-engine/, ev/)
+        # GERCEK altındaki yolları OKUMA açmak. Yazma hala
+        # knowledge/ ve research-engine/'e sınırlı — security bozulmaz.
+        yol_str = str(yol).strip()
+        if os.path.isabs(yol_str):
+            mutlak = os.path.realpath(yol_str)
+            for kok in IZINLI_KOKLER:
+                if _altinda_mi(mutlak, os.path.realpath(kok)):
+                    if _altinda_mi(mutlak, os.path.realpath(EV_KOK)):
+                        return True, "ev", mutlak
+                    iliski = os.path.relpath(
+                        _gercek_norm(mutlak), _gercek_norm(
+                            os.path.realpath(base_dir)))
+                    birinci = iliski.split(os.sep)[0]
+                    return True, birinci, mutlak
+            return False, ("Yol izinli bir klasörün altında değil. "
+                           "İzinli: ev/, knowledge/, research-engine/"), None
 
         dis_ad = _dis_proje_adi(yol)
         if dis_ad:
@@ -214,6 +324,12 @@ def write_file_ops(yol: str, icerik: str, base_dir: str) -> dict:
     if mesaj.startswith("dis:"):
         return {"error": ("Güvenlik engeli: '%s' dış projesine yazma izni yok. "
                           "Dış projeler salt okunur.") % mesaj.split(":")[1]}
+
+    # 2026-08-24: Ev dizini OKUMA açıldı ama YAZMAYA kapalı tutuldu.
+    # write_file_ops sadece knowledge/ ve research-engine/'e yazabilir.
+    if mesaj == "ev":
+        return {"error": ("Güvenlik engeli: ev dizinine yazma izni yok. "
+                          "Yalnızca knowledge/ ve research-engine/ yazılabilir.")}
 
     try:
         klasor = os.path.dirname(mutlak_yol)

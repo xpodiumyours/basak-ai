@@ -49,6 +49,21 @@ ETIKET_POLITIKASI = {
 # opt-in etiketleri hangi ayar anahtari acar?
 _OPTIN_ANAHTARI = {"sistem": "sistem_araclari_acik"}
 
+# ONAY SİSTEMİ (Aşama 2): Bu araçlar çalıştırılmadan önce kullanıcı onayı ister.
+# onaylanmazsa araç çalışmaz, kullanıcıya "onay bekleniyor" mesajı gider.
+ONAY_GEREKTIRENLER = frozenset((
+    "write_file_tool",    # Dosya yazma/oluşturma
+    "deftere_kaydet",     # Deftere kayıt
+    "save_note",          # Not kaydetme
+    "complete_task",      # Görev tamamlama
+    "ac_uygulama",        # Uygulama açma
+))
+
+
+def onay_gerekli_mi(tool_name: str) -> bool:
+    """Aracın kullanıcı onayı gerektirip gerektirmediğini söler."""
+    return tool_name in ONAY_GEREKTIRENLER
+
 SETTINGS_YOLU = None  # testler monkeypatch eder; None ise kok dizinden okunur
 
 

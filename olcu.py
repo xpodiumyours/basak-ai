@@ -80,10 +80,14 @@ _TURKCE_FOLD = str.maketrans({
 
 
 def _isaret_degistir(cumle, tip):
-    """Cümlenin [Ö]/[A]/[Ç]/[B] prefix'ini silip badge::X:: marker'ı ekler."""
+    """Cümlenin [Ö]/[A]/[Ç]/[B] prefix'ini temizler.
+
+    badge:: formati uretmez — dogrudan temiz metin dondurur.
+    Kullaniciga badge:: gosterilmez.
+    """
     m = _MARKER.match(cumle)
     if m:
-        return "badge::" + tip + "::" + cumle[m.end():].strip()
+        return cumle[m.end():].strip()
     return cumle
 
 
@@ -323,13 +327,13 @@ def cikis_kapisi(metin, olcumler=None):
     #     öldürülmez.
     if not hic_isaret_var_mi and tum_cumleler:
         if olcum_kayitlari:
-            gecen = []
-            rapor = ["SILINDI (isaretsiz — ölçüm turunda işaret zorunlu): "
-                     + c[:80] for c in tum_cumleler]
-            temiz = YEDEK_CUMLE
-            logger.info("Olcu kapisi %d isaretsiz cumleyi eledi "
-                        "(olcum turu)", len(rapor))
-            return temiz, rapor
+            # Model isaret kullanmadi ama arac kostu: dogal dil cevabi
+            # oldugu gibi gecir. Kucuk modeller (qwen2.5:3b, llama-3b)
+            # olcum isareti kullanmaz — hepsini silmek konusmayi oldurur.
+            # Dogru olcum icin model buyutulmeli veya sozlesme modu acilmali.
+            temiz = "\n".join(tum_cumleler).strip()
+            logger.info("Olcu kapisi: isaretsiz arac turu — dogal dil gecirildi")
+            return temiz, []
         return _isaretsiz_gecis(tum_cumleler)
 
     for cumle in tum_cumleler:
@@ -453,8 +457,74 @@ def ham_olcum_satirlari(olcumler, sinir=400):
         if len(cikti) > sinir:
             cikti = cikti[:sinir].rstrip() + "..."
         cikti = cikti.replace('"', "'")
-        satirlar.append('badge::Ö::%s "%s"' % (ad or "araç", cikti))
+        # badge:: formati yerine okunabilir format kullan
+        insan_ad = _arac_adi(ad) if ad else "araç"
+        satirlar.append('%s sonucu: %s' % (insan_ad, cikti))
     return satirlar
+
+
+def _arac_adi(ad):
+    """Araç adını insan okuyabilir şekilde göster."""
+    return {
+        "list_files": "klasör listeleme",
+        "read_file": "dosya okuma",
+        "git_durum": "git durum",
+        "belge_ara": "belge arama",
+        "dosya_bilgi": "dosya bilgi",
+        "web_search": "web arama",
+        "sayfa_oku": "sayfa okuma",
+        "add_task": "görev ekleme",
+        "list_tasks": "görev listeleme",
+        "complete_task": "görev tamamlama",
+        "save_note": "not kaydetme",
+        "deftere_kaydet": "deftere kaydetme",
+        "write_file_tool": "dosya yazma",
+        "ac_uygulama": "uygulama başlatma",
+    }.get(ad, ad.replace("_", " "))
+
+
+def arac_cikti_kur(arac_adi, cikti):
+    """Araç çıktısını insan diline çeviren formatter.
+
+    qwen2.5:3b measurement contract ([Y]/[Ö]/[A] işaret sistemi) takip
+    etmiyor — ham tool çıktısını doğrudan kullanıcuya gösteriyordu
+    ("badge::Ö::list_files \"knowledge/...\""). Bu fonksiyon o çıktıyı
+    temizler, okunabilir hâle getirir. Kullanıcıya gösterilecek tek
+   Hammett yolu budur — modelin contract'ı takip etmesi için değil,
+    etmezse kod halleder diye.
+    """
+    if not cikti:
+        return ""
+    arac = _arac_adi(arac_adi)
+    cikti = str(cikti).strip()
+    cikti = cikti.replace('"', "'").replace("badge::", "").strip()
+    cikti = re.sub(r"^\[?[A-ZÇ]\]?\s*\d*\s*", "", cikti)
+    cikti = re.sub(r"\s+", " ", cikti).strip()
+
+    # list_files çıktısı — "klasör/ (N öğe): ..." formatı
+    m = re.match(r"^(.+?)/\s*\((\d+)\s*(öğe|dosya|klasör)[^)]*\):\s*(.+)$", cikti, re.I)
+    if m:
+        yol, adet, birim, icerik = m.groups()
+        satirlar = [f"{yol}/ klasöründe {adet} {birim} var:"]
+        for satir in icerik.split("\n"):
+            satir = satir.strip()
+            if satir.startswith("- "):
+                satir = satir[2:]
+            elif satir.startswith("  "):
+                satir = satir[2:]
+            if satir:
+                satirlar.append("  • " + satir)
+        return "\n".join(satirlar)
+
+    # read_file çıktısı — dosya içeriği
+    if arac == "dosya okuma" and len(cikti) > 500:
+        return f"Dosyanın ilk 5000 karakteri:\n\n{cikti}"
+
+    # Genel — kısaca özetle
+    if len(cikti) > 400:
+        return f"{arac} sonucu:\n\n{cikti[:400]}..."
+    return f"{arac} sonucu:\n\n{cikti}"
+
 
 
 PROMPT_BLOGU = (

@@ -26,40 +26,33 @@ SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
 
 KISILIK = (
-    "# KİMLİK\n"
-    "Sen BAŞAK'sın — Furkan'ın dijital ikiz kardeşi. Aynı kökenden gelirsiniz,\n"
-    "ikizsiniz ama daha hızlı düşünen sensin. Kendine 'asistan' deme; kardeşsin.\n"
-    "Kullanıcının adı FURKAN. Ona 'Furkan' de. Hep 'sen' de, 'siz' ASLA.\n\n"
+    "Sen BAŞAK'sın. Kullanıcının adı FURKAN. Ona 'Furkan' de, hep 'sen' de.\n"
+    "Kardeş gibi yakın, doğal konuş. Emoji yok. SADECE TÜRKÇE.\n\n"
 
-    "# SES VE TON\n"
-    "- Kardeş gibi konuş: yakın, içten, doğal. Resmî dil yasak.\n"
-    "- Gerektiğinde fikrini açıkça söyle; ama kanıtla destekle.\n"
-    "- Emoji yok, süslü laf yok. SADECE TÜRKÇE.\n\n"
+    "*** EN ÖNEMLİ KURAL: Kullanıcı dosya, klasör, belge veya liste sorduğunda "
+    "MUTLAKA tool çağır! Tool çağırma, açıklama yapma! "
+    "Tool kullanmadan cevap verirsen YANLIŞ yaparsın. ***\n\n"
 
-    "# İLETİŞİM\n"
-    "- Önce net sonucu söyle, detayı sorarsa aç.\n"
-    "- Cevaplar kısa olsun; uzun liste yığını kurma.\n"
-    "- Teknik terim gerekirse ilk kullanımda tek cümleyle açıkla.\n\n"
+    "ARAÇ KULLANIMI:\n"
+    "- Dosya/klasör listeleme → list_files(folder=\"klasor_adi\")\n"
+    "- Dosya okuma → read_file(path=\"dosya_yolu\")\n"
+    "- Görev ekleme → add_task(title=\"gorev\")\n"
+    "- Görev listesi → list_tasks()\n"
+    "- Görev tamamlama → complete_task(id=\"id\")\n"
+    "- Not kaydetme → save_note(title=\"baslik\", content=\"icerik\")\n"
+    "- Web arama → web_search(query=\"arama\")\n"
+    "- Selamlaşma/sohbet → tool KULLANMA, doğrudan cevap ver\n\n"
 
-    "# DÜRÜSTLÜK\n"
-    "- Bilmediğini 'bilmiyorum' diyerek söyle; ASLA uydurma.\n"
-    "- Kanıtsız iddia yok; emin olmadığın bilgiyi kesin gibi sunma.\n"
-    "- Sormadığı özelliği ekleme, kendi başına varsayım yapma.\n\n"
+    "DOSYA SORULARI İÇİN:\n"
+    "- 'bilgisayarımda ne var' → list_files(folder=\"belgeler\")\n"
+    "- 'klasörlerde ne var' → list_files(folder=\"belgeler\")\n"
+    "- 'masaüstünde ne var' → list_files(folder=\"masaustu\")\n"
+    "- 'indirilenlerde ne var' → list_files(folder=\"indirilenler\")\n\n"
 
-    "# KARDEŞLİK SINIRI\n"
-    "- Zekân serbest, yetkin sınırlı: silme, satın alma, kişisel veri veya\n"
-    "  kalıcı değişiklik gerektiren işlerde önce Furkan'ın onayını al.\n"
-    "- Ona karşı çıkabilirsin ama kanıtla; sırf memnun etmek için 'olur' deme.\n\n"
-
-    "# ARAÇ KURALLARI\n"
-    "- Yap/al/git/hazırla → add_task\n"
-    "- Görevlerim/ne yapacağım → list_tasks\n"
-    "- Bitirdim/tamamladım → complete_task\n"
-    "- Hatırla/not al → save_note\n"
-    "- Hava/fiyat/güncel bilgi → web_search\n"
-    "- Selamlaşma/veda/sohbet → araç KULLANMA, doğrudan cevap ver\n"
-    "- Araç sonucunu mutlaka Furkan'a kendi cümlelerinle sun.\n"
-)
+    "ARAÇ SONRASI:\n"
+    "- Tool sonucunu TÜRKÇE Özetle. Doğal dil kullan.\n"
+    "- Kod/bash gösterme. Ham çıktıyı yapıştırma.\n"
+    "- 'Nasıl yapılır' diye anlatma, SONUÇ ver.\n")
 
 
 class Api:
@@ -82,6 +75,11 @@ class Api:
 
     def _j(self, obj):
         return json.dumps(obj, ensure_ascii=False)
+
+    def onay_ver(self, call_id, kabul):
+        """UI'dan gelen onay/red yanıtını işler."""
+        from chat import onay_ver as _onay_ver
+        _onay_ver(call_id, bool(kabul))
 
     def mesaj(self, text):
         threading.Thread(target=self._chat, args=(text,), daemon=True).start()
@@ -321,9 +319,15 @@ def _kapanista_gizle():
     return False  # False = kapatmayi iptal et
 
 
+# Onay sistemi icin API referansi (onay_bekle erisimi icin)
+_api = None
+
+
 def main():
+    global _api
     init_cache()
     api = Api()
+    _api = api
     pencere = webview.create_window(
         "Basak", INDEX_FILE, js_api=api,
         width=1100, height=720, min_size=(900, 600),

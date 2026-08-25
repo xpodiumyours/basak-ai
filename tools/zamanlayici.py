@@ -13,6 +13,7 @@ Kurallar:
 
 import logging
 import os
+import re
 import threading
 import time
 from datetime import datetime
@@ -60,6 +61,24 @@ def son_kart_benzer_mi(kart_id, simdi=None):
                 return True
         _son_kart_zamani[kart_id] = simdi
         return False
+
+
+def _natursellestir(metin):
+    """Ham hatirlatma/gorev cikisini kart icin dogal Türkçeye çevirir.
+
+    2026-08-24 canlı bulgu (Casper): "BUGUN ICIN 1 GOREV: [SAATI GECTI]
+    ..." gibi ham etiketler kartta robotik duruyordu. Araç çıktısının
+    kendisi (model bağlamı) bozulmaz; yalnız kart yüzü düzelir.
+    """
+    m = metin
+    m = m.replace("BUGUN ICIN", "Bugünün işleri")
+    m = m.replace("[SAATI GECTI]", "(saati geçti)")
+    m = m.replace("1 gun kaldi", "1 gün kaldı")
+    m = m.replace("bugun gunu!", "bugün!")
+    m = re.sub(r"\bYARIN:\s*", "Yarın: ", m)
+    m = re.sub(r"(?m)^(\d+) gun sonra:\s*", r"(\1 gün sonra) ", m)
+    m = re.sub(r"(?m)^BUGUN:\s*", "Bugün: ", m)
+    return m
 
 
 def kart_olustur(beyin, ayarlar=None, simdi=None):
@@ -113,7 +132,7 @@ def kart_olustur(beyin, ayarlar=None, simdi=None):
         hatirlatma = bugunku_hatirlatmalar(knowledge_dir, gorevler_file)
         h_metni = hatirlatma.get("result", "")
         if h_metni and "hatırlatma yok" not in h_metni.lower():
-            parcalar.append("Hatırlatmalar:\n" + h_metni)
+            parcalar.append("Hatırlatmalar:\n" + _natursellestir(h_metni))
     except Exception:
         pass
 
@@ -124,7 +143,7 @@ def kart_olustur(beyin, ayarlar=None, simdi=None):
         gorev_sonuc = list_tasks(gorevler_file)
         g_metni = gorev_sonuc.get("result", "")
         if g_metni and "görev yok" not in g_metni.lower():
-            parcalar.append("Görevler:\n" + g_metni)
+            parcalar.append("Görevler:\n" + _natursellestir(g_metni))
     except Exception:
         pass
 

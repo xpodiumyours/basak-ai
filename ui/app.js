@@ -20,6 +20,7 @@ window.addEventListener("error", function (ev) {
 function brainKaynakEtiketi(kaynak) {
   const el = $("brainSource");
   if (!el) return;
+  if (!el) return;
   const s = String(kaynak || "");
   let ad = null;
   if (s.startsWith("groq")) ad = "Groq";
@@ -41,81 +42,8 @@ function brainKaynakEtiketi(kaynak) {
 /* ---------------- API köprüsü ---------------- */
 const api = () => window.pywebview.api;
 
-/* ---------------- 3D Orb (Three.js) ---------------- */
-const Orb = (function () {
-  let scene, camera, renderer, sphere, ring, particles, stateMesh = "bekliyor";
-  const colors = {
-    bekliyor: 0x8B5CF6, dusunuyor: 0x3B82F6, cevapliyor: 0x34D399,
-    hata: 0xF87171, dinliyor: 0xF59E0B,
-  };
-  function init() {
-    const wrap = $("orbWrap"), canvas = $("orbCanvas");
-    if (!wrap || !window.THREE) return;   // sinema sahnesi yoksa eski orb da kurulmaz
-    const w = wrap.clientWidth, h = wrap.clientHeight;
-    scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
-    camera.position.z = 3.2;
-    renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-    renderer.setSize(w, h);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(0.85, 48, 48),
-      new THREE.MeshPhongMaterial({ color: colors.bekliyor, transparent: true, opacity: 0.92, emissive: colors.bekliyor, emissiveIntensity: 0.35, shininess: 40 })
-    );
-    scene.add(sphere);
-    ring = new THREE.Mesh(
-      new THREE.RingGeometry(1.15, 1.28, 64),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, side: THREE.DoubleSide })
-    );
-    ring.rotation.x = Math.PI / 2.4;
-    scene.add(ring);
-    const g = new THREE.BufferGeometry();
-    const N = 260, pos = new Float32Array(N * 3);
-    for (let i = 0; i < N; i++) {
-      const r = 1.5 + Math.random() * 1.4;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      pos[i * 3 + 2] = r * Math.cos(phi);
-    }
-    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    particles = new THREE.Points(g, new THREE.PointsMaterial({ color: 0x8B5CF6, size: 0.022, transparent: true, opacity: 0.8 }));
-    scene.add(particles);
-    const light = new THREE.DirectionalLight(0xffffff, 1.1);
-    light.position.set(2, 3, 4);
-    scene.add(light);
-    scene.add(new THREE.AmbientLight(0x404060, 0.6));
-    animate();
-  }
-  function animate() {
-    requestAnimationFrame(animate);
-    if (!sphere) return;
-    const t = performance.now() / 1000;
-    sphere.rotation.y = t * 0.55; sphere.rotation.x = Math.sin(t * 0.4) * 0.12;
-    ring.rotation.y = t * 0.8; ring.rotation.z = t * 0.35;
-    particles.rotation.y = t * 0.1; particles.rotation.x = Math.sin(t * 0.13) * 0.08;
-    renderer.render(scene, camera);
-  }
-  function setState(s) {
-    if (!sphere) return;
-    const c = colors[s] || colors.bekliyor;
-    const target = new THREE.Color(c);
-    const tween = () => {
-      sphere.material.color.lerp(target, 0.08);
-      sphere.material.emissive.lerp(target, 0.08);
-      const glow = (s === "dusunuyor" || s === "dinliyor") ? 0.28 + Math.sin(performance.now() / 180) * 0.2 : 0.35;
-      sphere.material.emissiveIntensity = glow;
-      // THREE.Color.distanceTo yok — manuel RGB karsilastirma
-      const c1 = sphere.material.color, c2 = target;
-      const dist = Math.abs(c1.r - c2.r) + Math.abs(c1.g - c2.g) + Math.abs(c1.b - c2.b);
-      if (dist > 0.02) requestAnimationFrame(tween);
-    };
-    tween();
-    particles.material.color.copy(target);
-  }
-  return { init, setState };
-})();
+/* 3D Orb kaldırıldı — sade sohbet arayüzü */
+const Orb = { init() {}, setState() {} };
 
 /* ---------------- Metin bicimleme ---------------- */
 /* Kucuk markdown: kod blogu, satir ici kod, kalin. Disaridan kutuphane
@@ -334,7 +262,7 @@ function kilidiKapat() {
     const el = document.querySelector(".msg.basak.thinking");
     if (el) el.remove();
     Chat.sistem("Yanıt gelmedi (90 sn içinde). Beyin takılmış olabilir.", true);
-    setOrb("hata");
+    setStatus("err", "hata");
     setStatus("err", "yanıt gelmedi");
   }, YANIT_UST_SINIR_MS);
 }
@@ -349,19 +277,17 @@ function kilidiAc() {
 /* ---------------- Durum ---------------- */
 function setStatus(kind, label) {
   const dot = $("brainDot");
-  dot.className = "dot" + (kind === "ok" ? " ok" : kind === "err" ? " err" : kind === "busy" ? " busy" : "");
-  $("brainLabel").textContent = label;
+  if (dot) dot.className = "logo-dot" + (kind === "ok" ? " ok" : kind === "err" ? " err" : kind === "busy" ? " busy" : "");
+  const lbl = $("brainLabel");
+  if (lbl) lbl.textContent = label;
+  // Header status'a da yazar
+  const hs = $("sysStatus");
+  if (hs) hs.textContent = label;
 }
 function setOrb(s) {
   const labels = { bekliyor: "BAŞAK dinliyor", dusunuyor: "BAŞAK düşünüyor", cevapliyor: "BAŞAK konuşuyor", arac: "BAŞAK çalışıyor", hata: "HATA — bir sorun var", dinliyor: "BAŞAK dinliyor" };
   const ds = $("durumSatiri");
   if (ds) ds.textContent = labels[s] || "BAŞAK";
-  try {
-    if (window.BasakHead) {
-      const harita = { bekliyor: "bekliyor", dusunuyor: "dusunuyor", cevapliyor: "konusuyor", arac: "arac", hata: "hata", dinliyor: "dinliyor" };
-      BasakHead.durum(harita[s] || "bekliyor");
-    }
-  } catch (e) { /* sahne yoksa sohbet etkilenmez */ }
 }
 
 /* ---------------- Python'dan gelen geri çağrılar ---------------- */
@@ -415,7 +341,7 @@ window.BasakUI = {
     // hatasi ile gercek cevap ayni yerde duruyordu.
     Chat.sistem("Bağlantı sorunu: " + msg, true);
     kilidiAc();
-    setOrb("hata");
+    setStatus("err", "hata");
     setStatus("err", "beyin yanıt vermedi");
   },
   listening(on) {
@@ -435,7 +361,7 @@ window.BasakUI = {
   },
   ses(seviye) {
     try {
-      if (window.BasakHead) BasakHead.ses(seviye / 100);
+      // 3D orb kaldırıldı
       if (seviye > 2) {
         setOrb("cevapliyor");
         clearTimeout(sesZamanlayici);
@@ -443,31 +369,80 @@ window.BasakUI = {
       }
     } catch (e) {}
   },
+
+  // ONAY SİSTEMİ: Hassas araçlar için onay isteği gösterir
+  approval(data) {
+    const toolNames = {
+      'write_file_tool': 'Dosya yazma/oluşturma',
+      'deftere_kaydet': 'Deftere kayıt',
+      'save_note': 'Not kaydetme',
+      'complete_task': 'Görev tamamlama',
+      'ac_uygulama': 'Uygulama açma',
+    };
+    const toolName = toolNames[data.tool] || data.tool;
+    const argsStr = JSON.stringify(data.args, null, 2);
+
+    const div = Chat.add('basak',
+      `⚠️ **Onay Gerekli**\n\n` +
+      `**İşlem:** ${toolName}\n` +
+      `**Detay:**\n\`${argsStr}\`\n\n` +
+      `Bu işlemi yapmamı istiyor musun?`
+    );
+
+    // Onay butonları ekle
+    const btnDiv = document.createElement('div');
+    btnDiv.className = 'onay-butonlari';
+    btnDiv.innerHTML = `
+      <button class="onay-btn onay-kabul" onclick="BasakUI.onayGonder('${data.call_id}', true)">✅ Evet, yap</button>
+      <button class="onay-btn onay-red" onclick="BasakUI.onayGonder('${data.call_id}', false)">❌ Hayır, iptal</button>
+    `;
+    div.appendChild(btnDiv);
+
+    setOrb('onay');
+    setStatus('busy', 'Onay bekleniyor...');
+  },
+
+  onayGonder(callId, kabul) {
+    // Butonları devre dışı bırak
+    const btns = document.querySelectorAll('.onay-btn');
+    btns.forEach(b => b.disabled = true);
+
+    // Onayı Python'a gönder
+    pywebview.api.onay_ver(callId, kabul);
+
+    if (kabul) {
+      setStatus('ok', 'Onay verildi');
+    } else {
+      setStatus('ok', 'İşlem iptal edildi');
+    }
+    setOrb('bekliyor');
+  },
 };
 
 /* ---------------- Görünümler ---------------- */
-document.querySelectorAll(".nav-item").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-    const view = btn.dataset.view;
-    document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
-    $("view-" + view).classList.add("active");
-    if (view === "kutuphane") loadKnowledge();
+  document.querySelectorAll(".sys-nav-item").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".sys-nav-item").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const view = btn.dataset.view;
+      document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+      $("view-" + view).classList.add("active");
+      if (view === "kutuphane") loadKnowledge();
+    });
   });
-});
 
 async function loadKnowledge() {
   const list = $("fileList");
+  if (!list) return;
   const files = await api().knowledge();
   if (!files || !files.length) {
-    list.innerHTML = '<li>📁 <span class="muted">Henüz dosya yok — Başak\\knowledge klasörüne ekle</span></li>';
+    list.innerHTML = '<li><span class="file-ico">[D]</span> <span class="muted">Henüz dosya yok — Başak\\knowledge klasörüne ekle</span></li>';
     return;
   }
   // Dosya adlari innerHTML'e dogrudan giriyordu: yerel veri oldugu icin
   // risk dusuktu ama "<" iceren bir ad listeyi bozardi.
   list.innerHTML = files
-    .map((f) => '<li><span class="file-ico">📄</span> ' + mdKacis(f) + "</li>")
+    .map((f) => '<li><span class="file-ico">[D]</span> ' + mdKacis(f) + "</li>")
     .join("");
 }
 
@@ -544,13 +519,13 @@ async function hafizaTemizle(btn) {
     : "sohbet temizlendi, " + unutulan + " anı unutuldu");
 }
 $("btnClear").addEventListener("click", (e) => hafizaTemizle(e.currentTarget));
-$("btnClear2").addEventListener("click", (e) => hafizaTemizle(e.currentTarget));
+const bc2 = $("btnClear2"); if (bc2) bc2.addEventListener("click", (e) => hafizaTemizle(e.currentTarget));
 $("btnClose").addEventListener("click", () => api().quit());
-$("btnMesajlar").addEventListener("click", () => {
+const bm = $("btnMesajlar"); if (bm) bm.addEventListener("click", () => {
   document.body.classList.toggle("goster-mesajlar");
 });
-$("btnKey").addEventListener("click", async () => {
-  const key = $("groqKey").value.trim();
+const bk = $("btnKey"); if (bk) bk.addEventListener("click", async () => {
+  const gk = $("groqKey"); const key = gk ? gk.value.trim() : '';
   const r = await api().set_key(key);
   if (r && r.cloud) {
     setStatus("ok", (state.model || "yerel beyin") + " + Groq hazır");
@@ -574,8 +549,11 @@ let booted = false;
 async function boot() {
   if (booted) return;
   booted = true;
+  // Boot ekranını gizle, ana uygulamayı göster
+  const bootEl = document.getElementById("bootScreen");
+  if (bootEl) bootEl.classList.add("hidden");
   document.body.classList.add("sinema");
-  if (!window.BasakHead) Orb.init();   // sahne yoksa eski orb devrede
+  // Orb kaldırıldı
   try {
     const status = await api().boot();
     if (status && status.ok) {
@@ -587,8 +565,10 @@ async function boot() {
       setStatus("ok", (status.cloud ? "hızlı bulut hazır" : (status.model || "yerel beyin") + " hazır"));
       // Token durumu gösterimi
       if (status.token_durumu) {
-        $("tokenLabel").textContent = "token: " + status.token_durumu;
-        $("tokenStatus").style.display = "block";
+        const tl = $("tokenLabel");
+        const ts = $("tokenStatus");
+        if (tl) tl.textContent = "token: " + status.token_durumu;
+        if (ts) ts.style.display = "block";
       }
       const sel = $("modelSelect");
       if (status.models && status.models.length) {
@@ -605,11 +585,11 @@ async function boot() {
       }
     } else {
       setStatus("err", "Ollama kapalı — Başak'ı Başlat.cmd çalıştır");
-      setOrb("hata");
+      setStatus("err", "hata");
     }
   } catch (e) {
     setStatus("err", "Bağlantı sorunu");
-    setOrb("hata");
+    setStatus("err", "hata");
   }
   $("input").focus();
 }
@@ -618,14 +598,3 @@ window.addEventListener("pywebviewready", boot);
 setTimeout(() => { if (!booted && window.pywebview) boot(); }, 800);
 setTimeout(() => { if (!booted) boot(); }, 2000);
 
-/* Canlı varlık sahnesini başlat (pywebview'den bağımsız) — hata görünür olsun */
-function sahneBaslat() {
-  try {
-    if (!window.THREE) { $("durumSatiri").textContent = "sahne: Three.js yüklenmedi"; return; }
-    if (!window.BasakHead) { $("durumSatiri").textContent = "sahne: head.js yüklenmedi"; return; }
-    BasakHead.init();
-  } catch (e) {
-    $("durumSatiri").textContent = "sahne hatası: " + (e && e.message ? e.message : e);
-  }
-}
-sahneBaslat();
