@@ -562,7 +562,7 @@ async function boot() {
       $("btnMic").disabled = false;
       state.model = status.model;
       state.ttsOn = !!status.tts_on;
-      setStatus("ok", (status.cloud ? "hızlı bulut hazır" : (status.model || "yerel beyin") + " hazır"));
+      setStatus("ok", (status.cloud ? "bulut + yedek " + (status.model || "") + " hazir" : (status.model || "yerel beyin") + " hazir"));
       // Token durumu gösterimi
       if (status.token_durumu) {
         const tl = $("tokenLabel");
