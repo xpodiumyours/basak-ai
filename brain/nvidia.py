@@ -77,8 +77,8 @@ MODELLER = {
 
 # Buyuk modeller: dusunerek cevap verdikleri icin normalden yavastir;
 # istemci varsayilan 20 sn timeout bunlara yetmez, cagri basina uzatilir
-_THINKING_TIMEOUT = 180.0
-_NORMAL_TIMEOUT = 20.0
+_THINKING_TIMEOUT = 10.0
+_NORMAL_TIMEOUT = 3.0
 
 
 class NvidiaClient:

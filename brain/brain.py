@@ -10,16 +10,7 @@ import os
 import time
 from datetime import datetime
 
-from brain.groq import GroqClient, MODELLER
-from brain.gemini import GeminiClient
-from brain.glm import GLMClient
-from brain.nvidia import NvidiaClient
-from brain.kilo import KiloClient
-from brain.openrouter import OpenRouterClient
-from brain.cloudflare import CloudflareClient
-from brain.cohere import CohereClient
-from brain.qwen import QwenClient
-from brain.ollama import OllamaClient
+from brain.groq import MODELLER  # MODELLER sabitine hâlâ ihtiyaç var
 from brain.stats import model_stats_al
 from brain.kota import KotaYoneticisi
 from brain import secici, registry
@@ -86,111 +77,27 @@ class Brain:
         # P3 kota yoneticisi: ucretli engeli varsayilan ACIK
         self.kota = KotaYoneticisi(
             ucretli_engelli=bool(ayar.get("ucretli_engelli", True)))
+
+        # ── ADAPTER PATTERN: adapter'ları otomatik keşfet ve başlat ──
+        from brain.adapters.registry import discover_all, create_providers
+        self._adaptors = discover_all()
+        self._providers = create_providers(ayar, self._adaptors)
+
+        # Backward compatibility: eski attribute isimleri korunur
         self.groq_key = (
             os.environ.get("GROQ_API_KEY") or ayar.get("groq_key") or ""
         )
         self.groq_model = ayar.get("groq_model", MODELLER["varsayilan"])
-        self._groq = None
-        self._ollama = OllamaClient()
-        if self.groq_key:
-            try:
-                self._groq = GroqClient(self.groq_key, self.groq_model)
-            except ValueError as e:
-                logger.warning("Groq baslatilamadi: %s", e)
-
-        # Ikinci bulut saglayici: Gemini (env GEMINI_API_KEY veya ayar dosyasi)
-        self.gemini_key = (
-            os.environ.get("GEMINI_API_KEY") or ayar.get("gemini_key") or ""
-        )
-        self._gemini = None
-        if self.gemini_key:
-            try:
-                self._gemini = GeminiClient(self.gemini_key)
-            except ValueError as e:
-                logger.warning("Gemini baslatilamadi: %s", e)
-
-        # Ucuncu bulut saglayici: GLM (Z.ai resmi platformu)
-        self.zai_key = (
-            os.environ.get("ZAI_API_KEY") or ayar.get("zai_key") or ""
-        )
-        self._glm = None
-        if self.zai_key:
-            try:
-                self._glm = GLMClient(self.zai_key)
-            except ValueError as e:
-                logger.warning("GLM baslatilamadi: %s", e)
-
-        # Altinci bulut saglayici: NVIDIA NIM (GPT-OSS / Nemotron / Kimi)
-        self.nvidia_key = (
-            os.environ.get("NVIDIA_API_KEY") or ayar.get("nvidia_key") or ""
-        )
-        self._nvidia = None
-        if self.nvidia_key:
-            try:
-                self._nvidia = NvidiaClient(
-                    self.nvidia_key, model=ayar.get("nvidia_model"))
-            except ValueError as e:
-                logger.warning("NVIDIA baslatilamadi: %s", e)
-
-        # Kilo Gateway: TEK ANAHTARSIZ saglayici — kosulsuz kurulur.
-        # Ucretsiz katman 200 istek/saat/IP verir; kota.py 429'u yakalar.
-        self._kilo = None
-        try:
-            self._kilo = KiloClient(model=ayar.get("kilo_model"))
-        except Exception as e:
-            logger.warning("Kilo baslatilamadi: %s", e)
-
-        # Yedinci bulut saglayici: OpenRouter (sadece :free modeller, son care)
-        self.openrouter_key = (
-            os.environ.get("OPENROUTER_API_KEY") or ayar.get("openrouter_key") or ""
-        )
-        self._openrouter = None
-        if self.openrouter_key:
-            try:
-                self._openrouter = OpenRouterClient(self.openrouter_key)
-            except ValueError as e:
-                logger.warning("OpenRouter baslatilamadi: %s", e)
-
-        # Sekizinci bulut saglayici: Cloudflare Workers AI (ucretsiz)
-        self.cloudflare_account = (
-            os.environ.get("CLOUDFLARE_ACCOUNT_ID")
-            or ayar.get("cloudflare_account_id") or ""
-        )
-        self.cloudflare_key = (
-            os.environ.get("CLOUDFLARE_API_TOKEN")
-            or ayar.get("cloudflare_api_token") or ""
-        )
-        self._cloudflare = None
-        if self.cloudflare_account and self.cloudflare_key:
-            try:
-                self._cloudflare = CloudflareClient(
-                    self.cloudflare_account, self.cloudflare_key)
-            except ValueError as e:
-                logger.warning("Cloudflare baslatilamadi: %s", e)
-
-        # Dokuzuncu bulut saglayici: Cohere (ucretsiz Trial key)
-        self.cohere_key = (
-            os.environ.get("COHERE_API_KEY")
-            or ayar.get("cohere_key") or ""
-        )
-        self._cohere = None
-        if self.cohere_key:
-            try:
-                self._cohere = CohereClient(self.cohere_key)
-            except ValueError as e:
-                logger.warning("Cohere baslatilamadi: %s", e)
-
-        # Onuncu bulut saglayici: QwenCloud (DashScope)
-        self.dashscope_key = (
-            os.environ.get("DASHSCOPE_API_KEY")
-            or ayar.get("dashscope_key") or ""
-        )
-        self._qwen = None
-        if self.dashscope_key:
-            try:
-                self._qwen = QwenClient(self.dashscope_key)
-            except ValueError as e:
-                logger.warning("QwenCloud baslatilamadi: %s", e)
+        self._groq = self._providers.get("groq")
+        self._ollama = self._providers.get("yerel")
+        self._gemini = self._providers.get("gemini")
+        self._glm = self._providers.get("glm")
+        self._nvidia = self._providers.get("nvidia")
+        self._kilo = self._providers.get("kilo")
+        self._openrouter = self._providers.get("openrouter")
+        self._cloudflare = self._providers.get("cloudflare")
+        self._cohere = self._providers.get("cohere")
+        self._qwen = self._providers.get("qwen")
 
     def _bulut_zinciri(self) -> list:
         """Musait bulut istemcilerini toplar: [(ad, istemci)].
@@ -264,7 +171,10 @@ class Brain:
         """Tek saglayiciya cagri kurar; yapi_deger None ise eski davranis.
 
         FAZ 1.1: yapi_deger verildiginde adaptore yapi sozlesmesi tasınır.
+        Tum mesajlar API-uyumlu formata temizlenir (content string garanti).
         """
+        from brain.message_utils import mesajlari_temizle
+        messages = mesajlari_temizle(messages)
         ekstra = {"yapi": yapi_deger} if yapi_deger else {}
         # override_model: GroqClient icin model degistirme (retry icin)
         if override_model and ad == "groq" and hasattr(istemci, 'cevapla'):

@@ -48,7 +48,7 @@ class CloudflareClient:
             self.client = OpenAI(
                 api_key=self.api_token,
                 base_url=base_url,
-                timeout=30.0,
+                timeout=3.0,
                 max_retries=0,
             )
         except Exception as e:
@@ -67,9 +67,12 @@ class CloudflareClient:
         if not self.client:
             raise RuntimeError("Cloudflare bagli degil")
 
+        from brain.message_utils import mesajlari_temizle
+        temiz_mesajlar = mesajlari_temizle(messages)
+
         kwargs = {
             "model": self.model,
-            "messages": messages,
+            "messages": temiz_mesajlar,
             "temperature": 0.5,
             "max_tokens": 1024,
         }

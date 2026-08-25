@@ -23,7 +23,7 @@ class OllamaClient:
     def musait(self) -> bool:
         """Ollama'nin calisip calismadigini kontrol eder."""
         try:
-            r = requests.get(f"{self.base_url}/api/tags", timeout=5)
+            r = requests.get(f"{self.base_url}/api/tags", timeout=3)
             r.raise_for_status()
             return True
         except requests.RequestException:
@@ -32,7 +32,7 @@ class OllamaClient:
     def modeller(self) -> list:
         """Mevcut yerel modellerin listesini dondurur."""
         try:
-            r = requests.get(f"{self.base_url}/api/tags", timeout=5)
+            r = requests.get(f"{self.base_url}/api/tags", timeout=3)
             r.raise_for_status()
             modeller = [
                 m["name"]
@@ -76,7 +76,7 @@ class OllamaClient:
         r = requests.post(
             f"{self.base_url}/api/chat",
             json=payload,
-            timeout=(5, 180),
+            timeout=(3, 10),
         )
         r.raise_for_status()
 

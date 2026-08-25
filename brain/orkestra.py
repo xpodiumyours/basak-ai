@@ -24,6 +24,7 @@ Kullanim:
     rapor["cevap"], rapor["iz"]
 """
 
+import json
 import logging
 import threading
 from enum import Enum
@@ -124,7 +125,15 @@ class Orkestra:
                    ozet="tip=%s, arac=%d" % (tip, len(aktif_araclar)))
 
         # --- HYPOTHESIZE (birincil aday) ---
-        mesajlar = [{"role": "system", "content": sistem}]
+        # 2026-08-24 kritik düzeltme: orkestra yolunda TOOL_YONLENDIRME ve
+        # OLCU_YONLENDIRME eklenmiyordu — bu yüzden model tool kullanamıyordu.
+        from chat.prompts import TOOL_YONLENDIRME, OLCU_YONLENDIRME
+        from _chat_legacy import _SOZLESME_MODU
+        from olcu import PROMPT_BLOGU, SOZLESME_PROMPTU
+        sozlesme_bloku = (PROMPT_BLOGU if _SOZLESME_MODU == "kapali"
+                          else SOZLESME_PROMPTU)
+        tam_sistem = sistem + TOOL_YONLENDIRME + OLCU_YONLENDIRME + sozlesme_bloku
+        mesajlar = [{"role": "system", "content": tam_sistem}]
         if baglam:
             mesajlar.append({"role": "system",
                              "content": "Notlar:\n" + baglam})
@@ -139,6 +148,28 @@ class Orkestra:
             return {"hata": str(e)[:150], "iz": self.iz}
         self.kaynak = kaynak
         self._adim(Durum.HYPOTHESIZE, ozet="kaynak=%s" % kaynak)
+
+        # BUG #4 FIX: Kucuk modeller raw tool call metni dondururse
+        # yakala ve gercek tool_calls formatina donustur.
+        if not self._tool_calls(yanit):
+            ham_icerik = self._icerik(yanit)
+            if ham_icerik:
+                from chat.tools import ham_tool_call_ayir as _ham_tool_call_ayir
+                raw_cagri = _ham_tool_call_ayir(ham_icerik)
+                if raw_cagri:
+                    sahte_calls = []
+                    for idx, (ad, args) in enumerate(raw_cagri):
+                        sahte_calls.append({
+                            "id": "raw_%d" % idx,
+                            "type": "function",
+                            "function": {
+                                "name": ad,
+                                "arguments": json.dumps(args, ensure_ascii=False),
+                            },
+                        })
+                    yanit["tool_calls"] = sahte_calls
+                    self._adim(Durum.HYPOTHESIZE, ozet="raw_tool_call_yakalandi: %s"
+                               % ", ".join(ad for ad, _ in raw_cagri))
 
         # Aday havuzu: [(etiket, kaynak, yanit)] — birincil hep ilk sırada
         adaylar = [("birincil", kaynak, yanit)]
