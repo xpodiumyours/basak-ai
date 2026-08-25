@@ -230,9 +230,69 @@ def _hatirlatma_temizle(satir):
     return s
 
 
+def _dogum_gunu_cumlesi(simdi):
+    """Dogum gunu cumlesi olustur (dogru yas hesabiyla)."""
+    dogum = datetime(1995, 8, 26)
+    bugun_bas = simdi.date()
+    dogum_gunu_bu_yil = dogum.replace(year=simdi.year).date()
+    kalanGun = (dogum_gunu_bu_yil - bugun_bas).days
+    if kalanGun == 0:
+        return f"Bugun dogum gunun — {simdi.year - dogum.year} yasina girdin."
+    elif kalanGun == 1:
+        yas = simdi.year - dogum.year
+        if bugun_bas >= dogum_gunu_bu_yil:
+            yas += 1
+        return f"Yarin dogum gunun — {yas} yasina giriyorsun."
+    elif 2 <= kalanGun <= 30:
+        yas = simdi.year - dogum.year
+        if bugun_bas >= dogum_gunu_bu_yil:
+            yas += 1
+        return f"{kalanGun} gun sonra dogum gunun — {yas} yasina gireceksin."
+    return None
+
+
+def _gorev_ozeti(gorevler_file):
+    """Bekleyen gorev sayisini dondurur."""
+    try:
+        if not os.path.exists(gorevler_file):
+            return None
+        with open(gorevler_file, "r", encoding="utf-8-sig") as f:
+            gorevler = json.load(f)
+        simdi = datetime.now()
+        bugun_str = simdi.strftime("%Y-%m-%d")
+        bekleyen = [g for g in gorevler if not g.get("done")]
+        bugunku = [g for g in bekleyen if g.get("date") == bugun_str]
+        if not bekleyen:
+            return None
+        sayi = len(bekleyen)
+        if bugunku:
+            return f"Bekleyen {sayi} gorevin var, biri bugune ait."
+        return f"Bekleyen {sayi} gorevin var."
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
 def karsila_metni_olustur(knowledge_dir, gorevler_file):
     simdi = datetime.now()
     selam = _selam_ver(simdi.hour)
     gun_adi = _GUNLER[simdi.weekday()]
     tarih = f"{simdi.day} {_AYLAR[simdi.month]} {simdi.year}, {gun_adi}"
-    return {"result": f"{selam} Casper. Bugun {tarih}."}
+    bolumler = [f"{selam} Casper. Bugün {tarih}."]
+
+    # Dogum gunu
+    dg_cumlesi = _dogum_gunu_cumlesi(simdi)
+    if dg_cumlesi:
+        bolumler.append("")
+        bolumler.append(dg_cumlesi)
+
+    # Gorev ozeti
+    gorev_cumlesi = _gorev_ozeti(gorevler_file)
+    if gorev_cumlesi:
+        bolumler.append("")
+        bolumler.append(gorev_cumlesi)
+
+    # Kapanis
+    bolumler.append("")
+    bolumler.append("Ne yapmami istersin? Dosyalarini listeleyebilir, belgelerini okuyabilir, internette arastirma yapabilirim.")
+
+    return {"result": chr(10).join(bolumler)}
