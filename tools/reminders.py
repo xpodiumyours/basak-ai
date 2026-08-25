@@ -188,3 +188,106 @@ def bugunku_hatirlatmalar(knowledge_dir: str, gorevler_file: str) -> dict:
         return {"result": "Bugun ozel bir hatirlatma yok. Iyi geceler!"}
 
     return {"result": "\n".join(hatirlatmalar)}
+
+
+# --- Karşılama metni (2026-08-25, task: GOREV-acilis-ekrani) -----
+
+_GUNLER = ("Pazartesi", "Salı", "Çarşamba", "Perşembe",
+           "Cuma", "Cumartesi", "Pazar")
+
+_AYLAR = ("", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+          "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık")
+
+
+def _selam_ver(saat):
+    if 5 <= saat < 11:
+        return "Günaydın"
+    elif 11 <= saat < 18:
+        return "Merhaba"
+    elif 18 <= saat < 23:
+        return "İyi akşamlar"
+    else:
+        return "İyi geceler"
+
+
+def _turkce_sadelestir(metin):
+    """Turkce harfleri ASCII'ye cevir (karsilastirma icin)."""
+    harita = str.maketrans({
+        'ı': 'i', 'İ': 'i', 'ş': 's', 'ğ': 'g',
+        'ü': 'u', 'ö': 'o', 'ç': 'c',
+    })
+    return metin.translate(harita)
+
+
+def _hatirlatma_temizle(satir):
+    s = satir.strip()
+    for etiket in ("YARIN:", "BUGUN ICIN", "BUGUN:"):
+        if s.upper().startswith(etiket):
+            s = s[len(etiket):].strip()
+    s = re.sub(r"\s*\([^)]*\)\s*", " ", s)
+    s = re.sub(r"\s*—\s*[A-Z].*", " ", s)  # gelistirici notlarini temizle
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def karsila_metni_olustur(knowledge_dir, gorevler_file):
+    simdi = datetime.now()
+    selam = _selam_ver(simdi.hour)
+    gun_adi = _GUNLER[simdi.weekday()]
+    tarih = f"{simdi.day} {_AYLAR[simdi.month]} {simdi.year}, {gun_adi}"
+    bolumler = [f"{selam} Casper. Bugun {tarih}."]
+
+    try:
+        hatirlatma = bugunku_hatirlatmalar(knowledge_dir, gorevler_file)
+        ham_metin = hatirlatma.get("result", "")
+    except Exception:
+        ham_metin = ""
+
+    if ham_metin and "ozel bir hatirlatma yok" not in ham_metin.lower():
+        satirlar = [l.strip() for l in ham_metin.splitlines() if l.strip()]
+        temizlenmis = []
+        for s in satirlar:
+            temiz = _hatirlatma_temizle(s)
+            if not temiz:
+                continue
+            if "dogum" in _turkce_sadelestir(temiz).lower():
+                gun_kalan = "Yarin " if ("1 gun" in s.lower() or "yarin" in s.lower()) else ""
+                yas = ""
+                yil_eslesme = re.search(r"19(\d{2})", s)
+                if yil_eslesme:
+                    dogum_yili = 1900 + int(yil_eslesme.group(1))
+                    yas = f" -- {simdi.year - dogum_yili + 1} yasina giriyorsun"
+                temiz = f"{gun_kalan}Dogum gunun{yas}."
+            elif re.match(r"^\d+\s+GOREV:", temiz, re.IGNORECASE):
+                eslesme = re.match(r"^(\d+)\s+GOREV:(.*)", temiz, re.IGNORECASE)
+                sayi = int(eslesme.group(1))
+                detay = eslesme.group(2).strip()
+                temiz = f"Bekleyen {sayi} gorevin var."
+                if detay:
+                    ilk = detay.split(",")[0].strip()
+                    if len(ilk) < 50:
+                        temiz += f" Birinde: {ilk}"
+            elif re.match(r"^(\d+)\s+gun sonra:", temiz, re.IGNORECASE):
+                eslesme = re.match(r"^(\d+)\s+gun sonra:(.*)", temiz, re.IGNORECASE)
+                gun = int(eslesme.group(1))
+                konu = eslesme.group(2).strip()
+                temiz = f"Yarin {konu} var." if gun == 1 else f"{gun} gun sonra {konu} var."
+            temizlenmis.append(temiz)
+        if temizlenmis:
+            bolumler.append(chr(10).join(temizlenmis))
+
+    try:
+        if os.path.exists(gorevler_file):
+            with open(gorevler_file, "r", encoding="utf-8-sig") as f:
+                gorevler = json.load(f)
+            bugunku = [g for g in gorevler if g.get("date") == simdi.strftime("%Y-%m-%d") and not g.get("done")]
+            zaten_var = any("gorev" in b.lower() for b in bolumler)
+            if not zaten_var:
+                if bugunku:
+                    bolumler.append(f"Bekleyen {len(bugunku)} gorevin var.")
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    bolumler.append("Ne yapmami istersin? Dosyalarini listeleyebilir, internette arastirma yapabilirim.")
+
+    return {"result": chr(10).join(bolumler)}

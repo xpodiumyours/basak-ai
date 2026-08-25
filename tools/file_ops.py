@@ -223,7 +223,7 @@ def _guvenli_yolu_coz(yol, base_dir):
                     birinci = iliski.split(os.sep)[0]
                     return True, birinci, mutlak
             return False, ("Yol izinli bir klasörün altında değil. "
-                           "İzinli: ev/, C:\Projects, knowledge/, research-engine/"), None
+                           "İzinli: ev/, C:\\Projects, knowledge/, research-engine/"), None
 
         dis_ad = _dis_proje_adi(yol)
         if dis_ad:
@@ -367,7 +367,7 @@ def write_file_ops(yol: str, icerik: str, base_dir: str) -> dict:
     """Bir dosyaya yazar.
 
     BEYAZ LISTE: Yalnizca knowledge/ ve research-engine/ altina yazilabilir.
-    Diger HER YOL reddedilir (C:\Projects, ev, dis projeler dahil).
+    Diger HER YOL reddedilir (C:\\Projects, ev, dis projeler dahil).
     Guvenlik: hedef realpath ile cozulmustur — izinli klasor icindeki
     disari bakan symlink/junction'a yazim BLOKLANIR.
     """

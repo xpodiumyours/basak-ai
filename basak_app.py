@@ -169,10 +169,11 @@ class Api:
         if modeller:
             kayitli = yukle(SETTINGS_FILE, {}).get("model")
             model = kayitli if kayitli in modeller else modeller[0]
-        # Bugunku hatirlatmalari al
+        # Karsilama metni (acilis ekrani)
         try:
-            hatirlatma = self.bugunku_hatirlatmalar()
-            hatirlatma_metni = hatirlatma.get("result", "")
+            from tools.reminders import karsila_metni_olustur
+            karsilama = karsila_metni_olustur(KNOWLEDGE_DIR, GOREVLER_FILE)
+            hatirlatma_metni = karsilama.get("result", "")
         except Exception:
             hatirlatma_metni = ""
 
