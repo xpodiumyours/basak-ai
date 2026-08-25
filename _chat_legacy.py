@@ -302,9 +302,18 @@ _DIS_PROJE_ADLARI = ("vixrex", "numeramatch", "xses")
 _DOSYA_OKUMA = frozenset(("read_file", "list_files"))
 
 
+# 2026-08-25: Turkce harf sadelestirme — karsilastirma icin.
+# "bilgisayarimda" ile "bilgisayarımda" ayni sonucli olmali.
+_TR_SADELESTIR = str.maketrans('ışğüöçİ', 'isguocI')
+
+def _turkce_sadelestir(text):
+    """Turkce harfleri ASCII'ye cevir (yalniz karsilastirma icin)."""
+    return text.translate(_TR_SADELESTIR).lower()
+
 # 2026-08-25: Casper sikayeti — "belgelerimi listele" gibi cumlelerde
 # dosya araci gorunmuyordu. Tetikleyici listesi genisletildi.
-_DOSYA_TETIKLERI = frozenset((
+# Tetikleyiciler: hem orijinal hem sadelestirilmis halleri
+_DOSYA_TETIKLERI_OJ = (
     "dosya", "dosyalar", "dosyalarim",
     "belge", "belgeler", "belgelerim",
     "klasor", "klasör", "klasorum",
@@ -318,16 +327,22 @@ _DOSYA_TETIKLERI = frozenset((
     "ne var ne yok",
     "bilgisayarımda", "bilgisayardaki",
     "diskimde",
-))
+)
+# Sadelestirilmis hallerini de ekle
+_DOSYA_TETIKLERI = frozenset(
+    _DOSYA_TETIKLERI_OJ + tuple(_turkce_sadelestir(k) for k in _DOSYA_TETIKLERI_OJ)
+)
 
 def _dosya_islemi_sinyali(text_lower):
-    if any(k in text_lower for k in _DOSYA_TETIKLERI):
+    # Turkce harfleri sadelestirarak da kontrol et
+    text_sade = _turkce_sadelestir(text_lower)
+    if any(k in text_lower or k in text_sade for k in _DOSYA_TETIKLERI):
         return True
-    if any(k in text_lower for k in ("proje", "kaynak kod", "source")):
+    if any(k in text_lower or k in text_sade for k in ("proje", "kaynak kod", "source")):
         return True
     if _YOL_DESENI.search(text_lower):
         return True
-    return any(ad in text_lower for ad in _DIS_PROJE_ADLARI)
+    return any(ad in text_lower or ad in text_sade for ad in _DIS_PROJE_ADLARI)
 
 
 def _dinamik_araclar(text_lower, tools):

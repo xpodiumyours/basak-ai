@@ -344,31 +344,45 @@ def read_file(yol: str, base_dir: str) -> dict:
         return {"error": f"Dosya okunamadı: {e}"}
 
 
+# 2026-08-25: Beyaz liste — yazma yalnizca knowledge/ ve research-engine/
+# IZINLI_KOKLER'e yeni kok eklendiginde yazma kendiliginden acilmaz.
+YAZMA_IZINLI_KOKLER = ("knowledge", "research-engine")
+
+def _yazma_izni_var_mi(mutlak_yol, base_dir):
+    """Yazma izni: mutlak_yol, base_dir altindaki knowledge/ veya
+    research-engine/ klasorunun GERCEK altinda mi?"""
+    try:
+        mutlak_norm = os.path.normcase(os.path.realpath(mutlak_yol))
+        base_norm = os.path.normcase(os.path.realpath(base_dir))
+        for klasor_adi in YAZMA_IZINLI_KOKLER:
+            kok = os.path.normcase(
+                os.path.realpath(os.path.join(base_dir, klasor_adi)))
+            if mutlak_norm.startswith(kok + os.sep) or mutlak_norm == kok:
+                return True
+        return False
+    except (OSError, ValueError):
+        return False
+
 def write_file_ops(yol: str, icerik: str, base_dir: str) -> dict:
     """Bir dosyaya yazar.
 
-    Sadece izin verilen klasörlere yazar. Dosya yoksa oluşturur.
+    BEYAZ LISTE: Yalnizca knowledge/ ve research-engine/ altina yazilabilir.
+    Diger HER YOL reddedilir (C:\Projects, ev, dis projeler dahil).
     Guvenlik: hedef realpath ile cozulmustur — izinli klasor icindeki
     disari bakan symlink/junction'a yazim BLOKLANIR.
     """
     if not yol or not yol.strip():
-        return {"error": "Dosya yolu boş olamaz"}
+        return {"error": "Dosya yolu bos olamaz"}
     if not icerik:
-        return {"error": "İçerik boş olamaz"}
+        return {"error": "Icerik bos olamaz"}
 
     izinli, mesaj, mutlak_yol = _guvenli_yolu_coz(yol, base_dir)
     if not izinli:
         return {"error": mesaj}
 
-    # E-1: Dış projelere yazma yasak (salt okunur)
-    if mesaj.startswith("dis:"):
-        return {"error": ("Güvenlik engeli: '%s' dış projesine yazma izni yok. "
-                          "Dış projeler salt okunur.") % mesaj.split(":")[1]}
-
-    # 2026-08-24: Ev dizini OKUMA açıldı ama YAZMAYA kapalı tutuldu.
-    # write_file_ops sadece knowledge/ ve research-engine/'e yazabilir.
-    if mesaj == "ev":
-        return {"error": ("Güvenlik engeli: ev dizinine yazma izni yok. "
+    # BEYAZ LISTE KONTROLU: Yalnizca knowledge/ ve research-engine/
+    if not _yazma_izni_var_mi(mutlak_yol, base_dir):
+        return {"error": ("Güvenlik engeli: yazma izni yok. "
                           "Yalnızca knowledge/ ve research-engine/ yazılabilir.")}
 
     try:
@@ -378,10 +392,10 @@ def write_file_ops(yol: str, icerik: str, base_dir: str) -> dict:
         with open(mutlak_yol, "w", encoding="utf-8") as f:
             f.write(icerik)
 
-        return {"result": f"Dosya yazıldı: {yol}"}
+        return {"result": f"Dosya yazildi: {yol}"}
 
     except OSError as e:
-        return {"error": f"Dosya yazılamadı: {e}"}
+        return {"error": f"Dosya yazilamadi: {e}"}
 
 
 def list_files(klasor: str, base_dir: str) -> dict:
