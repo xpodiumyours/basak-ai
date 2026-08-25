@@ -346,21 +346,12 @@ def _dosya_islemi_sinyali(text_lower):
 
 
 def _dinamik_araclar(text_lower, tools):
-    """Soruya gore yalnız ilgili araç kılavuzlarını dondurur.
+    """18 aracin tamamini dondurur — eleme yapilmaz.
 
-    Olçüm üçlüsü HER ZAMAN dahil (O-1 kurali — ÖLÇÜ.md §3). Verilen
-    listede olmayan aile üyeleri sessizce elenir; yetki tavanı bozulmaz.
+    2026-08-25: GOREV-asistan-kurgusu — model her turlu araci gormeli.
+    Izin katmani (tools/permissions.py) degismez; kapali arac yine kapalidir.
     """
-    istenen = set(_OLCUM_TOOLLARI)
-    for ad, kelimeler in _TOOL_KELIMELERI.items():
-        if any(k in text_lower for k in kelimeler):
-            istenen |= _ARAC_AILESI.get(ad, frozenset())
-    for ad, kelimeler in _EK_TETIKLER.items():
-        if any(k in text_lower for k in kelimeler):
-            istenen |= _ARAC_AILESI.get(ad, frozenset())
-    if _dosya_islemi_sinyali(text_lower):
-        istenen |= _DOSYA_OKUMA
-    return [t for t in tools if t["function"]["name"] in istenen]
+    return list(tools)
 
 
 # Kademe 1 (2026-08-24, Casper onayli): anilara onem puani. Kod belirler,
