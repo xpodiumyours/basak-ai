@@ -26,11 +26,11 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 # Kapinin acmayi reddettigi desenler — sifirlar disariya/sayaca girmez
 _YASAKLI = ("ayarlar", ".env", "api_key", "_key", "gecmis.json")
 
-_MARKER = re.compile(r"^\[(Ö|O|Ç|C|B|A|Y)\s*(\d*)\]", re.IGNORECASE)
-_ALINTI = re.compile(r'"([^"]{3,400})"')
+_MARKER = re.compile(r"^\[(Ö|O|ö|o|Ç|C|ç|c|B|b|A|a|Y|y)\s*(\d*)\]", re.IGNORECASE)
+_ALINTI = re.compile(r'"([^"]{3,400})"', re.IGNORECASE)  # 2026-08-25: sadece tirnakli alinti
 _KONUM_A = re.compile(r'^\[A\]\s*([^\s"]+)', re.IGNORECASE)
 # [Ö1] arac-adi "cikti" → cumlenin dayandigini SOYLEDIGI arac
-_KONUM_O = re.compile(r'^\[(?:Ö|O)\s*\d*\]\s*([^\s"]+)', re.IGNORECASE)
+_KONUM_O = re.compile(r'^\[(?:Ö|O|ö|o)\s*\d*\]\s*([a-zA-Z0-9_]+)\s*:?', re.IGNORECASE)  # 2026-08-25: biçim toleransı
 _DAYANAK = re.compile(r"\[(?:Ö|O)\s*(\d+)\]", re.IGNORECASE)
 
 # [B] eylem denetimi (2026-08-23 olculen gercek ariza): model yapmadigi isi
@@ -103,6 +103,24 @@ def _norm(metin):
         t = t.replace(a, b)
     t = re.sub(r"[*_`#>]+", "", t)
     return re.sub(r"\s+", " ", t).strip()
+
+
+def _alinti_esles(aranan_norm, hedef_norm):
+    """Alinti eslesme: hem substring hem kelime bazli.
+    
+    2026-08-25: Task YENI-2 — kelime bazli eslesme eklendi.
+    Alintidaki en az 2 kelime hedef metinde varsa eslesme sayilir.
+    Uydurma korunuyor: gercek ciktilardaki kelimeler eslesir,
+    uydurma metinlerdeki rastgele kelimeler eslesmez.
+    """
+    # 1) Tam substring eslesme (eski davranis)
+    if aranan_norm in hedef_norm:
+        return True
+    # 2) Kelime bazli: alintidaki en az 2 kelime hedefte varsa
+    aranan_kelimeler = set(re.findall(r'\w+', aranan_norm))
+    hedef_kelimeler = set(re.findall(r'\w+', hedef_norm))
+    ortak = aranan_kelimeler & hedef_kelimeler
+    return len(ortak) >= 2
 
 
 def _tip_bul(cumle):
@@ -371,7 +389,30 @@ def cikis_kapisi(metin, olcumler=None):
             iddia_edilen = _norm(iddia.group(1)) if iddia else None
 
             if not alinti:
-                rapor.append("SILINDI ([O] alinti yok): " + cumle[:80])
+                # 2026-08-25: Tirnaksiz alinti — kumelerdeki kelimeleri
+                # ciktilarla kelime bazli karsilastir
+                _isaret_sonrasi = re.sub(r'^\[Ö\]\s*', '', cumle, flags=re.IGNORECASE).strip()
+                aranan_kelime = _norm(_isaret_sonrasi)
+                if len(aranan_kelime) < 5:
+                    rapor.append("SILINDI ([O] alinti yok): " + cumle[:80])
+                    continue
+                if bilinen_araclar and iddia_edilen in bilinen_araclar:
+                    kaynaklar = [m for ad, m in olcum_kayitlari if ad == iddia_edilen]
+                    if any(_alinti_esles(aranan_kelime, m) for m in kaynaklar):
+                        gecen.append(_isaret_degistir(cumle, "Ö"))
+                        dayanak_hayatta = True
+                        o_hayatta_alintilar.append(aranan_kelime)
+                        if no:
+                            gecen_o_nolari.add(no)
+                        continue
+                if any(_alinti_esles(aranan_kelime, m) for m in olcum_norm):
+                    gecen.append(_isaret_degistir(cumle, "Ö"))
+                    dayanak_hayatta = True
+                    o_hayatta_alintilar.append(aranan_kelime)
+                    if no:
+                        gecen_o_nolari.add(no)
+                    continue
+                rapor.append("SILINDI ([O] alinti yok ve ciktilarda eslesme yok): " + cumle[:80])
                 continue
 
             aranan = _norm(alinti.group(1))
@@ -384,11 +425,11 @@ def cikis_kapisi(metin, olcumler=None):
                     continue
                 kaynaklar = [m for ad, m in olcum_kayitlari
                              if ad == iddia_edilen]
-                if not any(aranan in m for m in kaynaklar):
+                if not any(_alinti_esles(aranan, m) for m in kaynaklar):
                     rapor.append("SILINDI ([O] atif yanlis — metin o aracin "
                                  "ciktisinda yok): " + cumle[:80])
                     continue
-            elif not any(aranan in m for m in olcum_norm):
+            elif not any(_alinti_esles(aranan, m) for m in olcum_norm):
                 rapor.append("SILINDI ([O] bu turun ciktisinde yok): "
                              + cumle[:80])
                 continue

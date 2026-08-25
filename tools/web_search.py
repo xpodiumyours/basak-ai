@@ -164,6 +164,7 @@ def _temizle(text):
 
 # E-2: Sayfa okuma aracı — yalnizca GET, 5000 karakter siniri
 _MAX_SAYFA = 5000
+_MAX_HAM = 2 * 1024 * 1024  # Ham HTML ust siniri (2 MB)
 
 # SSRF korumasi (2026-08-24, Casper'in bulgusu): string tabanli "localhost"
 # aramasi 127.0.0.2, [::1], onluk IP, ozel aglar ve ic IP'ye cozunen
@@ -239,6 +240,21 @@ def sayfa_oku(url: str) -> dict:
 
     url = url.strip()
 
+    # URL encode: Turkce/harf disi karakterleri HTTP yolunda encode et
+    # Python http.client ASCII olmayan yollarda UnicodeEncodeError firlatir
+    try:
+        from urllib.parse import urlparse as _urlparse, quote as _quote
+        _k = _urlparse(url)
+        if _k.path:
+            _yeni_path = _quote(_k.path, safe="/:@!$&'()*+,;=-._~")
+            url = f"{_k.scheme}://{_k.netloc}{_yeni_path}"
+            if _k.query:
+                url += f"?{_k.query}"
+            if _k.fragment:
+                url += f"#{_k.fragment}"
+    except Exception:
+        pass  # Encode edilemezse orijinal URL ile devam et
+
     # SSRF denetimi: semantik + port + cozulen IP'ler
     engel = _guvenli_adres(url)
     if engel:
@@ -249,8 +265,9 @@ def sayfa_oku(url: str) -> dict:
 
         opener = urllib.request.build_opener(_GuvenliYonlendirme())
         req = urllib.request.Request(url, headers={
-            "User-Agent": "Basak/1.0 (arastrirma)",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Basak/1.0",
             "Accept": "text/html, text/plain",
+            "Accept-Encoding": "identity",
         })
         with opener.open(req, timeout=15) as resp:
             # Icerik turunu kontrol et
@@ -260,16 +277,31 @@ def sayfa_oku(url: str) -> dict:
                 return {"error": "Desteklenen icerik tipi degil: %s"
                                  % content_type[:50]}
 
-            ham = resp.read(_MAX_SAYFA + 1000).decode(
+            ham = resp.read(_MAX_HAM).decode(
                 "utf-8", errors="replace")
 
         # HTML etiketlerini temizle
         if "text/html" in content_type:
-            # <script> ve <style> bloklarini kaldir
-            temiz = re.sub(r'<(script|style)[^>]*>.*?</\1>', '',
-                           ham, flags=re.DOTALL | re.IGNORECASE)
-            # HTML etiketlerini kaldir
+            # <script>, <style>, <noscript> bloklarini temizle
+            # 1) Kapanmis bloklari kaldir
+            temiz = re.sub(
+                r'<(script|style|noscript)[^>]*>.*?</\1>',
+                '', ham, flags=re.DOTALL | re.IGNORECASE)
+            # 2) Kapanmamis bloklari kaldir (dosya sonunda kesilmis)
+            temiz = re.sub(
+                r'<(script|style|noscript)[^>]*>.*',
+                '', temiz, flags=re.DOTALL | re.IGNORECASE)
+            # HTML yorumlarini kaldir
+            temiz = re.sub(r'<!--.*?-->', '', temiz, flags=re.DOTALL)
+            # SVG iceriklerini kaldir
+            temiz = re.sub(r'<svg[^>]*>.*?</svg>', '', temiz,
+                           flags=re.DOTALL | re.IGNORECASE)
+            temiz = re.sub(r'<svg[^>]*>.*', '', temiz,
+                           flags=re.DOTALL | re.IGNORECASE)
+            # Tum HTML etiketlerini kaldir
             temiz = re.sub(r'<[^>]+>', ' ', temiz)
+            # Kapanmamis < parcasi kaldiysa temizle
+            temiz = re.sub(r'<\s*$', '', temiz)
             # HTML entity'leri coz
             temiz = html_mod.unescape(temiz)
         else:
