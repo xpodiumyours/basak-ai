@@ -1,12 +1,6 @@
-"""tests/test_yetki_tavani.py — Araç döngüsünde yetki tavanı testleri.
+"""tests/test_yetki_tavani.py — Fren sokumu: yetki tavani kaldirildi.
 
-2026-08-23'te Casper'in buldugu acik: ilk cagrida olcum-suzugunden gecen
-is, arac dongusunun ikinci turunda HAM tools listesini goruyordu —
-write_file_tool, deftere_kaydet, ac_uygulama dahil. Kural artik su:
-ilk turda ne sunulduysa o tavandir; dongu seti asla buyutmez.
-
-Testler gercek mesaj_isle akisini sahte beyinle kosar ve her turda
-modele sunulan araç adlarini yakalar.
+Ajan modu: tum araclar her tura ayni tam setle gider — tavan yok.
 """
 
 import os
@@ -63,30 +57,23 @@ TAM_TOOLLAR = [_schema("git_durum"), _schema("write_file_tool"),
 
 
 class TestYetkiTavani:
-    def test_olcum_suzugu_dongude_buyumez(self, izole):
-        """Anahtar kelime cermeyen soru -> yalniz olcum aracları;
-        ikinci turda yazma/sistem araci GORUNMEZ."""
+    def test_tum_araclar_her_tura_gider(self, izole):
+        """Fren sokumu: ilk tur ne olursa olsun tam set gider, dongu de ayni."""
         brain = SahteBrain()
         c.mesaj_isle("Projedeki degisiklikleri soyle.", brain, "SYS",
                      lambda code: None, TAM_TOOLLAR)
-        assert brain.goren[0] == ["git_durum"]
-        assert brain.goren[1] == ["git_durum"], (
-            "Dongu ikinci turda yetkiyi genisletti: %s" % brain.goren[1])
+        assert set(brain.goren[0]) == {"git_durum", "write_file_tool", "ac_uygulama"}
+        assert set(brain.goren[1]) == {"git_durum", "write_file_tool", "ac_uygulama"}
 
-    def test_anahtar_kelimeli_is_ilgili_aileyi_bastan_alir(self, izole):
-        """Baglam diyeti: anahtar kelime ARTIK tam seti acmaz — yalniz
-        ilgili aile + olcum uclusu sunulur. Cok adimli is korunur:
-        dongu her turda AYNI seti gorur (yetki tavani)."""
+    def test_anahtar_kelimeli_is_tam_seti_alir(self, izole):
         brain = SahteBrain()
         c.mesaj_isle(
             "VixRex durumuna bak, su dosyaya yaz, uygulamayi calistir.",
             brain, "SYS", lambda code: None, TAM_TOOLLAR)
-        beklenen = ["git_durum", "write_file_tool", "ac_uygulama"]
-        assert brain.goren[0] == beklenen
-        assert brain.goren[1] == beklenen
+        assert set(brain.goren[0]) == {"git_durum", "write_file_tool", "ac_uygulama"}
+        assert set(brain.goren[1]) == {"git_durum", "write_file_tool", "ac_uygulama"}
 
     def test_tools_hic_verilmeyen_cagrıda_dongu_araç_sunmaz(self, izole):
-        """tools=None ise dongu de None sunar."""
         brain = SahteBrain()
         c.mesaj_isle("merhaba nasilsin?", brain, "SYS",
                      lambda code: None, None)

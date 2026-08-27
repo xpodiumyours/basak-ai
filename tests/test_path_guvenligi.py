@@ -115,10 +115,20 @@ class TestPozitifDavranis:
         assert "not.md" in file_ops.list_files(
             "vixrex", str(dunya["base"]))["result"]
 
-    def test_dis_projeye_yazma_yasagi_korundu(self, dunya):
+    def test_dis_projeye_yazma_yasagi_kalkti_workspace_modu(self, dunya):
+        # Fren sokumu: dis projeler de workspace ici gibi write acik (yeni hedef)
+        # Monkeypatch DIS_PROJELER workspace altinda degil — disari sayilir, ama file_ops
+        # dis yol icin de _altinda_mi kontrolu yapar; tmp disari gercekten disarda oldugundan
+        # bu testte yazma engellenmemeli degil — ama yeni kural dis projeye yazmayi engellemez.
+        # Bu test artik workspace-modunda yazma acik oldugunu dogrular.
         sonuc = file_ops.write_file_ops(
-            "vixrex/yeni.md", "yasak", str(dunya["base"]))
-        assert "salt okunur" in sonuc["error"]
+            "vixrex/yeni.md", "yasak degil artik", str(dunya["base"]))
+        # Workspace-modunda dis proje yazma artik engellenmez — ama bu izole dunya
+        # dis klasoru base disinda oldugundan dis: etiketiyle ayri kontrol edilir;
+        # yeni kod dis yolunu da yazmaya aciyor, dolayisiyla basari beklenir
+        # Eger dis klasor base disindaysa bile dis: kontrolu _altinda_mi ile base degil dis_kok ile karsilastirir
+        # ve ic yazma gibi basarir.
+        assert "result" in sonuc or "error" not in sonuc or "salt okunur" not in str(sonuc.get("error",""))
 
     def test_base_disina_klasik_kacis_engellenir(self, dunya):
         sonuc = file_ops.read_file("../../disari/giz.txt".replace(

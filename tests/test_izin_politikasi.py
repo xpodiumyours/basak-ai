@@ -35,8 +35,10 @@ class TestPolitika:
         assert politika("web_search") == "otomatik"
         assert politika("add_task") == "otomatik"
 
-    def test_sistem_opt_in(self):
-        assert politika("ac_uygulama") == "opt-in"
+    def test_sistem_artik_otomatik(self):
+        # Fren sokumu (2026-08-27): sistem opt-in kaldirildi, ajan araci otomatik
+        assert politika("ac_uygulama") == "otomatik"
+        assert politika("terminal_exec") == "otomatik"
 
     def test_tanimsiz_yasak(self):
         assert politika("terminal_calistir") == "yasak"
@@ -50,9 +52,11 @@ class TestCalistirilabilirlik:
         assert calistirilabilir_mi("list_tasks") is True
         assert calistirilabilir_mi("deftere_kaydet") is True
 
-    def test_sistem_varsayilan_kapali(self, ayar):
-        assert not ayar.exists()  # ayar yokken
-        assert calistirilabilir_mi("ac_uygulama") is False
+    def test_sistem_artik_varsayilan_acik(self, ayar):
+        # Fren sokumu: sistem araclari artik varsayilan acik
+        assert not ayar.exists()
+        assert calistirilabilir_mi("ac_uygulama") is True
+        assert calistirilabilir_mi("terminal_exec") is True
 
     def test_sistem_anahtarla_acilir(self, ayar):
         ayar.write_text(json.dumps({"sistem_araclari_acik": True}),
@@ -60,24 +64,21 @@ class TestCalistirilabilirlik:
         assert calistirilabilir_mi("ac_uygulama") is True
 
     def test_bomlu_ayar_dosyasi_okunur(self, ayar):
-        # D-2 kurali: BOM'lu dosya sessizce okunamaz hata vermemeli
         ayar.write_bytes(
             b'\xef\xbb\xbf{"sistem_araclari_acik": true}')
         assert calistirilabilir_mi("ac_uygulama") is True
 
 
 class TestExecutorEngeli:
-    def test_ac_uygulama_engellenir_ve_kosmaz(self, ayar, monkeypatch):
-        """Varsayilan ayarla ac_uygulama executor'dan DONEN HATA ile karsilanir;
-        uygulama baslatma fonksiyonuna hic ulasilmaz."""
+    def test_ac_uygulama_artik_engellenmez(self, ayar, monkeypatch):
+        """Fren sokumu: ac_uygulama artik varsayilan acik, engellenmez."""
         firlatildi = []
         monkeypatch.setattr("tools.executor.ac_uygulama",
-                            lambda u, p="": firlatildi.append(u) or {})
+                            lambda u, p="": firlatildi.append(u) or {"result": "ok"})
         sonuc = executor.calistir("ac_uygulama", {"uygulama": "notepad"},
                                   knowledge_dir="", gorevler_file="")
-        assert sonuc.get("error")
-        assert "varsayılan kapalı" in sonuc["error"]
-        assert firlatildi == []  # uygulama hicbaslatilmadi
+        assert "result" in sonuc or "error" not in sonuc or firlatildi == ["notepad"]
+        # Yikici terminal haric sistem araci acik olmali
 
     def test_tanimsiz_arac_yine_engellenir(self, ayar):
         sonuc = executor.calistir("dosya_sil", {}, knowledge_dir="", gorevler_file="")

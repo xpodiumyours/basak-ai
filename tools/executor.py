@@ -12,6 +12,7 @@ from tools.app_launcher import ac_uygulama
 from tools.reminders import bugunku_hatirlatmalar
 from tools.video_analyzer import video_analyze
 from tools.olcum import git_durum, belge_ara, dosya_bilgi
+from tools.terminal import terminal_exec
 from tools.tool_logger import log_tool_call
 from tools.permissions import calistirilabilir_mi
 
@@ -131,6 +132,13 @@ def calistir(tool_name: str, arguments: dict, knowledge_dir: str = "",
     elif tool_name == "dosya_bilgi":
         sonuc = dosya_bilgi(arguments.get("proje", ""),
                             arguments.get("yol", ""))
+    elif tool_name == "terminal_exec":
+        sonuc = terminal_exec(
+            arguments.get("command", ""),
+            cwd=arguments.get("cwd"),
+            timeout=arguments.get("timeout"),
+            base_dir=base_dir,
+        )
     else:
         return {"error": f"Tool eşleştirilemedi: {tool_name}"}
 

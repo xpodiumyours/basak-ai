@@ -20,11 +20,10 @@ import os
 
 logger = logging.getLogger(__name__)
 
-# İzin verilen iç klasörler (whitelist)
-IZINLI_KLASORLER = [
-    "knowledge",
-    "research-engine",
-]
+# Workspace ajan modu (2026-08-27): aktif workspace read+write.
+# Sadece workspace DIŞINA kaçış engellenir — içerdeki tüm klasörler açık.
+# Korunan: realpath+commonpath ile symlink/junction kaçışı engeli.
+IZINLI_KLASORLER = None  # None = workspace içi her yol izinli (dış kaçış hariç)
 
 # E-1: Dış projeler — salt okunur, yazma yasak.
 # Model yol veremez; yalnız bu anahtarlardan seçer.
@@ -91,22 +90,20 @@ def _guvenli_yolu_coz(yol, base_dir):
                 return False, "Yol dış proje dizininin dışında", None
             return True, "dis:%s" % dis_ad, mutlak
 
-        # İç yol — realpath ile çöz (junction/symlink dahil)
+        # İç yol — workspace ajan modu: workspace içindeki her yol açık
         mutlak = os.path.realpath(os.path.join(base_dir, yol))
         kok = os.path.realpath(base_dir)
 
         if not _altinda_mi(mutlak, kok):
             return False, "Yol proje dizininin dışında", None
 
-        iliski = os.path.relpath(_gercek_norm(mutlak),
-                                 _gercek_norm(kok))
-        birinci_klasor = iliski.split(os.sep)[0]
-
-        if birinci_klasor in IZINLI_KLASORLER:
-            return True, birinci_klasor, mutlak
-
-        return False, (f"'{birinci_klasor}' klasörüne izin yok. "
-                       f"İzinli: {', '.join(IZINLI_KLASORLER)}"), None
+        # Workspace içi — izinli (fren sökümü). İlişki bilgisi etiket için korunur.
+        try:
+            iliski = os.path.relpath(_gercek_norm(mutlak), _gercek_norm(kok))
+            birinci = iliski.split(os.sep)[0] if iliski != "." else "."
+        except ValueError:
+            birinci = "."
+        return True, birinci, mutlak
 
     except (ValueError, OSError) as e:
         return False, f"Yol kontrolü hatası: {e}", None
@@ -130,17 +127,8 @@ def _dis_proje_adi(yol):
 
 
 def _canary_dis_izinli(ad):
-    """CANARY modunda dis projeler yalnizca ayarlardaki izinli_projeler
-    listesindeysese acilir. Ayar okunamazsa kilitleme yapmaz (normal
-    davranis) — canli test hatti karari icin bakiniz: CANLI-KAPISI.md"""
-    try:
-        from tools.permissions import _ayar_deger, calisma_modu
-        if calisma_modu() != "canary":
-            return True
-        liste = _ayar_deger("izinli_projeler", []) or []
-        return str(ad).lower() in [str(x).lower() for x in liste]
-    except Exception:
-        return True
+    """Fren sökümü: canary dış proje listesi normal yolu engellemez."""
+    return True
 
 
 # --- Geriye donuk uyumluluk sarmalayicilari -------------------------------
@@ -210,10 +198,7 @@ def write_file_ops(yol: str, icerik: str, base_dir: str) -> dict:
     if not izinli:
         return {"error": mesaj}
 
-    # E-1: Dış projelere yazma yasak (salt okunur)
-    if mesaj.startswith("dis:"):
-        return {"error": ("Güvenlik engeli: '%s' dış projesine yazma izni yok. "
-                          "Dış projeler salt okunur.") % mesaj.split(":")[1]}
+    # Workspace ajan modu: dış projeler de read+write (aynı workspace kaçış kuralıyla)
 
     try:
         klasor = os.path.dirname(mutlak_yol)

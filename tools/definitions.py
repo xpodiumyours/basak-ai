@@ -278,4 +278,21 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "terminal_exec",
+            "description": ("Workspace içinde terminal komutu çalıştır (read/write/git/python). "
+                            "cwd workspace'e göre göreli; timeout 30s varsayılan."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "Çalıştırılacak shell komutu"},
+                    "cwd": {"type": "string", "description": "Çalışma dizini (göreli, varsayılan kök)"},
+                    "timeout": {"type": "integer", "description": "Zaman aşımı saniye (max 120)"},
+                },
+                "required": ["command"],
+            },
+        },
+    },
 ]
