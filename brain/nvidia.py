@@ -30,9 +30,8 @@ BASE_URL = "https://integrate.api.nvidia.com/v1"
 # kimi-k2.6/mistral-large-2 404, diffusiongemma timeout) listede YOK.
 TERCIH_SIRASI = [
     # CANLI TESTLI — 22.08.2026 sirasiyla hiza gore siralanmistir
+    # 2026-09-09: ilk iki model kaldirildi (410 Gone). Liste guncel tutulur.
     # --- En hizli (0-2s) ---
-    "nvidia/nemotron-3-nano-30b-a3b",        # 0.9s, 30b hafif
-    "minimaxai/minimax-m3",                  # 1.0s, ayri aile (23.08 olcum)
     "meta/muse-glimmer-30b",                 # 1.2s, metin+goruntu
     "nvidia/nvidia-nemotron-nano-9b-v2",      # 1.5s, 9b en hafif
     "nvidia/nemotron-3.5-lightning-30b-a3b", # 1.8s, hizli
@@ -47,6 +46,9 @@ TERCIH_SIRASI = [
     # --- Yavas (10s+) ---
     "moonshotai/kimi-k3",                    # 27.9s, TURKCE + kod
     # --- Calismayanlar (listede tutuldu, fallback icin) ---
+    # 2026-09-09: 410 Gone — nemotron-3-nano-30b-a3b, minimax-m3 eklendi.
+    "nvidia/nemotron-3-nano-30b-a3b",        # 410 Gone (09.09.2026)
+    "minimaxai/minimax-m3",                  # 410 Gone (09.09.2026)
     "nvidia/llama-3.3-nemotron-super-49b-v1.5",
     "meta/llama-3.3-70b-instruct",          # 65s timeout
     "google/gemma-4-31b-it",                 # 77s timeout

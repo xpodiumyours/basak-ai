@@ -167,3 +167,75 @@
 2026-09-09 23:43:41 | OK kaynak=nvidia | 0.9 sn | tools=True | kod isi → GLM, NVIDIA NIM öne alındı | karne: kilo (%0) sona alindi
 2026-09-09 23:44:01 | OK kaynak=glm | 1.5 sn | tools=True | genel sohbet → dagitilmis sira (GLM, Groq, Cloudflare) | karne: kilo (%0) sona alindi
 2026-09-09 23:44:04 | OK kaynak=glm | 3.0 sn | tools=True | kod isi → GLM, NVIDIA NIM öne alındı | karne: kilo (%0) sona alindi
+2026-09-09 23:52:33 | OK kaynak=groq | 0.6 sn | tools=True | genel sohbet → dagitilmis sira (Groq, Cloudflare, GLM) | karne: kilo (%0) sona alindi
+2026-09-09 23:53:14 | OK kaynak=glm | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-09 23:53:14 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-09 23:53:14 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-09 23:53:15 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-09 23:53:18 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-09 23:53:18 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-09 23:53:18 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-09 23:53:18 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-09 23:53:18 | HATA kaynak=glm (0.0 sn): The read operation timed out
+2026-09-09 23:53:18 | OK kaynak=cloudflare | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-09 23:53:18 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-09 23:53:18 | OK kaynak=yerel | 0.0 sn | tools=False | dustu=1 bulut
+2026-09-09 23:53:58 | OK kaynak=glm | 1.9 sn | tools=True | genel sohbet → dagitilmis sira (GLM, Cloudflare, Groq) | karne: kilo (%0) sona alindi
+2026-09-09 23:54:01 | HATA kaynak=glm (3.0 sn): Request timed out.
+2026-09-09 23:54:03 | OK kaynak=nvidia | 1.7 sn | tools=True | kod isi → GLM, NVIDIA NIM öne alındı | karne: kilo (%0) sona alindi
+2026-09-09 23:54:59 | OK kaynak=glm | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-09 23:54:59 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-09 23:54:59 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-09 23:55:03 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 00:03:10 | OK kaynak=groq | 0.5 sn | tools=True | genel sohbet → dagitilmis sira (Groq, GLM, Cloudflare) | karne: kilo (%0) sona alindi
+2026-09-10 00:03:50 | OK kaynak=glm | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 00:03:50 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 00:03:50 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 00:03:52 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 00:03:56 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 00:03:56 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 00:03:56 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 00:03:56 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 00:03:56 | HATA kaynak=glm (0.0 sn): The read operation timed out
+2026-09-10 00:03:56 | OK kaynak=cloudflare | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 00:03:56 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 00:03:56 | OK kaynak=yerel | 0.0 sn | tools=False | dustu=1 bulut
+2026-09-10 00:08:39 | OK kaynak=cloudflare | 1.9 sn | tools=True | genel sohbet → dagitilmis sira (Cloudflare, GLM, Groq) | karne: kilo (%0) sona alindi
+2026-09-10 00:12:44 | OK kaynak=glm | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 00:12:44 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 00:12:44 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 00:22:08 | OK kaynak=glm | 2.6 sn | tools=True | genel sohbet → dagitilmis sira (GLM, Cloudflare, Groq) | karne: kilo (%0) sona alindi
+2026-09-10 00:22:17 | OK kaynak=glm | 3.2 sn | tools=True | genel sohbet → dagitilmis sira (GLM, Groq, Cloudflare) | karne: kilo (%0) sona alindi
+2026-09-10 00:26:33 | OK kaynak=cloudflare | 0.7 sn | tools=True | genel sohbet → dagitilmis sira (Cloudflare, GLM, Groq) | karne: kilo (%0) sona alindi
+2026-09-10 00:26:38 | HATA kaynak=glm (3.6 sn): Request timed out.
+2026-09-10 00:26:47 | HATA kaynak=nvidia (9.5 sn): NVIDIA tüm modeller başarısız
+2026-09-10 00:26:48 | OK kaynak=cloudflare | 0.7 sn | tools=True | kod isi → GLM, NVIDIA NIM öne alındı | karne: kilo (%0) sona alindi
+2026-09-10 00:26:52 | HATA kaynak=glm (3.7 sn): Request timed out.
+2026-09-10 00:27:00 | OK kaynak=nvidia | 8.5 sn | tools=True | kod isi → GLM, NVIDIA NIM öne alındı | karne: kilo (%0) sona alindi
+2026-09-10 00:27:20 | OK kaynak=glm | 2.7 sn | tools=True | genel sohbet → dagitilmis sira (GLM, Groq, Cloudflare) | karne: kilo (%0) sona alindi
+2026-09-10 00:27:23 | HATA kaynak=glm (3.0 sn): Request timed out.
+2026-09-10 00:27:32 | HATA kaynak=nvidia (9.5 sn): NVIDIA tüm modeller başarısız
+2026-09-10 00:27:33 | OK kaynak=cloudflare | 1.1 sn | tools=True | kod isi → GLM, NVIDIA NIM öne alındı | karne: kilo (%0) sona alindi
+2026-09-10 00:31:10 | OK kaynak=cloudflare | 0.9 sn | tools=True | genel sohbet → dagitilmis sira (Cloudflare, Groq, GLM) | karne: kilo (%0) sona alindi
+2026-09-10 00:31:22 | OK kaynak=groq | 1.0 sn | tools=True | genel sohbet → dagitilmis sira (Groq, GLM, Cloudflare) | karne: kilo (%0) sona alindi
+2026-09-10 00:31:26 | HATA kaynak=glm (3.6 sn): Request timed out.
+2026-09-10 00:31:35 | HATA kaynak=nvidia (9.5 sn): NVIDIA tüm modeller başarısız
+2026-09-10 00:31:38 | OK kaynak=cloudflare | 2.4 sn | tools=True | kod isi → GLM, NVIDIA NIM öne alındı | karne: kilo (%0) sona alindi
+2026-09-10 00:35:26 | OK kaynak=glm | 2.1 sn | tools=True | genel sohbet → dagitilmis sira (GLM, Groq, Cloudflare) | karne: kilo (%0) sona alindi
+2026-09-10 00:44:06 | OK kaynak=glm | 2.4 sn | tools=True | genel sohbet → dagitilmis sira (GLM, Groq, Cloudflare) | karne: kilo (%0) sona alindi
+2026-09-10 00:44:14 | OK kaynak=glm | 2.3 sn | tools=True | genel sohbet → dagitilmis sira (GLM, Cloudflare, Groq) | karne: kilo (%0) sona alindi
+2026-09-10 00:44:26 | OK kaynak=cloudflare | 0.9 sn | tools=True | genel sohbet → dagitilmis sira (Cloudflare, Groq, GLM) | karne: kilo (%0) sona alindi
+2026-09-10 00:50:12 | OK kaynak=glm | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 00:50:12 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 00:50:12 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 00:51:49 | HATA kaynak=glm (6.6 sn): Request timed out.
+2026-09-10 00:51:49 | OK kaynak=cloudflare | 0.8 sn | tools=True | genel sohbet → dagitilmis sira (GLM, Cloudflare, Groq) | karne: kilo (%0) sona alindi
+2026-09-10 00:52:03 | OK kaynak=cloudflare | 0.8 sn | tools=True | genel sohbet → dagitilmis sira (Cloudflare, Groq, GLM) | karne: kilo (%0) sona alindi
+2026-09-10 00:52:24 | OK kaynak=groq | 0.8 sn | tools=True | genel sohbet → dagitilmis sira (Groq, Cloudflare, GLM) | karne: kilo (%0) sona alindi
+2026-09-10 00:52:48 | HATA kaynak=glm (3.8 sn): Request timed out.
+2026-09-10 00:52:49 | OK kaynak=cloudflare | 1.5 sn | tools=True | genel sohbet → dagitilmis sira (GLM, Cloudflare, Groq) | karne: kilo (%0) sona alindi
+2026-09-10 00:52:56 | HATA kaynak=glm (3.5 sn): Request timed out.
+2026-09-10 00:52:58 | OK kaynak=nvidia | 2.1 sn | tools=True | kod isi → GLM, NVIDIA NIM öne alındı | karne: kilo (%0) sona alindi
+2026-09-10 00:55:12 | OK kaynak=glm | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 00:55:12 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 00:55:12 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira

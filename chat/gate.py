@@ -70,6 +70,11 @@ def temizle(text):
             text = str(text)
     # Modelin özel düşünme metnini sil
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    # Emoji temizligi (2026-09-09): kisilik "emoji yok" der ama kucuk
+    # modeller yine koyar. Gorunum katmaninda sessizce alinir.
+    text = re.sub(
+        "[\U0001F300-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F]", "",
+        text)
     # badge::O:: veya badge::Ö:: formatını temizle
     text = re.sub(r'badge::[OÖ]::', '', text)
     # Kalan badge:: satırlarını da temizle

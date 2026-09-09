@@ -222,7 +222,7 @@ const Chat = (function () {
     div.className = "msg " + role;
     div.innerHTML = '<div class="msg-avatar">' + (role === "basak" ? "B" : "S")
       + '</div><div class="msg-body"><div class="msg-name">'
-      + (role === "basak" ? "BA�?AK" : "SEN")
+    div.innerHTML = '<div class="msg-avatar">' + (role === "basak" ? "BAŞAK" : "SEN")
       + '<span class="msg-saat">' + saatEtiketi() + "</span>"
       + '<button class="msg-kopya" type="button" title="Mesajı kopyala">kopyala</button>'
       + '</div><div class="msg-bubble"></div></div>';
@@ -284,7 +284,7 @@ const Chat = (function () {
     // yoktu; olculen en yavas model 27.9s (kimi-k3) ve o sure boyunca
     // ekran donmus gibi duruyordu.
     div.innerHTML = '<div class="msg-avatar">B</div><div class="msg-body">'
-      + '<div class="msg-name">BA�?AK<span class="msg-sure"></span></div>'
+      + '<div class="msg-name">BAŞAK<span class="msg-sure"></span></div>'
       + '<div class="msg-bubble"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>';
     list.appendChild(div);
     scroll.scrollTop = scroll.scrollHeight;
@@ -376,18 +376,18 @@ function setStatus(kind, label) {
 }
 function setOrb(s) {
   const labels = {
-    bekliyor: "BA�?AK BEKLEME MODU",
-    dusunuyor: "BA�?AK DÜ�?ÜNÜYOR",
-    cevapliyor: "BA�?AK KONU�?UYOR",
-    arac: "BA�?AK ARAÇ ÇALI�?TIRIYOR",
+    bekliyor: "BAŞAK BEKLEME MODU",
+    dusunuyor: "BAŞAK DÜŞÜNÜYOR",
+    cevapliyor: "BAŞAK KONUŞUYOR",
+    arac: "BAŞAK ARAÇ ÇALIŞTIRIYOR",
     hata: "HATA — BİR SORUN VAR",
-    dinliyor: "BA�?AK DİNKİYOR",
+    dinliyor: "BAŞAK DİNLİYOR",
     algiliyor: "BA�?AK ALGILIYOR",
     onay: "ONAY BEKLENİYOR"
   };
   // Sadece orbLabel'i=güncelle, durumSatiri'ni bozma
   const orbLabel = $("orbLabel");
-  if (orbLabel) orbLabel.textContent = labels[s] || "BA�?AK";
+  if (orbLabel) orbLabel.textContent = labels[s] || "BAŞAK";
   if (Orb && Orb.durum) Orb.durum(s);
 }
 
@@ -415,7 +415,7 @@ window.BasakUI = {
   thinking() {
     Chat.thinking();
     kilidiKapat();
-    setStatus("busy", "BA�?AK DÜ�?ÜNÜYOR...");
+    setStatus("busy", "BAŞAK DÜŞÜNÜYOR...");
     setOrb("dusunuyor");
   },
   toolStatus(text) {
@@ -440,7 +440,7 @@ window.BasakUI = {
     // Hata Basak'in AGZINDAN cikmis gibi gorunmemeli: eskiden sohbet
     // balonuna "Uzgunum, bir sorun var: ..." diye ekleniyordu ve baglanti
     // hatasi ile gercek cevap ayni yerde duruyordu.
-    Chat.sistem("▲ BA�?LANTI SORUNU: " + msg, true);
+    Chat.sistem("▲ BAĞLANTI SORUNU: " + msg, true);
     kilidiAc();
     setStatus("err", "BEYNİN YANIT VERMEDİ");
     setOrb("hata");
@@ -556,7 +556,7 @@ function send() {
   const text = input.value.trim();
   if (!text || state.busy) return;
   if (!state.ready || !window.pywebview || !window.pywebview.api) {
-    setStatus("err", "BA�?AK HENÜZ HAZIRLANIYOR, BİRKAÇ SANİYE BEKLE");
+    setStatus("err", "BAŞAK HENÜZ HAZIRLANIYOR, BİRKAÇ SANİYE BEKLE");
     return;
   }
   sonGonderilen = text;
@@ -576,6 +576,14 @@ function tekrarGonder() {
 
 /* ---------------- Olaylar ---------------- */
 $("btnSend").addEventListener("click", send);
+/* Hazir komut cipleri: soruyu kutuya yazip gonderir */
+document.querySelectorAll(".chip").forEach((c) => {
+  c.addEventListener("click", () => {
+    if (state.busy) return;
+    $("input").value = c.dataset.soru || c.textContent;
+    send();
+  });
+});
 $("btnMic").addEventListener("click", () => { if (!state.dinliyor) api().dinle(); });
 $("btnTts").addEventListener("click", () => {
   state.ttsOn = !state.ttsOn;
@@ -698,7 +706,7 @@ async function boot() {
       setOrb("hata");
     }
   } catch (e) {
-    setStatus("err", "BA�?LANTI SORUNU: " + String(e).slice(0, 120));
+    setStatus("err", "BAĞLANTI SORUNU: " + String(e).slice(0, 120));
     setOrb("hata");
   } finally {
     // Her durumda boot screen gizli kalsın, ana uygulama görünsün

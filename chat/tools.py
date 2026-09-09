@@ -34,7 +34,95 @@ TOOL_LABELS = {
     "git_durum": "Ölçülüyor (git)...",
     "belge_ara": "Belgeler taranıyor...",
     "dosya_bilgi": "Dosya ölçülüyor...",
+    "list_files": "Klasör okunuyor...",
+    "read_file": "Dosya okunuyor...",
+    "sayfa_oku": "Sayfa okunuyor...",
 }
+
+
+def _arac_detay(tool_name, args):
+    """Ekranda 'neye bakıyorum' diye gostermek icin kisa detay.
+
+    2026-09-09: kullanici 'okuduklari belli degil' dedi. Artik
+    durum satirinda hangi klasor/dosya/sorgu okundugu yazar.
+    Hassas icerik ASLA yazilmaz — yalniz isim/yol/sorgu.
+    """
+    try:
+        args = args or {}
+        if tool_name == "list_files":
+            return args.get("folder", "")
+        if tool_name == "read_file":
+            return args.get("path", "")
+        if tool_name == "web_search":
+            return args.get("query", "")
+        if tool_name == "sayfa_oku":
+            return args.get("url", "")
+        if tool_name in ("git_durum", "belge_ara", "dosya_bilgi"):
+            return args.get("proje", "")
+        if tool_name in ("save_note", "deftere_kaydet"):
+            return args.get("title", "")
+        if tool_name == "add_task":
+            return args.get("text", args.get("title", ""))
+    except Exception:
+        pass
+    return ""
+
+
+def _durum_metni(tool_name, args):
+    """'Aranıyor... + sorgu' gibi ekrana giden durum metni."""
+    etiket = TOOL_LABELS.get(tool_name, "İşleniyor...")
+    detay = _arac_detay(tool_name, args)
+    if detay:
+        detay = str(detay)
+        if len(detay) > 80:
+            detay = detay[:80].rstrip() + "..."
+        return "%s %s" % (etiket, detay)
+    return etiket
+
+
+def _yazma_koku():
+    """Yazma karari icin kok dizin (executor ile ayni mantik)."""
+    try:
+        from tools.executor import ToolContext
+        return ToolContext("", "").base_dir
+    except Exception:
+        return os.getcwd()
+
+
+def _otomatik_yazma(args):
+    """Hedef knowledge/research-engine ise True (onaysiz)."""
+    try:
+        from tools import file_ops as _fops
+        hedef = str((args or {}).get("path", "") or "")
+        if not hedef:
+            return True
+        base = _yazma_koku()
+        mutlak = (os.path.realpath(hedef) if os.path.isabs(hedef)
+                  else os.path.realpath(os.path.join(base, hedef)))
+        return bool(_fops._otomatik_yazma_mi(mutlak, base))
+    except Exception:
+        return False
+
+
+def _yazma_onayi(call, args, js_callback):
+    """Guvenli alan disina yazma onayi. Donus: True/False.
+
+    UI yoksa onay GELMEZ ve yazma yapilmaz — guvenli varsayilan REDDIR.
+    """
+    try:
+        from chat.approval import _system as _onay
+        icerik = str((args or {}).get("content", "") or "")
+        if len(icerik) > 300:
+            icerik = icerik[:300].rstrip() + "..."
+        return bool(_onay.bekle(
+            str((call or {}).get("id", "call_sorumsuz")),
+            "write_file_tool",
+            {"path": str((args or {}).get("path", "")),
+             "icerik_ozet": icerik},
+            timeout=90, js_callback=js_callback))
+    except Exception as e:
+        logger.warning("Onay sorulamadi, yazma iptal: %s", e)
+        return False
 
 
 # ── Raw tool call parser ────────────────────────────────────────────
@@ -167,8 +255,16 @@ def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
             if tool_name not in TANINMIS_TOOLLAR:
                 logger.info("Bilinmeyen tool atlandi: %s", tool_name)
                 continue
+            # ONAY (2026-09-09, Casper karari): knowledge/ ve
+            # research-engine/ disina yazmadan once Casper'a sorulur.
+            # Ben de sormadan dokunmam — o da oyle yapar.
+            if tool_name == "write_file_tool" and not _otomatik_yazma(args):
+                if not _yazma_onayi(call, args, js_callback):
+                    tur_sonuclari.append(
+                        (tool_name, "Casper onaylamadı — yazılmadı."))
+                    continue
             js_callback("BasakUI.toolStatus(" + json.dumps(
-                TOOL_LABELS.get(tool_name, "İşleniyor..."),
+                _durum_metni(tool_name, args),
                 ensure_ascii=False) + ")")
 
             sonuc = calistir(tool_name, args, knowledge_dir, gorevler_file)
@@ -194,12 +290,14 @@ def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
         # Son turda arac verilmez; kucuk modelde yalniz ilk turda arac verilir
         sonraki_araclar = tools if (tur < tavan - 1 and kap.guclu) else None
         tool_sonuclari_text = "\n".join(
-            "%s: %s" % (ad, net[:300]) for ad, net in tur_sonuclari)
+            "%s: %s" % (ad, net[:800]) for ad, net in tur_sonuclari)
         expanded = expanded + [{
             "role": "user",
             "content": (
                 "Araç sonuçları:\n" + tool_sonuclari_text +
-                "\n\nŞimdi bu sonuçları KISA ve DOĞAL TÜRKÇE ile özetle. "
+                "\n\nŞimdi bu sonuçları DOĞAL TÜRKÇE ile, yeterince "
+                "DETAYLI özetle: liste uzun da olsa maddeleri atlama, "
+                "dosya/klasör adlarını tam yaz. "
                 "[Ö], badge::, kod, bash kullanma. "
                 "Kullanıcıya doğal dil ile anlat."
             ),

@@ -11,6 +11,8 @@ import json
 import logging
 import re
 
+from chat.prompts import KIMLIK_BLOGU
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,6 +57,40 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
         aktif_konusmaci = konusmaci_eslesme.group(1)
         text = text[:konusmaci_eslesme.start()].strip()
 
+    # KALICI PROFIL (2026-09-09, Casper karari): konusarak ogrenme.
+    # "benim adim X", "hatirla: ...", "X'i seviyorum" gibi acik
+    # cumleler profile yazilir (budanmaz, silinmez). "unut: X" profilden
+    # siler. Ogrenilenler/sonuclar ayni turun baglamina not dusulur ki
+    # model dogrulayabilsin ("tamam, adini ogrendim" diyebilsin).
+    ogrenme_notu = ""
+    try:
+        from chat.context import hafiza_al as _profil_motoru
+        from memory.profil import ogren as _ogren, unut as _unut, blok as _blok
+        _motor = _profil_motoru()
+        if _motor and text:
+            silinen = _unut(_motor, text)
+            if silinen == -1:
+                ogrenme_notu = ("Not: Casper hakkındaki tüm profil "
+                                "bilgilerini SİLDİN. Bunu doğrula.")
+            elif silinen:
+                ogrenme_notu = ("Not: profilden %d kayıt sildin "
+                                "(istek: %s). Bunu doğrula." % (silinen, text))
+            else:
+                yeniler = _ogren(_motor, text,
+                                 speaker=aktif_konusmaci or "")
+                if yeniler:
+                    ogrenme_notu = ("Not: profile yeni bilgi eklendi: %s. "
+                                    "Kısaca doğrulayıp sohbete devam et."
+                                    % "; ".join("%s=%s" % (a, d)
+                                                for a, d in yeniler))
+            _profil_blogu = _blok(_motor)
+        else:
+            _profil_blogu = ""
+    except Exception as e:
+        logger.warning("Profil ogrenme atlandi: %s", e)
+        ogrenme_notu = ""
+        _profil_blogu = ""
+
     js_callback("BasakUI.thinking()")
     if not text:
         js_callback("BasakUI.error(" + _j("Bos mesaj") + ")")
@@ -93,7 +129,10 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
     tam_prompt = system_prompt + TOOL_YONLENDIRME + BIKIMLONDIRME_YONLENDIRME
     if aktif_konusmaci:
         tam_prompt += "\nKonuşan: %s" % aktif_konusmaci
-    mesajlar = [{"role": "system", "content": tam_prompt}]
+    mesajlar = [
+        {"role": "system", "content": KIMLIK_BLOGU},
+        {"role": "system", "content": tam_prompt},
+    ]
 
     # 2026-08-25: hazir not yigini artik her mesaja eklenmiyor.
     # Sebep (olculdu): 2105 karakterlik knowledge dokumu her istege
@@ -118,6 +157,15 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
             "role": "system",
             "content": "Hafızadan:\n" + blok,
         })
+
+    # Kalici profil blogu + ogrenme notu (varsa)
+    try:
+        if _profil_blogu:
+            mesajlar.append({"role": "system", "content": _profil_blogu})
+        if ogrenme_notu:
+            mesajlar.append({"role": "system", "content": ogrenme_notu})
+    except NameError:
+        pass
 
     mesajlar += _gecmis_pencere(gecmis) + [{"role": "user", "content": text}]
 

@@ -201,12 +201,13 @@ def _guvenli_yolu_coz(yol, base_dir):
         if not orijinal:
             yol = cozulmus
 
-        # MUTLAK YOL — bilgisayarın herhangi bir yerinde (2026-08-24):
-        # Başak sadece knowledge/ ve research-engine/ görebiliyordu;
-        # kullanıcının kendi dosyalarına erişimi engelleniyordu.
-        # Çözüm: izinli köklerin (knowledge/, research-engine/, ev/)
-        # GERCEK altındaki yolları OKUMA açmak. Yazma hala
-        # knowledge/ ve research-engine/'e sınırlı — security bozulmaz.
+        # MUTLAK YOL — tum bilgisayar (2026-09-09, Casper karari):
+        # Basak, Casper'in gordugu her yeri gorebilir: ev, C:\Projects,
+        # knowledge/, research-engine/ VE bunlar disindaki tum suruculer.
+        # TEK SINIR kara listedir: Windows, Program Files, sifre dosyalari
+        # (.env/.pem/.key/id_rsa/ayarlar.json), .ssh/.aws/.gnupg.
+        # Gerekce: okuma kimseye zarar vermez; yazma ayrica _yazma_izni
+        # ile kilitlidir. Junction/symlink realpath ile cozulur.
         yol_str = str(yol).strip()
         if os.path.isabs(yol_str):
             mutlak = os.path.realpath(yol_str)
@@ -222,8 +223,9 @@ def _guvenli_yolu_coz(yol, base_dir):
                             os.path.realpath(base_dir)))
                     birinci = iliski.split(os.sep)[0]
                     return True, birinci, mutlak
-            return False, ("Yol izinli bir klasörün altında değil. "
-                           "İzinli: ev/, C:\\Projects, knowledge/, research-engine/"), None
+            # Bilinen koklerin disinda ama kara listede degil:
+            # tum bilgisayar okumaya acik.
+            return True, "bilgisayar", mutlak
 
         dis_ad = _dis_proje_adi(yol)
         if dis_ad:
@@ -239,6 +241,9 @@ def _guvenli_yolu_coz(yol, base_dir):
                 os.path.join(dis_kok, rel)) if rel else _gercek_norm_kok(dis_kok)
             if not _altinda_mi(mutlak, dis_kok):
                 return False, "Yol dış proje dizininin dışında", None
+            # 2026-09-09: dis projede bile sifre dosyasi okunmaz.
+            if _yasak_mi(mutlak):
+                return False, "Bu yol kara listede — okuma yasak.", None
             return True, "dis:%s" % dis_ad, mutlak
 
         # İç yol — realpath ile çöz (junction/symlink dahil)
@@ -247,6 +252,11 @@ def _guvenli_yolu_coz(yol, base_dir):
 
         if not _altinda_mi(mutlak, kok):
             return False, "Yol proje dizininin dışında", None
+
+        # 2026-09-09: kara liste goreli yolda da gecerli (sifre dosyalari
+        # knowledge/ icinde bile okunamaz/yazilamaz).
+        if _yasak_mi(mutlak):
+            return False, "Bu yol kara listede — okuma yasak.", None
 
         iliski = os.path.relpath(_gercek_norm(mutlak),
                                  _gercek_norm(kok))
@@ -346,15 +356,63 @@ def read_file(yol: str, base_dir: str) -> dict:
 
 # 2026-08-25: Beyaz liste — yazma yalnizca knowledge/ ve research-engine/
 # IZINLI_KOKLER'e yeni kok eklendiginde yazma kendiliginden acilmaz.
+# 2026-09-09 (Casper karari): yazma ev + C:\Projects'e genisletildi.
+# SARTLAR: kara liste disi (sistem/sifre dosyalari), dis projeler HARIC
+# (vixrex/numeramatch/xses salt-okunur kalir), junction disari bakamaz.
+# knowledge/ ve research-engine/ ONaysiz; DIGER yerlere yazma ONAYLIDIR
+# (chat/tools.py onay sorar — Casper "ben nasilsam o da oyle" dedi:
+# ben de sormadan dokunmam).
 YAZMA_IZINLI_KOKLER = ("knowledge", "research-engine")
 
+# Onaysiz yazilabilen kokler (proje ici not alanlari)
+OTOMATIK_YAZMA_KOKLER = ("knowledge", "research-engine")
+
+# Onayla yazilabilen kokler (kullanicinin kendi alanlari)
+ONAYLI_YAZMA_KOKLER = (os.path.expanduser("~"), r"C:\Projects")
+
+
 def _yazma_izni_var_mi(mutlak_yol, base_dir):
-    """Yazma izni: mutlak_yol, base_dir altindaki knowledge/ veya
-    research-engine/ klasorunun GERCEK altinda mi?"""
+    """Yazma izni var mi? (evet/hayir — onay ayri katman)
+
+    knowledge/research-engine: EVET. ev + C:\\Projects: EVET (kara liste
+    ve dis projeler haric). Gerisi: HAYIR.
+    """
     try:
+        if _yasak_mi(mutlak_yol):
+            return False
         mutlak_norm = os.path.normcase(os.path.realpath(mutlak_yol))
+        # Dis projeler salt-okunur kalir
+        for _ad, _kok in DIS_PROJELER.items():
+            try:
+                kok_norm = os.path.normcase(os.path.realpath(_kok))
+                if mutlak_norm == kok_norm or mutlak_norm.startswith(
+                        kok_norm + os.sep):
+                    return False
+            except (OSError, ValueError):
+                continue
         base_norm = os.path.normcase(os.path.realpath(base_dir))
         for klasor_adi in YAZMA_IZINLI_KOKLER:
+            kok = os.path.normcase(
+                os.path.realpath(os.path.join(base_dir, klasor_adi)))
+            if mutlak_norm.startswith(kok + os.sep) or mutlak_norm == kok:
+                return True
+        for kok_ham in ONAYLI_YAZMA_KOKLER:
+            try:
+                kok = os.path.normcase(os.path.realpath(kok_ham))
+            except (OSError, ValueError):
+                continue
+            if mutlak_norm == kok or mutlak_norm.startswith(kok + os.sep):
+                return True
+        return False
+    except (OSError, ValueError):
+        return False
+
+
+def _otomatik_yazma_mi(mutlak_yol, base_dir):
+    """Onaysiz yazilabilir mi? Yalniz knowledge/ ve research-engine/."""
+    try:
+        mutlak_norm = os.path.normcase(os.path.realpath(mutlak_yol))
+        for klasor_adi in OTOMATIK_YAZMA_KOKLER:
             kok = os.path.normcase(
                 os.path.realpath(os.path.join(base_dir, klasor_adi)))
             if mutlak_norm.startswith(kok + os.sep) or mutlak_norm == kok:
@@ -366,8 +424,9 @@ def _yazma_izni_var_mi(mutlak_yol, base_dir):
 def write_file_ops(yol: str, icerik: str, base_dir: str) -> dict:
     """Bir dosyaya yazar.
 
-    BEYAZ LISTE: Yalnizca knowledge/ ve research-engine/ altina yazilabilir.
-    Diger HER YOL reddedilir (C:\\Projects, ev, dis projeler dahil).
+    KURAL (2026-09-09): knowledge/ ve research-engine/ serbesttir.
+    ev + C:\\Projects yazilabilir AMA onay ister (chat/tools.py sorar).
+    Kara liste (sistem/sifre) ve dis projeler (vixrex/...) ASLA yazilmaz.
     Guvenlik: hedef realpath ile cozulmustur — izinli klasor icindeki
     disari bakan symlink/junction'a yazim BLOKLANIR.
     """
@@ -380,10 +439,12 @@ def write_file_ops(yol: str, icerik: str, base_dir: str) -> dict:
     if not izinli:
         return {"error": mesaj}
 
-    # BEYAZ LISTE KONTROLU: Yalnizca knowledge/ ve research-engine/
+    # BEYAZ LISTE KONTROLU
     if not _yazma_izni_var_mi(mutlak_yol, base_dir):
-        return {"error": ("Güvenlik engeli: salt okunur. Yazma izni yok. "
-                          "Yalnızca knowledge/ ve research-engine/ yazılabilir.")}
+        return {"error": ("Güvenlik engeli: salt okunur, buraya yazma "
+                          "izni yok. Yazılabilir: knowledge/, defter-notları, "
+                          "ev klasörün ve C:\\Projects (onayla). "
+                          "Sistem ve şifre dosyalarına asla yazılmaz.")}
 
     try:
         klasor = os.path.dirname(mutlak_yol)

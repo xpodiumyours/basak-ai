@@ -1,8 +1,12 @@
 """write_file_ops beyaz liste gerileme testi.
 
-IZINLI_KOKLER'e yeni bir kok eklendiginde yazma izni
-kendiliginden acilmamali -- yazma yalnizca knowledge/ ve
-research-engine/ icin serbest olmali.
+2026-09-09 GUNCELLEME (Casper karari): yazma kurali genisletildi.
+- knowledge/ ve research-engine/: ONAYSIZ serbest.
+- ev + C:\\Projects: SERBEST ama ONLALI (chat/tools.py onay sorar).
+- Kara liste (sistem/sifre) ve dis projeler: ASLA.
+
+Bu dosya yeni kurali kilitler: knowledge serbestligi korunur,
+kara liste ve dis-proje yasagi delinemez.
 """
 
 import os
@@ -13,43 +17,55 @@ import shutil
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'tools'))
 
 
-def test_yazma_sadece_knowledge_research():
-    from file_ops import write_file_ops, YAZMA_IZINLI_KOKLER
+def test_yazma_knowledge_serbest_digerleri_kuralli():
+    from file_ops import (write_file_ops, YAZMA_IZINLI_KOKLER,
+                          _yazma_izni_var_mi, _otomatik_yazma_mi)
     base = os.path.join(tempfile.mkdtemp(), 'proje')
     os.makedirs(os.path.join(base, 'knowledge'))
     os.makedirs(os.path.join(base, 'research-engine'))
-    os.makedirs(os.path.join(base, 'diger'))
     try:
         r1 = write_file_ops(os.path.join(base, 'knowledge', 'test.md'), 'icerik', base)
         assert 'result' in r1, f"knowledge/ yazma izni verilmeli: {r1}"
         r2 = write_file_ops(os.path.join(base, 'research-engine', 'test.md'), 'icerik', base)
         assert 'result' in r2, f"research-engine/ yazma izni verilmeli: {r2}"
-        r3 = write_file_ops(os.path.join(base, 'diger', 'test.md'), 'icerik', base)
-        assert 'error' in r3, f"diger/ yazma engellenmeli: {r3}"
-        r4 = write_file_ops(os.path.join(base, 'test.md'), 'icerik', base)
-        assert 'error' in r4, f"Proje koku yazma engellenmeli: {r4}"
+        # Tmp dizini ev altinda oldugu icin izin VARDIR (yeni kural);
+        # ama otomatik DEGILDIR (onay gerekir).
+        yol = os.path.join(base, 'knowledge', 'test.md')
+        assert _yazma_izni_var_mi(yol, base) is True
+        assert _otomatik_yazma_mi(yol, base) is True
         assert set(YAZMA_IZINLI_KOKLER) == {'knowledge', 'research-engine'}, \
             f"YAZMA_IZINLI_KOKLER beklenmeyen deger: {YAZMA_IZINLI_KOKLER}"
     finally:
         shutil.rmtree(os.path.dirname(base), ignore_errors=True)
 
 
-def test_izinkokler_genisletilse_bile_yazma_kapali():
+def test_kara_listeye_yazma_yasak():
     from file_ops import _yazma_izni_var_mi
-    base = os.path.join(tempfile.mkdtemp(), 'proje')
-    os.makedirs(os.path.join(base, 'knowledge'))
-    os.makedirs(os.path.join(base, 'yeni_kok'))
+    base = tempfile.mkdtemp()
     try:
-        yol_k = os.path.join(base, 'knowledge', 'test.md')
-        assert _yazma_izni_var_mi(yol_k, base), "knowledge/ yazma izni olmali"
-        yol_y = os.path.join(base, 'yeni_kok', 'test.md')
-        assert not _yazma_izni_var_mi(yol_y, base), \
-            "yeni_kok/ yazma izni OLMAMALI -- bu TUR2-1 gerilemesidir"
+        assert _yazma_izni_var_mi(
+            r"C:\Windows\Temp\kotuluk.txt", base) is False
+        assert _yazma_izni_var_mi(
+            os.path.join(base, "sifre.env"), base) is False
     finally:
-        shutil.rmtree(os.path.dirname(base), ignore_errors=True)
+        shutil.rmtree(base, ignore_errors=True)
+
+
+def test_dis_projeye_yazma_yasagi_korundu(monkeypatch):
+    import file_ops
+    from file_ops import _yazma_izni_var_mi
+    base = tempfile.mkdtemp()
+    dis = os.path.join(base, "vixrex")
+    os.makedirs(dis)
+    monkeypatch.setattr(file_ops, "DIS_PROJELER", {"vixrex": dis})
+    try:
+        assert _yazma_izni_var_mi(
+            os.path.join(dis, "yeni.md"), base) is False
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
 
 
 if __name__ == '__main__':
-    test_yazma_sadece_knowledge_research()
-    test_izinkokler_genisletilse_bile_yazma_kapali()
+    test_yazma_knowledge_serbest_digerleri_kuralli()
+    test_kara_listeye_yazma_yasak()
     print("Tum yazma guvenlik testleri basarili!")

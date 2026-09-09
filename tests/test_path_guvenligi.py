@@ -125,3 +125,42 @@ class TestPozitifDavranis:
             "giz", "giz"), str(dunya["base"]))
         # dosya yok olsa bile kontrol engellemeli (mesaj farketmez)
         assert sonuc.get("error")
+
+
+class TestTamErisim:
+    """2026-09-09 (Casper karari): okuma tum bilgisayar (kara liste haric)."""
+
+    def test_kok_disindan_mutlak_okuma_acik(self, dunya, monkeypatch):
+        dis = dunya["disiari"] / "acik.txt"
+        dis.write_text("ACIK VERI", encoding="utf-8")
+        monkeypatch.setattr(file_ops, "IZINLI_KOKLER", [])
+        sonuc = file_ops.read_file(str(dis), str(dunya["base"]))
+        assert sonuc.get("result") == "ACIK VERI"
+
+    def test_kara_liste_mutlak_okuma_kapali(self, dunya, monkeypatch):
+        monkeypatch.setattr(file_ops, "IZINLI_KOKLER", [])
+        monkeypatch.setattr(file_ops, "YASAK_YOLLAR",
+                            (str(dunya["disiari"]),))
+        sonuc = file_ops.read_file(
+            str(dunya["disiari"] / "acik.txt"), str(dunya["base"]))
+        assert sonuc.get("error")
+        assert "kara liste" in sonuc["error"]
+
+    def test_sifre_dosyasi_okunmaz(self, dunya):
+        (dunya["base"] / "knowledge" / "not.env").write_text(
+            "x", encoding="utf-8")
+        sonuc = file_ops.read_file(
+            "knowledge/not.env", str(dunya["base"]))
+        assert sonuc.get("error")
+
+    def test_ev_yazma_izni_var_kara_liste_yok(self, dunya, monkeypatch):
+        monkeypatch.setattr(file_ops, "ONAYLI_YAZMA_KOKLER",
+                            (str(dunya["disiari"]),))
+        hedef = str(dunya["disiari"] / "yeni.txt")
+        assert file_ops._yazma_izni_var_mi(hedef, str(dunya["base"])) is True
+        assert file_ops._otomatik_yazma_mi(hedef, str(dunya["base"])) is False
+
+    def test_knowledge_yazma_otomatik(self, dunya):
+        hedef = str(dunya["base"] / "knowledge" / "yeni.md")
+        assert file_ops._yazma_izni_var_mi(hedef, str(dunya["base"])) is True
+        assert file_ops._otomatik_yazma_mi(hedef, str(dunya["base"])) is True

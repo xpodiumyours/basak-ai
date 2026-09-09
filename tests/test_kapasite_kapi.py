@@ -111,9 +111,12 @@ def test_kucuk_modelde_tool_yonlendirme_korunur(monkeypatch):
             captured["messages"] = messages
             return {"content": "ok", "role": "assistant"}, "kilo"
 
-    from chat.prompts import TOOL_YONLENDIRME
+    from chat.prompts import TOOL_YONLENDIRME, KIMLIK_BLOGU
     from tools import TOOLS
     flow.mesaj_isle_yeni("masaüstünde ne var", FakeBrain(),
                          "SYS", lambda c: None, TOOLS)
-    sysmsg = captured["messages"][0]["content"]
-    assert TOOL_YONLENDIRME in sysmsg, "kucuk modelde tool dayatmasi dustu!"
+    birlesik = "\n".join(m.get("content", "") for m in captured["messages"]
+                         if m.get("role") == "system")
+    assert TOOL_YONLENDIRME in birlesik, "kucuk modelde tool dayatmasi dustu!"
+    # 2026-09-10: kimlik ayri ilk mesajdir (kimlik karisikligi arastirmasi).
+    assert captured["messages"][0]["content"] == KIMLIK_BLOGU

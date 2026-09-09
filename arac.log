@@ -72,3 +72,31 @@
 [2026-09-09 23:18:46] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
 [2026-09-09 23:43:37] OK | list_files | {'folder': 'belgeler'} | {'result': 'belgeler/ (4 öğe):\n  Codex/ (klasör)\n  Resimlerim/ (klasör)\n  Vixrex-Secrets/ (klasör)\n  kimi/ (klasör)'}
 [2026-09-09 23:44:01] OK | list_files | {} | {'result': 'knowledge/ (4 öğe):\n  INDEX.md (924 bayt)\n  README.md (376 bayt)\n  casper-hakkinda.md (3296 bayt)\n  takvim-ve-hatirlatmalar.md (478 bayt)'}
+[2026-09-09 23:53:14] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-09-09 23:53:14] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-09-09 23:53:14] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '//ayarlar.json'} | {'error': 'Yol proje disina tasiyor: //ayarlar.json'}
+[2026-09-09 23:53:17] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-09-09 23:53:18] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-09-09 23:53:18] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-09-09 23:53:58] OK | list_files | {'folder': 'masaustu'} | {'result': 'masaustu/ (3 öğe):\n  CALISMA-TARZIM.md (10298 bayt)\n  Furkan_Aksakal_Ozgecmis.pdf (134287 bayt)\n  VIXREX-VIZYON.md (3954 bayt)'}
+[2026-09-09 23:54:59] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-09-10 00:03:50] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-09-10 00:03:51] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-09-10 00:03:51] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '//ayarlar.json'} | {'error': 'Yol proje disina tasiyor: //ayarlar.json'}
+[2026-09-10 00:03:54] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-09-10 00:03:56] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-09-10 00:03:56] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-09-10 00:12:44] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-09-10 00:26:34] OK | web_search | {'query': 'Casper'} | {'result': "Casper, kendi adını taşıyan çizgi film serisinde yer alan kurgusal bir karakterdir. Casper Dost Canlısı Hayalet olarak da bilinir. Harvey Entertainment adlı şirketin yaptığı çizgi film ile...
+[2026-09-10 00:26:48] HATA | add_task | {'text': 'Casper, bir hayalet ve bir karakterdir. Bir cartoon serisinde yer alır. Bir hikaye filmi de vardır. Bir amcasını durdurur. İyilikler yapar ve arkadaşlar edinebilir.'} | {'error': "Görev eklenemedi: [WinError 3] Sistem belirtilen yolu bulamıyor: '.tmp' -> ''"}
+[2026-09-10 00:27:20] OK | list_files | {'folder': 'C:\\'} | {'result': 'C:\\/ (28 öğe):\n  $Recycle.Bin/ (klasör)\n  Config.Msi/ (klasör)\n  Documents and Settings/ (klasör)\n  DumpStack.log.tmp (12288 bayt)\n  OneDriveTemp/ (klasör)\n  PerfLogs/ (klasör)\n  P...
+[2026-09-10 00:31:22] OK | list_files | {'folder': 'C:\\'} | {'result': 'C:\\/ (28 öğe):\n  $Recycle.Bin/ (klasör)\n  Config.Msi/ (klasör)\n  Documents and Settings/ (klasör)\n  DumpStack.log.tmp (12288 bayt)\n  OneDriveTemp/ (klasör)\n  PerfLogs/ (klasör)\n  P...
+[2026-09-10 00:50:12] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-09-10 00:52:49] OK | list_files | {'folder': 'belgeler'} | {'result': 'belgeler/ (4 öğe):\n  Codex/ (klasör)\n  Resimlerim/ (klasör)\n  Vixrex-Secrets/ (klasör)\n  kimi/ (klasör)'}
+[2026-09-10 00:52:49] HATA | read_file | {'path': 'dosya_yolu'} | {'error': 'Bu bir dosya değil: dosya_yolu'}
+[2026-09-10 00:52:49] HATA | add_task | {'title': 'gorev'} | {'error': 'Görev açıklaması boş olamaz'}
+[2026-09-10 00:52:49] OK | list_tasks | {} | {'result': 'Henüz görev yok'}
+[2026-09-10 00:52:49] HATA | complete_task | {'id': 'id'} | {'error': 'Görev listesi boş'}
+[2026-09-10 00:52:49] HATA | save_note | {'title': '<6 karakter>', 'content': '<6 karakter>'} | {'error': "Not kaydedilemedi: [WinError 3] Sistem belirtilen yolu bulamıyor: ''"}
+[2026-09-10 00:52:52] OK | web_search | {'query': 'arama'} | {'result': 'Web arama motoru veya internet arama motoru, web\'de sistematik bir şekilde internet kullanıcılarının istedikleri bilgilere anında erişebilmek için sıkça kullandıkları bir yazılım türüdür....
+[2026-09-10 00:55:12] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
