@@ -75,7 +75,7 @@
       }
       var geo = new THREE.BufferGeometry().setFromPoints(noktalar);
       var mat = new THREE.LineBasicMaterial({
-        color: 0xbbddff, transparent: true, opacity: 0.95,
+        color: 0x00e5ff, transparent: true, opacity: 0.95,
         blending: THREE.AdditiveBlending, depthWrite: false,
       });
       var cizgi = new THREE.Line(geo, mat);
@@ -202,8 +202,8 @@
         "void main(){",
         "  vec2 uv = gl_PointCoord-0.5;",
         "  float a = smoothstep(0.5,0.0,length(uv));",
-        "  vec3 derin = vec3(0.14,0.36,0.90);",
-        "  vec3 kenar = vec3(0.62,0.84,1.0);",
+        "  vec3 derin = vec3(0.05,0.22,0.55);",
+        "  vec3 kenar = vec3(0.35,0.90,1.0);",
         "  vec3 renk = mix(derin,kenar,clamp(vFresnel*1.15+vParlak*0.25,0.0,1.0));",
         "  renk = mix(renk, vec3(0.97,0.44,0.44), uMix);",
         "  float alfa = a*(0.075+vFresnel*uKenar)*(0.48+uCore*0.46)",
@@ -272,7 +272,7 @@
         vertexColors: true, transparent: true, opacity: 0.34,
         blending: THREE.AdditiveBlending, depthWrite: false,
       });
-      mat.color.setHex(0x66c2ff);
+      mat.color.setHex(0x00e5ff);
       var cizgi = new THREE.LineLoop(geo, mat);
       cizgi.userData = { faz: rast() * Math.PI * 2, taban: 0.16 + 0.20 * Math.sin(t * Math.PI), y: y };
       grup.add(cizgi);
@@ -301,7 +301,7 @@
       }
       var geo = new THREE.BufferGeometry().setFromPoints(pts);
       var mat = new THREE.LineBasicMaterial({
-        color: 0x3f92e8, transparent: true, opacity: 0.10,
+        color: 0x00e5ff, transparent: true, opacity: 0.10,
         blending: THREE.AdditiveBlending, depthWrite: false,
       });
       var cizgi = new THREE.Line(geo, mat);
@@ -330,7 +330,7 @@
      Boğazdan sternuma inen ana damar + göğse açılan yan dallar;
      her dalda eğri boyunca gezinen kehribar nabızlar. */
   function altinDallar() {
-    var amberDoku = nabizDokusu("255,190,90");
+    var amberDoku = nabizDokusu("255,176,32");
 
     function nabizEkle(egri) {
       var top = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -391,18 +391,18 @@
       if (dugumVar) dugumEkle(bas);
     }
 
-    kol(0.55, 0xffb14e, 3, true);   // ana damar
+    kol(0.55, 0xffb020, 3, true);   // ana damar
     // yan kollar (sayı/opaklık/renk aynen korunuyor)
     var kolOpaklari = [0.32, 0.32, 0.28, 0.28, 0.24, 0.24];
-    for (var i = 0; i < kolOpaklari.length; i++) kol(kolOpaklari[i], 0xf5a53f, 1, true);
+    for (var i = 0; i < kolOpaklari.length; i++) kol(kolOpaklari[i], 0xff9500, 1, true);
     // alt kollar (düğümsüz)
     var altOpaklari = [0.16, 0.16, 0.16, 0.16];
-    for (i = 0; i < altOpaklari.length; i++) kol(altOpaklari[i], 0xd99445, 1, false);
+    for (i = 0; i < altOpaklari.length; i++) kol(altOpaklari[i], 0xff7700, 1, false);
   }
 
   /* ---------- mavi veri nabızlı ince lifler ---------- */
   function sinirLifleri() {
-    var maviDoku = nabizDokusu("120,180,255");
+    var maviDoku = nabizDokusu("0,229,255");
     var adet = 12;
     for (var i = 0; i < adet; i++) {
       // plazma kolu: çekirdekten yüzeye (mavi veri nabzı)
@@ -423,7 +423,7 @@
 
       var merkezde = (i % 4 === 0);
       var mat = new THREE.LineBasicMaterial({
-        color: merkezde ? 0xffb85c : 0x4d9aff,
+        color: merkezde ? 0xffb020 : 0x00e5ff,
         transparent: true, opacity: 0.11,
         blending: THREE.AdditiveBlending, depthWrite: false,
       });
@@ -442,9 +442,9 @@
     }
   }
 
-  /* ---------- yüz çekirdeği: dalgalı kehribar enerji ----------
-     Referanstaki gibi: beyaz-sarı çekirdek → turuncu → kızıl kenar,
-     ince yatay girişim şeritleri, yavaş dikey dalga. */
+/* ---------- yüz çekirdeği: dalgalı kehribar enerji ----------
+      Referanstaki gibi: beyaz-sarı çekirdek → turuncu → kızıl kenar,
+      ince yatay girişim şeritleri, yavaş dikey dalga. Jarvis/FUI: cyan + amber. */
   function yuzCekirdegi() {
     var geo = new THREE.PlaneGeometry(1.15, 1.15);
     var mat = new THREE.ShaderMaterial({
@@ -464,13 +464,13 @@
         "  p.x *= 1.0;",
         "  float d = length(p);",
         "  float maske = smoothstep(0.56,0.10,d);",
-        // ince yatay girişim şeritleri + ikinci ince doku + yavaş dalga
+        "  // ince yatay girişim şeritleri + ikinci ince doku + yavaş dalga",
         "  float serit = 0.58+0.42*sin(vUv.y*58.0-uTime*(2.0+uLevel*13.0));",
         "  float ince  = 0.80+0.20*sin(vUv.y*23.0+uTime*2.6);",
         "  float dalga = 0.5+0.5*sin(vUv.y*6.5-uTime*(1.5+uLevel*5.0)+sin(vUv.x*5.0)*0.9);",
-        "  vec3 cekirdek  = vec3(1.0,0.98,0.76);",
-        "  vec3 turuncu   = vec3(0.99,0.53,0.07);",
-        "  vec3 koyuKenar = vec3(0.66,0.17,0.03);",
+        "  vec3 cekirdek  = vec3(1.0,0.98,0.85);",
+        "  vec3 turuncu   = vec3(0.99,0.60,0.15);",
+        "  vec3 koyuKenar = vec3(0.55,0.18,0.03);",
         "  vec3 sicak = mix(cekirdek,turuncu,smoothstep(0.03,0.30,d));",
         "  sicak = mix(sicak,koyuKenar,smoothstep(0.30,0.56,d));",
         "  float parlak = maske*serit*ince*(0.72+uFace*0.95)*(0.62+uLevel*1.9)*(0.72+0.28*dalga);",
@@ -483,9 +483,9 @@
     yuzMesh.position.set(0, 1.30, 0.35);
     grup.add(yuzMesh);
 
-    // arkasına geniş yumuşak kehribar hâle (bloom hissi)
+    // arkasına geniş yumuşak amber hâle (bloom hissi)
     yuzParlama = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: nabizDokusu("245,158,11"),
+      map: nabizDokusu("255,176,32"),
       transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
     }));
     yuzParlama.scale.set(1.60, 1.60, 1);
@@ -525,19 +525,24 @@
     grup.rotation.y = Math.sin(t * 0.13) * 0.11 * hareket;
     grup.rotation.z = Math.sin(t * 0.09) * 0.014 * hareket;
 
-    // kontur halkaları: aşağıdan yukarı akan tarama dalgası + hata tonu
-    var km = U.uMix.value;
-    for (var i = 0; i < halkalar.length; i++) {
-      var h = halkalar[i];
-      var dalga = 0.5 + 0.5 * Math.sin(t * (0.8 + A.flow * 1.5) - h.userData.y * 2.4 + h.userData.faz);
-      h.material.opacity = (h.userData.taban + 0.32 * dalga) *
-                           (0.65 + 0.85 * Math.min(1, A.flow + 0.35));
-      h.material.color.setRGB(
-        0.30 + 0.67 * km,
-        0.66 - 0.22 * km,
-        1.00 - 0.56 * km
-      );
-    }
+// kontur halkaları: aşağıdan yukarı akan tarama dalgası + hata tonu
+     var km = U.uMix.value;
+     for (var i = 0; i < halkalar.length; i++) {
+       var h = halkalar[i];
+       var dalga = 0.5 + 0.5 * Math.sin(t * (0.8 + A.flow * 1.5) - h.userData.y * 2.4 + h.userData.faz);
+       h.material.opacity = (h.userData.taban + 0.32 * dalga) *
+                            (0.65 + 0.85 * Math.min(1, A.flow + 0.35));
+       // Jarvis/FUI: cyan tonu, hata durumunda kırmızıya dönüşür
+       if (km > 0.5) {
+         h.material.color.setRGB(0.80, 0.10, 0.15);
+       } else {
+         h.material.color.setRGB(
+           0.10 + 0.70 * km,
+           0.65 - 0.30 * km,
+           0.95 - 0.20 * km
+         );
+       }
+     }
 
     // meridyen akışları: yavaş parlaklık nefesi
     for (i = 0; i < meridyenler.length; i++) {

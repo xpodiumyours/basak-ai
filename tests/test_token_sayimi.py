@@ -91,16 +91,11 @@ class TestBrainKablolama:
         """Sahte saglayici _kullanim tasiyorsa brain onu istatige aktarmali."""
         from brain import brain as brain_mod
         from brain.brain import Brain
-        from brain.kota import KotaYoneticisi
 
         istat = ModelIstatistik(db_yolu=str(tmp_path / "ist.db"))
         monkeypatch.setattr(brain_mod, "model_stats_al", lambda: istat)
 
         b = Brain.__new__(Brain)   # __init__ agirliklari olmadan
-        # GERCEK durum dosyasini degil, izole kotayi kullan (canli
-        # sogumalar testi etkilemesin)
-        b.kota = KotaYoneticisi(dosya=str(tmp_path / "kota.json"),
-                                ucretli_engelli=True)
         for ad in ("_glm", "_cloudflare", "_cohere", "_nvidia", "_kilo",
                    "_openrouter", "_qwen", "_gemini"):
             setattr(b, ad, None)

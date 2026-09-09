@@ -12,7 +12,6 @@ from datetime import datetime
 
 from brain.groq import MODELLER  # MODELLER sabitine hâlâ ihtiyaç var
 from brain.stats import model_stats_al
-from brain.kota import KotaYoneticisi
 from brain import secici, registry
 
 logger = logging.getLogger(__name__)
@@ -58,6 +57,29 @@ def _ayar_kaydet(veri: dict):
 # ve sonraki cagrilarda yapi hic gonderilmez (registry karti degismez).
 _YAPI_DENEME = {}
 
+# QWEN BEKLEMEDE (2026-09-09, tam tespit): hesap etkinlesmesi
+# bitene kadar (403 hatasi) Qwen zincire KATILMAZ. Casper
+# etkinlestirince False yapilir, kart registry'de hazir bekler.
+_QWEN_BEKLEMEDE = True
+
+# COOLDOWN: rate-limit (429) gelince provider gecici olarak atla
+import time as _time_mod
+_COOLDOWN = {}  # {ad: bitis_zamani}
+_COOLDOWN_SURE = 120  # 2 dakika
+
+def _cooldown_kaldi(ad):
+    bitis = _COOLDOWN.get(ad, 0)
+    kalan = bitis - _time_mod.time()
+    return max(0, kalan)
+
+def _cooldown_ekle(ad, sure=None):
+    _COOLDOWN[ad] = _time_mod.time() + (sure or _COOLDOWN_SURE)
+
+def _rate_limit_mi(hata):
+    s = str(hata).lower()
+    return any(k in s for k in ("429", "rate", "limit", "too many", "quota"))
+
+
 
 def _yapi_desteksiz_mi(hata) -> bool:
     """Hata, yapi/response_format desteklenmeyen istekten mi kaynaklaniyor?
@@ -74,9 +96,6 @@ def _yapi_desteksiz_mi(hata) -> bool:
 class Brain:
     def __init__(self):
         ayar = _ayar_yukle()
-        # P3 kota yoneticisi: ucretli engeli varsayilan ACIK
-        self.kota = KotaYoneticisi(
-            ucretli_engelli=bool(ayar.get("ucretli_engelli", True)))
 
         # ── ADAPTER PATTERN: adapter'ları otomatik keşfet ve başlat ──
         from brain.adapters.registry import discover_all, create_providers
@@ -124,7 +143,9 @@ class Brain:
         if self._openrouter is not None and self._openrouter.musait():
             zincir.append(("openrouter", self._openrouter))
         if self._qwen is not None and self._qwen.musait():
-            zincir.append(("qwen", self._qwen))
+            # QWEN BEKLEMEDE disinda normal katilim
+            if not _QWEN_BEKLEMEDE:
+                zincir.append(("qwen", self._qwen))
         if self._gemini is not None and self._gemini.musait():
             zincir.append(("gemini", self._gemini))
         return zincir
@@ -189,11 +210,10 @@ class Brain:
 
     def cevapla(self, messages, yerel_model, tools=None,
                 tercih=None, gorev_tipi=None, override_model=None, yapi=None):
-        """Mesajlara cevap verir — Router v2 (P3).
+        """Mesajlara cevap verir — Router v2 (P3, kota katmanı söküldü).
 
-        Akis: secici motoru sirayi belirler (gorev turune gore, gerekcesiyle)
-        → kota/saglik filtresi engellileri atlar → deneme; hata verirse
-        siradaki devralir; hepsi duserse yerel Ollama son care.
+        Akis: secici motoru sirayi belirler → deneme; hata verirse siradaki
+        devralir; hepsi duserse yerel Ollama son care.
 
         Donus: (yanit, gosterim) — gosterim "nvidia · kod isi" tarzinda
         seffaf secim bilgisi tasir.
@@ -223,7 +243,8 @@ class Brain:
             sirali, gerekce = secici.sec(
                 text=soru, gorev_tipi=gorev_tipi,
                 tools=bool(tools), mevcutlar=mevcutlar,
-                karne_kullan=True)   # B1: deneyim sirayi geriye itebilir
+                karne_kullan=True,    # B1: deneyim sirayi geriye itebilir
+                cooldown=_COOLDOWN)   # rate-limit cooldown bilgisi
             tip = secici.siniflandir(soru)
 
         istemciler = dict(zincir)
@@ -232,13 +253,10 @@ class Brain:
             istemci = istemciler.get(ad)
             if istemci is None:
                 continue
-
-            # P3: kota / ucretli / soguma engeli
-            engel = self.kota.engel_nedeni(ad, registry.kart(ad))
-            if engel:
-                logger.info("%s atlandi: %s", ad, engel)
-                _audit("ATLANDI kaynak=%s | neden=%s" % (ad, engel))
-                hatalar.append("%s: %s" % (ad, engel))
+            # Cooldown: 429 gelmisse atla
+            kalan = _cooldown_kaldi(ad)
+            if kalan > 0:
+                logger.info("%s cooldown (%.0f sn), atlandi", ad, kalan)
                 continue
 
             istat = model_stats_al()
@@ -253,7 +271,7 @@ class Brain:
                 except Exception as e:
                     # Saglayici yapi'yi bad-request ile reddetti → isaretle,
                     # ayni saglayiciyi yapısız HEMEN tekrar dene; hata zinciri
-                    # bugunku gibi islenir (kota harcanmaz).
+                    # bugunku gibi islenir.
                     if yapi_bu is not None and _yapi_desteksiz_mi(e):
                         _YAPI_DENEME[ad] = False
                         logger.warning(
@@ -264,9 +282,8 @@ class Brain:
                     else:
                         raise
                 sure = time.time() - t0
-                istek_no = self.kota.harca(ad)
-                _audit("OK kaynak=%s | %.1f sn | tools=%s | istek=%d | %s" %
-                       (ad, sure, bool(tools), istek_no, gerekce))
+                _audit("OK kaynak=%s | %.1f sn | tools=%s | %s" %
+                       (ad, sure, bool(tools), gerekce))
                 # Gercek token sayimi (2026-08-24): adaptorden gelen
                 # kullanim bilgisini ayikla ve istatistige yaz.
                 kullanim = None
@@ -285,7 +302,9 @@ class Brain:
                 sure = time.time() - t0
                 logger.warning("%s hatasi, siradaki deneniyor: %s", ad, e)
                 hatalar.append("%s: %s" % (ad, str(e)[:80]))
-                self.kota.hata_isle(ad, str(e))
+                if _rate_limit_mi(e):
+                    _cooldown_ekle(ad)
+                    logger.info("%s rate-limit, cooldown baslatildi", ad)
                 _audit("HATA kaynak=%s (%.1f sn): %s" %
                        (ad, sure, str(e)[:100]))
                 istat.kaydet(ad, sure, basarili=False, hata=str(e)[:100], tools=bool(tools))
@@ -300,9 +319,8 @@ class Brain:
             else:
                 yanit = self._ollama.cevapla(messages, yerel_model, tools=tools)
             sure = time.time() - t0
-            istek_no = self.kota.harca("yerel")
-            _audit("OK kaynak=yerel | %.1f sn | tools=%s | istek=%d | dustu=%d bulut"
-                   % (sure, bool(tools), istek_no, len(hatalar)))
+            _audit("OK kaynak=yerel | %.1f sn | tools=%s | dustu=%d bulut"
+                   % (sure, bool(tools), len(hatalar)))
             istat.kaydet("yerel", sure, basarili=True, tools=bool(tools))
             return yanit, "yerel"
         except Exception as e:

@@ -15,10 +15,11 @@ import chat as c
 
 
 def test_ayar_kapaliyken_eski_yol_secilir(monkeypatch, tmp_path):
+    import _chat_legacy as _cl
     ayarlar = tmp_path / "ayarlar.json"
     ayarlar.write_text(json.dumps({"orkestra_ana_yol": False}),
                        encoding="utf-8")
-    monkeypatch.setattr(c, "SETTINGS_FILE", str(ayarlar))
+    monkeypatch.setattr(_cl, "SETTINGS_FILE", str(ayarlar))
     assert c.orkestra_aktif_mi() is False
 
     ayarlar.write_text(json.dumps({"orkestra_ana_yol": True}),
@@ -26,15 +27,16 @@ def test_ayar_kapaliyken_eski_yol_secilir(monkeypatch, tmp_path):
     assert c.orkestra_aktif_mi() is True
 
     # dosya yoksa da güvenli False
-    monkeypatch.setattr(c, "SETTINGS_FILE", str(tmp_path / "yok.json"))
+    monkeypatch.setattr(_cl, "SETTINGS_FILE", str(tmp_path / "yok.json"))
     assert c.orkestra_aktif_mi() is False
 
 
 def _ana_yol_acik(monkeypatch, tmp_path, deger=True):
+    import _chat_legacy as _cl
     ayarlar = tmp_path / "ayarlar.json"
     ayarlar.write_text(json.dumps({"orkestra_ana_yol": deger}),
                        encoding="utf-8")
-    monkeypatch.setattr(c, "SETTINGS_FILE", str(ayarlar))
+    monkeypatch.setattr(_cl, "SETTINGS_FILE", str(ayarlar))
 
 
 class SahteBrain:
@@ -57,7 +59,8 @@ def test_ana_yol_acikken_mesaj_isle_orkestraya_yonlenir(monkeypatch,
         gidenler.append((text, sprompt, kaydet_acik))
         cb("BasakUI.reply('orkestra cevabi', 'groq')")
 
-    monkeypatch.setattr(c, "mesaj_isle_orkestra", sahte_orkestra)
+    import _chat_legacy as _cl
+    monkeypatch.setattr(_cl, "mesaj_isle_orkestra", sahte_orkestra)
     c.mesaj_isle("merhaba", SahteBrain(), "KISILIK-METNI",
                  lambda code: None, None)
     assert len(gidenler) == 1

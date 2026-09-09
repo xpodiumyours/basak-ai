@@ -37,8 +37,7 @@ def _karne_ozetleri(mevcutlar):
             and o.get("toplam", 0) >= _MIN_ORNEKLEM}
 
 
-# Gorev turleri ve anahtar kelimeleri (chat.py'deki eski _beyin_tercihi
-# mantiginin genisletilmis hali)
+# Gorev turleri ve anahtar kelimeleri
 _GOREV_KELIMELERI = {
     "kod": ["kod", "python", "javascript", "fonksiyon", "hata",
             "debug", "script", "regex", "yazılım", "programla",
@@ -48,12 +47,20 @@ _GOREV_KELIMELERI = {
     "hiz": ["hızlı", "çabuk", "acele", "anında", "şimdi"],
 }
 
-# Gorev turune gore one alinacak saglayicilar (registry gucleriyle uyumlu)
+# 2026-09-09 (tam tespit): olcum gercegine gore dizeildi.
+# GLM guvenilir (%68.8) + sinirsiz bedava; Cloudflare 0 hata;
+# Groq hizli ama dakikada 8000 kelime duvari var;
+# Cohere dusuk basarili (%38.1) — karne onu zaten sona atar, burada
+# arastirmada GLM one gecer; Gemini gunluk 20'de biter (yedek).
 _TERCİHLER = {
-    "kod": ["nvidia", "glm"],
-    "arastirma": ["gemini", "cohere"],
-    "hiz": ["groq", "cloudflare"],
+    "kod": ["glm", "nvidia"],        # GLM guvenilir, NVIDIA yedek
+    "arastirma": ["glm", "cohere"],    # GLM guvenilir, Cohere yedek
+    "hiz": ["groq", "cloudflare"],    # Groq en hizli, Cloudflare yedek
 }
+
+# 2026-08-26: Tool calling'i iyi calisan modeller.
+# Bu modeller tool JSON'unu cozmede daha basarili.
+_TOOL_IYILERI = {"groq", "glm", "cloudflare", "cohere"}
 
 
 def siniflandir(text):
@@ -66,7 +73,7 @@ def siniflandir(text):
 
 
 def sec(text=None, gorev_tipi=None, tools=False, mevcutlar=None,
-        karne_kullan=False):
+        karne_kullan=False, cooldown=None):
     """Saglayici sirasini ve gerekceyi dondurur: (sirali_adlar, gerekce).
 
     - mevcutlar: su an kullanilabilir saglayici adlari (brain zinciri).
@@ -86,12 +93,25 @@ def sec(text=None, gorev_tipi=None, tools=False, mevcutlar=None,
         bilinmeyen = [a for a in mevcutlar if a not in registry.VARSAYILAN_SIRA]
         mevcutlar = temel + bilinmeyen
 
-    # Tool gerekiyorsa desteklemeyenler sona
+    # Tool gerekiyorsa: desteklemeyenler sona, iyi tool yapanlar one
     if tools:
-        destekleyen = [a for a in mevcutlar if registry.tool_destegi_var_mi(a)]
-        desteklemeyen = [a for a in mevcutlar
-                         if not registry.tool_destegi_var_mi(a)]
-        mevcutlar = destekleyen + desteklemeyen
+        destekli = [a for a in mevcutlar if registry.tool_destegi_var_mi(a)]
+        desteksiz = [a for a in mevcutlar
+                     if not registry.tool_destegi_var_mi(a)]
+        # Tool calling'i iyi yapanlar one alinir
+        iyiler = [a for a in destekli if a in _TOOL_IYILERI]
+        digerleri = [a for a in destekli if a not in _TOOL_IYILERI]
+        mevcutlar = iyiler + digerleri + desteksiz
+
+    # Cooldown: rate-limit almis saglayicilari sondan once
+    if cooldown:
+        import time as _t
+        now = _t.time()
+        cooldown_aktif = [a for a in mevcutlar if cooldown.get(a, 0) > now]
+        cooldown_bitmis = [a for a in mevcutlar if a not in cooldown_aktif]
+        if cooldown_aktif:
+            mevcutlar = cooldown_bitmis + cooldown_aktif
+            gerekce = 'cooldown: ' + ', '.join(cooldown_aktif) + ' sona alindi'
 
     # Gorev turune gore one alma
     gerekce = "genel sohbet → varsayilan sira"
@@ -114,6 +134,22 @@ def sec(text=None, gorev_tipi=None, tools=False, mevcutlar=None,
         gerekce = "genel sohbet → dagitilmis sira (" + ", ".join(
             registry.kart(a)["ad"] for a in ilk_3) + ")"
 
+    # Token butcesi bilinci: gunluk limitin %%90 uzerinde olanlar sona
+    if cooldown is not None:  # cooldown dict varsa token verisi de olabilir
+        try:
+            from brain.stats import model_stats_al
+            istat = model_stats_al()
+            for a in list(mevcutlar):
+                giris, _ = istat.token_bugun(a)
+                # Groq icin 200K limit, digerleri icin 50K tahmini
+                limit = 180000 if a == "groq" else 50000
+                if giris > limit:
+                    mevcutlar.remove(a)
+                    mevcutlar.append(a)  # sona ekle
+                    gerekce += " | %s token limiti yakin (%%%d)" % (a, int(giris/limit*100))
+        except Exception:
+            pass  # olcum hatasi sohbeti bozmasin
+
     # B1 karne katmani: deneyim, kural sirasini yalnizca GERIYE itebilir.
     # Yeterli ornekleme (>=5 cagri) olan ve basari orani esik alti olan
     # saglayici sona alinir; gerekceye seffaf yazilir.
@@ -128,5 +164,10 @@ def sec(text=None, gorev_tipi=None, tools=False, mevcutlar=None,
                 "%s (%%%s)" % (a, karne[a]["basari_orani"]) for a in zayif)
             mevcutlar = saglam + zayif
             gerekce += " | karne: %s sona alindi" % detay
+
+    # 2026-09-09: kilo-once kurali KALDIRILDI (tam tespit).
+    # Kilo basarisi %25 (16 cagrida 4 basari) — en onde duramaz.
+    # Sira artik VARSAYILAN_SIRA + gorev tercihi + karne ile belirlenir.
+    # Kilo yedek olarak zincirde durur, one alinmaz.
 
     return list(mevcutlar), gerekce

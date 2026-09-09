@@ -14,7 +14,9 @@ Kişisel, tamamen yerel/ücretsiz çalışan bir Jarvis: sesli + yazılı konuş
 
 ## 1.1. Sonraki özellikler
 
-`GOREV_LISTESI.md`'de 5 adet onaylı yön var (gerçek hafıza sistemi, bilgisayarda iş yapma, güncel bilgi/web arama, görev takibi, yeni güven sınırı). Kilitli sıra yok — hangisi açılırsa buraya "şu an neredeyiz" olarak işlenir.
+**GEÇERLİ PLAN TEK DOSYADIR: `ANA-PLAN.md` (2026-08-25 sürümü).** Sıra, kabul ölçüsü ve "bugün neredeyiz" oradan okunur. Yeni plan belgesi açılmaz.
+
+`GOREV_LISTESI.md`, `ANAPLAN-SONRASI-PROFESYONEL-MIMARI.md`, `Resmidökümanuyum.md`, `BASAK-VIZYON-VE-YOL-HARITASI.md` 2026-08-25'te `_arsiv/eski-planlar-2026-08-25/` altına taşındı. Bu dosyanın ilerleyen bölümlerinde onlara yapılan atıflar **tarihî kayıttır**, yürürlükteki plan değildir. Sırası gelen bir madde arşivden çıkarılıp `ANA-PLAN.md`'e işlenir.
 
 ## 2. Şu an neredeyiz / sıra
 

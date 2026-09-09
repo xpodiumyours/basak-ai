@@ -23,7 +23,6 @@ from brain.openrouter import OpenRouterClient
 from brain.cloudflare import CloudflareClient
 from brain.cohere import CohereClient
 from brain.qwen import QwenClient
-from brain.kota import KotaYoneticisi
 
 MESAJ = [{"role": "user", "content": "selam"}]
 YAPI = {"tip": "nesne", "ozellikler": ["ad"]}
@@ -179,7 +178,6 @@ class TestBrainYapiTasima:
     def _brain(self, monkeypatch, zincir, tmp_path):
         from brain.brain import Brain
         b = Brain.__new__(Brain)  # __init__ anahtar/ag istemez
-        b.kota = KotaYoneticisi(dosya=str(tmp_path / "kota.json"))
         b._ollama = YapiSahteIstemci()
         monkeypatch.setattr(b, "_bulut_zinciri", lambda: zincir)
         return b
@@ -223,8 +221,6 @@ class TestBrainYapiTasima:
         assert sira_disi.cagrildi == 0
         assert kaynak.startswith("glm")
         assert yanit["content"] == "tamam"
-        # Kota tek sayilir (basarisiz deneme harcama yazmaz)
-        assert b.kota.durum["sayac"]["glm"]["istek"] == 1
 
         # Sonraki cagrida kirtilmis saglayiciya yapi HIC gitmez
         b.cevapla(MESAJ, "qwen2.5:3b", tercih=("glm", "cloudflare"), yapi=YAPI)

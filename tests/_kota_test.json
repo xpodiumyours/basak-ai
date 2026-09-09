@@ -2,13 +2,13 @@
  "tarih": "2026-08-25",
  "sayac": {
   "groq": {
-   "istek": 10
+   "istek": 13
   },
   "glm": {
-   "istek": 10
+   "istek": 13
   },
   "yerel": {
-   "istek": 10
+   "istek": 13
   }
  },
  "cooldown": {}

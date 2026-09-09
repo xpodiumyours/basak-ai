@@ -1,7 +1,8 @@
 """tests/test_router.py — P3 Router v2 testleri.
 
-Registry, Secici Motoru, Kota Yoneticisi, Permission Layer ve
-Brain.cevapla entegrasyonu (sahte istemcilerle, ag yok).
+Registry, Secici Motoru, Permission Layer ve Brain.cevapla entegrasyonu
+(sahte istemcilerle, ag yok). Kota katmanı 2026-08-25'te söküldü;
+kota testleri kaldırıldı.
 """
 
 import os
@@ -13,7 +14,6 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from brain import registry, secici
-from brain.kota import KotaYoneticisi, rate_limit_hatasi_mi, _retry_suresi_oku
 from tools.permissions import ETIKETLER, izinli_mi
 
 
@@ -37,6 +37,17 @@ class TestRegistry:
         for ad in registry.VARSAYILAN_SIRA:
             assert registry.ucretli_mi(ad) is False, f"{ad} ucretli, zincire giremez"
 
+    def test_varsayilan_sira_olcum_duzenli(self):
+        # 2026-09-09 tam tespit: guvenilirler onde, bitikler arkada.
+        sira = registry.VARSAYILAN_SIRA
+        assert sira.index("glm") < sira.index("gemini")
+        assert sira.index("cloudflare") < sira.index("kilo")
+        assert sira.index("groq") < sira.index("openrouter")
+
+    def test_qwen_uykuda(self):
+        # Qwen hesap etkinlesene kadar zincire giremez.
+        assert registry.kart("qwen").get("etkin") is False
+
 
 class TestSiniflandirma:
     def test_kod(self):
@@ -53,14 +64,23 @@ class TestSiniflandirma:
 
 
 class TestSecici:
-    def test_kod_isinde_nvidia_once(self):
+    def test_kod_isinde_glm_once(self):
         sirali, gerekce = secici.sec(gorev_tipi="kod")
-        assert sirali[0] == "nvidia"
+        # 2026-09-09: kilo-once kurali kaldirildi (basari %25).
+        # Kod isinde GLM guvenilir oldugu icin once gelir.
+        assert sirali[0] == "glm"
         assert "kod" in gerekce
 
-    def test_arastirmada_gemini_once(self):
+    def test_arastirmada_glm_once(self):
         sirali, _ = secici.sec(gorev_tipi="arastirma")
-        assert sirali[0] == "gemini"
+        # 2026-09-09: arastirmada GLM once (Cohere %38.1 ile zayif).
+        assert sirali[0] == "glm"
+
+    def test_kilo_one_alinmaz(self):
+        # Kilo zincirde yedek durur, one alinmaz.
+        sirali, _ = secici.sec(text="naber")
+        assert "kilo" in sirali
+        assert sirali[0] in set(registry.VARSAYILAN_SIRA[:3])
 
     def test_mevcut_olmayan_tercih_atlanir(self):
         sirali, _ = secici.sec(
@@ -79,64 +99,6 @@ class TestSecici:
         assert sirali[0] in ilk_3, "ilk saglayici ilk 3 icinden olmali"
         assert len(sirali) == len(registry.VARSAYILAN_SIRA)
         assert "dagitilmis" in gerekce
-
-
-@pytest.fixture
-def kota(tmp_path):
-    k = KotaYoneticisi(dosya=str(tmp_path / "kota.json"))
-    yield k
-
-
-class TestKota:
-    def test_ucretli_varsayilan_engelli(self, kota):
-        neden = kota.engel_nedeni("deepseek", registry.kart("deepseek"))
-        assert "ucretli" in neden
-
-    def test_ucretli_izin_verilirse_acilir(self, tmp_path):
-        k = KotaYoneticisi(dosya=str(tmp_path / "k.json"), ucretli_engelli=False)
-        assert k.engel_nedeni("deepseek", registry.kart("deepseek")) is None
-
-    def test_gunluk_limit_dolunca_engel(self, kota):
-        kart = {"ucretsiz": True, "gunluk_istek": 2}
-        assert kota.engel_nedeni("groq", kart) is None
-        kota.harca("groq")
-        kota.harca("groq")
-        neden = kota.engel_nedeni("groq", kart)
-        assert "limiti doldu" in neden
-
-    def test_sayac_kalici(self, tmp_path):
-        yol = str(tmp_path / "k.json")
-        KotaYoneticisi(dosya=yol).harca("groq")
-        k2 = KotaYoneticisi(dosya=yol)
-        assert k2.durum["sayac"]["groq"]["istek"] == 1
-
-    def test_429_soguma_kurar(self, kota):
-        kurdu = kota.hata_isle(
-            "gemini", "Error code: 429 - RESOURCE_EXHAUSTED retryDelay '52s'")
-        assert kurdu is True
-        neden = kota.engel_nedeni("gemini", {"ucretsiz": True})
-        assert "soguma" in neden or "soğuma" in neden
-
-    def test_normal_hata_soguma_kurmaz(self, kota):
-        assert kota.hata_isle("groq", "connection timeout") is False
-        assert kota.engel_nedeni("groq", {"ucretsiz": True}) is None
-
-    def test_tarih_degisimi_sayaci_sifirlar(self, kota):
-        kart = {"ucretsiz": True, "gunluk_istek": 1}
-        kota.harca("groq")
-        assert kota.engel_nedeni("groq", kart) is not None
-        kota.durum["tarih"] = "2000-01-01"  # dün gibi göster
-        assert kota.engel_nedeni("groq", kart) is None  # yeni gün → sıfırlandı
-
-    def test_retry_suresi_okuma(self):
-        assert _retry_suresi_oku("Please try again in 14m4s") >= 14 * 60
-        assert _retry_suresi_oku("Please retry in 52.8s") >= 50
-        assert _retry_suresi_oku("anlasilmayan hata") is None
-
-    def test_rate_limit_tanimasi(self):
-        assert rate_limit_hatasi_mi("429 Too Many Requests")
-        assert rate_limit_hatasi_mi("quota exceeded for metric")
-        assert not rate_limit_hatasi_mi("invalid api key")
 
 
 class TestPermissionLayer:
@@ -179,8 +141,6 @@ class TestBrainRouterV2:
     def _brain(self, monkeypatch, zincir):
         from brain.brain import Brain
         b = Brain.__new__(Brain)  # __init__ anahtar/ag istemez
-        b.kota = KotaYoneticisi(
-            dosya=os.path.join(os.path.dirname(__file__), "_kota_test.json"))
         monkeypatch.setattr(b, "_bulut_zinciri", lambda: zincir)
         return b
 
@@ -190,44 +150,14 @@ class TestBrainRouterV2:
         yanit, kaynak = b.cevapla(
             [{"role": "user", "content": "selam"}], "qwen2.5:3b")
         assert yanit["content"] == "tamam"
-        assert kaynak.startswith("groq")
-        assert a.cagrildi == 1 and c.cagrildi == 0
-
-    def test_hata_verince_siradaki_gecer(self, monkeypatch):
-        a, c = SahteIstemci(hata=RuntimeError("patladi")), SahteIstemci()
-        b = self._brain(monkeypatch, [("groq", a), ("glm", c)])
-        yanit, kaynak = b.cevapla(
-            [{"role": "user", "content": "selam"}], "qwen2.5:3b")
-        assert kaynak.startswith("glm")
-        assert a.cagrildi == 1 and c.cagrildi == 1
-
-    def test_kota_dolan_atlanir(self, monkeypatch, tmp_path):
-        from brain.brain import Brain
-        a, c = SahteIstemci(), SahteIstemci()
-        b = Brain.__new__(Brain)
-        b.kota = KotaYoneticisi(dosya=str(tmp_path / "k.json"))
-        monkeypatch.setattr(b, "_bulut_zinciri", lambda: [("gemini", a), ("glm", c)])
-        # Gemini'nin gunluk ISTEK limitini tek istekte dolacak sekilde ayarla
-        # (B3 sonrasi groq'un limiti TOKEN butcesine tasindi — kartta
-        # gunluk_istek kalan saglayiciyla istek-yolu test edilir)
-        b.kota.durum["sayac"]["gemini"] = {"istek": registry.kart("gemini")["gunluk_istek"]}
-        yanit, kaynak = b.cevapla(
-            [{"role": "user", "content": "naber"}], "qwen2.5:3b")
+        # 2026-09-09: varsayilan sirada glm groq'un onunde.
         assert kaynak.startswith("glm")
         assert a.cagrildi == 0 and c.cagrildi == 1
 
-    def test_ucretli_zincirde_olsa_bile_engellenir(self, monkeypatch):
-        from brain.brain import Brain
-        a, yerel = SahteIstemci(), SahteIstemci()
-        b = Brain.__new__(Brain)
-        b.kota = KotaYoneticisi(
-            dosya=os.path.join(os.path.dirname(__file__), "_kota_test.json"))
-        b._ollama = yerel
-        monkeypatch.setattr(b, "_bulut_zinciri", lambda: [("deepseek", a)])
+    def test_hata_verince_siradaki_gecer(self, monkeypatch):
+        a, c = SahteIstemci(), SahteIstemci(hata=RuntimeError("patladi"))
+        b = self._brain(monkeypatch, [("groq", a), ("glm", c)])
         yanit, kaynak = b.cevapla(
             [{"role": "user", "content": "selam"}], "qwen2.5:3b")
-        # Ucretli engellendi → kimse bulutu cagirmadi, yerel fallback devrede
-        assert a.cagrildi == 0
-        assert kaynak == "yerel"
-        assert yanit["content"] == "tamam"
-        b.kota.soguma_temizle("deepseek")
+        assert kaynak.startswith("groq")
+        assert a.cagrildi == 1 and c.cagrildi == 1

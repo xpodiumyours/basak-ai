@@ -130,7 +130,9 @@ class TestOgrenVeGuvenlik:
 
         b = bilesenler(aday_uret=aday)
         Orkestra(b).kos("merhaba", sistem="BEN BASAK'IM")
-        assert gorulen["ilk"] == "BEN BASAK'IM"
+        # 2026-08-25: sistem promptuna araç rehberi ekleniyor; kişilik
+        # metni başta kalmalı.
+        assert gorulen["ilk"].startswith("BEN BASAK'IM")
 
     def test_bos_soru_hata_ile_doner(self):
         rapor = Orkestra(bilesenler()).kos("   ")

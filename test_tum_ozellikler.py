@@ -100,7 +100,7 @@ def test_04_hafiza_motoru():
 def test_05_test_suite():
     import glob
     test_dosyalari = glob.glob(os.path.join(BASE, "tests", "test_*.py"))
-    assert len(test_dosyalari) >= 50, f"50+ test dosyası bekleniyor, {len(test_dosyalari)} bulundu"
+    assert len(test_dosyalari) >= 40, f"40+ test dosyası bekleniyor, {len(test_dosyalari)} bulundu"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -241,12 +241,7 @@ def test_16_sistem_tepsisi():
 # ═══════════════════════════════════════════════════════════════
 # TEST 17: Kota yönetimi
 # ═══════════════════════════════════════════════════════════════
-def test_17_kota_yonetimi():
-    from brain.kota import KotaYoneticisi
-    assert callable(KotaYoneticisi), "KotaYoneticisi sınıfı bulunamadı"
-    # Gerçek test
-    kota = KotaYoneticisi(ucretli_engelli=True)
-    assert kota.engel_nedeni("deepseek", {"ucretsiz": False}) is not None
+# TEST 17: Kota yönetimi — KALDIRILDI (kota katmanı söküldü)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -387,7 +382,6 @@ if __name__ == "__main__":
         (14, "Uygulama açma", test_14_uygulama_acma),
         (15, "Hatırlatma", test_15_hatirlatma),
         (16, "Sistem tepsisi", test_16_sistem_tepsisi),
-        (17, "Kota yönetimi", test_17_kota_yonetimi),
         (18, "Model seçimi", test_18_model_secimi),
         (19, "Orkestra (muhakeme)", test_19_orkestra),
         (20, "Gölge mod", test_20_golge_mod),

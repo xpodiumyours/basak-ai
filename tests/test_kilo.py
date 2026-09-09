@@ -132,4 +132,7 @@ class TestRegistryKarti:
     def test_varsayilan_zincirde_yeri(self):
         sira = registry.VARSAYILAN_SIRA
         assert "kilo" in sira
-        assert sira.index("nvidia") < sira.index("kilo") < sira.index("openrouter")
+        # 2026-09-09 (tam tespit): kilo yedek, one alinmaz.
+        # Olcumu guvenilir olanlar (glm, cloudflare, groq) ondeler.
+        assert sira.index("glm") < sira.index("kilo")
+        assert sira.index("kilo") < sira.index("openrouter")

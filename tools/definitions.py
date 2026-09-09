@@ -5,6 +5,88 @@ parametre yapısı AYNEN korundu, yalnız açıklama metinleri kısaltıldı
 (8.384 → ~2.900 karakter). Tetikleyici ipuçları korundu.
 """
 
+# CORE TOOLS: modelin her zaman gorebildigi temel araclar
+# 2026-08-26 v2: 8'den 5'e dusuruldu — log'da calistigi kanitlanmis
+CORE_TOOL_NAMES = {
+    "web_search",       # internette arama — KANITLANMIS
+    "add_task",         # gorev ekle — basit (sadece text)
+    "list_tasks",       # gorevleri listele — KANITLANMIS
+    "list_files",       # klasor listele — KANITLANMIS
+    "save_note",        # not kaydet — basit (title+content)
+}
+
+# KUCUK/UCRETSIZ MODELLER ICIN DAHA DAR CORE: yalniz en kanitlanmis,
+# en basit 4 arac. 3b sinifi icin sema yukunu dusurur (B-EYLEM/BAĞLAM
+# DIYETI). gate_modu=otomatik ve guclu saglayici yoksa kullanilir.
+SMALL_CORE_TOOL_NAMES = {
+    "web_search",       # internette arama
+    "add_task",         # gorev ekle — basit (sadece text)
+    "list_files",       # klasor listele — KANITLANMIS
+    "read_file",        # dosya oku — KANITLANMIS
+}
+
+# EXTENDED TOOL TETIKLEYICILERI
+# Anahtar kelime gecerse ilgili arac da sete eklenir.
+EXTENDED_TETIKLERI = {
+    "complete_task": [
+        "bitirdim", "tamamladim", "bitti", "yaptim",
+        "gorevi tamamla", "gorevi bitir",
+    ],
+    "read_file": [
+        "dosyayi oku", "dosya icerigi", "dosyanin icinde ne var",
+        "bu dosyayi ac", "oku",
+    ],
+    "get_reminders": [
+        "hatirlatma", "hatirlat", "bugun ne yapacagim",
+        "ajandam", "programim", "planim",
+    ],
+    "git_durum": [
+        "vixrex", "numeramatch", "xses",
+        "durumu ne", "durum ne", "son commit",
+        "branch", "dal", "commit", "diff",
+        "kod durumu", "guncel mi",
+    ],
+    "belge_ara": [
+        "planda ne", "belgede ne", "listede ne yaziyor",
+        "dokumanda", "gorev listesinde", "notlarda",
+        "defterde ne", "bilgi notu", "rehberde",
+    ],
+    "dosya_bilgi": [
+        "dosya boyutu", "dosya tarihi", "dosya bilgisi",
+        "kac kb", "kac mb", "ne zaman degisti",
+    ],
+    "sayfa_oku": [
+        "sayfayi oku", "url oku", "sayfa icerigi",
+        "siteyi oku", "linkte ne yaziyor", "bu sayfada ne var",
+    ],
+    "write_file_tool": [
+        "dosyaya yaz", "dosya olustur", "yeni dosya",
+        "kaydet dosyaya", "dosyayi guncelle",
+    ],
+    "ac_uygulama": [
+        "ac", "baslat", "calistir",
+        "tarayici ac", "vscode ac", "notepad ac",
+    ],
+    "image_analyze": [
+        "goruntu", "resim", "foto", "png", "jpg",
+        "ekran goruntusu", "screenshot", "gorsel",
+    ],
+    "video_analyze": [
+        "video", "ses dosyasi", "transkript",
+        "ses kaydi", "konusma", "podcast",
+    ],
+    "model_stats": [
+        "model istatistik", "performans", "kullanim",
+        "token", "hiz testi",
+    ],
+    "deftere_kaydet": [
+        "deftere yaz", "ortak deftere", "kayit ekle",
+        "deftere kaydet",
+    ],
+}
+
+
+
 TOOLS = [
     {
         "type": "function",

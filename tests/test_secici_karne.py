@@ -39,7 +39,7 @@ class TestKarneKatmani:
         _doldur(istat, "nvidia", 0, 8)   # kotu karnesine ragmen
         sirali, gerekce = secici.sec(gorev_tipi="kod",
                                      mevcutlar=MEVCUTLAR)
-        assert sirali[0] == "nvidia"     # kurallar aynen isler
+        assert sirali[0] == "glm"        # 2026-09-09: kilo-once kaldirildi, kodda glm onde
         assert "karne" not in gerekce
 
     def test_zayif_saglayici_sona_alinir(self, istat):
@@ -57,7 +57,7 @@ class TestKarneKatmani:
         sirali, gerekce = secici.sec(gorev_tipi="kod",
                                      mevcutlar=MEVCUTLAR,
                                      karne_kullan=True)
-        assert sirali[0] == "nvidia"
+        assert sirali[0] == "glm"        # glm once, nvidia yakininda
         assert "karne" not in gerekce
 
     def test_az_ornekleme_sesi_cikarmaz(self, istat):
@@ -65,7 +65,7 @@ class TestKarneKatmani:
         sirali, gerekce = secici.sec(gorev_tipi="kod",
                                      mevcutlar=MEVCUTLAR,
                                      karne_kullan=True)
-        assert sirali[0] == "nvidia"
+        assert sirali[0] == "glm"
         assert "karne" not in gerekce
 
     def test_stats_hatasi_sessiz_gecer(self, monkeypatch, istat):
@@ -75,7 +75,7 @@ class TestKarneKatmani:
         sirali, gerekce = secici.sec(gorev_tipi="kod",
                                      mevcutlar=MEVCUTLAR,
                                      karne_kullan=True)
-        assert sirali[0] == "nvidia" and "karne" not in gerekce
+        assert sirali[0] == "glm" and "karne" not in gerekce
 
     def test_birden_fazla_zayif_sonunca_sira_korunur(self, istat):
         _doldur(istat, "nvidia", 0, 8)

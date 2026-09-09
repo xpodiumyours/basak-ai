@@ -20,17 +20,16 @@ window.addEventListener("error", function (ev) {
 function brainKaynakEtiketi(kaynak) {
   const el = $("brainSource");
   if (!el) return;
-  if (!el) return;
   const s = String(kaynak || "");
   let ad = null;
-  if (s.startsWith("groq")) ad = "Groq";
-  else if (s.startsWith("gemini")) ad = "Gemini";
+  if (s.startsWith("groq")) ad = "GROQ";
+  else if (s.startsWith("gemini")) ad = "GEMINI";
   else if (s.startsWith("glm")) ad = "GLM";
-  else if (s.startsWith("deepseek")) ad = "DeepSeek";
-  else if (s.startsWith("qwen")) ad = "Qwen";
-  else if (s.startsWith("nvidia")) ad = "Nemotron";
-  else if (s.startsWith("openrouter")) ad = "OpenRouter";
-  else if (s.startsWith("yerel")) ad = "Yerel";
+  else if (s.startsWith("deepseek")) ad = "DEEPSEEK";
+  else if (s.startsWith("qwen")) ad = "QWEN";
+  else if (s.startsWith("nvidia")) ad = "NEMOTRON";
+  else if (s.startsWith("openrouter")) ad = "OPENROUTER";
+  else if (s.startsWith("yerel")) ad = "YEREL";
 
   const parcalar = s.split("·");
   if (ad && parcalar.length > 1 && parcalar[1].trim()) {
@@ -42,8 +41,8 @@ function brainKaynakEtiketi(kaynak) {
 /* ---------------- API köprüsü ---------------- */
 const api = () => window.pywebview.api;
 
-/* 3D Orb kaldırıldı — sade sohbet arayüzü */
-const Orb = { init() {}, setState() {} };
+/* 3D Orb: head.js'deki Jarvis tarzı hologram */
+const Orb = window.BasakHead || { init() {}, setState() {}, durum() {}, ses() {} };
 
 /* ---------------- Metin bicimleme ---------------- */
 /* Kucuk markdown: kod blogu, satir ici kod, kalin. Disaridan kutuphane
@@ -217,13 +216,13 @@ const Chat = (function () {
 
   function add(role, text) {
     empty.style.display = "none";
-    document.body.classList.add("goster-mesajlar");   // sinema modunda perde otomatik açılsın
+    document.body.classList.add("goster-mesajlar");
     const dipte = dipteMi();
     const div = document.createElement("div");
     div.className = "msg " + role;
     div.innerHTML = '<div class="msg-avatar">' + (role === "basak" ? "B" : "S")
       + '</div><div class="msg-body"><div class="msg-name">'
-      + (role === "basak" ? "BAŞAK" : "SEN")
+      + (role === "basak" ? "BA�?AK" : "SEN")
       + '<span class="msg-saat">' + saatEtiketi() + "</span>"
       + '<button class="msg-kopya" type="button" title="Mesajı kopyala">kopyala</button>'
       + '</div><div class="msg-bubble"></div></div>';
@@ -285,10 +284,12 @@ const Chat = (function () {
     // yoktu; olculen en yavas model 27.9s (kimi-k3) ve o sure boyunca
     // ekran donmus gibi duruyordu.
     div.innerHTML = '<div class="msg-avatar">B</div><div class="msg-body">'
-      + '<div class="msg-name">BAŞAK<span class="msg-sure"></span></div>'
+      + '<div class="msg-name">BA�?AK<span class="msg-sure"></span></div>'
       + '<div class="msg-bubble"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>';
     list.appendChild(div);
     scroll.scrollTop = scroll.scrollHeight;
+    // Jarvis hologramı "düşünüyor" moduna geç
+    if (Orb && Orb.durum) Orb.durum("dusunuyor");
     return div;
   }
   function remove(el) { el.remove(); }
@@ -359,14 +360,35 @@ function setStatus(kind, label) {
   if (dot) dot.className = "logo-dot" + (kind === "ok" ? " ok" : kind === "err" ? " err" : kind === "busy" ? " busy" : "");
   const lbl = $("brainLabel");
   if (lbl) lbl.textContent = label;
-  // Header status'a da yazar
+  // Header status'a da yazar — Jarvis tarzı prefix
   const hs = $("sysStatus");
-  if (hs) hs.textContent = label;
+  if (hs) {
+    if (kind === "ok") {
+      // Model bilgisini de göster
+      hs.textContent = "◆ " + label;
+    } else if (kind === "err") hs.textContent = "▲ SİSTEM HATASI";
+    else if (kind === "busy") hs.textContent = "◆ İ�?LEM DEVAM EDİYOR";
+    else hs.textContent = "◆ " + label;
+  }
+  // Orb durumunu dagüncelle
+  const orbMap = { ok: "bekliyor", err: "hata", busy: "dusunuyor" };
+  if (Orb && Orb.durum && orbMap[kind]) Orb.durum(orbMap[kind]);
 }
 function setOrb(s) {
-  const labels = { bekliyor: "BAŞAK dinliyor", dusunuyor: "BAŞAK düşünüyor", cevapliyor: "BAŞAK konuşuyor", arac: "BAŞAK çalışıyor", hata: "HATA — bir sorun var", dinliyor: "BAŞAK dinliyor" };
-  const ds = $("durumSatiri");
-  if (ds) ds.textContent = labels[s] || "BAŞAK";
+  const labels = {
+    bekliyor: "BA�?AK BEKLEME MODU",
+    dusunuyor: "BA�?AK DÜ�?ÜNÜYOR",
+    cevapliyor: "BA�?AK KONU�?UYOR",
+    arac: "BA�?AK ARAÇ ÇALI�?TIRIYOR",
+    hata: "HATA — BİR SORUN VAR",
+    dinliyor: "BA�?AK DİNKİYOR",
+    algiliyor: "BA�?AK ALGILIYOR",
+    onay: "ONAY BEKLENİYOR"
+  };
+  // Sadece orbLabel'i=güncelle, durumSatiri'ni bozma
+  const orbLabel = $("orbLabel");
+  if (orbLabel) orbLabel.textContent = labels[s] || "BA�?AK";
+  if (Orb && Orb.durum) Orb.durum(s);
 }
 
 /* ---------------- Python'dan gelen geri çağrılar ---------------- */
@@ -393,7 +415,7 @@ window.BasakUI = {
   thinking() {
     Chat.thinking();
     kilidiKapat();
-    setStatus("busy", "Başak düşünüyor...");
+    setStatus("busy", "BA�?AK DÜ�?ÜNÜYOR...");
     setOrb("dusunuyor");
   },
   toolStatus(text) {
@@ -410,7 +432,7 @@ window.BasakUI = {
     setOrb("cevapliyor");
     if (!state.ttsOn) setTimeout(() => setOrb("bekliyor"), 2200);
     const ml = modelInfo || state.model || "yerel beyin";
-    setStatus("ok", ml + " hazır");
+    setStatus("ok", ml + " HAZIR");
     $("input").focus();
   },
   error(msg) {
@@ -418,10 +440,10 @@ window.BasakUI = {
     // Hata Basak'in AGZINDAN cikmis gibi gorunmemeli: eskiden sohbet
     // balonuna "Uzgunum, bir sorun var: ..." diye ekleniyordu ve baglanti
     // hatasi ile gercek cevap ayni yerde duruyordu.
-    Chat.sistem("Bağlantı sorunu: " + msg, true);
+    Chat.sistem("▲ BA�?LANTI SORUNU: " + msg, true);
     kilidiAc();
-    setStatus("err", "hata");
-    setStatus("err", "beyin yanıt vermedi");
+    setStatus("err", "BEYNİN YANIT VERMEDİ");
+    setOrb("hata");
   },
   listening(on) {
     state.dinliyor = on;
@@ -440,7 +462,8 @@ window.BasakUI = {
   },
   ses(seviye) {
     try {
-      // 3D orb kaldırıldı
+      // Jarvis hologramı ses seviyesine tepki verir
+      if (Orb && Orb.ses) Orb.ses(seviye);
       if (seviye > 2) {
         setOrb("cevapliyor");
         clearTimeout(sesZamanlayici);
@@ -462,9 +485,9 @@ window.BasakUI = {
     const argsStr = JSON.stringify(data.args, null, 2);
 
     const div = Chat.add('basak',
-      `⚠️ **Onay Gerekli**\n\n` +
-      `**İşlem:** ${toolName}\n` +
-      `**Detay:**\n\`${argsStr}\`\n\n` +
+      `⚠ ONAY GEREKLİ\n\n` +
+      `▶ İ�?LEM: ${toolName}\n` +
+      `▶ DETAY:\n\`${argsStr}\`\n\n` +
       `Bu işlemi yapmamı istiyor musun?`
     );
 
@@ -472,17 +495,17 @@ window.BasakUI = {
     const btnDiv = document.createElement('div');
     btnDiv.className = 'onay-butonlari';
     btnDiv.innerHTML = `
-      <button class="onay-btn onay-kabul" onclick="BasakUI.onayGonder('${data.call_id}', true)">✅ Evet, yap</button>
-      <button class="onay-btn onay-red" onclick="BasakUI.onayGonder('${data.call_id}', false)">❌ Hayır, iptal</button>
+      <button class="onay-btn onay-kabul" onclick="BasakUI.onayGonder('${data.call_id}', true)">✓ EVET, YAP</button>
+      <button class="onay-btn onay-red" onclick="BasakUI.onayGonder('${data.call_id}', false)">✗ HAYIR, İPTAL</button>
     `;
     div.appendChild(btnDiv);
 
     setOrb('onay');
-    setStatus('busy', 'Onay bekleniyor...');
+    setStatus('busy', 'ONAY BEKLENİYOR...');
   },
 
-  onayGonder(callId, kabul) {
-    // Butonları devre dışı bırak
+onayGonder(callId, kabul) {
+    // Butonları devre bırak
     const btns = document.querySelectorAll('.onay-btn');
     btns.forEach(b => b.disabled = true);
 
@@ -490,13 +513,15 @@ window.BasakUI = {
     pywebview.api.onay_ver(callId, kabul);
 
     if (kabul) {
-      setStatus('ok', 'Onay verildi');
+      setStatus('ok', 'ONAY VERİLDİ');
     } else {
-      setStatus('ok', 'İşlem iptal edildi');
+      setStatus('ok', 'İ�?LEM İPTAL EDİLDİ');
     }
     setOrb('bekliyor');
-  },
-};
+  }
+}; // 2026-09-09: BasakUI burada kapanir. Alttaki "Görünümler" ve
+   // sonraki bölümler normal kod — listenin içinde kalmıştı, bu
+   // yüzden tüm ekran kodu çalışmıyordu (açılışta takılma sebebi).
 
 /* ---------------- Görünümler ---------------- */
   document.querySelectorAll(".sys-nav-item").forEach((btn) => {
@@ -531,7 +556,7 @@ function send() {
   const text = input.value.trim();
   if (!text || state.busy) return;
   if (!state.ready || !window.pywebview || !window.pywebview.api) {
-    setStatus("err", "Başak henüz hazırlanıyor, birkaç saniye bekle");
+    setStatus("err", "BA�?AK HENÜZ HAZIRLANIYOR, BİRKAÇ SANİYE BEKLE");
     return;
   }
   sonGonderilen = text;
@@ -560,14 +585,14 @@ $("btnTts").addEventListener("click", () => {
 /* Hafizayi temizleme geri alinamaz, eskiden tek tiklaydi. Iki asamali
    onay: ikinci tik 4 saniye icinde gelmezse iptal olur. confirm() yerine
    bu desen secildi — pywebview'da yerel diyalog her zaman guvenilir
-   davranmiyor ve pencereyi kilitleyebiliyor. */
+   behave etmiyor ve pencereyi kilitleyebiliyor. */
 let temizleOnayi = null;
 async function hafizaTemizle(btn) {
   if (temizleOnayi !== btn) {
     if (temizleOnayi) temizleOnayi.classList.remove("onay-bekliyor");
     temizleOnayi = btn;
     btn.classList.add("onay-bekliyor");
-    setStatus("busy", "Hafızayı silmek için tekrar bas");
+    setStatus("busy", "HAFIZAYI SİMEK İÇİN TEKRAR BAS");
     clearTimeout(hafizaTemizle._t);
     hafizaTemizle._t = setTimeout(() => {
       if (temizleOnayi) temizleOnayi.classList.remove("onay-bekliyor");
@@ -594,8 +619,8 @@ async function hafizaTemizle(btn) {
   sonGonderilen = "";
   const unutulan = (r && typeof r.unutulan_ani === "number") ? r.unutulan_ani : null;
   setStatus("ok", unutulan === null
-    ? "sohbet temizlendi"
-    : "sohbet temizlendi, " + unutulan + " anı unutuldu");
+    ? "SOHBET TEMİZLENDİ"
+    : "SOHBET TEMİZLENDİ, " + unutulan + " ANI UNUTULDU");
 }
 $("btnClear").addEventListener("click", (e) => hafizaTemizle(e.currentTarget));
 const bc2 = $("btnClear2"); if (bc2) bc2.addEventListener("click", (e) => hafizaTemizle(e.currentTarget));
@@ -607,10 +632,10 @@ const bk = $("btnKey"); if (bk) bk.addEventListener("click", async () => {
   const gk = $("groqKey"); const key = gk ? gk.value.trim() : '';
   const r = await api().set_key(key);
   if (r && r.cloud) {
-    setStatus("ok", (state.model || "yerel beyin") + " + Groq hazır");
-    $("btnKey").textContent = "Kaydedildi";
+    setStatus("ok", (state.model || "yerel beyin") + " + GROQ HAZIR");
+    $("btnKey").textContent = "KAYDEDİLDİ";
   } else {
-    $("btnKey").textContent = "Anahtar geçersiz";
+    $("btnKey").textContent = "ANAHTAR GEÇERSİZ";
   }
 });
 
@@ -632,7 +657,8 @@ async function boot() {
   const bootEl = document.getElementById("bootScreen");
   if (bootEl) bootEl.classList.add("hidden");
   document.body.classList.add("sinema");
-  // Orb kaldırıldı
+  // Jarvis hologramı başlat
+  if (Orb && Orb.init) Orb.init();
   try {
     const status = await api().boot();
     if (status && status.ok) {
@@ -641,7 +667,7 @@ async function boot() {
       $("btnMic").disabled = false;
       state.model = status.model;
       state.ttsOn = !!status.tts_on;
-      setStatus("ok", (status.cloud ? "bulut + yedek " + (status.model || "") + " hazir" : (status.model || "yerel beyin") + " hazir"));
+      setStatus("ok", (status.cloud ? "BULUT " + (status.model || "") + " HAZIR" : (status.model || "YEREL BEYİN") + " HAZIR"));
       // Token durumu gösterimi
       if (status.token_durumu) {
         const tl = $("tokenLabel");
@@ -654,7 +680,7 @@ async function boot() {
         sel.innerHTML = status.models
           .map((m) => "<option>" + mdKacis(m) + "</option>").join("");
         sel.value = status.model || status.models[0];
-        sel.onchange = () => { state.model = sel.value; api().set_model(sel.value); setStatus("ok", sel.value + " hazır"); };
+        sel.onchange = () => { state.model = sel.value; api().set_model(sel.value); setStatus("ok", sel.value + " HAZIR"); };
       }
       $("btnTts").classList.toggle("active", state.ttsOn);
 
@@ -663,12 +689,21 @@ async function boot() {
         Chat.add("basak", status.reminders);
       }
     } else {
-      setStatus("err", "Ollama kapalı — Başak'ı Başlat.cmd çalıştır");
-      setStatus("err", "hata");
+      // 2026-09-09: mesaj gercegi soyler. Eskiden hep "OLLAMA KAPALI"
+      // yaziyordu; oysa bulut biletleri de olmus olabilir. boot() ok=false
+      // demek: yerel YOK ve bulut YOK. Dugmeler kilitli kalir cunku
+      // gonderilecek beyin yok; hazir olunca acilir.
+      setStatus("err", "HİÇBİR BEYİN YOK — Ollama kapalı, bulut biletleri de hazır değil");
+      Chat.sistem("▲ Başak açılamadı: bilgisayardaki model (Ollama) kapalı ve internet biletleri de geçersiz. Önce internet bağlantını, sonra biletleri kontrol et.");
+      setOrb("hata");
     }
   } catch (e) {
-    setStatus("err", "Bağlantı sorunu");
-    setStatus("err", "hata");
+    setStatus("err", "BA�?LANTI SORUNU: " + String(e).slice(0, 120));
+    setOrb("hata");
+  } finally {
+    // Her durumda boot screen gizli kalsın, ana uygulama görünsün
+    if (bootEl) bootEl.classList.add("hidden");
+    document.body.classList.add("sinema");
   }
   $("input").focus();
 }

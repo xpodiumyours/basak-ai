@@ -29,18 +29,16 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
     from _chat_legacy import (
         orkestra_aktif_mi, mesaj_isle_orkestra,
         yukle, SETTINGS_FILE, HISTORY_FILE,
-        _temizle_history, _SOZLESME_MODU,
-        TOOL_YONLENDIRME, OLCU_YONLENDIRME, BIKIMLONDIRME_YONLENDIRME,
-        _knowledge_lock, _knowledge_cache,
+        _temizle_history,
+        TOOL_YONLENDIRME, BIKIMLONDIRME_YONLENDIRME,
         _ilgili_anilar, _gecmis_pencere,
-        _dinamik_araclar, _TOOL_KELIMELERI,
-        _yapi_kwargi, _kapidan_gecir,
+        _yapi_kwargi,
         _save_and_reply, _onem_puanla,
     )
-    from olcu import PROMPT_BLOGU, SOZLESME_PROMPTU, YEDEK_CUMLE, HAM_BASLIK, ham_olcum_satirlari
-    from chat.gate import temizle as _temizle_fn, ingilizce_sizinti_mi
-    from chat.tools import tool_calling_multi, ham_tool_call_ayir, TUR_SINIRI
+    from chat.gate import temizle as _temizle_fn
+    from chat.tools import tool_calling_multi, ham_tool_call_ayir
     from tools import calistir
+    from brain.kapasite import mod_kapasite
 
     # ORKESTRA ana yolu
     if orkestra_aktif_mi():
@@ -70,79 +68,93 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
         return
 
     model = yukle(SETTINGS_FILE, {}).get("model")
-    if modeller and model not in modeller:
-        model = modeller[0]
+    if modeller:
+        if model not in modeller:
+            model = modeller[0]
+    else:
+        # Yerel model yok — ayarlar.json'daki yerel model adi bulut
+        # zincirine tasınmasın; zincir kendi seçsin.
+        model = None
 
     raw_gecmis = [m for m in yukle(HISTORY_FILE, []) if m.get("role") != "system"]
     gecmis = _temizle_history(raw_gecmis)
 
-    # Sözleşme bloğu
-    sozlesme_bloku = (PROMPT_BLOGU if _SOZLESME_MODU == "kapali"
-                      else SOZLESME_PROMPTU)
-    tam_prompt = (system_prompt + TOOL_YONLENDIRME + OLCU_YONLENDIRME
-                  + BIKIMLONDIRME_YONLENDIRME + sozlesme_bloku)
+    mevcut_kaynaklar = [ad for ad, _ in brain._bulut_zinciri()] if hasattr(brain, "_bulut_zinciri") else []
+    kap = mod_kapasite(kaynaklar=mevcut_kaynaklar, model_adi=model)
+
+    # 2026-08-26: Prompt zinciri sadelestirildi.
+    # System prompt (KISILIK) + tool/bicimlendirme yonnergeleri.
+    # ONEMLI: TOOL_YONLENDIRME (arac dayatmasi) HER MODELDE KALIR —
+    # ucretsiz modeller araci ellerinde tutsalar da "kullan" talimati
+    # almazsa dosya sorularinda arac cagirmaz, kafalarindan uydurur.
+    # Hafif mod (kap.kucuk) yalniz token yiyen kisimlari azaltir:
+    # hafiza embedding'i atlanir, core arac kucuk tutulur, tool dongusu
+    # kisalir. Arac dayatmasi fonksiyoneldir, kesilmez.
+    tam_prompt = system_prompt + TOOL_YONLENDIRME + BIKIMLONDIRME_YONLENDIRME
     if aktif_konusmaci:
-        tam_prompt += "\n\n[ANLIK DURUM] An itibarıyla konuşan kişi: %s. Ona göre hitap et." % aktif_konusmaci
+        tam_prompt += "\nKonuşan: %s" % aktif_konusmaci
     mesajlar = [{"role": "system", "content": tam_prompt}]
 
-    with _knowledge_lock:
-        bilgi = _knowledge_cache
-    if bilgi:
-        mesajlar.append({
-            "role": "system",
-            "content": "Casper'in notlari:\n\n" + bilgi,
-        })
+    # 2026-08-25: hazir not yigini artik her mesaja eklenmiyor.
+    # Sebep (olculdu): 2105 karakterlik knowledge dokumu her istege
+    # giriyordu; icinde dosya adlari ve profil metni vardi. Araci
+    # olmayan model bu metni VERI sanip oradan cevap uretiyordu —
+    # "uydurma" diye kaydedilen olayin kaynagi buydu. Casper ayrica
+    # kendisini anlatan hazir metni istemiyor: "baştan tanışacağım".
+    # Notlar kayboldu degil: belge_ara/read_file ile ARAC uzerinden
+    # okunur, boylece model neyin olcum neyin metin oldugunu bilir.
 
-    anilar = _ilgili_anilar(text)
+    # Hafiza: ilgili anilari baglama ekle (kisa format)
+    # Kucuk modellerde embedding aramasi atlanir (ekstra cagri + baglam).
+    if kap.kucuk:
+        anilar = []
+    else:
+        anilar = _ilgili_anilar(text)
     if anilar:
-        blok = "\n\n".join(
-            "- %s (kaynak: %s)" % (a["text"][:500], a["source"] or a["kind"])
-            for a in anilar
+        blok = "\n".join(
+            "- %s" % a["text"][:300] for a in anilar[:5]  # max 5 anı
         )
         mesajlar.append({
             "role": "system",
-            "content": (
-                "Hafizandaki ilgili anilar ve notlar:\n\n" + blok
-            ),
+            "content": "Hafızadan:\n" + blok,
         })
 
     mesajlar += _gecmis_pencere(gecmis) + [{"role": "user", "content": text}]
 
-    # Dinamik araçlar
+    # 2026-08-26: CORE TOOLS — ucretsiz modeller 18 araci cozemez.
+    # Core set (9 arac) her zaman gonderilir; extended tools
+    # anahtar kelimeyle tetiklenir. Tam set istenirse ?full yazilir.
     if tools:
-        aktif_toollar = _dinamik_araclar(text.lower(), tools)
+        from tools.definitions import CORE_TOOL_NAMES, SMALL_CORE_TOOL_NAMES, EXTENDED_TETIKLERI
+        core_names = SMALL_CORE_TOOL_NAMES if kap.kucuk else CORE_TOOL_NAMES
+        core = [t for t in tools
+                if t["function"]["name"] in core_names]
+        # Extended: mesajdaki anahtar kelimelerle tetiklenenler
+        text_lower = text.lower()
+        for ext_name, tetikler in EXTENDED_TETIKLERI.items():
+            if any(t in text_lower for t in tetikler):
+                for t in tools:
+                    if t["function"]["name"] == ext_name:
+                        core.append(t)
+                        break
+        aktif_toollar = core if core else tools
     else:
         aktif_toollar = None
 
-    # Ölçüm retry
-    _OLCUM_KELIMELERI = tuple(_TOOL_KELIMELERI["git_durum"]) + \
-        tuple(_TOOL_KELIMELERI["belge_ara"])
-    olcum_aktif = any(k in text.lower() for k in _OLCUM_KELIMELERI)
-    _GUCLU_MODEL = "openai/gpt-oss-120b"
-    _retry = 0
-    MAX_RETRY = 1
+    try:
+        yanit, kaynak = brain.cevapla(
+            mesajlar, model,
+            tools=aktif_toollar,
+            **_yapi_kwargi(brain))
+    except Exception as e:
+        hata_str = str(e)
+        if "429" in hata_str or "rate" in hata_str.lower():
+            js_callback("BasakUI.error(" + _j("Cok fazla istek, biraz bekle") + ")")
+        else:
+            js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
+        return
 
-    while _retry <= MAX_RETRY:
-        try:
-            override = _GUCLU_MODEL if _retry > 0 and olcum_aktif else None
-            yanit, kaynak = brain.cevapla(
-                mesajlar, model,
-                tools=aktif_toollar if aktif_toollar else None,
-                override_model=override, **_yapi_kwargi(brain))
-        except Exception as e:
-            hata_str = str(e)
-            if "429" in hata_str or "rate" in hata_str.lower():
-                js_callback("BasakUI.error(" + _j("Cok fazla istek, biraz bekle") + ")")
-            else:
-                js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
-            return
-
-        tool_calls = yanit.get("tool_calls")
-        if not tool_calls and olcum_aktif and _retry < MAX_RETRY:
-            _retry += 1
-            logger.info("Olcum retry #%d", _retry)
-            continue
-        break
+    tool_calls = yanit.get("tool_calls")
 
     # Tool calls yoksa
     if not tool_calls:
@@ -168,36 +180,11 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
                 sahte_tool_calls, mesajlar, brain, model, js_callback,
                 calistir, aktif_toollar)
             cevap = _temizle_fn(cevap)
-            cevap, _kapi = _kapidan_gecir(cevap, arac_ciktilari)
-            if cevap.strip() == YEDEK_CUMLE:
-                ham = ham_olcum_satirlari(arac_ciktilari)
-                if ham:
-                    cevap = HAM_BASLIK + "\n" + "\n".join(ham)
             _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
                             speaker=aktif_konusmaci,
                             onem=_onem_puanla(text, arac_ciktilari))
             return
 
-        # Dil kontrolü
-        if cevap and ingilizce_sizinti_mi(cevap):
-            try:
-                telkin = mesajlar + [{
-                    "role": "system",
-                    "content": "SADECE TURKCE yaz. Ingilizce kelime ve cumle kullanma.",
-                }]
-                yanit2, kaynak2 = brain.cevapla(telkin, model)
-                icerik2 = yanit2.get("content", "") if isinstance(yanit2, dict) else yanit2
-                cevap2 = _temizle_fn(icerik2)
-                if cevap2 and not ingilizce_sizinti_mi(cevap2):
-                    cevap = cevap2
-                    kaynak = kaynak2 + " (dil duzeltme)"
-            except Exception:
-                pass
-            if ingilizce_sizinti_mi(cevap):
-                logger.info("Ingilizce sizinti telkinden sonra da surdu")
-                cevap = YEDEK_CUMLE
-
-        cevap, _kapi = _kapidan_gecir(cevap, [])
         _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
                         speaker=aktif_konusmaci,
                         onem=_onem_puanla(text))
@@ -208,19 +195,6 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
         tool_calls, mesajlar, brain, model, js_callback, calistir,
         aktif_toollar)
     cevap = _temizle_fn(cevap)
-    if cevap and ingilizce_sizinti_mi(cevap):
-        logger.info("Ingilizce sizinti: model cevabi atildi")
-        ham = ham_olcum_satirlari(arac_ciktilari)
-        cevap = (HAM_BASLIK + "\n" + "\n".join(ham)) if ham else YEDEK_CUMLE
-        _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
-                        speaker=aktif_konusmaci,
-                        onem=_onem_puanla(text, arac_ciktilari))
-        return
-    cevap, _kapi = _kapidan_gecir(cevap, arac_ciktilari)
-    if cevap.strip() == YEDEK_CUMLE:
-        ham = ham_olcum_satirlari(arac_ciktilari)
-        if ham:
-            cevap = HAM_BASLIK + "\n" + "\n".join(ham)
     _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
                     speaker=aktif_konusmaci,
                     onem=_onem_puanla(text, arac_ciktilari))

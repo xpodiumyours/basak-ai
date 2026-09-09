@@ -22,8 +22,12 @@ _onay_kararlari = {}  # noqa: F841
 _onay_lock = threading.Lock()  # noqa: F841
 
 from olcu import (cikis_kapisi, PROMPT_BLOGU, YEDEK_CUMLE, HAM_BASLIK,
-                  ham_olcum_satirlari, SOZLESME_PROMPTU, sozlesme_coz,
-                  sozlesme_kapisi)
+                   ham_olcum_satirlari, SOZLESME_PROMPTU, sozlesme_coz,
+                   sozlesme_kapisi)
+
+# Kucuk/guclu model ayrimi: guclu modellerde tum agir katmanlar acik,
+# kucuk modellerde zorunlu tool dayatmasi ve embedding hafizasi atlanir.
+from brain.kapasite import mod_kapasite
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +105,7 @@ TOOL_LABELS = {
 from chat.prompts import TOOL_YONLENDIRME, OLCU_YONLENDIRME, BIKIMLONDIRME_YONLENDIRME  # noqa: F401
 
 # Tool gerektiren anahtar kelimeler
+# 2026-08-26: extended tetikleyiciler definitions.py ile esitlestirdi.
 _TOOL_KELIMELERI = {
     "add_task": ["yap", "et", "al", "git", "hazırla", "başla", "bitir", "ekle",
                   "kaydet", "not al", "satın al", "alışveriş", "görev"],
@@ -112,11 +117,36 @@ _TOOL_KELIMELERI = {
                   "aklında tut"],
     "web_search": ["hava", "sıcaklık", "fiyat", "haber", "güncel",
                    "para", "dolar", "euro", "kur", "borsa", "döviz"],
-    # O-1 olcum araclari: proje adi gecen her soru once olculur
-    "git_durum": ["vixrex", "numeramatch", "xses",
-                  "durumu ne", "durum ne", "son commit", "ne yapiyoruz"],
+    # Extended: proje olcumu
+    "git_durum": ["vixrex", "numeramatch", "xses", "basak",
+                  "durumu ne", "durum ne", "son commit", "ne yapiyoruz",
+                  "branch", "dal", "commit", "diff", "depolama",
+                  "proje", "kod durumu", "guncel mi"],
     "belge_ara": ["planda ne", "belgede ne", "listede ne yaziyor",
-                  "dokumanda", "gorev listesinde"],
+                  "dokumanda", "gorev listesinde", "notlarda",
+                  "defterde ne", "bilgi notu", "rehberde"],
+    # Extended: dosya bilgisi
+    "dosya_bilgi": ["dosya boyutu", "dosya tarihi", "dosya bilgisi",
+                    "kac kb", "kac mb", "ne zaman degisti"],
+    # Extended: web sayfasi okuma
+    "sayfa_oku": ["sayfayi oku", "url oku", "sayfa icerigi",
+                  "siteyi oku", "linkte ne yaziyor"],
+    # Extended: dosya yazma
+    "write_file_tool": ["dosyaya yaz", "dosya olustur", "yeni dosya",
+                        "kaydet dosyaya"],
+    # Extended: uygulama acma
+    "ac_uygulama": ["tarayici ac", "vscode ac", "notepad ac"],
+    # Extended: goruntu/video analizi
+    "image_analyze": ["goruntu", "resim", "foto", "png", "jpg",
+                      "ekran goruntusu", "screenshot", "gorsel"],
+    "video_analyze": ["video", "ses dosyasi", "transkript",
+                      "ses kaydi", "konusma", "podcast"],
+    # Extended: model istatistikleri
+    "model_stats": ["model istatistik", "performans", "kullanim",
+                    "token", "hiz testi"],
+    # Extended: ortak deftere kayit
+    "deftere_kaydet": ["deftere yaz", "ortak deftere", "kayit ekle",
+                       "deftere kaydet"],
 }
 
 
@@ -231,7 +261,9 @@ from chat.context import yukle, kaydet  # noqa: F401
 # FAZ 1.3 — Cevap sözleşmesi modu: import anında BİR KEZ okunur.
 # "acik": model TEK JSON sözleşmesi üretir, _kapidan_gecir yapısal kapıyı
 # kullanır. "kapali": eski [Ö]/[A] işaret düzeni aynen yaşar.
-_SOZLESME_MODU = yukle(SETTINGS_FILE, {}).get("sozlesme_modu", "acik")
+# 2026-08-25, Casper karari: sözleşme/ölçüm katmanı söküldü —
+# model serbest metin üretir, kapıdan geçmez.
+_SOZLESME_MODU = "kapali"
 
 # FAZ 1.1 öncesi imzalı (yapi parametresiz) beyinlere kwarg gönderilmez;
 # sınıf başına bir kez imza denetlenir, sonuc önbelleklenir.
@@ -239,28 +271,8 @@ _YAPI_UYUMLU = {}
 
 
 def _yapi_kwargi(brain):
-    """Sözleşme moduna göre brain.cevapla'ya eklenecek kwarg.
-
-    Mod açıksa {"yapi": {"type": "json_object"}}, kapalıysa
-    {"yapi": None} döner — ama yalnızca beyin `yapi` parametresini
-    tanıyorsa. Tanımıyorsa (FAZ 1.1 öncesi sahte/eski beyinler) boş dict:
-    TypeError yerine sessizce eski davranış.
-    """
-    deger = None if _SOZLESME_MODU == "kapali" else {"type": "json_object"}
-    fn = getattr(type(brain), "cevapla", None)
-    if fn is None:
-        return {}
-    uyumlu = _YAPI_UYUMLU.get(fn)
-    if uyumlu is None:
-        try:
-            imza = inspect.signature(fn)
-            uyumlu = ("yapi" in imza.parameters
-                      or any(p.kind is p.VAR_KEYWORD for p in
-                             imza.parameters.values()))
-        except (TypeError, ValueError):
-            uyumlu = False
-        _YAPI_UYUMLU[fn] = uyumlu
-    return {"yapi": deger} if uyumlu else {}
+    """2026-08-25: JSON yapı zorlaması kalktı — hiçbir kwarg eklenmez."""
+    return {}
 
 
 # Bağlam diyeti ADIM 1 (2026-08-23): kategori -> o tetikleyicide hangi
@@ -378,14 +390,10 @@ def _onem_puanla(text, arac_ciktilari=None):
     return 1
 
 
+# 2026-08-25: çıkış kapısı söküldü — cevap olduğu gibi geçer.
 def _kapidan_gecir(ham_cevap, olcumler):
-    """Cift yol: sozlesme modu aciksa ve model gecerli JSON verdiyse
-    yapisal kapidan, degilse eski isaret kapisindan gecir."""
-    if _SOZLESME_MODU != "kapali":
-        soz = sozlesme_coz(ham_cevap)
-        if soz is not None:
-            return sozlesme_kapisi(soz, olcumler)
-    return cikis_kapisi(ham_cevap, olcumler=olcumler)
+    """Geçiş kapısı artık kimlik: cevaba dokunmaz."""
+    return ham_cevap, []
 
 
 def mesaj_isle(text, brain, system_prompt, js_callback, tools):
@@ -432,12 +440,14 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     raw_gecmis = [m for m in yukle(HISTORY_FILE, []) if m.get("role") != "system"]
     gecmis = _temizle_history(raw_gecmis)
 
-    # FAZ 1.3: sözleşme modu açıkken model işaretli serbest metin yerine
-    # TEK JSON sözleşmesi üretir; kapalıyken eski [Ö]/[A] biçim bloğu gider.
-    sozlesme_bloku = (PROMPT_BLOGU if _SOZLESME_MODU == "kapali"
-                      else SOZLESME_PROMPTU)
-    tam_prompt = (system_prompt + TOOL_YONLENDIRME + OLCU_YONLENDIRME
-                  + BIKIMLONDIRME_YONLENDIRME + sozlesme_bloku)
+    mevcut_kaynaklar = [ad for ad, _ in brain._bulut_zinciri()] if hasattr(brain, "_bulut_zinciri") else []
+    kap = mod_kapasite(kaynaklar=mevcut_kaynaklar, model_adi=model)
+
+    # TOOL_YONLENDIRME (arac dayatmasi) HER MODELDE KALIR — ucretsiz
+    # modeller araci tutsalar da "kullan" talimati almazsa dosya
+    # sorularinda arac cagirmaz, uydurur. Hafif mod yalniz token yiyen
+    # kisimlari azaltir (hafiza embedding'i, core arac, tool dongusu).
+    tam_prompt = system_prompt + TOOL_YONLENDIRME + BIKIMLONDIRME_YONLENDIRME
     if aktif_konusmaci:
         tam_prompt += "\n\n[ANLIK DURUM] An itibarıyla konuşan kişi: %s. Ona göre hitap et." % aktif_konusmaci
     mesajlar = [{"role": "system", "content": tam_prompt}]
@@ -450,7 +460,10 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
             "content": "Casper'in notlari:\n\n" + bilgi,
         })
 
-    anilar = _ilgili_anilar(text)
+    if kap.kucuk:
+        anilar = []
+    else:
+        anilar = _ilgili_anilar(text)
     if anilar:
         blok = "\n\n".join(
             "- %s (kaynak: %s)" % (a["text"][:500], a["source"] or a["kind"])
@@ -474,45 +487,21 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
     else:
         aktif_toollar = None
 
-    # Tum mesajlar brain.cevapla uzerinden gider:
-    # Router v2: secici.sec() gorev turune gore saglayici sirasini belirler.
-    # Olcum Retry: OLCUM SORUSUYSA ve model tool_call dondurmediyse, guclu
-    # Groq modeliyle (openai/gpt-oss-120b) 1 kez tekrar dene.
-    #
-    # 2026-08-24 E2E bulgusu: "olcum_aktif" eskiden 'sunulan sette olcum
-    # araci var' demisti — baglam diyetiyle olcum uclusu HER TURDA sunulur
-    # oldugundan bu kosul her sohbette gecerli oluyordu ve siradan sohbet
-    # de gereksiz ikinci cagri yapiyordu (2x gecikme/kota). Artik sorunun
-    # KENDISI olcum sorusu mu diye bakilir.
-    _OLCUM_KELIMELERI = tuple(_TOOL_KELIMELERI["git_durum"]) + \
-        tuple(_TOOL_KELIMELERI["belge_ara"])
-    olcum_aktif = any(k in text.lower() for k in _OLCUM_KELIMELERI)
-    _GUCLU_MODEL = "openai/gpt-oss-120b"
-    _retry = 0
-    MAX_RETRY = 1
+    # Tum mesajlar brain.cevapla uzerinden gider (Router v2: secici.sec()
+    # gorev turune gore saglayici sirasini belirler).
+    try:
+        yanit, kaynak = brain.cevapla(
+            mesajlar, model,
+            tools=aktif_toollar if aktif_toollar else None)
+    except Exception as e:
+        hata_str = str(e)
+        if "429" in hata_str or "rate" in hata_str.lower():
+            js_callback("BasakUI.error(" + _j("Cok fazla istek, biraz bekle") + ")")
+        else:
+            js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
+        return
 
-    while _retry <= MAX_RETRY:
-        try:
-            override = _GUCLU_MODEL if _retry > 0 and olcum_aktif else None
-            yanit, kaynak = brain.cevapla(
-                mesajlar, model,
-                tools=aktif_toollar if aktif_toollar else None,
-                override_model=override, **_yapi_kwargi(brain))
-        except Exception as e:
-            hata_str = str(e)
-            if "429" in hata_str or "rate" in hata_str.lower():
-                js_callback("BasakUI.error(" + _j("Cok fazla istek, biraz bekle") + ")")
-            else:
-                js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
-            return
-
-        tool_calls = yanit.get("tool_calls")
-        # Olcum Retry: tool_call donmediyse ve olcum sorusuysa, 1 kez tekrar dene
-        if not tool_calls and olcum_aktif and _retry < MAX_RETRY:
-            _retry += 1
-            logger.info("Olcum retry #%d: tool_call alinamadi, guclu model deneniyor", _retry)
-            continue
-        break
+    tool_calls = yanit.get("tool_calls")
 
     # tool_calls burada zaten yukarida atandi
     if not tool_calls:
@@ -544,40 +533,12 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
                 sahte_tool_calls, mesajlar, brain, model, js_callback,
                 calistir, aktif_toollar)
             cevap = _temizle(cevap)
-            cevap, _kapi = _kapidan_gecir(cevap, arac_ciktilari)
-            if cevap.strip() == YEDEK_CUMLE:
-                ham = ham_olcum_satirlari(arac_ciktilari)
-                if ham:
-                    cevap = HAM_BASLIK + "\n" + "\n".join(ham)
             _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
                             speaker=aktif_konusmaci,
                             onem=_onem_puanla(text, arac_ciktilari))
             return
         # ──(raw tool call fix sonu)──────────────────────────────────────
 
-        # Dil kontrolu: Karisik/Ingilizce cevap gelirse Turkce telkinle tekrar dene
-        if cevap and _ingilizce_sizinti_mi(cevap):
-            try:
-                telkin = mesajlar + [{
-                    "role": "system",
-                    "content": "SADECE TURKCE yaz. Ingilizce kelime ve cumle kullanma.",
-                }]
-                yanit2, kaynak2 = brain.cevapla(telkin, model)
-                icerik2 = yanit2.get("content", "") if isinstance(yanit2, dict) else yanit2
-                cevap2 = _temizle(icerik2)
-                if cevap2 and not _ingilizce_sizinti_mi(cevap2):
-                    cevap = cevap2
-                    kaynak = kaynak2 + " (dil duzeltme)"
-            except Exception:
-                pass
-            # Telkin de tutmadiysa sizinti metnini KULLANICIYA VERME.
-            if _ingilizce_sizinti_mi(cevap):
-                logger.info("Ingilizce sizinti telkinden sonra da surdu")
-                cevap = YEDEK_CUMLE
-
-        # Çıkış kapısı (Ö-0 / FAZ 1.3): işaretsiz/uydurma cümle ve
-        # sözleşmesiz iddia kullanıcıya gitmez
-        cevap, _kapi = _kapidan_gecir(cevap, [])
         _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
                         speaker=aktif_konusmaci,
                         onem=_onem_puanla(text))
@@ -592,26 +553,6 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools):
         tool_calls, mesajlar, brain, model, js_callback, calistir,
         aktif_toollar)
     cevap = _temizle(cevap)
-    # Saglayici bazen kendi dusunme metnini cevap sanip gonderiyor
-    # ("We need to answer..."). Dil kontrolu araciz yolda vardi, araclli
-    # yolda YOKTU — sizinti buradan geciyordu (2026-08-23 olcumu).
-    if cevap and _ingilizce_sizinti_mi(cevap):
-        logger.info("Ingilizce sizinti: model cevabi atildi, ham olcum verildi")
-        ham = ham_olcum_satirlari(arac_ciktilari)
-        cevap = (HAM_BASLIK + "\n" + "\n".join(ham)) if ham else YEDEK_CUMLE
-        _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
-                        speaker=aktif_konusmaci,
-                        onem=_onem_puanla(text, arac_ciktilari))
-        return
-    # Kapı araç çıktılarına karşı da denetler (FAZ 1.3: sözleşme modunda
-    # beyan edilen iddia koşan araca karşı; eski modda [Ö] birebir alıntı)
-    cevap, _kapi = _kapidan_gecir(cevap, arac_ciktilari)
-    # Kapi modelin butun cumlelerini elediyse kullaniciyi bos birakma:
-    # olcum gercekten alindiysa ham halini KOD uretir (birebirligi kesin).
-    if cevap.strip() == YEDEK_CUMLE:
-        ham = ham_olcum_satirlari(arac_ciktilari)
-        if ham:
-            cevap = HAM_BASLIK + "\n" + "\n".join(ham)
     _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
                     speaker=aktif_konusmaci,
                     onem=_onem_puanla(text, arac_ciktilari))
@@ -832,7 +773,9 @@ def orkestra_bilesenleri(brain):
     from brain import secici as _secici
     from brain import registry as _registry
     from brain.orkestra import Orkestra, YEDEK_CUMLE as _YEDEK
-    from olcu import ham_olcum_satirlari, cikis_kapisi
+
+    # 2026-08-25: ölçüm/çıkış kapısı söküldü — jüri puanlaması da serbest.
+    kimlik_kapisi = lambda metin, o=None: (metin, [])
 
     def observe(soru):
         temiz = (soru or "").strip()
@@ -886,10 +829,6 @@ def orkestra_bilesenleri(brain):
             model_stats_al().kaydet(ad, sure, basarili=True, tools=False)
         except Exception:
             pass
-        try:
-            brain.kota.harca(ad)
-        except Exception:
-            pass
         return yanit if isinstance(yanit, dict) else {"content": str(yanit)}
 
     def ek_adaylar(birincil_kaynak, mesajlar, arac_var=False):
@@ -910,8 +849,7 @@ def orkestra_bilesenleri(brain):
         if len(zincir) < 2:
             return []
         uygun = [a for a in _registry.VARSAYILAN_SIRA
-                 if a in zincir and a != birincil_kaynak
-                 and not brain.kota.engel_nedeni(a, _registry.kart(a))]
+                 if a in zincir and a != birincil_kaynak]
         secilen = uygun[:_JURI_MAX]
         return [(ad, (lambda ms, _ad=ad, _ist=zincir[ad]:
                       _tek_aday(_ad, _ist, ms)))
@@ -940,7 +878,7 @@ def orkestra_bilesenleri(brain):
         "ek_adaylar": ek_adaylar,
         "aday_puanla": aday_puanla,
         "deney_kos": deney_kos,
-        "olcu_kapisi": cikis_kapisi,
+        "olcu_kapisi": kimlik_kapisi,
         "kapi_v2": _kapidan_gecir,
         "sozlesme_coz": sozlesme_coz,
         "sozlesme_kapisi": sozlesme_kapisi,

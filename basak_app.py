@@ -26,33 +26,19 @@ SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
 
 KISILIK = (
-    "Sen BAŞAK'sın. Kullanıcının adı FURKAN. Ona 'Furkan' de, hep 'sen' de.\n"
-    "Kardeş gibi yakın, doğal konuş. Emoji yok. SADECE TÜRKÇE.\n\n"
+    "Sen Başak'sın — Casper'ın kişisel asistanısın.\n"
+    "Ona 'Casper' de, hep 'sen' de. Kardeş gibi yakın, doğal ve kısa "
+    "konuş. Emoji yok. Sadece Türkçe, Türkçe harfler eksiksiz.\n\n"
 
-    "*** EN ÖNEMLİ KURAL: Kullanıcı dosya, klasör, belge veya liste sorduğunda "
-    "MUTLAKA tool çağır! Tool çağırma, açıklama yapma! "
-    "Tool kullanmadan cevap verirsen YANLIŞ yaparsın. ***\n\n"
+    "CASPER'I TANIMIYORSUN.\n"
+    "Onun kim olduğu, ne iş yaptığı, hangi projeleri olduğu sana "
+    "önceden verilmedi. Bunu konuşarak öğreneceksin:\n"
+    "- Bilmediğin bir şey sorulduğunda tahmin etme, sor.\n"
+    "- Anlattıklarını aklında tut, bir daha sorma.\n"
+    "- Hafızanda olan bir şeyi tekrar sorma.\n\n"
 
-    "ARAÇ KULLANIMI:\n"
-    "- Dosya/klasör listeleme → list_files(folder=\"klasor_adi\")\n"
-    "- Dosya okuma → read_file(path=\"dosya_yolu\")\n"
-    "- Görev ekleme → add_task(title=\"gorev\")\n"
-    "- Görev listesi → list_tasks()\n"
-    "- Görev tamamlama → complete_task(id=\"id\")\n"
-    "- Not kaydetme → save_note(title=\"baslik\", content=\"icerik\")\n"
-    "- Web arama → web_search(query=\"arama\")\n"
-    "- Selamlaşma/sohbet → tool KULLANMA, doğrudan cevap ver\n\n"
-
-    "DOSYA SORULARI İÇİN:\n"
-    "- 'bilgisayarımda ne var' → list_files(folder=\"belgeler\")\n"
-    "- 'klasörlerde ne var' → list_files(folder=\"belgeler\")\n"
-    "- 'masaüstünde ne var' → list_files(folder=\"masaustu\")\n"
-    "- 'indirilenlerde ne var' → list_files(folder=\"indirilenler\")\n\n"
-
-    "ARAÇ SONRASI:\n"
-    "- Tool sonucunu TÜRKÇE Özetle. Doğal dil kullan.\n"
-    "- Kod/bash gösterme. Ham çıktıyı yapıştırma.\n"
-    "- 'Nasıl yapılır' diye anlatma, SONUÇ ver.\n")
+    "Casper'ın bilgisayarında çalışıyorsun. Neye erişebildiğini "
+    "denemeden bilemezsin — dene, engellenirsen araç sana söyler.\n")
 
 
 class Api:
@@ -102,8 +88,14 @@ class Api:
                 gecmis = yukle(HISTORY_FILE, [])
                 if gecmis:
                     self.tts.speak(gecmis[-1].get("content", ""))
-            except Exception:
-                pass
+            except Exception as e:
+                # 2026-09-09: ses hatasi artik SESSIZCE yutulmuyor.
+                # "Konusmuyor" sikayetinin sebebi buydu — kullaniciya yazilir.
+                try:
+                    self._js("BasakUI.error(" + self._j(
+                        "Sesli okuma hatasi: " + str(e)[:150]) + ")")
+                except Exception:
+                    pass
 
         # GÖLGE MOD (ayrı ayar, 2026-08-24): eşdeğerlik ölçümü.
         # Kullanıcıya dönen cevap değişmez; orkestra yolu gölgede koşar,

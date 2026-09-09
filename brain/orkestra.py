@@ -125,14 +125,10 @@ class Orkestra:
                    ozet="tip=%s, arac=%d" % (tip, len(aktif_araclar)))
 
         # --- HYPOTHESIZE (birincil aday) ---
-        # 2026-08-24 kritik düzeltme: orkestra yolunda TOOL_YONLENDIRME ve
-        # OLCU_YONLENDIRME eklenmiyordu — bu yüzden model tool kullanamıyordu.
-        from chat.prompts import TOOL_YONLENDIRME, OLCU_YONLENDIRME
-        from _chat_legacy import _SOZLESME_MODU
-        from olcu import PROMPT_BLOGU, SOZLESME_PROMPTU
-        sozlesme_bloku = (PROMPT_BLOGU if _SOZLESME_MODU == "kapali"
-                          else SOZLESME_PROMPTU)
-        tam_sistem = sistem + TOOL_YONLENDIRME + OLCU_YONLENDIRME + sozlesme_bloku
+        # 2026-08-25: ölçüm/sözleşme katmanı (OLCU_YONLENDIRME,
+        # PROMPT_BLOGU) canlı yoldan çıkarıldı — yalnız araç rehberi kalır.
+        from chat.prompts import TOOL_YONLENDIRME
+        tam_sistem = sistem + TOOL_YONLENDIRME
         mesajlar = [{"role": "system", "content": tam_sistem}]
         if baglam:
             mesajlar.append({"role": "system",

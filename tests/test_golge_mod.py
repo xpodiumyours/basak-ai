@@ -32,7 +32,8 @@ class TestAnahtar:
     def test_golge_mod_anahtari(self, monkeypatch, tmp_path):
         ayarlar = tmp_path / "a.json"
         ayarlar.write_text('{"golge_mod": true}', encoding="utf-8")
-        monkeypatch.setattr(c, "SETTINGS_FILE", str(ayarlar))
+        import _chat_legacy as _cl
+        monkeypatch.setattr(_cl, "SETTINGS_FILE", str(ayarlar))
         assert c.golge_mod_aktif_mi() is True
 
         ayarlar.write_text("{}", encoding="utf-8")

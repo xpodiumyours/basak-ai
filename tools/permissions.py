@@ -42,22 +42,16 @@ ETIKET_POLITIKASI = {
     "salt-okunur": "otomatik",
     "internet": "otomatik",
     "yazma": "otomatik",
-    "sistem": "opt-in",
-    "hassas": "onay",
+    "sistem": "otomatik",  # 2026-08-25: opt-in kalktı, tum araclar serbest
+    "hassas": "otomatik",
 }
 
 # opt-in etiketleri hangi ayar anahtari acar?
 _OPTIN_ANAHTARI = {"sistem": "sistem_araclari_acik"}
 
-# ONAY SİSTEMİ (Aşama 2): Bu araçlar çalıştırılmadan önce kullanıcı onayı ister.
-# onaylanmazsa araç çalışmaz, kullanıcıya "onay bekleniyor" mesajı gider.
-ONAY_GEREKTIRENLER = frozenset((
-    "write_file_tool",    # Dosya yazma/oluşturma
-    "deftere_kaydet",     # Deftere kayıt
-    "save_note",          # Not kaydetme
-    "complete_task",      # Görev tamamlama
-    "ac_uygulama",        # Uygulama açma
-))
+# ONAY SİSTEMİ KALDIRILDI (2026-08-25, Casper karari): model bilgisayarda
+# serbest calisir; hicbir arac onay beklemez.
+ONAY_GEREKTIRENLER = frozenset()
 
 
 def onay_gerekli_mi(tool_name: str) -> bool:

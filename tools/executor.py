@@ -21,6 +21,31 @@ from tools.permissions import calistirilabilir_mi
 
 
 # ── Tool Context: her tool'un ihtiyac duydugu yol/bilgi ──────────────
+# --- ARGUMAN SANITIZATION ---
+import re as _re_mod
+_IZINLI_PROJELER = {"basak", "vixrex", "numeramatch", "xses"}
+
+def _sanitize_args(tool_name, args):
+    if not isinstance(args, dict):
+        return args
+    # 2026-09-09: proje BEYAZ LISTE disiysa BURADA "basak"a cevrilmez.
+    # Neden: test_savunma bekler ki bilinmeyen proje "Bilinmeyen proje"
+    # hatasi versin; sessizce basak'a cevirmek enjeksiyonu gizler.
+    # Beyaz liste kontrolu tools/olcum.py'de (_kok) zaten vardir.
+    if tool_name == "dosya_bilgi":
+        yol = str(args.get("yol", "")).replace("..", "")
+        args["yol"] = yol
+    if tool_name in ("read_file", "write_file_tool"):
+        path = str(args.get("path", ""))
+        if ".." in path:
+            args["path"] = path.replace("..", "")
+    for key in list(args.keys()):
+        val = args[key]
+        if isinstance(val, str) and len(val) > 200:
+            args[key] = val[:200]
+    return args
+
+
 class ToolContext:
     """Tool çalıştırma bağlamı — dispatcher'a iletilir."""
     def __init__(self, knowledge_dir="", gorevler_file=""):
@@ -177,6 +202,8 @@ def calistir(tool_name: str, arguments: dict, knowledge_dir: str = "",
     handler = TOOL_MAP.get(tool_name)
     if handler is None:
         return {"error": f"Tool eşleştirilemedi: {tool_name}"}
+
+    arguments = _sanitize_args(tool_name, arguments)
 
     ctx = ToolContext(knowledge_dir, gorevler_file)
     try:

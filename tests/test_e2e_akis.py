@@ -52,11 +52,16 @@ class SenaryoBrain:
 
 @pytest.fixture
 def oturum(monkeypatch, tmp_path):
+    import _chat_legacy as _cl
     motor = HafizaMotoru(db_yolu=str(tmp_path / "e2e.db"),
                          embed_fn=lambda m: None)
-    monkeypatch.setattr(c, "_hafiza", motor)
+    # flow/_chat_legacy modül-globallerini yamala (chat'ten re-export
+    # edilen isimler ayrı bağlayıcıdır — 2026-08-25 düzeltmesi)
+    monkeypatch.setattr(_cl, "_hafiza", motor)
     gecmis = str(tmp_path / "gecmis.json")
     ayarlar = str(tmp_path / "ayarlar.json")
+    monkeypatch.setattr(_cl, "HISTORY_FILE", gecmis)
+    monkeypatch.setattr(_cl, "SETTINGS_FILE", ayarlar)
     monkeypatch.setattr(c, "HISTORY_FILE", gecmis)
     monkeypatch.setattr(c, "SETTINGS_FILE", ayarlar)
 
@@ -125,10 +130,14 @@ class TestUctanUcaOturum:
         assert "sunucu adresini kaydettim" in \
             kutu["cevaplar"][-1][0].lower()
         assert oturum["kosanlar"][-1] == "save_note"
-        # yalnız ilgili aile + ölçüm üçlüsü sunulmalı (bağlam diyeti)
-        assert brain.sunulan[-1] == ["belge_ara", "deftere_kaydet",
-                                     "dosya_bilgi", "git_durum",
-                                     "save_note"]
+        # 2026-08-26: core tools her zaman, extended tetikleme ile.
+        # 'hatırla' → save_note core tool; extended tetik yok.
+        from tools.definitions import CORE_TOOL_NAMES
+        sunulan_set = set(brain.sunulan[-1])
+        assert "save_note" in sunulan_set  # core tool her zaman var
+        # Extended tool tetiklenmemeli (hatırla metninde tetikleyici yok)
+        for name in ("git_durum", "belge_ara", "dosya_bilgi"):
+            assert name not in sunulan_set
         onem3 = motor.conn.execute(
             "SELECT onem FROM memories ORDER BY id DESC LIMIT 1"
         ).fetchone()[0]
@@ -144,7 +153,9 @@ class TestUctanUcaOturum:
         c.mesaj_isle("VixRex'te durum ne?", brain, "SYS",
                      oturum["cb"], TOOLLAR)
         son_cevap = kutu["cevaplar"][-1][0]
-        assert "badge::Ö::" in son_cevap             # kanıt yaşadı
+        # 2026-08-25: çıkış kapısı kalktı — model cevabı denetlenmeden
+        # olduğu gibi kullanıcıya gider.
+        assert "VixRex main dalında" in son_cevap
         assert oturum["kosanlar"][-1] == "git_durum"
 
         # --- ara durum: geçmiş dosyası 3 çift tutuyor ---

@@ -125,7 +125,14 @@ def parse_args(args):
 
 # ── Tool calling döngüsü ────────────────────────────────────────────
 
-TUR_SINIRI = 3
+TUR_SINIRI = 12  # 2026-08-25: 3'ten yukseltildi — cok adimli isler erken kesilmesin
+
+# 2026-09-09 (tam tespit — Groq kelime duvari): arac sonuclari modele
+# TAM boy gidiyordu (sayfa_oku 5000 harf, read_file sinirsiz). 12 tur
+# birikince tek istek 9000+ kelime olup Groq'un dakikada 8000 duvarina
+# carpiyordu (413 hatasi). Modele giden kopya kirpilir; tam sonuc
+# tum_sonuclar'da saklanir, ekrana/ozete tam gider.
+ARAC_SONUC_TAVAN = 1500
 
 
 def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
@@ -143,28 +150,26 @@ def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
     tum_sonuclar = []
     expanded = list(mesajlar)
 
-    for tur in range(tur_siniri):
+    # Kapasiteye gore taban: kucuk modelde tavan dusuk, guclu modelde TUR_SINIRI
+    from brain.kapasite import mod_kapasite
+    mevcut_kaynaklar = [ad for ad, _ in brain._bulut_zinciri()] if hasattr(brain, "_bulut_zinciri") else []
+    kap = mod_kapasite(kaynaklar=mevcut_kaynaklar)
+    tavan = 3 if kap.kucuk else tur_siniri
+
+    for tur in range(tavan):
         tur_sonuclari = []
         for call in tool_calls:
             func = call.get("function", {})
             tool_name = func.get("name", "")
             args = parse_args(func.get("arguments", "{}"))
             args = tool_argumani_duzelt(tool_name, args)
+            # Bilinmeyen toollari sessizce atla (orn: terminal_calistir)
+            if tool_name not in TANINMIS_TOOLLAR:
+                logger.info("Bilinmeyen tool atlandi: %s", tool_name)
+                continue
             js_callback("BasakUI.toolStatus(" + json.dumps(
                 TOOL_LABELS.get(tool_name, "İşleniyor..."),
                 ensure_ascii=False) + ")")
-
-            # Onay sistemi
-            from chat.approval import onay_bekle
-            from tools.permissions import onay_gerekli_mi
-            if onay_gerekli_mi(tool_name):
-                # BUG #2 FIX: tanimsiz i degiskeni yerine call.get('id') kullan
-                call_id = call.get("id") or ("call_%d" % len(tur_sonuclari))
-                onaylandi = onay_bekle(call_id, tool_name, args)
-                if not onaylandi:
-                    net = "Onay verilmediği için işlem iptal edildi."
-                    tur_sonuclari.append((tool_name, net))
-                    continue
 
             sonuc = calistir(tool_name, args, knowledge_dir, gorevler_file)
             net = sonucu_donustur(tool_name, sonuc)
@@ -173,15 +178,21 @@ def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
         expanded = expanded + [
             {"role": "assistant", "content": "", "tool_calls": tool_calls}]
         for i, (_isim, sonuc) in enumerate(tur_sonuclari):
+            # Modele kirpilmis kopya gider (kelime duvari); tam sonuc
+            # tum_sonuclar'da durur.
+            kirpilmis = sonuc
+            if isinstance(sonuc, str) and len(sonuc) > ARAC_SONUC_TAVAN:
+                kirpilmis = (sonuc[:ARAC_SONUC_TAVAN].rstrip()
+                             + "... [devami kirpildi]")
             expanded.append({
                 "role": "tool",
                 "tool_call_id": tool_calls[i].get("id", "call_%d" % i),
-                "content": sonuc,
+                "content": kirpilmis,
             })
         tum_sonuclar.extend(tur_sonuclari)
 
-        # Son turda arac verilmez
-        sonraki_araclar = tools if tur < tur_siniri - 1 else None
+        # Son turda arac verilmez; kucuk modelde yalniz ilk turda arac verilir
+        sonraki_araclar = tools if (tur < tavan - 1 and kap.guclu) else None
         tool_sonuclari_text = "\n".join(
             "%s: %s" % (ad, net[:300]) for ad, net in tur_sonuclari)
         expanded = expanded + [{
@@ -214,15 +225,9 @@ def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
             return (son_cevap, tum_sonuclar)
         break
 
-    # FALLBACK: Model contract takip etmediyse ham tool ciktisi kaliyor.
-    from olcu import arac_cikti_kur
-    temiz_sonuclar = []
-    for ad, net in tum_sonuclar:
-        if net and 'badge::' in str(net):
-            temiz_sonuclar.append(arac_cikti_kur(ad, net))
-        else:
-            temiz_sonuclar.append(net)
-    return ("\n".join(s for s in temiz_sonuclar if s), tum_sonuclar)
+    # FALLBACK: Model ozet uretmediyse ham tool ciktilari kaliyor.
+    return ("\n".join(
+        str(net) for _ad, net in tum_sonuclar if net), tum_sonuclar)
 
 
 # ── Yardımcılar ─────────────────────────────────────────────────────

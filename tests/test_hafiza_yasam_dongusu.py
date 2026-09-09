@@ -92,7 +92,10 @@ class TestApiClear:
             db_yolu=str(tmp_path / "api.db"),
             embed_fn=lambda m: None,
         )
-        monkeypatch.setattr(c, "_hafiza", motor)
+        # flow/_chat_legacy modül-globalini yamala (chat'ten re-export
+        # edilen isim ayrı bağlayıcıdır — 2026-08-25 düzeltmesi)
+        import _chat_legacy as _cl
+        monkeypatch.setattr(_cl, "_hafiza", motor)
         gecmis = tmp_path / "gecmis.json"
         gecmis.write_text('[{"role": "user", "content": "x"}]',
                           encoding="utf-8")
@@ -113,6 +116,8 @@ class TestApiClear:
         import chat as c
 
         monkeypatch.setattr(c, "_hafiza", False)   # motor kapali senaryosu
+        import _chat_legacy as _cl
+        monkeypatch.setattr(_cl, "_hafiza", False)
         gecmis = tmp_path / "gecmis.json"
         gecmis.write_text("[]", encoding="utf-8")
         monkeypatch.setattr(basak_app, "HISTORY_FILE", str(gecmis))
