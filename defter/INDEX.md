@@ -76,3 +76,10 @@
 | groq-tool-choice-duzeltme.md | FAZ 1.4d: groq'un aracsiz turda tool_call 400'u icin tek nudge'li retry (groq.py); 7 yeni test, 601 test fonksiyonu; kota seffafligi korundu | opencode | 2026-08-24 | sonsuz |
 | canli-triyaj-1.md | Ekran triyaji: gun sayimi off-by-one duzeltildi, gecmis saatli goreve [SAATI GECTI] etiketi, Casper hitap tercihi + kardes ifadesi knowledge'da duzeltildi; qwen2.5:3b sunulan araci kullanmiyor (FAZ 4 gerekcesi guclendi) | opencode | 2026-08-24 | sonsuz |
 | probe.md | probe | basak | 2026-08-25 | 30g |
+| opencode-todo-tamamlama-2026-09-10.md | Todo tamamlama: boot saglik + 2 vixrex kirigi duzeltildi + pencere once acilir + terminal yasagi; 498 yesil; canli A/B ve davranis adimlari onay bekliyor | opencode | 2026-09-10 | sonsuz |
+| canli-sinav-2026-09-10.md | Canli sinav: hat 7/7, sohbette dosya araci yaziyla anlatiliyordu (sebep bulundu); 2 ariza kapatildi, canli dogrulama gercek klasorleri saydi; 504 yesil | opencode | 2026-09-10 | sonsuz |
+| orkestra-ana-yol-acildi-2026-09-10.md | Casper onayi: orkestra_ana_yol true; acilis gizli kural ihlalini gosterdi (yerel yokken model adi siziyordu), _yerel_model_sec ile kapatildi; canli dogrulama gecti, 504 yesil | opencode | 2026-09-10 | sonsuz |
+| sohbet-alttan-aksın-2026-09-10.md | Casper istegi: mesajlar dibe sabitlendi (margin-top:auto), az mesajda bosluk ustte; kaydirma ve otomatik inme korundu | opencode | 2026-09-10 | sonsuz |
+| kalip-budama-ve-kesif-2026-09-10.md | Casper karari: cumle-esleme kaliplari budandi (yetenek+ilke); kesifte gozlemsiz cevaba tek durtme mekanizmasi; canli dolas kanitli; 514 yesil | opencode | 2026-09-10 | sonsuz |
+| faz4-tamamlandi-2026-09-10.md | FAZ 4: 6 yardimci olculdu sira degismedi; 6 olu model temizlendi; DeepSeek/Kimi cift kilitli yuva; oldur-devam provasi kanitli; sozlesme duragan; 530 yesil | opencode | 2026-09-10 | sonsuz |
+| bos-klasor-2026-09-10.md | Suphe dogru: canli yollarda araclara klasorler bos gidiyordu; gorev ekleme cokuyordu (.tmp curufu). flow+deney gercek klasoru tasir, bos-yol korumasi eklendi; canli ekle/listele kanitli; 534 yesil | opencode | 2026-09-10 | sonsuz |

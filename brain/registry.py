@@ -64,7 +64,7 @@ SAGLAYICILAR = {
         "tools": True,
         "gucleri": ["kod", "genel"],
         "gunluk_istek": None,
-        "not": "UCRETLI — varsayilan olarak engelli; Casper acikca izin verirse calisir.",
+        "not": "UCRETLI + KARTSIZ KAPALI — veri karti + deepseek_acik olmadan zincire girmez.",
     },
     "genel": {
         "ad": "Ozel Saglayici",
@@ -74,6 +74,14 @@ SAGLAYICILAR = {
         "gunluk_istek": None,
         "not": "Casper'in kendi bileti (ucretli/ozel). Anahtar yoksa zincire "
                "girmez; varsa EN SONDA yedek durur — bedava duzen degismez.",
+    },
+    "kimi": {
+        "ad": "Kimi (Moonshot)",
+        "ucretsiz": False,
+        "tools": True,
+        "gucleri": ["genel", "kod"],
+        "gunluk_istek": None,
+        "not": "UCRETLI + KARTSIZ KAPALI — veri karti + kimi_acik olmadan zincire girmez.",
     },
     "qwen": {
         "ad": "QwenCloud",

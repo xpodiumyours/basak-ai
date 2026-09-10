@@ -128,13 +128,18 @@ class CohereClient:
             return kullanim_ekle({"content": resp.message.content or "",
                           "tool_calls": tool_calls}, resp)
 
-        # Icerik
+        # Icerik (2026-09-10: blok "text" her zaman string DEGILDIR —
+        # sayi/None karisik blok join'i patlatiyordu; message_utils.py
+        # ile ayni kural: hepsi zorla stringe cevrilir.)
         icerik = ""
         if resp.message.content:
             if isinstance(resp.message.content, list):
-                icerik = "".join(
-                    c.text for c in resp.message.content if hasattr(c, "text")
-                )
+                parcalar = []
+                for c in resp.message.content:
+                    t = getattr(c, "text", "")
+                    parcalar.append(t if isinstance(t, str)
+                                    else str(t) if t is not None else "")
+                icerik = "".join(parcalar)
             else:
                 icerik = str(resp.message.content)
 

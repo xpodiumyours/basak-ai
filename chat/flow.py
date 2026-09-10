@@ -31,6 +31,7 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
     from _chat_legacy import (
         orkestra_aktif_mi, mesaj_isle_orkestra,
         yukle, kaydet, SETTINGS_FILE, HISTORY_FILE,
+        KNOWLEDGE_DIR, GOREVLER_FILE,
         _temizle_history,
         TOOL_YONLENDIRME, BIKIMLONDIRME_YONLENDIRME,
         _ilgili_anilar, _gecmis_pencere,
@@ -183,26 +184,37 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
             for _kaynak, _parca in _yayin(mesajlar, model):
                 _parcalar.append(_parca)
                 js_callback("BasakUI.parca(" + _j(_parca) + ")")
-            _tam = _temizle_fn("".join(_parcalar))
-            gecmis += [{"role": "user", "content": text},
-                       {"role": "assistant", "content": _tam}]
-            kaydet(HISTORY_FILE, gecmis[-40:])
-            try:
-                from chat import oturum as _oturum
-                _oturum.kaydet_cift(text, _tam)
-            except Exception as e:
-                logger.warning("Oturum kaydi atlandi: %s", e)
-            js_callback("BasakUI.bitir(" + _j(_tam) + ", "
-                        + _j(_kaynak or "bulut") + ")")
-            try:
-                _motor2 = _hafiza_al()
-                if _motor2 and _tam:
-                    _motor2.episodik_kaydet(
-                        text, _tam, speaker=aktif_konusmaci or "",
-                        onem=_onem_puanla(text))
-            except Exception as e:
-                logger.warning("Akis anisi kaydedilemedi: %s", e)
-            return
+            # 2026-09-10: bazi saglayicilar sayi/None parca dondurur —
+            # join patlamasin diye hepsi stringe cevrilir.
+            _tam = _temizle_fn("".join(
+                p if isinstance(p, str) else str(p) if p is not None else ""
+                for p in _parcalar))
+            # 2026-09-10 (canli sinav bulgusu): model araci METIN olarak
+            # yazdiysa (```list_files(...)```) akis onu normal yazi sanip
+            # araci hic kosturmadan ekrana veriyordu. Ham arac varsa bu
+            # metin COPtur — yari cevap gosterilmeden tam yola dusulur.
+            if ham_tool_call_ayir(_tam):
+                logger.info("Akis ham arac iceriyor, tam yola dusuluyor")
+            else:
+                gecmis += [{"role": "user", "content": text},
+                           {"role": "assistant", "content": _tam}]
+                kaydet(HISTORY_FILE, gecmis[-40:])
+                try:
+                    from chat import oturum as _oturum
+                    _oturum.kaydet_cift(text, _tam)
+                except Exception as e:
+                    logger.warning("Oturum kaydi atlandi: %s", e)
+                js_callback("BasakUI.bitir(" + _j(_tam) + ", "
+                            + _j(_kaynak or "bulut") + ")")
+                try:
+                    _motor2 = _hafiza_al()
+                    if _motor2 and _tam:
+                        _motor2.episodik_kaydet(
+                            text, _tam, speaker=aktif_konusmaci or "",
+                            onem=_onem_puanla(text))
+                except Exception as e:
+                    logger.warning("Akis anisi kaydedilemedi: %s", e)
+                return
         except _AracIstegi:
             pass  # tam yola dus: arac + detayli cevap
         except _SonHata as e:
@@ -267,7 +279,8 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
                 })
             cevap, arac_ciktilari = tool_calling_multi(
                 sahte_tool_calls, mesajlar, brain, model, js_callback,
-                calistir, aktif_toollar)
+                calistir, aktif_toollar,
+                knowledge_dir=KNOWLEDGE_DIR, gorevler_file=GOREVLER_FILE)
             cevap = _temizle_fn(cevap)
             _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
                             speaker=aktif_konusmaci,
@@ -282,7 +295,8 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
     # Tool calling döngüsü
     cevap, arac_ciktilari = tool_calling_multi(
         tool_calls, mesajlar, brain, model, js_callback, calistir,
-        aktif_toollar)
+        aktif_toollar,
+        knowledge_dir=KNOWLEDGE_DIR, gorevler_file=GOREVLER_FILE)
     cevap = _temizle_fn(cevap)
     _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
                     speaker=aktif_konusmaci,

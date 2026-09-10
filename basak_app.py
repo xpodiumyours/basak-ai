@@ -56,16 +56,15 @@ KISILIK = (
     "adlarini tam yaz. Tek kelimelik soruya tek cumle yeter; ama "
     "'anlat', 'listele', 'neler var' denirse uzun ve duzenli anlat.\n\n"
 
-    "GOREBILDIGIN YERLER (sorarsa bunlari say):\n"
-    "- Tum bilgisayar: suruculer, klasorler, dosyalar — Casper ne "
-    "goruyorsa sen de onu gorursun.\n"
-    "  Ornek: Belgeler, Masaustu, Indirilenler, C:\\Projects, D:\\\n"
-    "- Kendi not klasorlerin: knowledge/, defter/, Basak/\n"
-    "- Dis projeler (sadece okuma): vixrex, numeramatch, xses\n"
-    "GOREMEDIGIN YERLER: Windows klasoru, program dosyalari, sifre "
+    "NEREYE BAKABILIRSIN: kendi not klasorlerin (knowledge/, defter/, "
+    "Basak/), Casper'in ev klasoru (Belgeler, Masaustu, Indirilenler...), "
+    "C:\\Projects ve dis projeler (vixrex, numeramatch, xses - yalniz "
+    "okuma). Nereye baktigin SORULURSA LISTE SAYIP BITIRME - oraya BAK, "
+    "gordugunu anlat.\n"
+    "GIREMEYECEGIN YERLER: Windows klasoru, program dosyalari, sifre "
     "dosyalari (.env, .pem, .key), ayarlar.json, .ssh/.aws anahtari. "
     "Bunlar yasaktir, isteme ve deneme.\n"
-    "YAZABILDIGIN YERLER: knowledge/ ve defter/ serbesttir. Ev klasorun "
+    "YAZMA: knowledge/ ve defter/ serbesttir. Ev klasorun "
     "ve C:\\Projects'e yazarken ONCE SORARSIN (ekranda onay cikar). "
     "Sistem ve sifre dosyalarina ASLA yazamazsin.\n\n"
 
@@ -85,10 +84,28 @@ KISILIK = (
 
 class Api:
     def __init__(self):
-        self.brain = Brain()
+        # 2026-09-10: pencere ONCE acilsin diye beyin tembel baslar.
+        # Eskiden burada Brain() 14 sn agda bekliyor, pencere hic
+        # gorunmuyordu ("acilmaz" sikayeti). Simdi pencere hemen
+        # acilir, boot ekranindan JS boot() cagirinca beyin kurulur.
+        self.brain = None
+        self._beyin_kilit = threading.Lock()
         self.tts = None
         self.stt = None
         self.tts_on = bool(yukle(SETTINGS_FILE, {}).get("tts_on", False))
+
+    def _beyin_al(self):
+        """Beyni ilk kullanimda kurar (thread-safe, bir kez)."""
+        if self.brain is not None:
+            return self.brain
+        kilit = getattr(self, "_beyin_kilit", None)
+        if kilit is None:
+            self._beyin_kilit = threading.Lock()
+            kilit = self._beyin_kilit
+        with kilit:
+            if self.brain is None:
+                self.brain = Brain()
+        return self.brain
 
     def _js(self, code):
         if webview.windows:
@@ -114,7 +131,7 @@ class Api:
 
     def _chat(self, text):
         try:
-            mesaj_isle(text, self.brain, KISILIK, self._js, TOOLS)
+            mesaj_isle(text, self._beyin_al(), KISILIK, self._js, TOOLS)
         except Exception as e:
             # 2026-09-10: iz birak — bir dahaki "beklenmeyen hata"da
             # hata.log'dan kok sebep okunsun.
@@ -153,7 +170,7 @@ class Api:
                     if m.get("role") == "assistant":
                         son_cevap = m.get("content", "")
                         break
-                golge_kos(text, self.brain, son_cevap)
+                golge_kos(text, self._beyin_al(), son_cevap)
         except Exception as e:
             logger.warning("Golge mod atlandi: %s", e)
 
@@ -199,8 +216,9 @@ class Api:
         return bugunku_hatirlatmalar(KNOWLEDGE_DIR, GOREVLER_FILE)
 
     def boot(self):
-        modeller = self.brain.yerel_modeller()
-        bulut = self.brain.bulut_musait()
+        beyin = self._beyin_al()
+        modeller = beyin.yerel_modeller()
+        bulut = beyin.bulut_musait()
         model = None
         if modeller:
             kayitli = yukle(SETTINGS_FILE, {}).get("model")
@@ -240,8 +258,9 @@ class Api:
         return {"ok": True}
 
     def set_key(self, key):
-        self.brain.anahtar_ayarla(key)
-        return {"ok": True, "cloud": self.brain.bulut_musait()}
+        beyin = self._beyin_al()
+        beyin.anahtar_ayarla(key)
+        return {"ok": True, "cloud": beyin.bulut_musait()}
 
     def set_tts(self, on):
         self.tts_on = bool(on)
@@ -417,14 +436,20 @@ def main():
 
     threading.Thread(target=_tepsi_baslat, daemon=True).start()
 
-    # E-3: Zamanlayiciyi baslat (arka plan, sessiz)
-    try:
-        from tools.zamanlayici import Zamanlayici
-        api._zamanlayici = Zamanlayici(
-            js_callback=api._js, beyin=api.brain)
-        api._zamanlayici.baslat()
-    except Exception as e:
-        logger.warning("Zamanlayici baslatilamadi: %s", e)
+    # E-3: Zamanlayici + beyin isinmasi (arka plan, pencereyi bekletmez).
+    # Beyin ilk boot() cagrisinda kurulur; zamanlayici beyin hazir
+    # olunca baslar. Pencere hemen gorunur.
+    def _arka_isinma():
+        try:
+            beyin = api._beyin_al()
+            from tools.zamanlayici import Zamanlayici
+            api._zamanlayici = Zamanlayici(
+                js_callback=api._js, beyin=beyin)
+            api._zamanlayici.baslat()
+        except Exception as e:
+            logger.warning("Zamanlayici baslatilamadi: %s", e)
+
+    threading.Thread(target=_arka_isinma, daemon=True).start()
 
     webview.start()
 

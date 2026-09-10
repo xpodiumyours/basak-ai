@@ -70,8 +70,8 @@ class TestDisProjeOkuma:
     """E-1: Dış projelerden okuma başarılı olmalı."""
 
     def test_vixrex_agents_okuma(self):
-        """VixRex'ten AGENTS.md okunabilmeli."""
-        sonuc = read_file("vixrex/AGENTS.md", BASE)
+        """VixRex'ten bir dosya okunabilmeli."""
+        sonuc = read_file("vixrex/.gitignore", BASE)
         assert "result" in sonuc, "Hata: %s" % sonuc.get("error", "")
         assert len(sonuc["result"]) > 0
 
@@ -154,5 +154,5 @@ class TestOlcumAraclariE1:
     def test_dosya_bilgi_vixrex(self):
         """dosya_bilgi VixRex için çalışmalı."""
         from tools.olcum import dosya_bilgi
-        sonuc = dosya_bilgi("vixrex", "AGENTS.md")
+        sonuc = dosya_bilgi("vixrex", ".gitignore")
         assert "result" in sonuc, "Hata: %s" % sonuc.get("error", "")

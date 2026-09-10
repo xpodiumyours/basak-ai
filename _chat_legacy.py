@@ -337,8 +337,15 @@ _DOSYA_TETIKLERI_OJ = (
     "bul", "oku", "aç", "ac",
     "icinde ne var", "içinde ne var",
     "ne var ne yok",
-    "bilgisayarımda", "bilgisayardaki",
+    "bilgisayarımda", "bilgisayardaki", "bilgisayarda",
     "diskimde",
+    # 2026-09-10 (Casper sikayeti — "dolas bakalim" kesif sayilmiyordu):
+    # kesif fiilleri de sinyaldir. Not: "gez" tek basina genistir
+    # (gezegen); ama sinyal yalnizca aracsiz cevaba TEK durtme verir,
+    # kalici davranis degistirmez.
+    "dolas", "dolaş", "gez",
+    "gorebiliyorsun", "görebiliyorsun",
+    "etrafi", "etrafı",
 )
 # Sadelestirilmis hallerini de ekle
 _DOSYA_TETIKLERI = frozenset(
@@ -794,20 +801,57 @@ def orkestra_bilesenleri(brain):
 
     durum = {"araclar": None}   # QUESTION'da seçilen set — deney tavanı
 
+    def _yerel_model_sec():
+        """Ollama-bagimsizlik (2026-08-24 kurali): yerel model YOKSA None
+        doner — zincir tam buluta akar. Kayitli ad, ancak gercekten
+        kurulu modeller arasindaysa kullanilir."""
+        try:
+            modeller = brain.yerel_modeller()
+        except Exception:
+            modeller = []
+        if not modeller:
+            return None
+        kayitli = yukle(SETTINGS_FILE, {}).get("model")
+        return kayitli if kayitli in modeller else modeller[0]
+
     def aday_uret(mesajlar, araclar):
         durum["araclar"] = araclar
-        # Yerel model ayarlardan okunur — None gonderilirse Ollama hata verir
-        yerel_model = yukle(SETTINGS_FILE, {}).get("model") or "qwen2.5:3b"
-        return brain.cevapla(mesajlar, yerel_model,
-                             tools=araclar if araclar else None)
+        verilen = araclar if araclar else None
+        yanit, kaynak = brain.cevapla(mesajlar, _yerel_model_sec(),
+                                      tools=verilen)
+        # DAYANAK (2026-09-10, Casper karari: kalip degil ilke): kesif
+        # sorusu gozlemsiz cevapla gelirse TEK durtme. Model araci metin
+        # sanmis ya da tembellik etmis olabilir; bakmasi istenir. Ikinci
+        # cevap ne gelirse kabul edilir (dongu yok, kota en fazla 1 fazla).
+        if (isinstance(yanit, dict) and not yanit.get("tool_calls")
+                and verilen):
+            soru = ""
+            for m in reversed(mesajlar or []):
+                if isinstance(m, dict) and m.get("role") == "user":
+                    soru = m.get("content", "") or ""
+                    break
+            if soru and _dosya_islemi_sinyali(soru.lower()):
+                logger.info("Kesif gozlemsiz geldi, tek durtme")
+                yanit, kaynak = brain.cevapla(
+                    mesajlar + [{"role": "user",
+                                 "content": ("Not: yukaridaki soruyu "
+                                             "cevaplarken bakmadan yazma — "
+                                             "ilgili araca BAK, sonra "
+                                             "cevapla.")}],
+                    _yerel_model_sec(), tools=verilen)
+        return yanit, kaynak
 
     def deney_kos(tool_calls, mesajlar):
         # Yetki tavani korunur: döngü yalnız QUESTION'da seçilen seti görür.
+        # 2026-09-10: gercek klasorler tasinir — bos giderse gorev/not/
+        # hatirlatma araclari yanlis dosyaya bakar ya da coker.
         from tools import calistir as _calistir
-        model = yukle(SETTINGS_FILE, {}).get("model") or "qwen2.5:3b"
-        return _tool_calling_multi(tool_calls, mesajlar, brain, model,
+        return _tool_calling_multi(tool_calls, mesajlar, brain,
+                                   _yerel_model_sec(),
                                    lambda c: None, _calistir,
-                                   durum.get("araclar"))
+                                   durum.get("araclar"),
+                                   knowledge_dir=KNOWLEDGE_DIR,
+                                   gorevler_file=GOREVLER_FILE)
 
     def _tek_aday(ad, istemci, mesajlar):
         """Jüri adayı: tek sağlayıcıya doğrudan çağrı; hata → None.

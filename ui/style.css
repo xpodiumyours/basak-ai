@@ -164,6 +164,7 @@ body.oturum-acik .oturum-panel { transform: none; }
 }
 .chat-scroll {
   flex: 1; overflow-y: auto; overflow-x: hidden; padding: 28px 24px 16px;
+  display: flex; flex-direction: column;
 }
 
 /* ── Welcome ── */
@@ -206,7 +207,8 @@ body.oturum-acik .oturum-panel { transform: none; }
 /* ── Messages — normal sohbet gorunumu: sola yasli genis sutun,
    kullanicinin mesaji sagda. */
 .messages {
-  max-width: 1100px; margin: 0; padding: 0 8px;
+  max-width: 1100px; margin: auto 0 0; padding: 0 8px;
+  width: 100%;
   display: flex; flex-direction: column; gap: 14px;
 }
 .msg.basak { max-width: 94%; }

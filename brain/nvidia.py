@@ -25,52 +25,37 @@ from brain.kullanim import kullanim_ekle
 
 BASE_URL = "https://integrate.api.nvidia.com/v1"
 
-# Tercih sirasi: NIM ucretsiz modeller — hepsi 2026-08-22 canli testli
-# (_zincir_probe.py): calismayanlar (gpt-oss-120b timeout, laguna 503,
-# kimi-k2.6/mistral-large-2 404, diffusiongemma timeout) listede YOK.
+# Tercih sirasi: NIM katalog + chat kanitiyla tutulur.
+# 2026-09-10 (FAZ4-3, canli): 80 modelli katalog cekildi; chat'te 410
+# veren ve katalogdan dusenler cikarildi. Zamanasimi yiyenler yedekte.
 TERCIH_SIRASI = [
-    # CANLI TESTLI — 22.08.2026 sirasiyla hiza gore siralanmistir
-    # 2026-09-09: ilk iki model kaldirildi (410 Gone). Liste guncel tutulur.
-    # --- En hizli (0-2s) ---
-    "meta/muse-glimmer-30b",                 # 1.2s, metin+goruntu
-    "nvidia/nvidia-nemotron-nano-9b-v2",      # 1.5s, 9b en hafif
-    "nvidia/nemotron-3.5-lightning-30b-a3b", # 1.8s, hizli
-    # --- Hizli (2-4s) ---
-    "nvidia/nemotron-3-super-120b-a12b",     # 2.2s, 120b MoE
-    "stepfun-ai/step-3.7-flash",             # 2.5s, MoE kod
-    "thinkingmachines/inkling",              # 2.8s, dusunen
-    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",  # 3.0s, TURKCE + multimodal
-    "openai/gpt-oss-20b",                    # 4.1s, tool destekli
-    # --- Orta (4-10s) ---
-    "nvidia/nemotron-3-ultra-550b-a55b",     # 6.5s, 1M baglam
-    # --- Yavas (10s+) ---
-    "moonshotai/kimi-k3",                    # 27.9s, TURKCE + kod
-    # --- Calismayanlar (listede tutuldu, fallback icin) ---
-    # 2026-09-09: 410 Gone — nemotron-3-nano-30b-a3b, minimax-m3 eklendi.
-    "nvidia/nemotron-3-nano-30b-a3b",        # 410 Gone (09.09.2026)
-    "minimaxai/minimax-m3",                  # 410 Gone (09.09.2026)
-    "nvidia/llama-3.3-nemotron-super-49b-v1.5",
-    "meta/llama-3.3-70b-instruct",          # 65s timeout
-    "google/gemma-4-31b-it",                 # 77s timeout
+    # CANLI — katalogda + chat kanitli
+    "openai/gpt-oss-20b",                    # tool destekli
+    "nvidia/nemotron-3-ultra-550b-a55b",     # 6.5s olculu, 1M baglam
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",  # TURKCE + multimodal
+    "moonshotai/kimi-k3",                    # yavas ama canli (27.9s)
+    # --- Katalogda ama 10.09.2026 chat zamanasimli (yedek) ---
+    "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "nvidia/nemotron-3-super-120b-a12b",
+    # --- Yeni adaylar (katalogda, olculmedi — en sonda denenir) ---
+    "nvidia/nemotron-nano-3-30b-a3b",
+    "nvidia/nemotron-4-340b-instruct",
 ]
+# OLU (10.09.2026): katalog disi veya chat 410 Gone —
+# meta/muse-glimmer-30b (katalogda gorunup 410 veriyor),
+# nvidia-nemotron-nano-9b-v2, step-3.7-flash, inkling,
+# nemotron-3-nano-30b-a3b, minimax-m3. Buraya donme, listeye ekleme.
 
 DEEPSEEK_MODEL = "deepseek-ai/deepseek-v4-flash-0731"
-MINIMAX_MODEL = "minimaxai/minimax-m3"
 GPTOSS_MODEL = "openai/gpt-oss-20b"
 
 MODELLER = {
-    "varsayilan": None,          # TERCIH_SIRASI'ndan otomatik (GPT-OSS-20b)
+    "varsayilan": None,          # TERCIH_SIRASI'ndan otomatik
     "gptoss": GPTOSS_MODEL,
-    "gemma": "google/gemma-4-31b-it",            # 31b, google kod (yavas)
-    "kimi": "moonshotai/kimi-k3",
     "ultra": "nvidia/nemotron-3-ultra-550b-a55b",
-    "glimmer": "meta/muse-glimmer-30b",
-    "omni": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",  # 4.7s, multimodal
-    "nano30b": "nvidia/nemotron-3-nano-30b-a3b",               # 30b hizli
-    "nano9b": "nvidia/nvidia-nemotron-nano-9b-v2",             # 9b hafif
-    "inkling": "thinkingmachines/inkling",
-    "step": "stepfun-ai/step-3.7-flash",
-    "minimax": MINIMAX_MODEL,    # hizli MoE, arac destegi var
+    "omni": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    "nano3": "nvidia/nemotron-nano-3-30b-a3b",
+    "kimi": "moonshotai/kimi-k3",
     "deepseek": DEEPSEEK_MODEL,  # dusunen model; cok yavas (~90-180 sn)
 }
 

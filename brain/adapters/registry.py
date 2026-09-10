@@ -66,7 +66,8 @@ def create_providers(ayar: dict, adapters: dict = None) -> dict:
                 providers[ad] = client
                 logger.info("Sağlayıcı başlatıldı: %s", ad)
             else:
-                logger.info("Sağlayıcı atlandı (başarısız): %s", ad)
+                # None = bos yuva (anahtar girilmemis), ariza degil.
+                logger.info("Sağlayıcı boş, atlandı: %s", ad)
         except Exception as e:
             logger.warning("Sağlayıcı başlatılamadı: %s - %s", ad, e)
 

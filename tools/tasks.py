@@ -26,6 +26,8 @@ _KILIT = threading.Lock()
 
 def _yukle(gorevler_file):
     """BOM guvenli okuma; dosya yoksa bos liste."""
+    if not gorevler_file:
+        raise ValueError("Gorev dosyasi yolu bos olamaz")
     if not os.path.exists(gorevler_file):
         return []
     with open(gorevler_file, "r", encoding="utf-8-sig") as f:
@@ -37,7 +39,11 @@ def _atomik_yaz(gorevler_file, gorevler):
 
     os.replace ayni surucude atomiktir — baska thread/dosya okuyucusu
     yarim JSON gormez. Cagranda _KILIT'i tutuyor olmali.
+    2026-09-10: bos yol yasaktir — eskiden ".tmp" adinda sahte dosya
+    uretip WinError ile patliyordu.
     """
+    if not gorevler_file:
+        raise ValueError("Gorev dosyasi yolu bos olamaz")
     gecici = gorevler_file + ".tmp"
     with open(gecici, "w", encoding="utf-8") as f:
         json.dump(gorevler, f, ensure_ascii=False, indent=2)
@@ -51,6 +57,8 @@ def add_task(text: str, gorevler_file: str) -> dict:
     """
     if not text or not text.strip():
         return {"error": "Görev açıklaması boş olamaz"}
+    if not gorevler_file:
+        return {"error": "Görev dosyası yolu boş olamaz"}
 
     try:
         # Tarih tespiti (kilitsiz — sadece metin isleme)
@@ -93,6 +101,8 @@ def list_tasks(gorevler_file: str) -> dict:
         {"result": "Henüz görev yok"} mesajı.
     """
     try:
+        if not gorevler_file:
+            return {"error": "Görev dosyası yolu boş olamaz"}
         if not os.path.exists(gorevler_file):
             return {"result": "Henüz görev yok"}
 
@@ -117,6 +127,8 @@ def list_tasks(gorevler_file: str) -> dict:
 
 def complete_task(task_id: int, gorevler_file: str) -> dict:
     """Bir görevi tamamlandı olarak işaretle (kilitle + atomik yaz)."""
+    if not gorevler_file:
+        return {"error": "Görev dosyası yolu boş olamaz"}
     try:
         with _KILIT:
             gorevler = _yukle(gorevler_file)

@@ -56,6 +56,8 @@ def save_note(title: str, content: str, knowledge_dir: str) -> dict:
         return {"error": "Not başlığı boş olamaz"}
     if not content or not content.strip():
         return {"error": "Not içeriği boş olamaz"}
+    if not knowledge_dir:
+        return {"error": "Not klasörü yolu boş olamaz"}
 
     try:
         dosya_adi = _slug(title) + ".md"
