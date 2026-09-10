@@ -21,7 +21,7 @@ sys.path.insert(0, BASE)
 SONUCLAR = []
 
 
-def test_et(numara, ad, fonksiyon):
+def kos_et(numara, ad, fonksiyon):
     """Tek bir testi çalıştır ve sonucu kaydet."""
     try:
         fonksiyon()
@@ -398,7 +398,7 @@ if __name__ == "__main__":
     ]
 
     for numara, ad, fonksiyon in testler:
-        test_et(numara, ad, fonksiyon)
+        kos_et(numara, ad, fonksiyon)
 
     print()
     print("=" * 60)

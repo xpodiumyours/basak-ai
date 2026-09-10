@@ -18,6 +18,8 @@ hata.log
 hata.log.out
 test_port.txt
 arac.log
+data/audit/
+data/orkestra_golge.log
 
 # Probe/arsiv kosesi (denetim 2026-08-24): gecici deneme ve log dosyalari
 # buraya tasinir; kok dizin temiz kalir. Takip edilmez.

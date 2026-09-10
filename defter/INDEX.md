@@ -83,3 +83,4 @@
 | kalip-budama-ve-kesif-2026-09-10.md | Casper karari: cumle-esleme kaliplari budandi (yetenek+ilke); kesifte gozlemsiz cevaba tek durtme mekanizmasi; canli dolas kanitli; 514 yesil | opencode | 2026-09-10 | sonsuz |
 | faz4-tamamlandi-2026-09-10.md | FAZ 4: 6 yardimci olculdu sira degismedi; 6 olu model temizlendi; DeepSeek/Kimi cift kilitli yuva; oldur-devam provasi kanitli; sozlesme duragan; 530 yesil | opencode | 2026-09-10 | sonsuz |
 | bos-klasor-2026-09-10.md | Suphe dogru: canli yollarda araclara klasorler bos gidiyordu; gorev ekleme cokuyordu (.tmp curufu). flow+deney gercek klasoru tasir, bos-yol korumasi eklendi; canli ekle/listele kanitli; 534 yesil | opencode | 2026-09-10 | sonsuz |
+| kapsamli-cekup-2026-09-10.md | Tam yetki cekupi: 18 arac tutarli, uyuyan organlar (FAZ-3b bekler), kos_et duzeltmesi, loglar takipten cikti, sir 0, dizin kilidi; 534+29 yesil | opencode | 2026-09-10 | sonsuz |

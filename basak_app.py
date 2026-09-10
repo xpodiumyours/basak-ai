@@ -417,6 +417,13 @@ _api = None
 
 def main():
     global _api
+    # 2026-09-10: calisma dizini kilidi — araclar goreceli yollari
+    # (knowledge/, defter/, Basak/) BASE'e gore cozer; uygulama baska
+    # dizinden baslatilirsa "dosya yok" hayaletleri cikiyordu.
+    try:
+        os.chdir(BASE)
+    except OSError:
+        pass
     init_cache()
     api = Api()
     _api = api
