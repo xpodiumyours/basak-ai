@@ -85,6 +85,17 @@ EXTENDED_TETIKLERI = {
         "deftere yaz", "ortak deftere", "kayit ekle",
         "deftere kaydet", "bunu bir kenara yaz", "unutma diye yaz",
     ],
+    "is_ac": [
+        "is ac", "plan yap", "adim adim", "zamana yay",
+        "periyodik is", "duzenli bakim",
+    ],
+    "is_liste": [
+        "islerim", "is durumu", "is kuyrugu", "acan isler",
+        "bekleyen isler",
+    ],
+    "is_onayla": [
+        "isi onayla", "onu onayla", "devam et",
+    ],
 }
 
 
@@ -365,6 +376,45 @@ TOOLS = [
                     "yol": {"type": "string", "description": "Proje ici yol"},
                 },
                 "required": ["proje", "yol"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "is_ac",
+            "description": ("Kalıcı iş aç (kapanınca kaybolmaz). Adımlar: "
+                            "gorev_hatirlat, proje_yokla, gunluk_ozet."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "baslik": {"type": "string", "description": "İş başlığı"},
+                    "adimlar": {"type": "string",
+                                "description": "Virgüllü adım adları"},
+                },
+                "required": ["baslik", "adimlar"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "is_liste",
+            "description": "Kuyruktaki işlerin kısa özeti.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "is_onayla",
+            "description": "Onay bekleyen işi onaylar.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "is_id": {"type": "string", "description": "İş no (is-000001)"}
+                },
+                "required": ["is_id"],
             },
         },
     },

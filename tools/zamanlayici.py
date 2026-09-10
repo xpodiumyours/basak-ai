@@ -176,13 +176,61 @@ def kart_olustur(beyin, ayarlar=None, simdi=None):
     except Exception:
         pass
 
-    if len(parcalar) <= 1:
+    if len(parcalar) <= 1 and not _gunluk_ekler(parcalar):
         # Sadece selam var, anlamlı içerik yok
         return None
 
     kart = "\n\n".join(parcalar)
 
     return {"kart": kart, "kart_id": kart_id}
+
+
+def _gunluk_ekler(parcalar, kuyruk_dosya=None, defter_dir=None):
+    """6-7. adimlar: Gundem (FAY) + is kuyrugu ozeti. Icerik varsa True.
+
+    Ayri fonksiyonda: kart_olustur icindeki sira karismasin, test
+    dogrudan cagirabilsin.
+    """
+    from tools.gerilim import FayKuyrugu
+    from tools.aktarici import aktarim_onerisi, cozumlu_kayitlari
+    from tools.is_kuyrugu import IsKuyrugu, BITTI
+    kuyruk_yolu = kuyruk_dosya or os.path.join(BASE, "data", "fay_kuyruk.json")
+    defter_yolu = defter_dir or os.path.join(BASE, "defter")
+    eklendi = False
+    # 6. Gundem: FAY catlagi + kulliyat onerisi (FAZ-3b baglantisi).
+    try:
+        kuyruk = FayKuyrugu(kuyruk_yolu)
+        paket = kuyruk.gunluk_kart()
+        if paket:
+            satir = "Gündem: %s — %s" % (paket["konu"], paket["gerekce"])
+            try:
+                oneri = aktarim_onerisi(
+                    {"konu": paket["konu"], "gerekce": paket["gerekce"],
+                     "cift": list(paket["cift"])},
+                    cozumlu_kayitlari(defter_yolu),
+                    limit=1)
+                adaylar = oneri.get("adaylar", [])
+                if adaylar:
+                    satir += " (benzer çözüm: %s)" % adaylar[0]["dosya"]
+            except Exception:
+                pass
+            parcalar.append(satir)
+            eklendi = True
+    except Exception:
+        pass
+
+    # 7. Is kuyrugu ozeti (FAZ-3b baglantisi).
+    try:
+        isler = IsKuyrugu().liste()
+        acik = [j for j in isler if j.get("durum") != BITTI]
+        if acik:
+            parcalar.append("İşler: %d açık (%s)" % (
+                len(acik), ", ".join(
+                    "%s %s" % (j["id"], j.get("baslik", "")) for j in acik[:3])))
+            eklendi = True
+    except Exception:
+        pass
+    return eklendi
 
 
 class Zamanlayici:
@@ -227,6 +275,18 @@ class Zamanlayici:
                 simdi = datetime.now()
 
                 if aktif_saat_mi(simdi) and kart_zamani_mi(simdi):
+                    # FAZ-3b: once bekleyen isleri kostur (kuyruk bos ise
+                    # sessizce gecer), sonra gunun kartini goster.
+                    try:
+                        from tools.is_kuyrugu import IsKuyrugu
+                        from tools.is_kuyrugu import varsayilan_harita
+                        rapor = IsKuyrugu().kos_bekleyenleri(
+                            varsayilan_harita(), sure_butcesi=120)
+                        for k in rapor.get("kosulan_is", []):
+                            logger.info("Zamanlayici is: %s -> %s",
+                                        k.get("id"), k.get("sonuc"))
+                    except Exception as e:
+                        logger.warning("Kuyruk kosulamadi: %s", e)
                     kart = kart_olustur(self.beyin)
                     if kart and self.js_callback:
                         try:

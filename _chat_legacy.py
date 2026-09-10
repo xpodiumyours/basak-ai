@@ -917,9 +917,21 @@ def orkestra_bilesenleri(brain):
             return -50
         return -elenen * 5
 
+    def _model_baglami():
+        # FAZ-3b: not yigini + inanc ozeti (300 harf tavan — baglam diyeti).
+        blok = _knowledge_cache or ""
+        try:
+            from tools.dunya import dunya_ozet
+            ozet = dunya_ozet(DEFTER_DIR)
+            if ozet:
+                blok += "\n\nİnançlar:\n" + ozet[:300]
+        except Exception:
+            pass
+        return blok
+
     bilesenler = {
         "observe": observe,
-        "model_baglami": lambda: (_knowledge_cache or ""),
+        "model_baglami": _model_baglami,
         "anilar": lambda s: _ilgili_anilar(s),
         "gecmis_pencere": lambda g: g,
         "siniflandir": _secici.siniflandir,

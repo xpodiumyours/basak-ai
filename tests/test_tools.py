@@ -174,8 +174,11 @@ class TestToolDefinitions:
     """Tool tanımları testleri."""
 
     def test_tools_listesi_dogru(self):
-        """TOOLS listesi 16 arac icermeli (O-1 olcum aracları eklendi)."""
-        assert len(TOOLS) == 18
+        """TOOLS listesi 21 arac icermeli (18 + FAZ-3b is araclari)."""
+        assert len(TOOLS) == 21
+        isimler = [t["function"]["name"] for t in TOOLS]
+        for ad in ("is_ac", "is_liste", "is_onayla"):
+            assert ad in isimler
 
     def test_her_aracin_etiketi_var(self):
         """Semada aciklanan HER aracin izin etiketi olmali.

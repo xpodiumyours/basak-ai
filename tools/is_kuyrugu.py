@@ -37,6 +37,54 @@ HATALI = "hatali"
 _kilit = threading.Lock()
 
 
+# ── ADIM KİTAPLIĞI (FAZ-3b, 2026-09-10) ─────────────────────────────
+# Kosucu adim_haritasi bekler; sohbet/zamanlayici bu kitapligi verir.
+# Kurallar: adimlar parametresizdir (sema degismez), yalniz okur +
+# kart uretir (yazma yok), her biri try/except ile dustugunde hata
+# dict'i doner (kuyruk Hatali kapatir, uygulama ayakta kalir).
+
+def _adim_gorev_hatirlat(soylem):
+    from tools.tasks import list_tasks
+    sonuc = list_tasks(os.path.join(BASE, "gorevler.json"))
+    return {"ozet": str(sonuc.get("result", ""))[:300]}
+
+
+def _adim_proje_yokla(soylem):
+    from tools.olcum import git_durum
+    satirlar = []
+    for proje in ("basak", "vixrex", "numeramatch", "xses"):
+        try:
+            r = git_durum(proje).get("result", "")
+            if r:
+                satirlar.append("%s: %s" % (
+                    proje, " | ".join(r.strip().split("\n")[:2])))
+        except Exception:
+            continue
+    return {"ozet": "; ".join(satirlar)[:500] or "proje yoklanamadi"}
+
+
+def _adim_gunluk_ozet(soylem):
+    from tools.zamanlayici import kart_olustur
+    kart = kart_olustur(None)
+    if not kart:
+        return {"ozet": "kart zamani degil"}
+    return {"ozet": kart["kart"][:500]}
+
+
+ADIM_KITAPLIGI = {
+    "gorev_hatirlat": _adim_gorev_hatirlat,
+    "proje_yokla": _adim_proje_yokla,
+    "gunluk_ozet": _adim_gunluk_ozet,
+}
+
+GECERLI_ADIMLAR = sorted(ADIM_KITAPLIGI)
+
+
+def varsayilan_harita():
+    """Kosucuya verilecek hazir adim_haritasi (kopya)."""
+    return dict(ADIM_KITAPLIGI)
+
+
 def _varsayilan_sure_butcesi():
     """ayarlar.json'daki 'maksimum_gorev_suresi' (sn); yoksa 300."""
     try:
@@ -264,3 +312,50 @@ def kuyruk_al(dosya=None):
     except NameError:
         _tekil = IsKuyrugu(dosya)
     return _tekil
+
+
+def _kuyruk(dosya=None):
+    """Canli tekil; test/izolasyon dosyasinda taze nesne."""
+    if dosya is None:
+        return kuyruk_al()
+    return IsKuyrugu(dosya)
+
+
+# ── SOHBET API (FAZ-3b) ────────────────────────────────────────────
+
+def is_ac(baslik, adimlar_csv, dosya=None):
+    """Sohbetten is acar. Adimlar virgulle ayrilir, kitapliktan olmalidir."""
+    adimlar = [a.strip() for a in (adimlar_csv or "").split(",") if a.strip()]
+    if not (baslik or "").strip():
+        return {"error": "İş başlığı boş olamaz"}
+    if not adimlar:
+        return {"error": "En az bir adım gerekli: %s"
+                % ", ".join(GECERLI_ADIMLAR)}
+    bilinmeyen = [a for a in adimlar if a not in ADIM_KITAPLIGI]
+    if bilinmeyen:
+        return {"error": "Bilinmeyen adım: %s (geçerli: %s)"
+                % (", ".join(bilinmeyen), ", ".join(GECERLI_ADIMLAR))}
+    job = _kuyruk(dosya).ekle(baslik.strip(), adimlar)
+    return {"result": "İş açıldı: %s (%d adım)" % (job["id"], len(adimlar))}
+
+
+def is_listele(dosya=None):
+    """Acik/bekleyen islerin kisa ozeti."""
+    isler = _kuyruk(dosya).liste()
+    if not isler:
+        return {"result": "Kuyruk boş"}
+    satirlar = []
+    for j in isler:
+        satirlar.append("- %s %s: %s [%s %d/%d]" % (
+            j["id"], j.get("baslik", ""), j.get("durum", ""),
+            "adim", j.get("mevcut_adim", 0), len(j.get("adimlar", []))))
+    return {"result": "\n".join(satirlar)}
+
+
+def is_onayla(is_id, dosya=None):
+    """Onay bekleyen isi onaylar."""
+    try:
+        _kuyruk(dosya).onayla(is_id)
+        return {"result": "İş onaylandı: %s" % is_id}
+    except KeyError:
+        return {"error": "İş bulunamadı: %s" % is_id}

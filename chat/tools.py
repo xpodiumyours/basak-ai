@@ -23,6 +23,7 @@ TANINMIS_TOOLLAR = frozenset((
     "save_note", "deftere_kaydet", "ac_uygulama", "get_reminders",
     "video_analyze", "image_analyze", "model_stats",
     "git_durum", "belge_ara", "dosya_bilgi",
+    "is_ac", "is_liste", "is_onayla",
 ))
 
 TOOL_LABELS = {
@@ -37,6 +38,9 @@ TOOL_LABELS = {
     "list_files": "Klasör okunuyor...",
     "read_file": "Dosya okunuyor...",
     "sayfa_oku": "Sayfa okunuyor...",
+    "is_ac": "İş açılıyor...",
+    "is_liste": "İşler okunuyor...",
+    "is_onayla": "İş onaylanıyor...",
 }
 
 

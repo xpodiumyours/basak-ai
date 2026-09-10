@@ -16,6 +16,7 @@ from tools.app_launcher import ac_uygulama
 from tools.reminders import bugunku_hatirlatmalar
 from tools.video_analyzer import video_analyze
 from tools.olcum import git_durum, belge_ara, dosya_bilgi
+from tools.is_kuyrugu import is_ac, is_listele, is_onayla
 from tools.tool_logger import log_tool_call
 from tools.permissions import calistirilabilir_mi
 
@@ -99,6 +100,10 @@ def _belge_ara_args(a, _c):
     return (a.get("proje", ""), a.get("sorgu", ""))
 def _dosya_bilgi_args(a, _c):
     return (a.get("proje", ""), a.get("yol", ""))
+def _is_ac_args(a, _c):
+    return (a.get("baslik", ""), a.get("adimlar", ""))
+def _is_onayla_args(a, _c):
+    return (a.get("is_id", ""),)
 
 
 def _run_simple(fn, args_fn):
@@ -165,6 +170,9 @@ TOOL_MAP = {
     "git_durum":       _run_simple(git_durum, _olcum_args),
     "belge_ara":       _run_simple(belge_ara, _belge_ara_args),
     "dosya_bilgi":     _run_simple(dosya_bilgi, _dosya_bilgi_args),
+    "is_ac":           _run_simple(is_ac, _is_ac_args),
+    "is_liste":        lambda a, c: is_listele(),
+    "is_onayla":       _run_simple(is_onayla, _is_onayla_args),
 }
 
 # add_task icin ozel handler (gorevler_file gerekli)

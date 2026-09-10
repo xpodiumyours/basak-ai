@@ -30,6 +30,9 @@ ETIKETLER = {
     "git_durum": ["salt-okunur"],     # OLCU: sabit okuma komutlari, shell yok
     "belge_ara": ["salt-okunur"],     # OLCU: kok .md belgelerde arama
     "dosya_bilgi": ["salt-okunur"],   # OLCU: var/mtime/boyut olcumu
+    "is_ac": ["yazma"],               # FAZ-3b: kuyruga yazar
+    "is_liste": ["salt-okunur"],      # FAZ-3b: kuyrugu okur
+    "is_onayla": ["yazma"],           # FAZ-3b: onay bayragi yazar
 }
 
 # Etiket -> calisma politikasi (2026-08-23: etiket artik BELGE degil,
