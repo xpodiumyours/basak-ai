@@ -38,10 +38,18 @@ def test_yarin_etiketi_takvimce_1_gunde(tmp_path):
     assert "YARIN" in metin or "1 gun sonra" in metin
 
 
-def test_gecmis_saatli_gorev_etiketlenir(tmp_path):
+def test_gecmis_saatli_gorev_etiketlenir(tmp_path, monkeypatch):
     from datetime import timedelta as td
-    gecen = datetime.now() - td(hours=3)
-    gorevler = [{"date": datetime.now().strftime("%Y-%m-%d"),
+    simdi = datetime(2026, 9, 10, 12, 0)
+
+    class SabitDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return simdi
+
+    monkeypatch.setattr("tools.reminders.datetime", SabitDatetime)
+    gecen = simdi - td(hours=3)
+    gorevler = [{"date": simdi.strftime("%Y-%m-%d"),
                  "text": "saat %02d:%02d'te discine yedek al"
                          % (gecen.hour, gecen.minute),
                  "done": False}]
@@ -53,10 +61,18 @@ def test_gecmis_saatli_gorev_etiketlenir(tmp_path):
     assert "[SAATI GECTI]" in sonuc["result"]
 
 
-def test_gelecek_saatli_gorev_etiketsiz(tmp_path):
+def test_gelecek_saatli_gorev_etiketsiz(tmp_path, monkeypatch):
     from datetime import timedelta as td
-    gelecek = datetime.now() + td(hours=2)
-    gorevler = [{"date": datetime.now().strftime("%Y-%m-%d"),
+    simdi = datetime(2026, 9, 10, 12, 0)
+
+    class SabitDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return simdi
+
+    monkeypatch.setattr("tools.reminders.datetime", SabitDatetime)
+    gelecek = simdi + td(hours=2)
+    gorevler = [{"date": simdi.strftime("%Y-%m-%d"),
                  "text": "saat %02d:%02d'te discine yedek al"
                          % (gelecek.hour, gelecek.minute),
                  "done": False}]

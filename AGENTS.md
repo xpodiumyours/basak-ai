@@ -2,6 +2,22 @@
 
 Bu dosyayı kod yazan her ajan (Claude Code, Kilo Code, OpenCode) işe başlamadan önce okur. Kurallar bağlayıcıdır. Casper kod yazmıyor, doğal dille tarif ediyor — tarifi karara çevirmek ajanın işi, "anlamadım" diye boş bırakmak değil.
 
+## KİLİTLİ PLAN — İŞE BAŞLAMA KAPISI
+
+Her ajan herhangi bir inceleme veya değişiklikten **önce** `ANA-PLAN.md`
+dosyasını baştan sona okumak zorundadır. O dosya tek geçerli plandır.
+
+- Planın kapsamını büyütmek veya daraltmak yasaktır.
+- `ANA-PLAN.md` içindeki **Güncel devir durumu** bölümünde yazan tek sıradaki
+  adımdan devam edilir; tamamlanmış işler yeniden tasarlanmaz.
+- Her davranış önce başarısız sınamayla gösterilir, sonra en küçük değişiklik
+  yapılır ve ilgili sınamalar ile bütün sınamalar çalıştırılır.
+- Fazın çıkış ölçüsü bütünüyle kanıtlanmadan sonraki faza geçilmez.
+- Kullanıcıya ilerleme teknik terimlere boğulmadan; görülen, değiştirilen,
+  sınanan, başarısız kalan ve sıradaki adım olarak anlatılır.
+- Ayrı plan veya yol haritası açılmaz. İlerleme yalnız `ANA-PLAN.md` içindeki
+  devir bölümüne işlenir.
+
 ## 0. Proje
 
 Başak — tamamen yerel çalışan, ücretsiz, Türkçe konuşan kişisel Jarvis. Beyin: Ollama (`qwen2.5:3b`, yerel) + zor sorularda Groq'a (ücretsiz, `llama-3.3-70b`) kaçış. Ses: Piper TTS + faster-whisper STT (ikisi de yerel). Arayüz: `ui/` altında saf HTML/CSS/JS + Three.js orb, pywebview masaüstü penceresinde açılıyor. `ARASTIRMA.md` teknoloji seçim gerekçelerini tutar.

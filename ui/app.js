@@ -508,6 +508,7 @@ window.BasakUI = {
       'save_note': 'Not kaydetme',
       'complete_task': 'Görev tamamlama',
       'ac_uygulama': 'Uygulama açma',
+      'juri': 'Paralel jüri (ek kota)',
     };
     const toolName = toolNames[data.tool] || data.tool;
     const argsStr = JSON.stringify(data.args, null, 2);

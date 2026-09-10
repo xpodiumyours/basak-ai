@@ -1,4 +1,5 @@
 """tests/test_telegram.py — Telegram koprusu birim testleri (2026-09-10)."""
+import asyncio
 import os
 import sys
 
@@ -39,3 +40,22 @@ class TestBol:
 
     def test_bos(self):
         assert _bol("") == [""]
+
+
+def test_telegram_ortak_kisisel_konusma_kapisini_kullanir(monkeypatch):
+    """Telegram, masaüstüyle aynı dış konuşma kapısından geçmeli."""
+    import chat
+    from telegram_bot import _islet
+
+    gorulen = []
+
+    def sahte_mesaj_isle(metin, brain, kisilik, kayit, tools):
+        gorulen.append(metin)
+        kayit('BasakUI.reply("Hatırladım.", "yerel")')
+
+    monkeypatch.setattr(chat, "mesaj_isle", sahte_mesaj_isle)
+    cevap = asyncio.run(_islet(object(), "KİMLİK", [],
+                               "Ben çayı seviyorum"))
+
+    assert gorulen == ["Ben çayı seviyorum"]
+    assert cevap == "Hatırladım."

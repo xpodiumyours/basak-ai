@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import threading
+import time
 import uuid
 
 # ── ONAY SİSTEMİ (Aşama 2) → chat/approval.py'ye taşındı ─────────────
@@ -779,10 +780,54 @@ def juri_acik_mi():
 
 
 _JURI_MAX = 2   # birincilin yanında en fazla kaç alternatif aday
+_JURI_SORU_ARALIGI = 1800  # onay kutusu dırdır engeli (sn)
+_JURI_ONAY_SURESI = 60  # kutu cevabi beklenir (sn); dolarsa jürisiz devam
+_JURI_SON_SORU = 0.0
+_JURI_KILIT = threading.Lock()
 
 
-def orkestra_bilesenleri(brain):
-    """Mevcut doğrulanmış parçaları Orkestra'nın beklediği isimlere bağlar."""
+def _juri_onayi(timeout=_JURI_ONAY_SURESI):
+    """Jüri onay sorusu thunk'u üretir: () -> bool.
+
+    Bayrak kapalıyken ek_adaylar bunu çağırır; UI'daki mevcut onay
+    kutusu (BasakUI.approval, tool='juri') ile sorulur. Ret /
+    süre-dolumu / hata = False → tek adayla devam, kota yanmaz.
+    """
+    def sor():
+        call_id = "juri-" + uuid.uuid4().hex[:8]
+        try:
+            return bool(onay_bekle(
+                call_id, "juri",
+                {"islem": ("Paralel jüri: 2 ek saglayicidan alternatif "
+                           "cevap (ek kota harcar)")},
+                timeout=timeout))
+        except Exception as e:
+            logger.warning("Juri onayi sorulamadi: %s", e)
+            return False
+    return sor
+
+
+def _juri_listesi(birincil_kaynak, brain, tek_fn):
+    """Bayrak/onay aciksa aday thunk'lari kurar (en fazla _JURI_MAX)."""
+    from brain import registry as _registry
+    zincir = dict(brain._bulut_zinciri())
+    if len(zincir) < 2:
+        return []
+    uygun = [a for a in _registry.VARSAYILAN_SIRA
+             if a in zincir and a != birincil_kaynak]
+    secilen = uygun[:_JURI_MAX]
+    return [(ad, (lambda ms, _ad=ad, _ist=zincir[ad]:
+                  tek_fn(_ad, _ist, ms)))
+            for ad in secilen]
+
+
+def orkestra_bilesenleri(brain, juri_onay=None):
+    """Mevcut doğrulanmış parçaları Orkestra'nın beklediği isimlere bağlar.
+
+    juri_onay: opsiyonel onay sorusu () -> bool. Bayrak kapaliyken
+    juri YALNIZCA bu soruya "evet" denirse kosar (Casper karari:
+    her soruda kota yanmasin, ekranda kutuyla sorulsun).
+    """
     from brain import secici as _secici
     from brain import registry as _registry
     from brain.orkestra import Orkestra, YEDEK_CUMLE as _YEDEK
@@ -885,25 +930,33 @@ def orkestra_bilesenleri(brain):
         """DIVERSIFY jürisi: birincilden BAŞKA ücretsiz sağlayıcı adayları.
 
         Kurallar:
-        - anahtar ('orkestra_juri') kapalıysa []
-        - bulut zincirinde <2 sağlayıcı varsa []
         - ARAÇ ÇAĞRILAN turda koşmaz: ölçüm sorusunda tek doğruluk yolu
           vardır; jüri yalnız serbest sohbetin kalite varyansında anlamlı
+        - bayrak ('orkestra_juri') açıksa sorusuz koşar
+        - kapaliyken juri_onay sorusuna "evet" denirse BIR KEZ koşar;
+          reddedilir/süre dolarsa [] (kota yanmaz). Sorular arasi
+          _JURI_SORU_ARALIGI sn dırdır engeli vardir.
         - ücretli ve 429 soğumasındakiler elenir; en fazla _JURI_MAX
         """
-        if not juri_acik_mi():
-            return []
         if arac_var:
             return []
-        zincir = dict(brain._bulut_zinciri())
-        if len(zincir) < 2:
+        if juri_acik_mi():
+            return _juri_listesi(birincil_kaynak, brain, _tek_aday)
+        if juri_onay is None:
             return []
-        uygun = [a for a in _registry.VARSAYILAN_SIRA
-                 if a in zincir and a != birincil_kaynak]
-        secilen = uygun[:_JURI_MAX]
-        return [(ad, (lambda ms, _ad=ad, _ist=zincir[ad]:
-                      _tek_aday(_ad, _ist, ms)))
-                for ad in secilen]
+        global _JURI_SON_SORU
+        with _JURI_KILIT:
+            if time.time() - _JURI_SON_SORU < _JURI_SORU_ARALIGI:
+                return []
+            _JURI_SON_SORU = time.time()
+        try:
+            kabul = bool(juri_onay())
+        except Exception as e:
+            logger.warning("Juri onayi sorulamadi: %s", e)
+            return []
+        if not kabul:
+            return []
+        return _juri_listesi(birincil_kaynak, brain, _tek_aday)
 
     def aday_puanla(temiz, elenen):
         """Deterministik eleştirmen (OLCU ilkesi: AI yorumu YOK).
@@ -929,13 +982,27 @@ def orkestra_bilesenleri(brain):
             pass
         return blok
 
+    def dinamik_araclar(metin, tools):
+        taban = _dinamik_araclar(metin, tools)
+        try:
+            from chat.tool_selection import select_tools
+            model = _yerel_model_sec()
+            kaynaklar = [ad for ad, _ in brain._bulut_zinciri()] \
+                if hasattr(brain, "_bulut_zinciri") else []
+            kap = mod_kapasite(model_adi=model, kaynaklar=kaynaklar)
+            return select_tools(metin, tools, small_model=kap.kucuk,
+                                fallback=taban)
+        except Exception as e:
+            logger.warning("Arac daraltma atlandi: %s", e)
+            return taban
+
     bilesenler = {
         "observe": observe,
         "model_baglami": _model_baglami,
         "anilar": lambda s: _ilgili_anilar(s),
         "gecmis_pencere": lambda g: g,
         "siniflandir": _secici.siniflandir,
-        "dinamik_araclar": _dinamik_araclar,
+        "dinamik_araclar": dinamik_araclar,
         "aday_uret": aday_uret,
         "ek_adaylar": ek_adaylar,
         "aday_puanla": aday_puanla,
@@ -951,7 +1018,7 @@ def orkestra_bilesenleri(brain):
 
 
 def mesaj_isle_orkestra(text, brain, system_prompt, js_callback, tools,
-                        kaydet_acik=True):
+                        kaydet_acik=True, personal_turn=None):
     """ORKESTRA yolunun giriş noktası — mesaj_isle ile aynı sözleşme.
 
     Ayar anahtarı kapalıyken çağrILMAZ; açıkken tek fark, akışın
@@ -962,6 +1029,13 @@ def mesaj_isle_orkestra(text, brain, system_prompt, js_callback, tools,
     """
     from brain.orkestra import Orkestra
     motor = None if not kaydet_acik else _hafiza_al()
+    if personal_turn is None:
+        from chat.personal import prepare_personal_turn
+        raw = [m for m in yukle(HISTORY_FILE, [])
+               if m.get("role") != "system"]
+        personal_turn = prepare_personal_turn(
+            text, motor=motor, history=_gecmis_pencere(_temizle_history(raw)))
+    text = personal_turn.text
 
     def ogren(soru, cevap, onem=1):
         if motor and cevap:
@@ -970,13 +1044,24 @@ def mesaj_isle_orkestra(text, brain, system_prompt, js_callback, tools,
             except Exception as e:
                 logger.warning("Ani kaydedilemedi: %s", e)
 
-    bilesenler = orkestra_bilesenleri(brain)
+    # Gölge koşuda (kaydet_acik=False) kullanıcıya SORULMAZ — gölge
+    # görünmez olmalı; jürisiz koşar (bayrak açıksa hariç, o zaten sorusuz).
+    juri_thunk = _juri_onayi() if kaydet_acik else None
+    bilesenler = orkestra_bilesenleri(brain, juri_onay=juri_thunk)
     bilesenler["ogren"] = ogren
 
     js_callback("BasakUI.thinking()")
     # 2026-08-24 kritik düzeltme: tools burada taşınmazsa orkestra yolunda
     # model HİÇ araç göremez — "dosyalara erişemiyorum" cevaplarının kök nedeni.
-    rapor = Orkestra(bilesenler).kos(text, sistem=system_prompt, tools=tools)
+    from chat.prompts import KIMLIK_BLOGU
+    sistem = KIMLIK_BLOGU + "\n\n" + system_prompt
+    if personal_turn.profile_block:
+        sistem += "\n\n" + personal_turn.profile_block
+    if personal_turn.learning_note:
+        sistem += "\n\n" + personal_turn.learning_note
+    rapor = Orkestra(bilesenler).kos(
+        text, gecmis=personal_turn.recent_history,
+        sistem=sistem, tools=tools)
     if rapor.get("hata"):
         js_callback("BasakUI.error(" + _j(rapor["hata"]) + ")")
         return

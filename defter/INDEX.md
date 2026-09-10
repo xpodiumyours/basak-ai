@@ -85,3 +85,4 @@
 | bos-klasor-2026-09-10.md | Suphe dogru: canli yollarda araclara klasorler bos gidiyordu; gorev ekleme cokuyordu (.tmp curufu). flow+deney gercek klasoru tasir, bos-yol korumasi eklendi; canli ekle/listele kanitli; 534 yesil | opencode | 2026-09-10 | sonsuz |
 | kapsamli-cekup-2026-09-10.md | Tam yetki cekupi: 18 arac tutarli, uyuyan organlar (FAZ-3b bekler), kos_et duzeltmesi, loglar takipten cikti, sir 0, dizin kilidi; 534+29 yesil | opencode | 2026-09-10 | sonsuz |
 | faz3b-baglanti-2026-09-10.md | FAZ-3b: is araclari (ac/liste/onayla) + zamanlayici kosumu + karta Gundem/Isler + inanc ozeti; juri kapali; evrim surucusuz; 542 yesil | opencode | 2026-09-10 | sonsuz |
+| bilgisayar-taramasi-2026-09-10.md | Casper istegyle bilgisayar taramasi v2: gercek Masaustu OneDrive altinda, 7 proje dogrulandi, profil teyit edildi; ozet 3 yere islendi | cline | 2026-09-10 | sonsuz |

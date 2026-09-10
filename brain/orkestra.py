@@ -128,7 +128,7 @@ class Orkestra:
         # 2026-08-25: ölçüm/sözleşme katmanı (OLCU_YONLENDIRME,
         # PROMPT_BLOGU) canlı yoldan çıkarıldı — yalnız araç rehberi kalır.
         from chat.prompts import TOOL_YONLENDIRME
-        tam_sistem = sistem + TOOL_YONLENDIRME
+        tam_sistem = sistem + (TOOL_YONLENDIRME if aktif_araclar else "")
         mesajlar = [{"role": "system", "content": tam_sistem}]
         if baglam:
             mesajlar.append({"role": "system",
