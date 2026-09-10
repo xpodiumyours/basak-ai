@@ -11,7 +11,7 @@ import json
 import logging
 import re
 
-from chat.prompts import KIMLIK_BLOGU
+from chat.prompts import KIMLIK_BLOGU, OLCU_YONLENDIRME
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +30,13 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
     # Lazy imports (circular import önlemi)
     from _chat_legacy import (
         orkestra_aktif_mi, mesaj_isle_orkestra,
-        yukle, SETTINGS_FILE, HISTORY_FILE,
+        yukle, kaydet, SETTINGS_FILE, HISTORY_FILE,
         _temizle_history,
         TOOL_YONLENDIRME, BIKIMLONDIRME_YONLENDIRME,
         _ilgili_anilar, _gecmis_pencere,
         _yapi_kwargi,
         _save_and_reply, _onem_puanla,
+        _hafiza_al,
     )
     from chat.gate import temizle as _temizle_fn
     from chat.tools import tool_calling_multi, ham_tool_call_ayir
@@ -126,7 +127,7 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
     # Hafif mod (kap.kucuk) yalniz token yiyen kisimlari azaltir:
     # hafiza embedding'i atlanir, core arac kucuk tutulur, tool dongusu
     # kisalir. Arac dayatmasi fonksiyoneldir, kesilmez.
-    tam_prompt = system_prompt + TOOL_YONLENDIRME + BIKIMLONDIRME_YONLENDIRME
+    tam_prompt = system_prompt + TOOL_YONLENDIRME + OLCU_YONLENDIRME + BIKIMLONDIRME_YONLENDIRME
     if aktif_konusmaci:
         tam_prompt += "\nKonuşan: %s" % aktif_konusmaci
     mesajlar = [
@@ -168,6 +169,46 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
         pass
 
     mesajlar += _gecmis_pencere(gecmis) + [{"role": "user", "content": text}]
+
+    # AKIS (2026-09-10): once aracsiz akis dene — cevap kelime kelime
+    # gelsin, "dondu mu?" hissi bitsin. Model arac isterse AracIstegi
+    # firlar, asagidaki tam yola dusulur. Akis acilmazsa SonHata ile
+    # dogrudan hata gosterilir (tam yol TEKRAR kota yemez).
+    from brain.yayin import AracIstegi as _AracIstegi, SonHata as _SonHata
+    _yayin = getattr(brain, "cevapla_yayin", None)
+    if _yayin is not None:
+        try:
+            _parcalar = []
+            _kaynak = ""
+            for _kaynak, _parca in _yayin(mesajlar, model):
+                _parcalar.append(_parca)
+                js_callback("BasakUI.parca(" + _j(_parca) + ")")
+            _tam = _temizle_fn("".join(_parcalar))
+            gecmis += [{"role": "user", "content": text},
+                       {"role": "assistant", "content": _tam}]
+            kaydet(HISTORY_FILE, gecmis[-40:])
+            try:
+                from chat import oturum as _oturum
+                _oturum.kaydet_cift(text, _tam)
+            except Exception as e:
+                logger.warning("Oturum kaydi atlandi: %s", e)
+            js_callback("BasakUI.bitir(" + _j(_tam) + ", "
+                        + _j(_kaynak or "bulut") + ")")
+            try:
+                _motor2 = _hafiza_al()
+                if _motor2 and _tam:
+                    _motor2.episodik_kaydet(
+                        text, _tam, speaker=aktif_konusmaci or "",
+                        onem=_onem_puanla(text))
+            except Exception as e:
+                logger.warning("Akis anisi kaydedilemedi: %s", e)
+            return
+        except _AracIstegi:
+            pass  # tam yola dus: arac + detayli cevap
+        except _SonHata as e:
+            js_callback("BasakUI.error(" + _j(
+                "Beyin hatasi: " + str(e.ozet)[:100]) + ")")
+            return
 
     # 2026-08-26: CORE TOOLS — ucretsiz modeller 18 araci cozemez.
     # Core set (9 arac) her zaman gonderilir; extended tools

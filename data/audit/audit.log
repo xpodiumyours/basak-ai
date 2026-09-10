@@ -239,3 +239,83 @@
 2026-09-10 00:55:12 | OK kaynak=glm | 0.0 sn | tools=False | genel sohbet → varsayilan sira
 2026-09-10 00:55:12 | HATA kaynak=glm (0.0 sn): patladi
 2026-09-10 00:55:12 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 01:20:54 | OK kaynak=groq | akis | genel sohbet → dagitilmis sira (Groq, Cloudflare, GLM) | karne: kilo (%0) sona alindi
+2026-09-10 01:21:37 | OK kaynak=glm | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 01:21:37 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 01:21:37 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 01:21:39 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 01:21:42 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 01:21:42 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 01:21:42 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 01:21:42 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 01:21:42 | HATA kaynak=glm (0.0 sn): The read operation timed out
+2026-09-10 01:21:42 | OK kaynak=cloudflare | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 01:21:42 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 01:21:42 | OK kaynak=yerel | 0.0 sn | tools=False | dustu=1 bulut
+2026-09-10 10:25:52 | OK kaynak=groq | akis | genel sohbet → dagitilmis sira (Groq, GLM, Cloudflare) | karne: kilo (%0) sona alindi
+2026-09-10 10:26:33 | OK kaynak=glm | akis | genel sohbet → dagitilmis sira (GLM, Cloudflare, Groq) | karne: kilo (%0) sona alindi
+2026-09-10 10:27:09 | OK kaynak=cloudflare | akis | genel sohbet → dagitilmis sira (Cloudflare, GLM, Groq) | karne: kilo (%0) sona alindi
+2026-09-10 10:38:46 | OK kaynak=glm | akis | genel sohbet → dagitilmis sira (GLM, Groq, Cloudflare) | karne: kilo (%0) sona alindi
+2026-09-10 10:43:13 | OK kaynak=groq | akis | genel sohbet → dagitilmis sira (Groq, Cloudflare, GLM) | karne: kilo (%0) sona alindi
+2026-09-10 10:43:59 | OK kaynak=glm | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 10:43:59 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 10:43:59 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 10:44:00 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 10:44:04 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 10:44:04 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 10:44:04 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 10:44:04 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 10:44:04 | HATA kaynak=glm (0.0 sn): The read operation timed out
+2026-09-10 10:44:04 | OK kaynak=cloudflare | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 10:44:04 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 10:44:04 | OK kaynak=yerel | 0.0 sn | tools=False | dustu=1 bulut
+2026-09-10 10:47:07 | OK kaynak=groq | akis | genel sohbet → dagitilmis sira (Groq, GLM, Cloudflare) | karne: kilo (%0) sona alindi
+2026-09-10 10:48:03 | OK kaynak=glm | akis | genel sohbet → dagitilmis sira (GLM, Cloudflare, Groq) | karne: kilo (%0) sona alindi
+2026-09-10 11:14:42 | OK kaynak=glm | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 11:14:42 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 11:14:42 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 11:16:04 | OK kaynak=cloudflare | akis | genel sohbet → dagitilmis sira (Cloudflare, GLM, Groq) | karne: kilo (%0) sona alindi
+2026-09-10 11:16:43 | OK kaynak=glm | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 11:16:43 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 11:16:43 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 11:16:48 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:16:48 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:16:48 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:16:48 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:16:48 | HATA kaynak=glm (0.0 sn): The read operation timed out
+2026-09-10 11:16:48 | OK kaynak=cloudflare | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:16:48 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 11:16:48 | OK kaynak=yerel | 0.0 sn | tools=False | dustu=1 bulut
+2026-09-10 11:18:20 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 11:18:20 | OK kaynak=glm | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 11:18:20 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 11:18:20 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 11:19:43 | OK kaynak=cloudflare | akis | genel sohbet → dagitilmis sira (Cloudflare, GLM, Groq) | karne: kilo (%0) sona alindi
+2026-09-10 11:20:21 | OK kaynak=glm | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 11:20:21 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 11:20:21 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 11:20:22 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 11:20:26 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:20:26 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:20:26 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:20:26 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:20:26 | HATA kaynak=glm (0.0 sn): The read operation timed out
+2026-09-10 11:20:26 | OK kaynak=cloudflare | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:20:26 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 11:20:26 | OK kaynak=yerel | 0.0 sn | tools=False | dustu=1 bulut
+2026-09-10 11:40:40 | OK kaynak=cloudflare | akis | genel sohbet → dagitilmis sira (Cloudflare, Groq, GLM) | karne: kilo (%0) sona alindi
+2026-09-10 11:40:55 | OK kaynak=cloudflare | akis | genel sohbet → dagitilmis sira (Cloudflare, Groq, GLM) | karne: kilo (%0) sona alindi
+2026-09-10 11:40:59 | OK kaynak=cloudflare | akis | genel sohbet → dagitilmis sira (Cloudflare, GLM, Groq) | karne: kilo (%0) sona alindi
+2026-09-10 11:45:01 | OK kaynak=glm | akis | genel sohbet → dagitilmis sira (GLM, Cloudflare, Groq) | karne: kilo (%0) sona alindi
+2026-09-10 11:45:40 | OK kaynak=glm | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 11:45:40 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 11:45:40 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 11:45:41 | OK kaynak=groq | 0.0 sn | tools=False | genel sohbet → varsayilan sira
+2026-09-10 11:45:47 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:45:48 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:45:48 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:45:48 | OK kaynak=glm | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:45:48 | HATA kaynak=glm (0.0 sn): The read operation timed out
+2026-09-10 11:45:48 | OK kaynak=cloudflare | 0.0 sn | tools=False | acik tercihle siralandi
+2026-09-10 11:45:48 | HATA kaynak=glm (0.0 sn): patladi
+2026-09-10 11:45:48 | OK kaynak=yerel | 0.0 sn | tools=False | dustu=1 bulut

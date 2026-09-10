@@ -37,14 +37,19 @@ def _karne_ozetleri(mevcutlar):
             and o.get("toplam", 0) >= _MIN_ORNEKLEM}
 
 
-# Gorev turleri ve anahtar kelimeleri
+# Gorev turleri ve anahtar kelimeleri (2026-09-10: gunluk konusma
+# kaliplari eklendi — noktasiz/harf eksik yazimlar da yakalanir)
 _GOREV_KELIMELERI = {
     "kod": ["kod", "python", "javascript", "fonksiyon", "hata",
-            "debug", "script", "regex", "yazılım", "programla",
+            "debug", "script", "regex", "yazılım", "yazilim", "programla",
             "css", "html", "sql", "api", "algoritma"],
-    "arastirma": ["araştır", "öğren", "kaynak", "karşılaştır",
-                  "nedir", "kimdir", "detaylı", "incele"],
-    "hiz": ["hızlı", "çabuk", "acele", "anında", "şimdi"],
+    "arastirma": ["araştır", "arastir", "öğren", "ogren", "kaynak",
+                  "karşılaştır", "karsilastir", "nedir", "kimdir",
+                  "detaylı", "detayli", "incele", "fiyat", "kac para",
+                  "para", "musteri", "müşteri", "rakip", "pazar",
+                  "derinlemesine"],
+    "hiz": ["hızlı", "hizli", "çabuk", "cabuk", "acele", "anında",
+            "aninda", "şimdi", "simdi"],
 }
 
 # 2026-09-09 (tam tespit): olcum gercegine gore dizeildi.

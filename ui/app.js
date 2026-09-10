@@ -29,6 +29,7 @@ function brainKaynakEtiketi(kaynak) {
   else if (s.startsWith("qwen")) ad = "QWEN";
   else if (s.startsWith("nvidia")) ad = "NEMOTRON";
   else if (s.startsWith("openrouter")) ad = "OPENROUTER";
+  else if (s.startsWith("genel")) ad = "ÖZEL";
   else if (s.startsWith("yerel")) ad = "YEREL";
 
   const parcalar = s.split("·");
@@ -424,6 +425,32 @@ window.BasakUI = {
     setStatus("busy", text);
     setOrb("arac");
   },
+  /* Akan cevap (2026-09-10): parca() ham metni biriktirir, bitir()
+     tam metni bicimleyip kilidi acar. Arac isteyen sorular eski
+     reply() yolundan gelir — bu ikisi karismaz. */
+  _akisEl: null,
+  _akisMetin: "",
+  parca(parca) {
+    let el = window.BasakUI._akisEl;
+    if (!el || !document.contains(el)) {
+      const _t = document.querySelector(".msg.basak.thinking"); if (_t) _t.remove();
+      el = Chat.add("basak", "");
+      window.BasakUI._akisEl = el;
+      window.BasakUI._akisMetin = "";
+      setOrb("cevapliyor");
+    }
+    window.BasakUI._akisMetin += String(parca == null ? "" : parca);
+    el.querySelector(".msg-bubble").textContent = window.BasakUI._akisMetin;
+    Chat.dibeKaydir();
+  },
+  bitir(tamMetin, modelInfo) {
+    const el = window.BasakUI._akisEl;
+    window.BasakUI._akisEl = null;
+    window.BasakUI._akisMetin = "";
+    const _t = document.querySelector(".msg.basak.thinking"); if (_t) _t.remove();
+    if (el && document.contains(el)) el.remove();
+    window.BasakUI.reply(tamMetin, modelInfo);
+  },
   reply(text, modelInfo) {
     const _t = document.querySelector(".msg.basak.thinking"); if (_t) _t.remove();
     Chat.add("basak", text);
@@ -434,6 +461,7 @@ window.BasakUI = {
     const ml = modelInfo || state.model || "yerel beyin";
     setStatus("ok", ml + " HAZIR");
     $("input").focus();
+    try { oturumlariYukle(); } catch (e) {}
   },
   error(msg) {
     const _t = document.querySelector(".msg.basak.thinking"); if (_t) _t.remove();
@@ -584,6 +612,62 @@ document.querySelectorAll(".chip").forEach((c) => {
     send();
   });
 });
+
+/* ---------------- Eski sohbetler (2026-09-10) ---------------- */
+function tarihKisa(ts) {
+  try {
+    const d = new Date(ts * 1000);
+    return d.toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit" })
+      + " " + d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  } catch (e) { return ""; }
+}
+async function oturumlariYukle() {
+  try {
+    const liste = await api().oturumlar();
+    const kutu = $("oturumListe");
+    if (!kutu) return;
+    kutu.innerHTML = "";
+    (liste || []).forEach((o) => {
+      const b = document.createElement("button");
+      b.className = "oturum-oge";
+      b.type = "button";
+      b.textContent = o.baslik || "Sohbet";
+      const k = document.createElement("small");
+      k.textContent = (o.adet || 0) + " ileti · " + tarihKisa(o.guncellendi);
+      b.appendChild(k);
+      b.addEventListener("click", () => oturumAc(o.id));
+      kutu.appendChild(b);
+    });
+  } catch (e) {}
+}
+async function oturumAc(id) {
+  if (state.busy) return;
+  try {
+    const r = await api().oturum_ac(id);
+    if (r && r.ok) {
+      $("messages").innerHTML = "";
+      (r.mesajlar || []).forEach((m) => {
+        Chat.add(m.role === "assistant" ? "basak" : "user", m.content || "");
+      });
+      document.body.classList.remove("oturum-acik");
+      Chat.dibeKaydir();
+    }
+  } catch (e) {}
+}
+async function yeniSohbet() {
+  if (state.busy) return;
+  try { await api().yeni_sohbet(); } catch (e) {}
+  $("messages").innerHTML = "";
+  $("chatEmpty").style.display = "flex";
+  document.body.classList.remove("goster-mesajlar");
+  document.body.classList.remove("oturum-acik");
+  oturumlariYukle();
+}
+$("btnOturum").addEventListener("click", () => {
+  document.body.classList.toggle("oturum-acik");
+  if (document.body.classList.contains("oturum-acik")) oturumlariYukle();
+});
+$("btnYeni").addEventListener("click", yeniSohbet);
 $("btnMic").addEventListener("click", () => { if (!state.dinliyor) api().dinle(); });
 $("btnTts").addEventListener("click", () => {
   state.ttsOn = !state.ttsOn;
@@ -696,6 +780,7 @@ async function boot() {
       if (status.reminders && status.reminders.trim()) {
         Chat.add("basak", status.reminders);
       }
+      try { oturumlariYukle(); } catch (e) {}
     } else {
       // 2026-09-09: mesaj gercegi soyler. Eskiden hep "OLLAMA KAPALI"
       // yaziyordu; oysa bulut biletleri de olmus olabilir. boot() ok=false

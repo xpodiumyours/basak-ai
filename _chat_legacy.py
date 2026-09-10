@@ -571,6 +571,12 @@ def _save_and_reply(text, cevap, kaynak, gecmis, js_callback, speaker="",
     gecmis += [{"role": "user", "content": text, "oturum": OTURUM_ID},
                {"role": "assistant", "content": cevap, "oturum": OTURUM_ID}]
     kaydet(HISTORY_FILE, gecmis[-40:])
+    # Eski sohbet listesi (2026-09-10): cift ayni anda oturuma islenir
+    try:
+        from chat import oturum as _oturum
+        _oturum.kaydet_cift(text, cevap)
+    except Exception as e:
+        logger.warning("Oturum kaydi atlandi: %s", e)
     js_callback("BasakUI.reply(" + _j(cevap) + ", " + _j(kaynak) + ")")
     # UI guncellendikten sonra ani kaydet — cevabi bekletmesin
     motor = _hafiza_al()

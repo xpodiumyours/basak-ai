@@ -33,11 +33,20 @@ def mesajlari_temizle(messages: list) -> list:
         elif isinstance(icerik, str):
             kopya["content"] = icerik
         elif isinstance(icerik, list):
-            # Array content → string'e çevir
+            # Array content → string'e çevir. 2026-09-10: parca icindeki
+            # "text" her zaman string DEGILDIR (bazi saglayicilar sayi/
+            # None/karisik blok doner) — join patliyordu ("sequence item
+            # N: expected str instance"). Hepsi zorla stringe cevrilir.
             parcalar = []
             for p in icerik:
                 if isinstance(p, dict):
-                    parcalar.append(p.get("text", str(p)))
+                    t = p.get("text", "")
+                    parcalar.append(t if isinstance(t, str) else str(t)
+                                    if t is not None else "")
+                elif isinstance(p, str):
+                    parcalar.append(p)
+                elif p is None:
+                    parcalar.append("")
                 else:
                     parcalar.append(str(p))
             kopya["content"] = " ".join(parcalar)

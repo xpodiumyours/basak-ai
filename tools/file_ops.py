@@ -197,9 +197,12 @@ def _guvenli_yolu_coz(yol, base_dir):
 
         # AKILLI YOL ÇEVİRME: "belgeler", "masaüstü" gibi klasör isimlerini
         # gerçek Windows yollarına çevir. Model küçükse doğru yol üretemez.
-        cozulmus, orijinal = _klasor_cevir(yol)
-        if not orijinal:
-            yol = cozulmus
+        # 2026-09-10: YALNIZ goreLI yolda — mutlak yolda "desktop" kelimesi
+        # gectigi icin yol yutuluyordu (C:\...\Desktop\dosya -> Desktop).
+        if not os.path.isabs(str(yol).strip()):
+            cozulmus, orijinal = _klasor_cevir(yol)
+            if not orijinal:
+                yol = cozulmus
 
         # MUTLAK YOL — tum bilgisayar (2026-09-09, Casper karari):
         # Basak, Casper'in gordugu her yeri gorebilir: ev, C:\Projects,

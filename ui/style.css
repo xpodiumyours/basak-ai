@@ -103,6 +103,37 @@ body::before {
 .header-status::before { content: "◆ "; color: var(--accent); }
 .header-right { display: flex; gap: 6px; position: relative; z-index: 1; }
 
+/* ── Eski sohbetler cekmecesi (2026-09-10) ── */
+.oturum-panel {
+  position: fixed; top: 0; left: 0; bottom: 0; width: 260px; z-index: 900;
+  background: rgba(4, 6, 18, 0.97); border-right: 1px solid var(--border);
+  transform: translateX(-102%); transition: transform 0.25s ease;
+  display: flex; flex-direction: column; padding: 14px 12px;
+}
+body.oturum-acik .oturum-panel { transform: none; }
+.oturum-bas {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--font-display); font-size: 12px; letter-spacing: 3px;
+  color: var(--text-dim); margin-bottom: 10px;
+}
+.oturum-yeni {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px;
+  color: var(--accent); background: var(--accent-dim);
+  border: 1px solid var(--accent); border-radius: 3px;
+  padding: 5px 10px; cursor: pointer;
+}
+.oturum-yeni:hover { box-shadow: 0 0 12px var(--accent-glow); }
+.oturum-liste { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.oturum-oge {
+  text-align: left; font-family: var(--font-mono); font-size: 12px;
+  color: var(--text); background: rgba(0,20,40,0.4);
+  border: 1px solid var(--border); border-radius: 3px;
+  padding: 8px 10px; cursor: pointer; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.oturum-oge:hover { border-color: var(--accent); color: var(--accent); }
+.oturum-oge small { display: block; font-size: 9px; color: var(--text-dim); margin-top: 2px; }
+
 /* ── Icon Button ── */
 .icon-btn {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;

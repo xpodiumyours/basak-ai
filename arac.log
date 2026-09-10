@@ -100,3 +100,35 @@
 [2026-09-10 00:52:49] HATA | save_note | {'title': '<6 karakter>', 'content': '<6 karakter>'} | {'error': "Not kaydedilemedi: [WinError 3] Sistem belirtilen yolu bulamıyor: ''"}
 [2026-09-10 00:52:52] OK | web_search | {'query': 'arama'} | {'result': 'Web arama motoru veya internet arama motoru, web\'de sistematik bir şekilde internet kullanıcılarının istedikleri bilgilere anında erişebilmek için sıkça kullandıkları bir yazılım türüdür....
 [2026-09-10 00:55:12] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-09-10 01:21:37] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-09-10 01:21:37] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-09-10 01:21:37] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '//ayarlar.json'} | {'error': 'Yol proje disina tasiyor: //ayarlar.json'}
+[2026-09-10 01:21:41] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-09-10 01:21:42] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-09-10 01:21:42] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-09-10 10:43:59] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-09-10 10:43:59] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-09-10 10:43:59] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '//ayarlar.json'} | {'error': 'Yol proje disina tasiyor: //ayarlar.json'}
+[2026-09-10 10:44:02] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-09-10 10:44:04] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-09-10 10:44:04] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-09-10 11:14:42] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-09-10 11:16:43] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-09-10 11:16:43] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-09-10 11:16:43] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '//ayarlar.json'} | {'error': 'Yol proje disina tasiyor: //ayarlar.json'}
+[2026-09-10 11:16:46] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-09-10 11:16:48] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-09-10 11:16:48] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-09-10 11:18:20] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-09-10 11:20:21] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-09-10 11:20:21] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-09-10 11:20:21] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '//ayarlar.json'} | {'error': 'Yol proje disina tasiyor: //ayarlar.json'}
+[2026-09-10 11:20:23] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-09-10 11:20:26] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-09-10 11:20:26] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}
+[2026-09-10 11:45:40] HATA | terminal_calistir | {'komut': 'dir'} | {'error': 'izin engeli'}
+[2026-09-10 11:45:40] HATA | git_durum | {'proje': 'basak; git reset --hard; rm -rf /'} | {'error': "Bilinmeyen proje: 'basak; git reset --hard; rm -rf /'. Beyaz liste: basak, numeramatch, vixrex, xses"}
+[2026-09-10 11:45:40] HATA | dosya_bilgi | {'proje': 'basak', 'yol': '//ayarlar.json'} | {'error': 'Yol proje disina tasiyor: //ayarlar.json'}
+[2026-09-10 11:45:46] HATA | nonexistent_tool | {} | {'error': 'izin engeli'}
+[2026-09-10 11:45:47] OK | web_search | {'query': 'test'} | {'result': "Test şu anlamlara gelebilir:Test, bir kişi ya da öbeğin bilgi birikimi ve diğer becerilerini ölçmeye yarayan araçÇoktan seçmeli test, test seçeneklere sahip test sorularıTest kitabı, test ...
+[2026-09-10 11:45:47] OK | list_tasks | {} | {'result': 'Tüm görevler tamamlanmış'}

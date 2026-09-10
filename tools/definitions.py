@@ -34,11 +34,13 @@ EXTENDED_TETIKLERI = {
     ],
     "read_file": [
         "dosyayi oku", "dosya icerigi", "dosyanin icinde ne var",
-        "bu dosyayi ac", "oku",
+        "bu dosyayi ac", "oku", "icini ac", "icinde ne yaziyor",
+        "bana oku", "goster su dosyayi",
     ],
     "get_reminders": [
         "hatirlatma", "hatirlat", "bugun ne yapacagim",
-        "ajandam", "programim", "planim",
+        "ajandam", "programim", "planim", "yarin ne var",
+        "bugun neler var", "gunum nasil",
     ],
     "git_durum": [
         "vixrex", "numeramatch", "xses",
@@ -81,7 +83,7 @@ EXTENDED_TETIKLERI = {
     ],
     "deftere_kaydet": [
         "deftere yaz", "ortak deftere", "kayit ekle",
-        "deftere kaydet",
+        "deftere kaydet", "bunu bir kenara yaz", "unutma diye yaz",
     ],
 }
 

@@ -11,6 +11,7 @@ import time
 from datetime import datetime
 
 from brain.groq import MODELLER  # MODELLER sabitine hâlâ ihtiyaç var
+from brain.ollama import OLLAMA_URL
 from brain.stats import model_stats_al
 from brain import secici, registry
 
@@ -117,6 +118,9 @@ class Brain:
         self._cloudflare = self._providers.get("cloudflare")
         self._cohere = self._providers.get("cohere")
         self._qwen = self._providers.get("qwen")
+        # 2026-09-10: kullanicinin ozel (ucretli) saglayicisi. Anahtar
+        # yoksa None'dir — bedava kurulum etkilenmez.
+        self._genel = self._providers.get("genel")
 
     def _bulut_zinciri(self) -> list:
         """Musait bulut istemcilerini toplar: [(ad, istemci)].
@@ -148,6 +152,12 @@ class Brain:
                 zincir.append(("qwen", self._qwen))
         if self._gemini is not None and self._gemini.musait():
             zincir.append(("gemini", self._gemini))
+        # 2026-09-10: ozel saglayici EN SONDA — bedavalar once denenir,
+        # parali anahtar takilinca davranis degismez, yedek cogalir.
+        # getattr: elle kurulan Brain nesnelerinde de patlamaz.
+        _genel = getattr(self, "_genel", None)
+        if _genel is not None and _genel.musait():
+            zincir.append(("genel", _genel))
         return zincir
 
     def bulut_musait(self) -> bool:
@@ -328,3 +338,99 @@ class Brain:
             detay = "; ".join(hatalar) if hatalar else str(e)
             _audit("TAM BASARISIZLIK: %s" % detay[:150])
             raise RuntimeError(f"Hicbir model calismadi ({detay})") from e
+
+    def cevapla_yayin(self, messages, yerel_model, tercih=None,
+                      gorev_tipi=None):
+        """Akan cevap uretir: yield (kaynak, parca).
+
+        Aracsiz duz sohbet icindir (tools=None). Model arac isterse
+        AracIstegi firlatir — cagiran tam yola duser. Hicbir saglayici
+        akis acamazsa SonHata firlatir (tam yol TEKRAR denemez — kota yenmez).
+
+        Not: akis sirasinda istatistik/token yazilmaz (kismi sayim
+        butceyi bozar). Basari/zaman olcumu tam yolda yapilir.
+        """
+        from brain.yayin import AracIstegi as _Arac, SonHata, akit
+        from brain import secici as _secici
+
+        zincir = self._bulut_zinciri()
+        mevcutlar = [ad for ad, _ in zincir]
+        if tercih:
+            one_alinan = sorted(
+                (a for a in mevcutlar if a in tercih),
+                key=lambda a: tercih.index(a),
+            )
+            sirali = one_alinan + [a for a in mevcutlar if a not in tercih]
+            gerekce = "acik tercihle siralandi"
+        else:
+            soru = ""
+            for m in reversed(messages):
+                if m.get("role") == "user":
+                    soru = m.get("content", "") or ""
+                    break
+            sirali, gerekce = _secici.sec(
+                text=soru, gorev_tipi=gorev_tipi,
+                tools=False, mevcutlar=mevcutlar,
+                karne_kullan=True, cooldown=_COOLDOWN)
+
+        istemciler = dict(zincir)
+        hatalar = []
+        for ad in sirali:
+            istemci = istemciler.get(ad)
+            if istemci is None:
+                continue
+            if _cooldown_kaldi(ad) > 0:
+                continue
+            try:
+                if ad == "yerel":
+                    from brain.yayin import ollama_akit
+                    uretici = ollama_akit(
+                        getattr(istemci, "base_url", OLLAMA_URL),
+                        yerel_model, messages)
+                else:
+                    ham = getattr(istemci, "client", None)
+                    model = getattr(istemci, "model", None)
+                    if ham is None or not model:
+                        continue
+                    uretici = akit(ham, model, messages)
+                basladi = False  # akis ortasi kopma takibi
+                for parca in uretici:
+                    basladi = True
+                    yield ad, parca
+                _audit("OK kaynak=%s | akis | %s" % (ad, gerekce))
+                return
+            except _Arac:
+                raise
+            except Exception as e:
+                hata = str(e)[:100]
+                # Akis ORTASINDA kopma: UI'da yari metin var, baska
+                # saglayiciyla devam ETME (metin ikilenir). Dogrudan hata.
+                if basladi:
+                    _audit("AKIS KOPTU kaynak=%s: %s" % (ad, hata[:80]))
+                    raise SonHata("cevap yolda kesildi (%s)" % ad)
+                logger.warning("%s akis hatasi: %s", ad, hata)
+                hatalar.append("%s: %s" % (ad, hata[:60]))
+                if _rate_limit_mi(e):
+                    _cooldown_ekle(ad)
+                continue
+
+        # Yerel son care (zincirde yoksa dogrudan dene). Yerel hizli
+        # oldugu icin once biriktirilir, sonra verilir — yari metin
+        # ikilenme riski olmaz.
+        try:
+            from brain.yayin import ollama_akit
+            if yerel_model:
+                birikmis = list(ollama_akit(OLLAMA_URL, yerel_model,
+                                            messages))
+                for parca in birikmis:
+                    yield "yerel", parca
+                _audit("OK kaynak=yerel | akis")
+                return
+        except _Arac:
+            raise
+        except Exception as e:
+            hatalar.append("yerel: %s" % str(e)[:60])
+
+        detay = "; ".join(hatalar) if hatalar else "bilinmeyen hata"
+        _audit("AKIS BASARISIZ: %s" % detay[:150])
+        raise SonHata(detay)

@@ -30,6 +30,15 @@
   <!-- Ana Uygulama -->
   <div class="app" id="terminalApp">
 
+    <!-- Eski sohbetler cekmecesi (2026-09-10) -->
+    <aside class="oturum-panel" id="oturumPanel" aria-label="Eski sohbetler">
+      <div class="oturum-bas">
+        <span>SOHBETLER</span>
+        <button class="oturum-yeni" id="btnYeni" type="button">＋ Yeni</button>
+      </div>
+      <div class="oturum-liste" id="oturumListe"></div>
+    </aside>
+
     <!-- 3D Orb Sahnesi -->
     <div class="orb-container" id="orbContainer">
       <canvas id="sahneCanvas"></canvas>
@@ -42,6 +51,11 @@
     <!-- Üst Bar -->
     <header class="header">
       <div class="header-left">
+        <button class="icon-btn" id="btnOturum" title="Eski sohbetler" aria-label="Eski sohbetler">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
         <div class="logo">
           <div class="logo-dot" id="brainDot"></div>
           <span class="logo-text">BAŞAK</span>

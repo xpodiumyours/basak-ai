@@ -11,6 +11,24 @@ import threading
 
 logger = logging.getLogger(__name__)
 
+# 2026-09-10: hatalar dosyaya da yazilir (hata.log) — ekrandaki kisa
+# mesaj yetmezse kok sebep buradan okunur. Dosya git'e girmez.
+try:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
+        handlers=[
+            logging.FileHandler(
+                os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "hata.log"),
+                encoding="utf-8"),
+            logging.StreamHandler(),
+        ],
+        force=True,
+    )
+except OSError:
+    pass
+
 import webview
 
 from brain import Brain
@@ -56,7 +74,10 @@ KISILIK = (
     "orada yazanlari TEKRAR SORMA, biliyormus gibi davran.\n"
     "Listede olmayan bir sey soruldugunda tahmin etme, sor. "
     "'Benim adim X', 'hatirla: ...', 'X'i seviyorum' gibi cumleler "
-    "otomatik kaydedilir; 'unut: X' siler. Kaydettiginde kisaca soyle.\n\n"
+    "otomatik kaydedilir; 'unut: X' siler. Kaydettiginde kisaca soyle.\n"
+    "BILMEDIGINI ACIK SOYLE: arastirmadan, olcmeden, dosyada gormeden "
+    "sayi/isim/tarih/fiyat soyleme. Bilmiyorsan 'Bunu bilmiyorum. "
+    "Istersen arastirayim mi?' de. Sallamak YASAKTIR.\n\n"
 
     "Casper'ın bilgisayarında çalışıyorsun. Neye erişebildiğini "
     "denemeden bilemezsin — dene, engellenirsen araç sana söyler.\n")
@@ -95,7 +116,9 @@ class Api:
         try:
             mesaj_isle(text, self.brain, KISILIK, self._js, TOOLS)
         except Exception as e:
-            # Hata olursa UI'da hata mesaji goster — UI donmesin
+            # 2026-09-10: iz birak — bir dahaki "beklenmeyen hata"da
+            # hata.log'dan kok sebep okunsun.
+            logger.exception("Sohbet hatti patladi")
             try:
                 self._js("BasakUI.error(" + self._j("Beklenmeyen hata: " + str(e)[:200]) + ")")
             except Exception:
@@ -256,6 +279,42 @@ class Api:
             return sorted(os.listdir(KNOWLEDGE_DIR))
         except OSError:
             return []
+
+    def oturumlar(self):
+        """Eski sohbet listesi (2026-09-10): [{id, baslik, adet}]."""
+        try:
+            from chat import oturum as _oturum
+            return _oturum.liste()
+        except Exception:
+            return []
+
+    def oturum_ac(self, sid):
+        """Eski sohbeti acar; mesajlari dondurur (UI dizer)."""
+        try:
+            from chat import oturum as _oturum
+            mesajlar = _oturum.ac(sid)
+            if mesajlar is None:
+                return {"ok": False}
+            kaydet(HISTORY_FILE, [
+                {"role": m.get("role"), "content": m.get("content", "")}
+                for m in mesajlar[-40:]
+                if m.get("role") in ("user", "assistant")])
+            return {"ok": True, "mesajlar": mesajlar[-60:]}
+        except Exception:
+            return {"ok": False}
+
+    def yeni_sohbet(self):
+        """Yeni bos sohbet; mevcutu arsive kaldirir (2026-09-10)."""
+        try:
+            from chat import oturum as _oturum
+            _oturum.yeni(yukle(HISTORY_FILE, []))
+            try:
+                os.remove(HISTORY_FILE)
+            except OSError:
+                pass
+            return {"ok": True}
+        except Exception:
+            return {"ok": False}
 
     def _hafizayi_kapat(self):
         """Gercek hafiza nesnesini kapatir (2026-08-24, Casper'in bulgusu).

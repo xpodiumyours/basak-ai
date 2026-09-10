@@ -66,6 +66,15 @@ SAGLAYICILAR = {
         "gunluk_istek": None,
         "not": "UCRETLI — varsayilan olarak engelli; Casper acikca izin verirse calisir.",
     },
+    "genel": {
+        "ad": "Ozel Saglayici",
+        "ucretsiz": False,
+        "tools": True,
+        "gucleri": ["genel"],
+        "gunluk_istek": None,
+        "not": "Casper'in kendi bileti (ucretli/ozel). Anahtar yoksa zincire "
+               "girmez; varsa EN SONDA yedek durur — bedava duzen degismez.",
+    },
     "qwen": {
         "ad": "QwenCloud",
         "ucretsiz": True,

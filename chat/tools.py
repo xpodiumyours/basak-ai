@@ -236,6 +236,7 @@ def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
     Dönüş: (cevap_metni, arac_ciktilari)
     """
     tum_sonuclar = []
+    tum_kaynaklar = []  # 2026-09-10: "nereden buldun" satiri icin adlar
     expanded = list(mesajlar)
 
     # Kapasiteye gore taban: kucuk modelde tavan dusuk, guclu modelde TUR_SINIRI
@@ -270,6 +271,11 @@ def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
             sonuc = calistir(tool_name, args, knowledge_dir, gorevler_file)
             net = sonucu_donustur(tool_name, sonuc)
             tur_sonuclari.append((tool_name, net))
+            if not net.startswith("Hata:"):
+                detay = _arac_detay(tool_name, args)
+                etiket = ("%s %s" % (tool_name, detay)).strip()
+                if etiket and etiket not in tum_kaynaklar:
+                    tum_kaynaklar.append(etiket)
 
         expanded = expanded + [
             {"role": "assistant", "content": "", "tool_calls": tool_calls}]
@@ -320,12 +326,27 @@ def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
         from chat.gate import temizle as _temizle_fn
         son_cevap = _temizle_fn(son_yanit.get("content", ""))
         if son_cevap:
-            return (son_cevap, tum_sonuclar)
+            return (_kaynak_satiri_ekle(son_cevap, tum_kaynaklar),
+                    tum_sonuclar)
         break
 
     # FALLBACK: Model ozet uretmediyse ham tool ciktilari kaliyor.
     return ("\n".join(
         str(net) for _ad, net in tum_sonuclar if net), tum_sonuclar)
+
+
+def _kaynak_satiri_ekle(cevap, kaynaklar):
+    """Arac kullanildiysa sonuna 'Kaynaklar: ...' satiri ekler.
+
+    2026-09-10 (Casper): 'sunu nereden buldun' belli olsun. Yalniz
+    isim/yol yazilir, icerik tekrarlanmaz. Arac yoksa metin aynen doner.
+    """
+    if not kaynaklar:
+        return cevap
+    satir = "\n\nKaynaklar: " + "; ".join(kaynaklar[:5])
+    if len(kaynaklar) > 5:
+        satir += " (+%d kaynak daha)" % (len(kaynaklar) - 5)
+    return (cevap or "").rstrip() + satir
 
 
 # ── Yardımcılar ─────────────────────────────────────────────────────
