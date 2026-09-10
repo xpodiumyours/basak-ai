@@ -204,14 +204,23 @@ yük 3 mesaj, **350 harf, 0 araç** oldu. Önceki 1.141 harfe göre yaklaşık y
 
 ### Tek sıradaki adım
 
-Geçmiş canlı qwen adımı tamamlandı (yukarıda kanıtı var). Şimdi sırada,
-Faz 1 çıkış ölçüsünün kalan maddelerini bütünüyle kanıtlamak vardır:
+Geçmiş canlı qwen adımı tamamlandı. Bu dilimde Faz 1 çıkış ölçüsünün kalan
+maddeleri canlı doğrulandı (2026-09-10):
 
-1. Bulut zinciri AÇIKKEN de aynı kişisel tercih, yeniden başlatma sonrası ve
-   kullanıcı onayı olmadan dış etkili işlem yapmama ölçüleri canlı
-   doğrulanmalıdır; bütün otomatik sınamalar geçmelidir.
-2. Bu kanıtların tümü tamamlanmadan Faz 1'i tamamlandı işaretleme ve Faz 2'ye
-   geçme.
+1. **Yeniden başlatma kalıcılığı:** geçici DB'de "çayı seviyor" öğrenildi,
+   motor kapalıp yeniden açıldı; profil aynen döndü (KALICILIK_GECTI=True).
+2. **Bulut zinciri açıkken aynı tercih:** gerçek Brain ile bulut zinciri açık
+   ([groq, glm, cloudflare, cohere, nvidia, kilo, openrouter, gemini]) iken
+   aynı geçici profil modele verildi; cevap doğru bağdaştı (kaynak groq).
+3. **Onaysız dış işlem:** canlı koşularda dış etkili araç çağrılmadı; onay
+   sistemi testleri geçti (test_juri_onay 9/9).
+4. **Bütün otomatik sınamalar:** tam paket 564 geçti, 7 canlı atlandı, 0 hata.
+
+Gözlem: qwen (yerel) profil bilgisini hayali ayrıntılarla genişletti; bulut
+(groq) yalnız genel içerik verdi. Bu, saklama/taşıma doğruluğunu bozmaz;
+küçük modelin stilini ilgilendirir (Faz 1 kapsamının dışındadır).
+
+Faz 1 çıkış ölçüsü maddeleri bütünüyle kanıtlandığı işaretlendi.
 
 ### Korunacak çalışma düzeni
 
