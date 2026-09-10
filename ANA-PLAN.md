@@ -184,8 +184,12 @@ Kurulu yerel model: `qwen2.5:7b` (Ollama, yalnız işlemci).
   kullanıldı.
 - Model açık kimlik talimatına rağmen "Sen kimsin?" sorusunda "Casper" dedi.
   Bu nedenle kimlik cevabı kodun sorumluluğuna alındı.
-- Tam Başak konuşma yolunda doğal kişisel cevap henüz canlı olarak kabul
-  ölçüsünü geçmedi. **Faz 1 tamamlandı denemez.**
+- Tam Başak konuşma yolu, qwen2.5:7b, bulut kapalı iken CANLI geçildi
+  (2026-09-10): geçici profil "çayı seviyor" doğru kullanıldı, cevap doğal
+  Türkçe, kimlik karışmadı ve araç sıfırdı. Kaynak: `yerel`.
+- Bu canlı adım yol verirken qwen2.5:7b soğuk yüklemesi (~18-20 sn, işlemci)
+  10 saniyelik okuma zaman aşımına takılıyordu; okuma zaman aşımı 120
+  saniyeye çıkarıldı ve başarısız sınama ile doğrulandı.
 
 ### Bilinen ölçüm
 
@@ -200,10 +204,14 @@ yük 3 mesaj, **350 harf, 0 araç** oldu. Önceki 1.141 harfe göre yaklaşık y
 
 ### Tek sıradaki adım
 
-1. Gerçek kullanıcı hafızasına yazmadan, tam Başak konuşma yolunu kurulu
-   `qwen2.5:7b` ile çalıştır: ilgili geçici tercih doğru kullanılmalı, cevap
-   doğal Türkçe olmalı, kimlik karışmamalı ve araç sayısı sıfır olmalı.
-2. Bu canlı örnek geçmeden Faz 1'i tamamlandı işaretleme ve Faz 2'ye geçme.
+Geçmiş canlı qwen adımı tamamlandı (yukarıda kanıtı var). Şimdi sırada,
+Faz 1 çıkış ölçüsünün kalan maddelerini bütünüyle kanıtlamak vardır:
+
+1. Bulut zinciri AÇIKKEN de aynı kişisel tercih, yeniden başlatma sonrası ve
+   kullanıcı onayı olmadan dış etkili işlem yapmama ölçüleri canlı
+   doğrulanmalıdır; bütün otomatik sınamalar geçmelidir.
+2. Bu kanıtların tümü tamamlanmadan Faz 1'i tamamlandı işaretleme ve Faz 2'ye
+   geçme.
 
 ### Korunacak çalışma düzeni
 
