@@ -161,3 +161,66 @@ class TestBrainRouterV2:
             [{"role": "user", "content": "selam"}], "qwen2.5:3b")
         assert kaynak.startswith("groq")
         assert a.cagrildi == 1 and c.cagrildi == 1
+
+
+class TestZamanAsimiCooldown:
+    """2026-09-11: zaman asimi hatalari kisa cooldown almalidir.
+
+    Gercek olay: GLM'in 3 sn'lik timeout'u her istekte tekrar ediyordu —
+    zincir ayni duvara carpip yerel modele dusuyor, kullanici qwen2.5:7b
+    saçma cevaplari goruyordu. Zaman asimi GECICIDIR (429 gibi); cooldown
+    alirsa sonraki istek dogrudan saglam saglayiciya gider.
+    """
+
+    def test_zaman_asimi_tespiti(self):
+        from brain.brain import _zaman_asimi_mi
+        assert _zaman_asimi_mi(RuntimeError("Request timed out."))
+        assert _zaman_asimi_mi(RuntimeError("The read operation timed out"))
+        assert _zaman_asimi_mi(RuntimeError("ReadTimeout: read expired"))
+        assert _zaman_asimi_mi(RuntimeError("Connection reset by peer"))
+        assert not _zaman_asimi_mi(RuntimeError("429 rate limit"))
+        assert not _zaman_asimi_mi(RuntimeError("patladi"))
+        assert not _zaman_asimi_mi(RuntimeError("Cohere API hatasi: header"))
+
+    def _taze_brain(self, monkeypatch, zincir, sira):
+        from brain import brain as brain_mod, secici
+        brain_mod._COOLDOWN.clear()
+        # Karne/stats veritabanina bagimliligi kes — sirayi sabitle.
+        monkeypatch.setattr(secici, "sec", lambda **kw: (list(sira), "test sirasi"))
+        b = TestBrainRouterV2()._brain(monkeypatch, zincir)
+        return b
+
+    def test_zaman_asimi_sonraki_istekte_atlanir(self, monkeypatch):
+        from brain import brain as brain_mod
+        glm_c = SahteIstemci(hata=RuntimeError("The read operation timed out"))
+        groq_c = SahteIstemci()
+        b = self._taze_brain(
+            monkeypatch, [("glm", glm_c), ("groq", groq_c)], ("glm", "groq"))
+
+        yanit, kaynak = b.cevapla(
+            [{"role": "user", "content": "selam"}], "qwen2.5:3b")
+        assert kaynak.startswith("groq")
+        assert glm_c.cagrildi == 1 and groq_c.cagrildi == 1
+        # Kisa cooldown: 60 sn (429'un 120 sn'sinden kisa)
+        kalan = brain_mod._cooldown_kaldi("glm")
+        assert 30 < kalan <= 60, "zaman asimi cooldown'u 60 sn olmali"
+
+        # Sonraki cagrida GLM HIC denenmeden groq'a gecmeli
+        glm_c.cagrildi = 0
+        groq_c.cagrildi = 0
+        yanit2, kaynak2 = b.cevapla(
+            [{"role": "user", "content": "selam"}], "qwen2.5:3b")
+        assert kaynak2.startswith("groq")
+        assert glm_c.cagrildi == 0 and groq_c.cagrildi == 1
+
+    def test_429_uzun_cooldown_alir(self, monkeypatch):
+        from brain import brain as brain_mod
+        glm_c = SahteIstemci(hata=RuntimeError("429 rate limit exceeded"))
+        groq_c = SahteIstemci()
+        b = self._taze_brain(
+            monkeypatch, [("glm", glm_c), ("groq", groq_c)], ("glm", "groq"))
+        b.cevapla([{"role": "user", "content": "selam"}], "qwen2.5:3b")
+        # 429 → standart 120 sn cooldown, zaman asiminin iki kati
+        kalan = brain_mod._cooldown_kaldi("glm")
+        assert 100 < kalan <= 120
+

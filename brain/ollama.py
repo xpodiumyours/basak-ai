@@ -76,7 +76,10 @@ class OllamaClient:
         r = requests.post(
             f"{self.base_url}/api/chat",
             json=payload,
-            timeout=(3, 10),
+            # 2026-09-11: 10 sn ok-timeout, internet yokken yerel modelin
+            # uzun cevabini kesiyordu (43 sn'lik cevap yari yolda oluyordu).
+            # 120 sn: yavas yerel modele yetecek; hata yine beklenir.
+            timeout=(3, 120),
         )
         r.raise_for_status()
 

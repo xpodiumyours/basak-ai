@@ -68,6 +68,10 @@ import time as _time_mod
 _COOLDOWN = {}  # {ad: bitis_zamani}
 _COOLDOWN_SURE = 120  # 2 dakika
 
+# Zaman asimi cooldown'u (2026-09-11): 429 kadar agir degil; saglayici
+# bir sonraki istekte geri gelebilir. 60 sn yeter.
+_ZAMAN_ASIMI_COOLDOWN = 60
+
 def _cooldown_kaldi(ad):
     bitis = _COOLDOWN.get(ad, 0)
     kalan = bitis - _time_mod.time()
@@ -79,6 +83,19 @@ def _cooldown_ekle(ad, sure=None):
 def _rate_limit_mi(hata):
     s = str(hata).lower()
     return any(k in s for k in ("429", "rate", "limit", "too many", "quota"))
+
+
+def _zaman_asimi_mi(hata):
+    """Hata zaman asimi mi? (2026-09-11)
+
+    GLM 3 sn'lik zaman asimi duvarina surekli carpiyordu: her istekte
+    yeniden denenip patliyor, zincir yavasiyor, yerel modele dusiliyordu.
+    Zaman asimi GECICI bir durumdur (429 gibi) — kisa cooldown alir.
+    """
+    s = str(hata).lower()
+    return any(k in s for k in (
+        "timed out", "timeout", "time out", "read operation",
+        "connection reset", "connection aborted"))
 
 
 
@@ -315,6 +332,12 @@ class Brain:
                 if _rate_limit_mi(e):
                     _cooldown_ekle(ad)
                     logger.info("%s rate-limit, cooldown baslatildi", ad)
+                elif _zaman_asimi_mi(e):
+                    # 2026-09-11: zaman asimi da kisa cooldown alsin —
+                    # GLM her istekte ayni duvara carpip patlamasin.
+                    _cooldown_ekle(ad, sure=_ZAMAN_ASIMI_COOLDOWN)
+                    logger.info("%s zaman asimi, %d sn cooldown", ad,
+                                _ZAMAN_ASIMI_COOLDOWN)
                 _audit("HATA kaynak=%s (%.1f sn): %s" %
                        (ad, sure, str(e)[:100]))
                 istat.kaydet(ad, sure, basarili=False, hata=str(e)[:100], tools=bool(tools))
@@ -412,6 +435,9 @@ class Brain:
                 hatalar.append("%s: %s" % (ad, hata[:60]))
                 if _rate_limit_mi(e):
                     _cooldown_ekle(ad)
+                elif _zaman_asimi_mi(e):
+                    # 2026-09-11: zaman asimi da kisa cooldown alsin.
+                    _cooldown_ekle(ad, sure=_ZAMAN_ASIMI_COOLDOWN)
                 continue
 
         # Yerel son care (zincirde yoksa dogrudan dene). Yerel hizli
