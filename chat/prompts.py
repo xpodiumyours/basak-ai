@@ -58,13 +58,21 @@ OLCU_YONLENDIRME = (
 )
 
 # ── Biçimlendirme Yönendirme Promptu ──────────────────────────────────
+# 2026-09-11 (Casper istegi): cevaplar asistan stiline yaklasti —
+# paragraf ayrimi + onemli kisimlar renkli isaret. ==vurgu== isareti
+# UI'da turkuaz isaret olarak cizilir; **kalin** hala gecerli. Emoji
+# istenmez: cikis kapisi (chat/gate.py temizle) emojileri zaten siler,
+# promptta istemek kirmizi baloncuk uretir. Tablo/liste kurallari aynen.
 BIKIMLONDIRME_YONLENDIRME = (
     "\nCEVAP BiCiMi:\n"
+    "- Onemli/kritik kisimlari ==vurgu== isaretiyle renklendir "
+    "(==kelime== seklinde; kisa ve seyrek kullan)\n"
+    "- Sozlu vurgu icin **kalin** da kullanilabilir\n"
     "- Birden fazla ogne karsilastiriyorsan tablo kullan: | Baslik | ... |\n"
     "- Sirali adimlar varsa numarali liste (1. 2. 3.), sirasiz ise madde isareti (- ) kullan\n"
     "- Uzun cevabi ## basliklarla bol\n"
-    "- Durum bildiren satirlarda ✅ / ❌ / ⚠️ kullan\n"
     "- Dosya adi, klasor yolu ve komutlari \x60 icerine al\n"
+    "- Cevabi paragraflarla ayir: konu degistirdiginde bos satir birak\n"
     "- Tek cumlelik cevabi tabloya sokma — kisa soruya kisa cevap ver\n"
     "- Kod bloklari icindeki |, #, - isaretlerini donusturme, oldugu gibi birak\n"
 )

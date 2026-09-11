@@ -542,6 +542,22 @@ textarea#input::placeholder { color: var(--text-dim); }
 .msg-bubble .durum-hata { color: var(--red); font-weight: 500; }
 .msg-bubble .durum-uyari { color: var(--amber); font-weight: 500; }
 
+/* ── 2026-09-11: Metin ayrımı ve renkli vurgu (asistan stili) ──
+   Global reset (*{margin:0}) paragrafları yapıştırıyordu;
+   sohbet balonunda paragraflar nefes alsın. */
+.msg-bubble p { margin: 0 0 10px; }
+.msg-bubble p:last-child { margin-bottom: 0; }
+.msg-bubble h1, .msg-bubble h2 { margin: 6px 0; }
+/* ==vurgu== işaretinin render'ı: turkuaz zemin, parlak metin */
+.msg-bubble mark {
+  background: rgba(0, 229, 255, 0.14);
+  color: var(--accent);
+  padding: 0 4px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0, 229, 255, 0.25);
+  text-shadow: 0 0 8px rgba(0, 229, 255, 0.35);
+}
+
 /* ═══════════════════════════════════════════════════════════════
    BOOT SCREEN — Jarvis/FUI Başlatma Ekranı
    ═══════════════════════════════════════════════════════════════ */

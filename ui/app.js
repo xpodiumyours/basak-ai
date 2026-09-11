@@ -165,6 +165,9 @@ function mdSatirIci(metin) {
   var s = mdKacis(metin);
   s = s.replace(/`([^`\n]+)`/g, '<code class="satir-kod">$1</code>');
   s = s.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+  // 2026-09-11: ==vurgu== → sari isaret (asistan stilindeki onemli kisim
+  // renklendirmesi). Model prompt'ta bu isareti kullanmaya yonlendirilir.
+  s = s.replace(/==([^=\n]+)==/g, "<mark>$1</mark>");
   s = badge_cevir(s);
   // Durum isaretleri
   s = s.replace(/\[OK\]/g, '<span class="durum-ok">[OK]</span>');
