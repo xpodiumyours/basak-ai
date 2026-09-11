@@ -80,11 +80,46 @@ Sonuç:
 - FAZ 0 timeout/fallback maddesi yalnız mevcut ünite testine dayanarak `[x]` yapılamaz;
 - gerçek ortam ölçümü ayrıca gerekir.
 
-## 7. Şu ana kadarki FAZ 0 durumu
+## 7. Prompt ve araç yükü — ilk sayısal baz
+
+Bugünkü `master` kaynak metinleri doğrudan sayıldı. Profil, geçmiş ve kullanıcı mesajı eklenmeden önce sabit blokların karakter yükü:
+
+| Blok | Karakter |
+|---|---:|
+| `KIMLIK_BLOGU` | 190 |
+| `KISILIK` | 1.867 |
+| `TOOL_YONLENDIRME` | 791 |
+| `OLCU_YONLENDIRME` | 251 |
+| `BIKIMLONDIRME_YONLENDIRME` | 613 |
+| **Sabit toplam** | **3.712** |
+
+Bu değer token tahmini değildir; kaynak metindeki gerçek karakter sayısıdır.
+
+Küçük model core araç seti bugünkü tanıma göre 4 araçtır:
+
+- `web_search`
+- `add_task`
+- `list_files`
+- `read_file`
+
+Bu dört araç şeması kompakt JSON gösteriminde yaklaşık **1.325 karakter** ek yük oluşturur.
+
+Dolayısıyla küçük model, profil/geçmiş/kullanıcı mesajı hariç tutulduğunda dahi yaklaşık **5.037 karakter sabit talimat + core araç şeması** ile karşılaşabilir. Gerçek API serileştirmesinde küçük fark olabilir; karşılaştırma için aynı sayım yöntemi kullanılacaktır.
+
+### Kimlik yükünde ayrıca doğrulanmış çelişki
+
+- `KIMLIK_BLOGU`: `Sen Edercanım'sın` diyor.
+- `KISILIK`: önce `Sen Başak'sın`, sonra `sen Edercanım'sın`, ardından `kendine asla Edercanım deme` diyor.
+
+Bu FAZ 0'da ayrı mevcut hata/bağlam gürültüsü olarak tutulur; henüz düzeltme yapılmaz. Harness A/B ölçümünde aynı çelişkinin etkisi ayrıca gözlenmelidir.
+
+## 8. Şu ana kadarki FAZ 0 durumu
 
 ### Kanıtlandı
 
 - [x] Bugünkü `master` commitini değişmez referans/baz çizgisi olarak kaydet.
+- [x] Sabit system prompt karakter yükünü kaynak üzerinden ölç.
+- [x] Küçük model core araç sayısını ve yaklaşık şema karakter yükünü ölç.
 
 ### Statik/ünite düzeyinde incelendi, canlı ölçüm bekliyor
 
@@ -95,15 +130,15 @@ Sonuç:
 - [ ] Doğru araç seçimi.
 - [ ] Araçsız streaming vs gerçek tool-call A/B.
 - [ ] Timeout/cooldown/fallback gerçek zinciri.
-- [ ] Prompt büyüklüğü.
-- [ ] Araç sayısı ve araç şeması yükü.
-- [ ] Cevap süresi ve tur sayısı.
+- [ ] Cevap süresi ve toplam tur sayısı.
 - [ ] Uydurma oranı.
 - [ ] Görevin gerçekten tamamlanma oranı.
 
-## 8. İlk ölçüm kararı
+## 9. İlk ölçüm kararı
 
 **KANITLANDI:** sabit baz çizgisi oluşturuldu.
+
+**KANITLANDI:** minimum sabit prompt + küçük core araç yükü sayısallaştırıldı; kişisel profil ve geçmiş bunun üstüne ekleniyor.
 
 **KANITLANMADI:** streaming yolunun araç kullanımını gerçekten ne kadar bozduğu. Mevcut kod/test bunun mümkün olduğunu gösteriyor fakat oran bilinmiyor.
 
@@ -111,7 +146,7 @@ Sonuç:
 
 Bu nedenle henüz davranış değiştiren kod yazılmayacak.
 
-## 9. Sıradaki ölçüm
+## 10. Sıradaki ölçüm
 
 Önce aynı görev kümesinde iki yol karşılaştırılacak:
 
