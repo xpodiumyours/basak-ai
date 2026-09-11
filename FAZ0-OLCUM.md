@@ -162,7 +162,35 @@ Sonuç: bu testler web fonksiyonunun hata vermesini güvenli biçimde ele aldı�
 
 Bu nedenle FAZ 0 web maddesi canlı gerçek sorgu olmadan `[x]` yapılamaz.
 
-## 9. Şu ana kadarki FAZ 0 durumu
+## 9. Streaming / tool A-B deney dalı
+
+A/B ölçümü için `master` baz commitinden ayrı güvenli dal açıldı:
+
+- dal: `experiment/faz0-streaming-tool-ab-20260912`
+- baz: `27b03a9b69e9dd0d7dc224679b43411917f4ff36`
+- ürün kodu değişikliği: **0**
+- eklenen tek dosya: `tests/test_faz0_streaming_tool_ab.py`
+
+Deney testi üç yapısal durumu ayırıyor:
+
+1. **A — mevcut streaming yolu:** dosya gerektiren aynı soruda streaming model düz metin üretirse `brain.cevapla(... tools=...)` çağrılmadan turun bitebildiğini ölçer.
+2. **B — doğrudan tool yolu:** streaming katmanı olmayan aynı koşulda küçük model core araçlarının `brain.cevapla(...)` çağrısına gerçekten verildiğini ölçer.
+3. **Kontrol — normal sohbet:** `Merhaba` gibi araç gerektirmeyen görevde hızlı streaming yolunun korunması gereken davranış olduğunu ayrı tutar.
+
+Deney branch'i `master`dan yalnız bu test dosyasıyla ayrılır; çalışan Başak koduna dokunulmamıştır.
+
+### Çalıştırma durumu
+
+Bu sohbetin çalışma konteyneri dış ağa çıkamadığı için repo yerel ortama clone edilip pytest koşturulamadı. Repository'de HEAD için çalışan CI da yok.
+
+Bu nedenle:
+
+- deney testi **hazırlandı**;
+- yapısal A/B senaryosu kodlandı;
+- fakat testin gerçek pytest koşumu ve canlı ücretsiz model oranları **DOĞRULANAMADI**;
+- koşum yapılmadan streaming davranışını değiştiren üretim kodu yazılmayacak.
+
+## 10. Şu ana kadarki FAZ 0 durumu
 
 ### Kanıtlandı
 
@@ -172,6 +200,7 @@ Bu nedenle FAZ 0 web maddesi canlı gerçek sorgu olmadan `[x]` yapılamaz.
 - [x] Profil bloğunun teorik üst karakter yükünü ölç.
 - [x] Geçmiş penceresinin 4.000 karakter hedefini ve aşım davranışını doğrula.
 - [x] Dosya ve web testlerinin bugünkü kanıt sınırlarını çıkar.
+- [x] Streaming/tool A-B deneyi için ayrı güvenli dal ve yalnız-test harness'i hazırla.
 
 ### Statik/ünite düzeyinde incelendi, canlı ölçüm bekliyor
 
@@ -180,13 +209,13 @@ Bu nedenle FAZ 0 web maddesi canlı gerçek sorgu olmadan `[x]` yapılamaz.
 - [ ] Web araştırma gerçek ortam başarısı.
 - [ ] Gereksiz araç çağrısı.
 - [ ] Doğru araç seçimi.
-- [ ] Araçsız streaming vs gerçek tool-call A/B.
+- [ ] Araçsız streaming vs gerçek tool-call A/B **pytest koşumu + canlı model ölçümü**.
 - [ ] Timeout/cooldown/fallback gerçek zinciri.
 - [ ] Cevap süresi ve toplam tur sayısı.
 - [ ] Uydurma oranı.
 - [ ] Görevin gerçekten tamamlanma oranı.
 
-## 10. İlk ölçüm kararı
+## 11. İlk ölçüm kararı
 
 **KANITLANDI:** sabit baz çizgisi oluşturuldu.
 
@@ -194,20 +223,17 @@ Bu nedenle FAZ 0 web maddesi canlı gerçek sorgu olmadan `[x]` yapılamaz.
 
 **KANITLANDI:** mevcut testlerde dosya araçlarının doğrudan davranış kontrolleri var; web testleri gerçek başarıyı zorunlu tutmuyor.
 
-**KANITLANMADI:** streaming yolunun araç kullanımını gerçekten ne kadar bozduğu. Mevcut kod/test bunun mümkün olduğunu gösteriyor fakat oran bilinmiyor.
+**KANITLANDI:** streaming/tool yapısal A/B deneyi çalışan koda dokunmadan ayrı dalda izole edildi.
+
+**KANITLANMADI:** streaming yolunun gerçek ücretsiz/yerel modelde araç kullanımını hangi oranda bozduğu. Gerçek koşum gerekir.
 
 **KANITLANMADI:** bugünkü HEAD'in canlı timeout/fallback başarısı. Ünite testi var, güncel canlı test yok.
 
 Bu nedenle henüz davranış değiştiren kod yazılmayacak.
 
-## 11. Sıradaki ölçüm
+## 12. Sıradaki ölçüm
 
-Önce aynı görev kümesinde iki yol karşılaştırılacak:
-
-A. Bugünkü mevcut akış: önce streaming, gerekirse tool-call.  
-B. Deney yolu: araç gerektiği bilinen görevde doğrudan tool-call.
-
-İlk görev grupları:
+Aynı görev kümesinin gerçek Başak ortamında A/B koşumu gerekir:
 
 - `Masaüstündeki dosyaları göster.`
 - `Şu dosyanın içinde ne yazıyor?`
@@ -224,4 +250,4 @@ B. Deney yolu: araç gerektiği bilinen görevde doğrudan tool-call.
 - prompt/araç yükü
 - doğrulanmamış bilgi üretti mi
 
-Bu A/B ölçümü çıkmadan streaming veya tool yönlendirme kodu değiştirilmez.
+Bu gerçek A/B ölçümü çıkmadan streaming veya tool yönlendirme kodu değiştirilmez.
