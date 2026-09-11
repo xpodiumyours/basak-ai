@@ -139,7 +139,30 @@ Bu üst-sınır örneğidir; her tur bu kadar dolu değildir. Ancak küçük mod
 
 Bu FAZ 0'da ayrı mevcut hata/bağlam gürültüsü olarak tutulur; henüz düzeltme yapılmaz. Harness A/B ölçümünde aynı çelişkinin etkisi ayrıca gözlenmelidir.
 
-## 8. Şu ana kadarki FAZ 0 durumu
+## 8. Dosya ve web test kapsamı — kodda var ≠ canlı kanıt
+
+### Dosya okuma
+
+`tests/test_e1.py` bugünkü `master`da mevcut.
+
+Testler `read_file` ve `list_files` ile dış proje okumasını doğrudan çağırıyor. Vixrex `.gitignore` okuması ve Vixrex kök listeleme gibi somut kontroller var. Yazma tarafında dış projelere yazmanın engellendiği de test ediliyor.
+
+Sınır: GitHub HEAD için test koşumu/status sonucu olmadığı için dosyaların bugünkü kullanıcı bilgisayarında gerçekten geçtiği ayrıca ölçülmelidir.
+
+### Web araştırması
+
+`tests/test_e2.py` bugünkü `master`da mevcut.
+
+Ancak canlı web testlerinin sözleşmesi gevşek:
+
+- `sayfa_oku("https://httpbin.org/html")` için **`result` veya `error`** ikisi de testten geçebiliyor.
+- `web_search("Python programlama")` için de **`result` veya `error`** ikisi kabul ediliyor.
+
+Sonuç: bu testler web fonksiyonunun hata vermesini güvenli biçimde ele aldığını doğruluyor; **bugünkü ortamda web araştırmasının gerçekten başarılı olduğunu kanıtlamıyor.**
+
+Bu nedenle FAZ 0 web maddesi canlı gerçek sorgu olmadan `[x]` yapılamaz.
+
+## 9. Şu ana kadarki FAZ 0 durumu
 
 ### Kanıtlandı
 
@@ -148,12 +171,13 @@ Bu FAZ 0'da ayrı mevcut hata/bağlam gürültüsü olarak tutulur; henüz düze
 - [x] Küçük model core araç sayısını ve yaklaşık şema karakter yükünü ölç.
 - [x] Profil bloğunun teorik üst karakter yükünü ölç.
 - [x] Geçmiş penceresinin 4.000 karakter hedefini ve aşım davranışını doğrula.
+- [x] Dosya ve web testlerinin bugünkü kanıt sınırlarını çıkar.
 
 ### Statik/ünite düzeyinde incelendi, canlı ölçüm bekliyor
 
 - [ ] Normal sohbet kalitesi.
-- [ ] Dosya bulma ve dosya okuma başarısı.
-- [ ] Web araştırma başarısı.
+- [ ] Dosya bulma ve dosya okuma gerçek ortam başarısı.
+- [ ] Web araştırma gerçek ortam başarısı.
 - [ ] Gereksiz araç çağrısı.
 - [ ] Doğru araç seçimi.
 - [ ] Araçsız streaming vs gerçek tool-call A/B.
@@ -162,11 +186,13 @@ Bu FAZ 0'da ayrı mevcut hata/bağlam gürültüsü olarak tutulur; henüz düze
 - [ ] Uydurma oranı.
 - [ ] Görevin gerçekten tamamlanma oranı.
 
-## 9. İlk ölçüm kararı
+## 10. İlk ölçüm kararı
 
 **KANITLANDI:** sabit baz çizgisi oluşturuldu.
 
 **KANITLANDI:** prompt + profil + geçmiş + küçük core araç yükünün büyüklüğü kaynak koddan sayısallaştırıldı.
+
+**KANITLANDI:** mevcut testlerde dosya araçlarının doğrudan davranış kontrolleri var; web testleri gerçek başarıyı zorunlu tutmuyor.
 
 **KANITLANMADI:** streaming yolunun araç kullanımını gerçekten ne kadar bozduğu. Mevcut kod/test bunun mümkün olduğunu gösteriyor fakat oran bilinmiyor.
 
@@ -174,7 +200,7 @@ Bu FAZ 0'da ayrı mevcut hata/bağlam gürültüsü olarak tutulur; henüz düze
 
 Bu nedenle henüz davranış değiştiren kod yazılmayacak.
 
-## 10. Sıradaki ölçüm
+## 11. Sıradaki ölçüm
 
 Önce aynı görev kümesinde iki yol karşılaştırılacak:
 
