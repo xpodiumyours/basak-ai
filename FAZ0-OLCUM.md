@@ -80,7 +80,7 @@ Sonuç:
 - FAZ 0 timeout/fallback maddesi yalnız mevcut ünite testine dayanarak `[x]` yapılamaz;
 - gerçek ortam ölçümü ayrıca gerekir.
 
-## 7. Prompt ve araç yükü — ilk sayısal baz
+## 7. Prompt, profil, geçmiş ve araç yükü — ilk sayısal baz
 
 Bugünkü `master` kaynak metinleri doğrudan sayıldı. Profil, geçmiş ve kullanıcı mesajı eklenmeden önce sabit blokların karakter yükü:
 
@@ -95,7 +95,7 @@ Bugünkü `master` kaynak metinleri doğrudan sayıldı. Profil, geçmiş ve kul
 
 Bu değer token tahmini değildir; kaynak metindeki gerçek karakter sayısıdır.
 
-Küçük model core araç seti bugünkü tanıma göre 4 araçtır:
+Küçük model core araç seti 4 araçtır:
 
 - `web_search`
 - `add_task`
@@ -104,7 +104,33 @@ Küçük model core araç seti bugünkü tanıma göre 4 araçtır:
 
 Bu dört araç şeması kompakt JSON gösteriminde yaklaşık **1.325 karakter** ek yük oluşturur.
 
-Dolayısıyla küçük model, profil/geçmiş/kullanıcı mesajı hariç tutulduğunda dahi yaklaşık **5.037 karakter sabit talimat + core araç şeması** ile karşılaşabilir. Gerçek API serileştirmesinde küçük fark olabilir; karşılaştırma için aynı sayım yöntemi kullanılacaktır.
+### Profil yükü
+
+`memory/profil.py` mevcut yapıda:
+
+- ad: en fazla 80 karakterlik tek değer,
+- tercihler: en fazla 30 kayıt,
+- bilgiler: en fazla 30 kayıt,
+- her kayıt: en fazla 80 karakter
+
+tutabiliyor.
+
+Bu sınırların tamamı dolduğunda `blok()` çıktısının teorik büyüklüğü yaklaşık **5.091 karakter** olur.
+
+### Geçmiş yükü
+
+`_chat_legacy.py` içinde `GECMIS_KILO_LIMITI = 4000`.
+
+`_gecmis_pencere` yeni mesajlardan geriye doğru yaklaşık 4.000 karakterlik pencere oluşturuyor. Ancak mevcut test sözleşmesine göre en yeni tek mesaj limitten büyük olsa bile bütün olarak korunuyor; dolayısıyla gerçek geçmiş yükü bazı durumlarda 4.000 karakteri aşabilir.
+
+### Birleşik yük resmi
+
+Normal dolu profil + yaklaşık 4.000 karakter geçmiş varsayımıyla:
+
+- ilk araçsız streaming turu: **3.712 + 5.091 + 4.000 = yaklaşık 12.803 karakter** + kullanıcı mesajı,
+- gerçek tool-call yoluna geçildiğinde küçük core araç şemaları da eklenirse: **yaklaşık 14.128 karakter** + kullanıcı mesajı.
+
+Bu üst-sınır örneğidir; her tur bu kadar dolu değildir. Ancak küçük modelin ağırlaşmasının sadece "çok araç"tan değil, sabit prompt + tüm profil + geçmiş birleşiminden de gelebileceğini ölçülebilir hale getirir.
 
 ### Kimlik yükünde ayrıca doğrulanmış çelişki
 
@@ -120,6 +146,8 @@ Bu FAZ 0'da ayrı mevcut hata/bağlam gürültüsü olarak tutulur; henüz düze
 - [x] Bugünkü `master` commitini değişmez referans/baz çizgisi olarak kaydet.
 - [x] Sabit system prompt karakter yükünü kaynak üzerinden ölç.
 - [x] Küçük model core araç sayısını ve yaklaşık şema karakter yükünü ölç.
+- [x] Profil bloğunun teorik üst karakter yükünü ölç.
+- [x] Geçmiş penceresinin 4.000 karakter hedefini ve aşım davranışını doğrula.
 
 ### Statik/ünite düzeyinde incelendi, canlı ölçüm bekliyor
 
@@ -138,7 +166,7 @@ Bu FAZ 0'da ayrı mevcut hata/bağlam gürültüsü olarak tutulur; henüz düze
 
 **KANITLANDI:** sabit baz çizgisi oluşturuldu.
 
-**KANITLANDI:** minimum sabit prompt + küçük core araç yükü sayısallaştırıldı; kişisel profil ve geçmiş bunun üstüne ekleniyor.
+**KANITLANDI:** prompt + profil + geçmiş + küçük core araç yükünün büyüklüğü kaynak koddan sayısallaştırıldı.
 
 **KANITLANMADI:** streaming yolunun araç kullanımını gerçekten ne kadar bozduğu. Mevcut kod/test bunun mümkün olduğunu gösteriyor fakat oran bilinmiyor.
 
