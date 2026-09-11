@@ -544,3 +544,128 @@ Sıra:
 5. Ancak bu kanıtlar tamamlandıktan sonra yeni kişiselleştirme, browser entegrasyonu veya gerçek satış pilotu için kod değişikliği yapmak.
 
 Bu kapı tamamlanmadan yeni kişiselleştirme mimarisi, browser otomasyonu, toplu lead sistemi veya otomatik dış iletişim ana yola bağlanmaz.
+
+## 17. KİLİTLİ TODO LİSTESİ — güvenli geliştirme sırası
+
+Bu bölüm bundan sonraki uygulama sırasıdır. **TODO sırası Casper'ın açık kararı olmadan değiştirilemez.**
+
+### TODO çalışma kuralı
+
+- `[ ]` = henüz kanıtlanmamış/açık iş.
+- `[x]` = ölçüm, test veya gerçek pilot kanıtıyla tamamlanmış iş.
+- Her TODO önce **araştırma + mevcut durum ölçümü** ile başlar.
+- Araştırma sonucu yapılacak değişikliğin gerekli olduğu kanıtlanmazsa kod değişikliği yapılmaz.
+- Çalışan Başak `master` üzerindeki referans davranıştır; yeni çalışma bunu bozamaz.
+- Her kod deneyi ayrı güvenli dalda yapılır; `master` üzerinde doğrudan geliştirme yapılmaz.
+- Bir değişiklik aynı görev kümesinde önce/sonra karşılaştırılmadan başarılı sayılmaz.
+- Sohbet, araç kullanımı, dosya okuma, web araştırması, fallback veya mevcut başka çalışan davranış gerilerse değişiklik kabul edilmez ve geri alınır.
+- Büyük refactor yok: **tek hipotez → tek küçük deney → ölçüm → karar.**
+- Araştırma veya test başarısızsa sıradaki faza geçilmez.
+- PR/merge, sonuçlar Casper'a gösterilip açık onay alınmadan yapılmaz.
+
+### FAZ 0 TODO — bugünkü Başak'ın baz çizgisi
+
+- [ ] Bugünkü `master` commitini değişmez referans/baz çizgisi olarak kaydet.
+- [ ] Normal sohbet kalitesini aynı görev kümesinde ölç.
+- [ ] Dosya bulma ve dosya okuma başarısını ölç.
+- [ ] `web_search` ve `sayfa_oku` ile web araştırma başarısını ölç.
+- [ ] Araç gerektirmeyen soruda gereksiz araç çağrısı var mı ölç.
+- [ ] Araç gereken soruda doğru aracın seçilip seçilmediğini ölç.
+- [ ] Araçsız streaming yolunun gerçek tool-call yolunu atlatıp atlatmadığını A/B ölç.
+- [ ] Timeout sonrası cooldown/fallback zincirini ölç.
+- [ ] Her sağlayıcı/model için gönderilen prompt büyüklüğünü ölç.
+- [ ] Her görevde modele gönderilen araç sayısını ve araç şeması yükünü ölç.
+- [ ] Cevap süresini ve toplam tur sayısını ölç.
+- [ ] Doğrulanmamış/uydurma cevap oranını ölç.
+- [ ] Görevin gerçekten tamamlanıp tamamlanmadığını ayrı metrik olarak ölç.
+- [ ] FAZ 0 sonuçlarını tek karşılaştırma tablosunda kaydet.
+- [ ] Baz çizgi sayısal olarak görülmeden FAZ 1 geliştirmesine geçme.
+
+### FAZ 1 TODO — Open Interpreter / harness karşılaştırması
+
+- [ ] Open Interpreter'ın güncel provider/model/harness ayrımını resmî kaynak ve kod üzerinden doğrula.
+- [ ] Başak'ın mevcut harness/prompt/tool akışını aynı başlıklarla çıkar.
+- [ ] Varyant A: bugünkü Başak yolunu baz olarak çalıştır.
+- [ ] Varyant B: minimum harness — kimlik + görev + yalnız gereken araç — deneyini çalıştır.
+- [ ] Varyant C: model ailesine özel küçük harness deneyini çalıştır.
+- [ ] Varyant D: kişisel bilgi yalnız gerektiğinde eklenen harness deneyini çalıştır.
+- [ ] Tüm varyantları aynı görevler, aynı model ve mümkün olduğunca aynı koşullarda karşılaştır.
+- [ ] Başarı, araç kullanımı, süre, prompt yükü ve uydurma oranlarını karşılaştır.
+- [ ] Ücretsiz/yerel modelde gerçek iyileşme göstermeyen harness'i reddet.
+- [ ] Çalışan Başak davranışını gerileten varyantı ana yola alma.
+- [ ] FAZ 1'in kazanan yaklaşımı araştırma kanıtıyla seçilmeden FAZ 2'ye geçme.
+
+### FAZ 2 TODO — güvenli kişiselleştirme
+
+- [ ] Kişiselleştirme gereken ve gerekmeyen görevleri ayrı test kümesi yap.
+- [ ] Görev kişiselleştirme gerektirmiyorsa modele `0` kişisel gerçek gönderildiğini doğrula.
+- [ ] Gerekiyorsa yalnız `0–3` kısa ve görevle ilgili kişisel gerçek seçme yöntemini araştır ve ölç.
+- [ ] Tüm profilin her mesaja taşınmadığını doğrula.
+- [ ] Hassas kişisel bilginin varsayılan olarak dış modele gitmediğini doğrula.
+- [ ] Açık kullanıcı sözü ile sistem çıkarımını ayrı tut.
+- [ ] Öğrenme/düzeltme/unutma davranışlarını gerçek yeniden başlatma senaryosuyla ölç.
+- [ ] Kişiselleştirme açıkken dosya, web, araç kullanımı ve normal sohbet baz çizgisinin gerilemediğini doğrula.
+- [ ] Gerileme varsa kişiselleştirme değişikliğini reddet/geri al.
+
+### FAZ 3 TODO — web araştırma ve müşteri istihbaratı
+
+- [ ] Mevcut `web_search` + `sayfa_oku` ile çözülebilen işleri gerçek örneklerde belirle.
+- [ ] Browser gerektiren işlerin sınırını gerçek örneklerle belirle: JS, giriş, tıklama, form, oturum.
+- [ ] Browser Use mimarisini güncel resmî kaynak/kod üzerinden araştır; doğrudan kopyalama yapma.
+- [ ] OSM/açık coğrafi veri ile İstanbul işletme adayı üretme yöntemini araştır ve yasal/lisans sınırlarını kaydet.
+- [ ] ETBİS'in gerçek sorgu kabiliyetini ve kullanılabilir veri alanlarını ölç.
+- [ ] İşletmenin kendi sitesinden kanıtlı ihtiyaç sinyallerini çıkarma yöntemini ölç.
+- [ ] PageSpeed/teknik web ölçümünün hangi sinyalleri güvenilir verdiğini doğrula.
+- [ ] Google Maps/Places'i yalnız izin verilen tekil doğrulama rolünde tut.
+- [ ] Instagram'ı ana scraping kaynağı yapma; yalnız yardımcı sinyal rolünü sınırla.
+- [ ] WhatsApp/e-posta/formu keşif aracı değil onay sonrası iletişim kanalı olarak tut.
+- [ ] Deterministik Vixrex Uygunluk Puanı için hangi sinyallerin gerçekten ayırıcı olduğunu pilot veride ölç.
+- [ ] Başak'ın en az iki uygun bağımsız kaynaktan kanıtlı işletme kartı çıkarabildiğini doğrula.
+- [ ] Browser katmanı yalnız mevcut hafif yolun gerçekten yetmediği kanıtlanırsa geliştirme TODO'suna dönüşsün.
+
+### FAZ 4 TODO — Vixrex gerçek pilotu
+
+#### Masa başı doğrulama
+
+- [ ] En az 20 gerçek İstanbul işletmesi seç.
+- [ ] Birkaç ilçe/kategori arasında karşılaştırılabilir örnek oluştur.
+- [ ] Her işletmede kaynak erişilebilirliğini kaydet.
+- [ ] Her işletmede kanıt kalitesini kaydet.
+- [ ] Her işletme için deterministik uygunluk puanı üret.
+- [ ] Puanın gerçekten iyi/kötü adayları ayırıp ayırmadığını elle doğrula.
+- [ ] Kişiselleştirilmiş iletişim açısının işletmeye gerçekten özel olup olmadığını kontrol et.
+- [ ] En iyi ilçe + kategori kombinasyonunu kanıtla seç.
+
+#### Gerçek iletişim pilotu
+
+- [ ] Tek İstanbul ilçesini seç.
+- [ ] Tek işletme kategorisini seç.
+- [ ] 10 yüksek uygunluklu gerçek işletme belirle.
+- [ ] Her işletme için kanıtlı kısa işletme dosyası hazırla.
+- [ ] Her işletme için kişiye özel iletişim taslağı hazırla.
+- [ ] Her dış iletişim öncesinde Casper onayı al.
+- [ ] Onaylanmayan işletmeye mesaj/form/e-posta gönderme.
+- [ ] Temas sonucunu kaydet: gönderildi / cevap / görüşme / vitrin / gelir.
+- [ ] Pilot sonunda hangi adımın dönüşüm ürettiğini veya engellediğini kanıtla.
+- [ ] Gerçek ticari sonuç veya açık darboğaz kanıtı olmadan ölçeği büyütme.
+
+### FAZ 5 TODO — tekrarlanabilir para işleri
+
+Bu faz yalnız Vixrex pilotunun ölçüm sistemi çalıştıktan sonra açılır.
+
+- [ ] Bionluk/freelance fırsat araştırmasını aynı `bul → doğrula → hazırla → onay → sonuç` zincirine uyarlamanın araştırmasını yap.
+- [ ] Affiliate/partner fırsatlarını aynı zincire uyarlamanın araştırmasını yap.
+- [ ] Potansiyel iş ortaklığı araştırmasını aynı zincire uyarlamanın araştırmasını yap.
+- [ ] İçerik/teklif hazırlama görevlerini sonuç ölçümüyle bağla.
+- [ ] Her yeni gelir kanalını ayrı küçük pilotla ölç.
+- [ ] Ölçülmeyen veya para/sonuç üretmeyen kanal için kalıcı otomasyon kurma.
+
+### TODO karar kapısı
+
+Her TODO sonunda yalnız şu üç karardan biri verilir:
+
+1. **KANITLANDI →** bir sonraki güvenli adıma geç.
+2. **KANITLANMADI →** kod yazma; araştırmayı/ölçümü düzelt.
+3. **GERİLEME VAR →** deneyi reddet veya geri al; çalışan Başak'ı koru.
+
+**Ana kural: araştırmalar karar verir, kod araştırmanın kanıtladığı en küçük değişikliği uygular. Çalışan Başak hiçbir faz uğruna feda edilmez.**
