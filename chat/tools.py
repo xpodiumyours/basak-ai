@@ -305,24 +305,13 @@ def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
             "role": "user",
             "content": (
                 "Araç sonuçları:\n" + tool_sonuclari_text +
-                "\n\nŞimdi bu sonuçları DOĞAL TÜRKÇE ile özetle. "
-                "Kurallar:\n"
-                "- Kullanıcı kısa ve okunaklı ister: 104 satırlık ham liste "
-                "AYNEN YAZILMAZ. Önemli 5-10 madde seç, gerisini say "
-                "('... ve 94 oge daha').\n"
-                "- Sistem dosyaları (NTUSER, .cache, .config gibi nokta "
-                "klasörler, AppData) liste AYNEN yazılmaz; bir cümleyle "
-                "geç.\n"
-                "- Kullanıcıya yararlı olanları öne al: belgeler, masaüstü, "
-                "projeler, notlar.\n"
-                "- Bicim: ayri konulari ## baslikla ayir, listeleri - ile "
-                "madde yap, onemli adlari **kalin** yaz. Emoji/simge yok.\n"
-                "- Sonunda bir sonraki adimi teklif et ('Hangisine "
-                "bakayim?').\n"
-                "- Gördüğün şeyi UYDURMA; sadece elindeki sonuçta yazan var."
+                "\n\nŞimdi bu sonuçları DOĞAL TÜRKÇE ile, yeterince "
+                "DETAYLI özetle: liste uzun da olsa maddeleri atlama, "
+                "dosya/klasör adlarını tam yaz. "
+                "[Ö], badge::, kod, bash kullanma. "
+                "Kullanıcıya doğal dil ile anlat."
             ),
         }]
-
         try:
             # _yapi_kwargi geri yuklenir (circular import onlemi: lazy import)
             from _chat_legacy import _yapi_kwargi
@@ -345,85 +334,9 @@ def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
                     tum_sonuclar)
         break
 
-    # FALLBACK (2026-09-10, birinci ders): model ozet uretmediyse ham
-    # cikti aynen basilmaz — 104 ogelik liste okunamaz. Ozetleyici devreye
-    # girer: sistem curufunu eler, 10 oge gosterir, devamini teklif eder.
-    ham_metin = "\n".join(
-        str(net) for _ad, net in tum_sonuclar if net)
-    return (_ham_listeyi_ozetle(ham_metin), tum_sonuclar)
-
-def _ham_listeyi_ozetle(ham_metin):
-    """Model ozet uretmediginde ham arac ciktisini insan diline cevirir.
-
-    Ozellikle klasor listesi icin: sistem dosyalarini eler, en onemli
-    10 ogeyi baslik+madde olarak gosterir, gerisini sayar, devam teklif eder.
-    Liste degilse kisa kesip aynen doner.
-    """
-    metin = (ham_metin or "").strip()
-    if not metin:
-        return "Suctan bir sey cikmadi. Baska dener misin?"
-    satirlar = [s.strip() for s in metin.split("\n") if s.strip()]
-    liste_mi = any(("(klas" in s.lower()) or ("bayt" in s.lower())
-                   for s in satirlar)
-    if not liste_mi:
-        kisa = metin[:600].rstrip()
-        return kisa + ("..." if len(metin) > 600 else "")
-
-    # Baslik: "C:\Users\Casper/ (104 ogе):" seklinde gelir
-    baslik = satirlar[0] if satirlar else ""
-    ogeler = satirlar[1:]
-    m = re.search(r"\((\d+)\s*oge", baslik, re.IGNORECASE)
-    toplam = int(m.group(1)) if m else len(ogeler)
-
-    GIZLI = (
-        "ntuser", ".tm.", ".regtrans", "application data", "cookies",
-        "local settings", "nethood", "printhood", "recent", "sendto",
-        "start menu", "searches", "saved games", "favorites", "links",
-        "contacts", "templates", "printhood",
-    )
-    NOKTA = (".agents", ".aider", ".android", ".antigravity", ".bun",
-             ".cache", ".claude", ".cline", ".codeium", ".codex",
-             ".config", ".copilot", ".cursor", ".devin", ".docker",
-             ".dsh", ".expo", ".gemini", ".gradle", ".kimi", ".kiro",
-             ".local", ".ollama", ".omniroute", ".paddlex",
-             ".pytest_cache", ".sbx", ".semantic", ".supabase",
-             ".vscode", ".webui")
-    ONEMLI = ("vixrex", "source", "src", "obsidian", "onedrive",
-              "documents", "downloads", "desktop", "pictures",
-              "supabase", "tool", "goose", "jarvis", "studio")
-
-    def _ad(o):
-        return o.split(" (")[0].strip().lstrip("-• ").strip()
-
-    temiz = []
-    for o in ogeler:
-        a = _ad(o).lower()
-        if not a or a.startswith("ntuser") or a.endswith(".blf"):
-            continue
-        if any(k in a for k in GIZLI):
-            continue
-        if a.startswith(".") and any(a.startswith(k) for k in NOKTA):
-            continue
-        temiz.append(o)
-    temiz.sort(key=lambda s: (0 if any(k in _ad(s).lower()
-                                       for k in ONEMLI) else 1,
-                              _ad(s).lower()))
-
-    goster = temiz[:10]
-    kalan = max(0, len(temiz) - len(goster))
-    klasor = baslik.split("/")[0].split("(")[0].strip().rstrip("\\/") or "klasor"
-    satir = ["## " + klasor + " — one cikanlar"]
-    for g in goster:
-        kls = " (klasor)" if "(klas" in g.lower() else ""
-        satir.append("- **" + _ad(g) + "**" + kls)
-    if kalan > 0:
-        satir.append("- ... ve **" + str(kalan) + " oge** daha")
-    satir.append("")
-    satir.append("Hangisine bakayim?")
-    return "\n".join(satir)
-
-
-
+    # FALLBACK: Model ozet uretmediyse ham tool ciktilari kaliyor.
+    return ("\n".join(
+        str(net) for _ad, net in tum_sonuclar if net), tum_sonuclar)
 
 
 def _kaynak_satiri_ekle(cevap, kaynaklar):

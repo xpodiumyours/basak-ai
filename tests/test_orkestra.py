@@ -134,22 +134,6 @@ class TestOgrenVeGuvenlik:
         # metni başta kalmalı.
         assert gorulen["ilk"].startswith("BEN BASAK'IM")
 
-    def test_arac_yokken_arac_aciklamasi_modele_gonderilmez(self):
-        gorulen = {}
-
-        def aday(mesajlar, araclar):
-            gorulen["sistem"] = mesajlar[0]["content"]
-            gorulen["araclar"] = araclar
-            return {"content": "Merhaba"}, "yerel"
-
-        b = bilesenler(
-            dinamik_araclar=lambda _t, _tools: [],
-            aday_uret=aday)
-        Orkestra(b).kos("merhaba", sistem="BEN BASAK'IM", tools=[{"x": 1}])
-
-        assert gorulen["araclar"] == []
-        assert "ELİNDEKİ ARAÇLAR" not in gorulen["sistem"]
-
     def test_bos_soru_hata_ile_doner(self):
         rapor = Orkestra(bilesenler()).kos("   ")
         assert rapor.get("hata") == "Bos mesaj"

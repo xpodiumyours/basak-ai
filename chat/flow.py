@@ -44,16 +44,6 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
     from tools import calistir
     from brain.kapasite import mod_kapasite
 
-    text = (text or "").strip()
-    from chat.personal import deterministic_reply
-    sabit_cevap = deterministic_reply(text)
-    if sabit_cevap:
-        gecmis = _temizle_history([
-            m for m in yukle(HISTORY_FILE, []) if m.get("role") != "system"
-        ])
-        _save_and_reply(text, sabit_cevap, "yerel", gecmis, js_callback)
-        return
-
     # ORKESTRA ana yolu
     if orkestra_aktif_mi():
         mesaj_isle_orkestra(text, brain, system_prompt, js_callback,
@@ -61,16 +51,47 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
         return
 
     text = (text or "").strip()
-    raw_gecmis = [m for m in yukle(HISTORY_FILE, [])
-                  if m.get("role") != "system"]
-    gecmis = _temizle_history(raw_gecmis)
-    from chat.personal import prepare_personal_turn
-    personal_turn = prepare_personal_turn(
-        text, motor=_hafiza_al(), history=_gecmis_pencere(gecmis))
-    text = personal_turn.text
-    aktif_konusmaci = personal_turn.speaker or None
-    _profil_blogu = personal_turn.profile_block
-    ogrenme_notu = personal_turn.learning_note
+
+    # Konuşmacı bilgisini çıkar
+    aktif_konusmaci = None
+    konusmaci_eslesme = re.search(r"\[([^\]]+)\]\s*$", text)
+    if konusmaci_eslesme:
+        aktif_konusmaci = konusmaci_eslesme.group(1)
+        text = text[:konusmaci_eslesme.start()].strip()
+
+    # KALICI PROFIL (2026-09-09, Casper karari): konusarak ogrenme.
+    # "benim adim X", "hatirla: ...", "X'i seviyorum" gibi acik
+    # cumleler profile yazilir (budanmaz, silinmez). "unut: X" profilden
+    # siler. Ogrenilenler/sonuclar ayni turun baglamina not dusulur ki
+    # model dogrulayabilsin ("tamam, adini ogrendim" diyebilsin).
+    ogrenme_notu = ""
+    try:
+        from chat.context import hafiza_al as _profil_motoru
+        from memory.profil import ogren as _ogren, unut as _unut, blok as _blok
+        _motor = _profil_motoru()
+        if _motor and text:
+            silinen = _unut(_motor, text)
+            if silinen == -1:
+                ogrenme_notu = ("Not: Casper hakkındaki tüm profil "
+                                "bilgilerini SİLDİN. Bunu doğrula.")
+            elif silinen:
+                ogrenme_notu = ("Not: profilden %d kayıt sildin "
+                                "(istek: %s). Bunu doğrula." % (silinen, text))
+            else:
+                yeniler = _ogren(_motor, text,
+                                 speaker=aktif_konusmaci or "")
+                if yeniler:
+                    ogrenme_notu = ("Not: profile yeni bilgi eklendi: %s. "
+                                    "Kısaca doğrulayıp sohbete devam et."
+                                    % "; ".join("%s=%s" % (a, d)
+                                                for a, d in yeniler))
+            _profil_blogu = _blok(_motor)
+        else:
+            _profil_blogu = ""
+    except Exception as e:
+        logger.warning("Profil ogrenme atlandi: %s", e)
+        ogrenme_notu = ""
+        _profil_blogu = ""
 
     js_callback("BasakUI.thinking()")
     if not text:
@@ -92,6 +113,9 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
         # Yerel model yok — ayarlar.json'daki yerel model adi bulut
         # zincirine tasınmasın; zincir kendi seçsin.
         model = None
+
+    raw_gecmis = [m for m in yukle(HISTORY_FILE, []) if m.get("role") != "system"]
+    gecmis = _temizle_history(raw_gecmis)
 
     mevcut_kaynaklar = [ad for ad, _ in brain._bulut_zinciri()] if hasattr(brain, "_bulut_zinciri") else []
     kap = mod_kapasite(kaynaklar=mevcut_kaynaklar, model_adi=model)
@@ -214,10 +238,7 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
                     if t["function"]["name"] == ext_name:
                         core.append(t)
                         break
-        taban_toollar = core if core else tools
-        from chat.tool_selection import select_tools
-        aktif_toollar = select_tools(
-            text, tools, small_model=kap.kucuk, fallback=taban_toollar)
+        aktif_toollar = core if core else tools
     else:
         aktif_toollar = None
 

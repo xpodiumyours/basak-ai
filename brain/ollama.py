@@ -76,10 +76,7 @@ class OllamaClient:
         r = requests.post(
             f"{self.base_url}/api/chat",
             json=payload,
-            # 2026-09-10: qwen2.5:7b islemcide soguk yukleme ~18-20 sn; 10 sn
-            # okuma zaman asimi son care yerel yolu dusuruyordu. Yerel model
-            # internet yokken de calismali (kililti hedef) — genis pay birakilir.
-            timeout=(3, 120),
+            timeout=(3, 10),
         )
         r.raise_for_status()
 

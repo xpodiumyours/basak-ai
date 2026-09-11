@@ -109,11 +109,7 @@ from _chat_legacy import (  # noqa: F401, F403
     orkestra_aktif_mi,
     juri_acik_mi,
     orkestra_bilesenleri,
-    _juri_onayi,
-    _juri_listesi,
     _JURI_MAX,
-    _JURI_SORU_ARALIGI,
-    _JURI_ONAY_SURESI,
     # Hafiza
     _hafiza_hazirla,
     _gecmisi_aktar,
