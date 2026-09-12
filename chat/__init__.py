@@ -14,8 +14,17 @@ Yeni moduller kademeli olarak buradan export edilecek:
 
 # ── Backward compatibility: eski chat.py'deki her seyi export et ──────
 
-# mesaj_isle: chat.flow'dan al (yeni versiyon)
-from chat.flow import mesaj_isle_yeni as mesaj_isle  # noqa: F401
+# mesaj_isle: chat.flow'dan al; her kullanıcı turu TaskProfile scope'una
+# girer. Belirsiz görevler LEGACY kalır, yani mevcut davranış korunur.
+from chat.flow import mesaj_isle_yeni as _mesaj_isle_yeni  # noqa: F401
+from brain.harness import harness_scope
+
+
+def mesaj_isle(text, *args, **kwargs):
+    with harness_scope(text):
+        return _mesaj_isle_yeni(text, *args, **kwargs)
+
+
 # Prompt blokları: circular import önlemi için ayrı modülde
 from chat.prompts import TOOL_YONLENDIRME, OLCU_YONLENDIRME  # noqa: F401
 
