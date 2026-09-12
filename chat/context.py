@@ -4,7 +4,6 @@ Knowledge yükleme, hafıza entegrasyonu ve geçmiş yönetimi.
 Her sorudan önce ilgili bağlam hazırlanır.
 
 Bağımlılıklar: os, json, threading (standart), memory (proje içi)
-DI Container: ContextConfig (knowledge_dir, history_file, settings_file)
 """
 
 import json
@@ -13,62 +12,6 @@ import os
 import threading
 
 logger = logging.getLogger(__name__)
-
-
-# ── Knowledge yükleme ───────────────────────────────────────────────
-
-KNOWLEDGE_EMBED_CHARS = 2000  # Sadece bu kadar direkt embed edilir
-
-
-def load_knowledge(knowledge_dir, base_dir=None):
-    """Knowledge/ klasöründeki dosyaları okur ve birleştirir.
-
-    Dönüş: str (birleştirilmiş knowledge metni)
-    """
-    if base_dir is None:
-        base_dir = os.path.dirname(knowledge_dir)
-
-    try:
-        dosyalar = sorted(
-            ad for ad in os.listdir(knowledge_dir)
-            if ad.lower().endswith((".md", ".txt")) and ad != "README.md"
-        )
-    except OSError:
-        return ""
-
-    parcalar = []
-    kalan = KNOWLEDGE_EMBED_CHARS
-
-    if "INDEX.md" in dosyalar:
-        dosyalar.remove("INDEX.md")
-        dosyalar.insert(0, "INDEX.md")
-
-    # Proje dokümanları da hafızaya karışsın
-    for ad_ek in ("defter/INDEX.md", "GOREV_LISTESI.md", "AGENTS.md"):
-        tam_yol = os.path.join(base_dir, ad_ek)
-        if os.path.exists(tam_yol) and ad_ek not in dosyalar:
-            dosyalar.append(ad_ek)
-
-    for ad in dosyalar:
-        if kalan <= 0:
-            break
-        try:
-            dosya_yolu = os.path.join(knowledge_dir, ad)
-            if not os.path.exists(dosya_yolu):
-                dosya_yolu = os.path.join(base_dir, ad)
-            with open(dosya_yolu, "r",
-                       encoding="utf-8", errors="replace") as f:
-                icerik = f.read().strip()
-        except OSError:
-            continue
-        if not icerik:
-            continue
-        if len(icerik) > kalan:
-            icerik = icerik[:kalan].rstrip() + "..."
-        parcalar.append("### " + ad + "\n" + icerik)
-        kalan -= len(icerik)
-
-    return "\n\n".join(parcalar)
 
 
 # ── Geçmiş yönetimi ─────────────────────────────────────────────────
@@ -160,30 +103,3 @@ def ilgili_anilar(sorgu, limit=4):
     except Exception as e:
         logger.warning("Anı arama hatası: %s", e)
         return []
-
-
-# ── ContextConfig (DI Container için) ───────────────────────────────
-
-class ContextConfig:
-    """Bağlam yapılandırma ayarları."""
-
-    def __init__(self, base_dir, knowledge_dir=None, history_file=None,
-                 settings_file=None, gorevler_file=None):
-        self.base_dir = base_dir
-        self.knowledge_dir = knowledge_dir or os.path.join(base_dir, "knowledge")
-        self.history_file = history_file or os.path.join(base_dir, "gecmis.json")
-        self.settings_file = settings_file or os.path.join(base_dir, "ayarlar.json")
-        self.gorevler_file = gorevler_file or os.path.join(base_dir, "gorevler.json")
-        self.knowledge_cache = None
-        self.knowledge_lock = threading.Lock()
-
-    def load_and_cache_knowledge(self):
-        """Knowledge'ı yükle ve önbelleğe al."""
-        with self.knowledge_lock:
-            self.knowledge_cache = load_knowledge(self.knowledge_dir, self.base_dir)
-        return self.knowledge_cache
-
-    def get_cached_knowledge(self):
-        """Önbellekteki knowledge'ı döndür."""
-        with self.knowledge_lock:
-            return self.knowledge_cache
