@@ -54,12 +54,14 @@ def _toplayici():
     kutu = {"cevap": None, "hata": None}
 
     def cb(code):
-        if not (code.startswith("BasakUI.reply")
+        # 2026-09-13: cevap tek kapidan cikar — bitir(). Akan cevapta da
+        # tek seferlik yolda da ayni cagri kullanilir.
+        if not (code.startswith("BasakUI.bitir")
                 or code.startswith("BasakUI.error")):
-            return   # thinking/toolStatus gibi diger UI cagrilarini yoksay
+            return   # thinking/parca gibi diger UI cagrilarini yoksay
         ic = code[code.index("(") + 1: code.rindex(")")]
         m = json.loads("[" + ic + "]")
-        if code.startswith("BasakUI.reply"):
+        if code.startswith("BasakUI.bitir"):
             kutu["cevap"] = m[0]
         else:
             kutu["hata"] = m[0]
@@ -68,9 +70,11 @@ def _toplayici():
 
 @pytest.fixture
 def izole(monkeypatch, tmp_path):
-    monkeypatch.setattr(c, "HISTORY_FILE", str(tmp_path / "g.json"))
-    monkeypatch.setattr(c, "SETTINGS_FILE", str(tmp_path / "a.json"))
-    monkeypatch.setattr(c, "_hafiza", False)
+    from chat import context as cc
+    # Akis ctx.HISTORY_FILE'i okur — yama paket degil MODUL uzerinde olmali
+    monkeypatch.setattr(cc, "HISTORY_FILE", str(tmp_path / "g.json"))
+    monkeypatch.setattr(cc, "SETTINGS_FILE", str(tmp_path / "a.json"))
+    monkeypatch.setattr(cc, "_hafiza", False)
     return tmp_path
 
 
@@ -78,14 +82,14 @@ class TestOllamaBagimsizlik:
     def test_ollama_kapali_bulut_acik_sohbet_surer(self, izole):
         brain = BulutluBrain()
         kutu, cb = _toplayici()
-        c.mesaj_isle("merhaba nasilsin?", brain, "SYS", cb, None)
+        c.mesaj_isle("merhaba nasilsin?", brain, "SYS", cb)
         assert kutu["hata"] is None
         assert kutu["cevap"] == "buluttan cevap"
         assert brain.gelen_yerel_model is None
 
     def test_hicbir_beyin_yoksa_durur(self, izole):
         kutu, cb = _toplayici()
-        c.mesaj_isle("merhaba", CeholBrain(), "SYS", cb, None)
+        c.mesaj_isle("merhaba", CeholBrain(), "SYS", cb)
         assert kutu["cevap"] is None
         assert "beyin" in (kutu["hata"] or "")
 
@@ -104,8 +108,6 @@ class TestBoot:
 
         api.brain = Sahte()
         api.tts_on = False
-        monkeypatch.setattr(api, "bugunku_hatirlatmalar",
-                            lambda: {"result": ""})
         r = api.boot()
         assert r["ok"] is True and r["cloud"] is True and r["models"] == []
 
@@ -122,7 +124,5 @@ class TestBoot:
 
         api.brain = Sahte()
         api.tts_on = False
-        monkeypatch.setattr(api, "bugunku_hatirlatmalar",
-                            lambda: {"result": ""})
         r = api.boot()
         assert r["ok"] is False

@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 
-from chat import _onem_puanla
+from chat import onem_puanla
 from memory.engine import EPISODIK_LIMIT, HafizaMotoru
 
 
@@ -29,20 +29,16 @@ def motor(tmp_path):
 
 class TestPuaniVeren:
     def test_acik_hatirlatma_3(self):
-        assert _onem_puanla("Bunu hatırla: sunucu adresi x") == 3
+        assert onem_puanla("Bunu hatırla: sunucu adresi x") == 3
 
     def test_onemli_kelimesi_3(self):
-        assert _onem_puanla("Önemli: yarın toplantı var") == 3
-
-    def test_yazma_araci_kostuysa_3(self):
-        assert _onem_puanla(
-            "tamamdır", [("deftere_kaydet", "Kayit eklendi")]) == 3
+        assert onem_puanla("Önemli: yarın toplantı var") == 3
 
     def test_siradan_sohbet_1(self):
-        assert _onem_puanla("bugün hava nasıl?") == 1
+        assert onem_puanla("bugün hava nasıl?") == 1
 
     def test_bos_girdi_1(self):
-        assert _onem_puanla("") == 1
+        assert onem_puanla("") == 1
 
 
 class TestOnemliHayattaKalir:

@@ -435,33 +435,6 @@ textarea#input::placeholder { color: var(--text-dim); }
 /* ═══════════════════════════════════════════════════════════════
    ONAY MODALI
    ═══════════════════════════════════════════════════════════════ */
-.approval-overlay {
-  position: fixed; inset: 0; z-index: 1000;
-  background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
-  display: flex; align-items: center; justify-content: center;
-}
-.approval-card {
-  background: rgba(5,15,30,0.95); border: 1px solid var(--border-strong);
-  border-radius: 4px; padding: 28px 32px;
-  max-width: 420px; width: 90%;
-  box-shadow: 0 0 60px rgba(0,229,255,0.1), 0 20px 60px rgba(0,0,0,0.6);
-  position: relative;
-}
-.approval-card::before {
-  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, transparent, var(--amber), transparent);
-  box-shadow: 0 0 14px var(--amber);
-}
-.approval-card h3 {
-  font-family: var(--font-display); font-size: 15px; font-weight: 400;
-  color: var(--amber); margin-bottom: 16px; letter-spacing: 3px;
-}
-.approval-card .detail {
-  font-size: 11px; color: var(--text-dim); margin-bottom: 8px;
-  font-family: var(--font-mono); letter-spacing: 1px;
-}
-.approval-card .detail strong { color: var(--accent); }
-.approval-actions { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
 .btn-approve {
   padding: 8px 20px; border-radius: 3px;
   background: var(--accent-dim); color: var(--accent);
@@ -664,23 +637,3 @@ textarea#input::placeholder { color: var(--text-dim); }
   backdrop-filter: blur(6px);
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ONAY BUTONLARI
-   ═══════════════════════════════════════════════════════════════ */
-.onay-butonlari {
-  display: flex; gap: 8px; margin-top: 16px;
-}
-.onay-btn {
-  flex: 1; padding: 8px 16px; border-radius: 3px;
-  font-family: var(--font-mono); font-size: 11px;
-  cursor: pointer; border: 1px solid var(--border);
-  letter-spacing: 2px; transition: all 0.2s;
-  background: rgba(0,20,40,0.4); color: var(--text-dim);
-}
-.onay-kabul {
-  border-color: var(--accent); color: var(--accent);
-}
-.onay-kabul:hover { background: var(--accent-dim); box-shadow: 0 0 14px var(--accent-glow); }
-.onay-red { border-color: var(--red); color: var(--red); }
-.onay-red:hover { background: rgba(255,59,92,0.10); box-shadow: 0 0 14px rgba(255,59,92,0.25); }
-.msg-bubble .durum-uyari { color: var(--amber); font-weight: 500; }

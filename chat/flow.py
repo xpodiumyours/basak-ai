@@ -1,303 +1,207 @@
-"""chat/flow.py — Ana akış orkestrasyonu modülü.
+"""chat/flow.py — Ana sohbet akışı.
 
-mesaj_isle ve mesaj_isle_orkestra fonksiyonlarının çekirdek mantığı.
-Backward compatibility: _chat_legacy.py'den import edilir.
+2026-09-13 sadeleştirmesi (Casper kararı): araç katmanı, ölçü kapısı ve
+orkestra söküldü. Geriye kalan akış tek yol:
 
-Bağımlılıklar: json, re (standart)
-Circular import çözümü: lazy import ile _chat_legacy'den bağımlılıklar alınır.
+    mesaj → kimlik + kişilik + profil + hafıza + geçmiş
+          → ücretsiz model zinciri (kelime kelime akar)
+          → temizlik → ekran → hafızaya yaz
+
+Sağlayıcı sırası, kota takibi ve "limiti bitince diğerine geç" mantığı
+bu dosyada DEĞİL — `brain/` altında. Burası yalnız bağlamı kurar.
 """
 
 import json
 import logging
-import re
 
-from chat.prompts import KIMLIK_BLOGU, OLCU_YONLENDIRME
+from chat.prompts import (KIMLIK_BLOGU, OLCU_YONLENDIRME,
+                          BIKIMLONDIRME_YONLENDIRME)
+from chat import context as ctx
+from chat.gate import temizle as _temizle
 
 logger = logging.getLogger(__name__)
 
 
 def _j(obj):
-    """JSON serialization helper."""
     return json.dumps(obj, ensure_ascii=False)
 
 
-def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
-    """mesaj_isle'nin yeni versiyonu — _chat_legacy.py'den bağımsız.
+def _konusmaci_ayir(text):
+    """Sesli girişte metnin sonuna eklenen [İsim] etiketini ayırır."""
+    import re
+    eslesme = re.search(r"\[([^\]]+)\]\s*$", text)
+    if not eslesme:
+        return text, None
+    return text[:eslesme.start()].strip(), eslesme.group(1)
 
-    Circular import önlemek için _chat_legacy'den bağımlılıklar
-    lazy import ile alınır.
+
+def _profil_isle(text, konusmaci):
+    """Kalıcı profili günceller. Dönüş: (profil_blogu, ogrenme_notu).
+
+    'benim adım X', 'hatırla: ...' gibi cümleler profile yazılır;
+    'unut: X' siler. Öğrenilen şey aynı turun bağlamına not düşülür ki
+    model "tamam, adını öğrendim" diyebilsin.
     """
-    # Lazy imports (circular import önlemi)
-    from _chat_legacy import (
-        orkestra_aktif_mi, mesaj_isle_orkestra,
-        yukle, kaydet, SETTINGS_FILE, HISTORY_FILE,
-        KNOWLEDGE_DIR, GOREVLER_FILE,
-        _temizle_history,
-        TOOL_YONLENDIRME, BIKIMLONDIRME_YONLENDIRME,
-        _ilgili_anilar, _gecmis_pencere,
-        _yapi_kwargi,
-        _save_and_reply, _onem_puanla,
-        _hafiza_al,
-    )
-    from chat.gate import temizle as _temizle_fn
-    from chat.tools import tool_calling_multi, ham_tool_call_ayir
-    from tools import calistir
-    from brain.kapasite import mod_kapasite
-
-    # ORKESTRA ana yolu
-    if orkestra_aktif_mi():
-        mesaj_isle_orkestra(text, brain, system_prompt, js_callback,
-                            tools, kaydet_acik=True)
-        return
-
-    text = (text or "").strip()
-
-    # Konuşmacı bilgisini çıkar
-    aktif_konusmaci = None
-    konusmaci_eslesme = re.search(r"\[([^\]]+)\]\s*$", text)
-    if konusmaci_eslesme:
-        aktif_konusmaci = konusmaci_eslesme.group(1)
-        text = text[:konusmaci_eslesme.start()].strip()
-
-    # KALICI PROFIL (2026-09-09, Casper karari): konusarak ogrenme.
-    # "benim adim X", "hatirla: ...", "X'i seviyorum" gibi acik
-    # cumleler profile yazilir (budanmaz, silinmez). "unut: X" profilden
-    # siler. Ogrenilenler/sonuclar ayni turun baglamina not dusulur ki
-    # model dogrulayabilsin ("tamam, adini ogrendim" diyebilsin).
-    ogrenme_notu = ""
     try:
-        from chat.context import hafiza_al as _profil_motoru
-        from memory.profil import ogren as _ogren, unut as _unut, blok as _blok
-        _motor = _profil_motoru()
-        if _motor and text:
-            silinen = _unut(_motor, text)
-            if silinen == -1:
-                ogrenme_notu = ("Not: Casper hakkındaki tüm profil "
-                                "bilgilerini SİLDİN. Bunu doğrula.")
-            elif silinen:
-                ogrenme_notu = ("Not: profilden %d kayıt sildin "
-                                "(istek: %s). Bunu doğrula." % (silinen, text))
-            else:
-                yeniler = _ogren(_motor, text,
-                                 speaker=aktif_konusmaci or "")
-                if yeniler:
-                    ogrenme_notu = ("Not: profile yeni bilgi eklendi: %s. "
-                                    "Kısaca doğrulayıp sohbete devam et."
-                                    % "; ".join("%s=%s" % (a, d)
-                                                for a, d in yeniler))
-            _profil_blogu = _blok(_motor)
+        from memory.profil import ogren, unut, blok
+        motor = ctx.hafiza_al()
+        if not motor or not text:
+            return "", ""
+
+        silinen = unut(motor, text)
+        if silinen == -1:
+            not_ = ("Not: Casper hakkındaki tüm profil bilgilerini "
+                    "SİLDİN. Bunu doğrula.")
+        elif silinen:
+            not_ = ("Not: profilden %d kayıt sildin (istek: %s). "
+                    "Bunu doğrula." % (silinen, text))
         else:
-            _profil_blogu = ""
+            yeniler = ogren(motor, text, speaker=konusmaci or "")
+            not_ = ""
+            if yeniler:
+                not_ = ("Not: profile yeni bilgi eklendi: %s. Kısaca "
+                        "doğrulayıp sohbete devam et."
+                        % "; ".join("%s=%s" % (a, d) for a, d in yeniler))
+        return blok(motor), not_
     except Exception as e:
-        logger.warning("Profil ogrenme atlandi: %s", e)
-        ogrenme_notu = ""
-        _profil_blogu = ""
+        logger.warning("Profil islenemedi: %s", e)
+        return "", ""
+
+
+def _baglam_kur(text, system_prompt, konusmaci):
+    """Modele gidecek mesaj listesini kurar."""
+    profil_blogu, ogrenme_notu = _profil_isle(text, konusmaci)
+
+    tam_prompt = system_prompt + OLCU_YONLENDIRME + BIKIMLONDIRME_YONLENDIRME
+    if konusmaci:
+        tam_prompt += "\nKonuşan: %s" % konusmaci
+
+    mesajlar = [
+        {"role": "system", "content": KIMLIK_BLOGU},
+        {"role": "system", "content": tam_prompt},
+    ]
+
+    # Hafıza: soruyla ilgili anılar. Araçlar gittiği için knowledge/
+    # notlarına erişim de bu yoldan olur — motor o klasörü indeksliyor.
+    anilar = ctx.ilgili_anilar(text)
+    if anilar:
+        blok = "\n".join("- %s" % a["text"][:300] for a in anilar[:5])
+        mesajlar.append({"role": "system", "content": "Hafızadan:\n" + blok})
+
+    if profil_blogu:
+        mesajlar.append({"role": "system", "content": profil_blogu})
+    if ogrenme_notu:
+        mesajlar.append({"role": "system", "content": ogrenme_notu})
+
+    return mesajlar
+
+
+def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci):
+    """Cevabı ekrana basar, geçmişe ve kalıcı hafızaya yazar."""
+    gecmis += [
+        {"role": "user", "content": text, "oturum": ctx.OTURUM_ID},
+        {"role": "assistant", "content": cevap, "oturum": ctx.OTURUM_ID},
+    ]
+    ctx.kaydet(ctx.HISTORY_FILE, gecmis[-40:])
+
+    try:
+        from chat import oturum
+        oturum.kaydet_cift(text, cevap)
+    except Exception as e:
+        logger.warning("Oturum kaydi atlandi: %s", e)
+
+    js_callback("BasakUI.bitir(" + _j(cevap) + ", " + _j(kaynak) + ")")
+
+    # Ekran güncellendikten SONRA anıyı yaz — cevabı bekletmesin.
+    motor = ctx.hafiza_al()
+    if motor and cevap:
+        try:
+            motor.episodik_kaydet(text, cevap, speaker=konusmaci or "",
+                                  onem=ctx.onem_puanla(text))
+        except Exception as e:
+            logger.warning("Ani kaydedilemedi: %s", e)
+
+
+def mesaj_isle(text, brain, system_prompt, js_callback):
+    """Bir mesajı baştan sona işler."""
+    text, konusmaci = _konusmaci_ayir((text or "").strip())
 
     js_callback("BasakUI.thinking()")
     if not text:
         js_callback("BasakUI.error(" + _j("Bos mesaj") + ")")
         return
 
-    # Beyin kontrolü
+    # Yerel model YOKSA ve bulut da yoksa duracağız. Yalnız yerelin
+    # kapalı olması sohbeti kesmez — bulut zinciri ayakta olabilir.
     modeller = brain.yerel_modeller()
     if not modeller and not brain.bulut_musait():
         js_callback("BasakUI.error(" + _j(
-            "Hicbir beyin yok: Ollama kapali ve bulut anahtarlari da hazir degil") + ")")
+            "Hicbir beyin yok: Ollama kapali ve bulut anahtarlari da "
+            "hazir degil") + ")")
         return
 
-    model = yukle(SETTINGS_FILE, {}).get("model")
+    model = ctx.yukle(ctx.SETTINGS_FILE, {}).get("model")
     if modeller:
         if model not in modeller:
             model = modeller[0]
     else:
-        # Yerel model yok — ayarlar.json'daki yerel model adi bulut
-        # zincirine tasınmasın; zincir kendi seçsin.
+        # Yerel model yok — ayarlardaki ad bulut zincirine taşınmasın.
         model = None
 
-    raw_gecmis = [m for m in yukle(HISTORY_FILE, []) if m.get("role") != "system"]
-    gecmis = _temizle_history(raw_gecmis)
+    gecmis = ctx.temizle_history(
+        [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
+         if m.get("role") != "system"])
 
-    mevcut_kaynaklar = [ad for ad, _ in brain._bulut_zinciri()] if hasattr(brain, "_bulut_zinciri") else []
-    kap = mod_kapasite(kaynaklar=mevcut_kaynaklar, model_adi=model)
+    mesajlar = _baglam_kur(text, system_prompt, konusmaci)
+    mesajlar += ctx.gecmis_pencere(gecmis) + [{"role": "user",
+                                               "content": text}]
 
-    # 2026-08-26: Prompt zinciri sadelestirildi.
-    # System prompt (KISILIK) + tool/bicimlendirme yonnergeleri.
-    # ONEMLI: TOOL_YONLENDIRME (arac dayatmasi) HER MODELDE KALIR —
-    # ucretsiz modeller araci ellerinde tutsalar da "kullan" talimati
-    # almazsa dosya sorularinda arac cagirmaz, kafalarindan uydurur.
-    # Hafif mod (kap.kucuk) yalniz token yiyen kisimlari azaltir:
-    # hafiza embedding'i atlanir, core arac kucuk tutulur, tool dongusu
-    # kisalir. Arac dayatmasi fonksiyoneldir, kesilmez.
-    tam_prompt = system_prompt + TOOL_YONLENDIRME + OLCU_YONLENDIRME + BIKIMLONDIRME_YONLENDIRME
-    if aktif_konusmaci:
-        tam_prompt += "\nKonuşan: %s" % aktif_konusmaci
-    mesajlar = [
-        {"role": "system", "content": KIMLIK_BLOGU},
-        {"role": "system", "content": tam_prompt},
-    ]
+    # ── Akan cevap ──────────────────────────────────────────────────
+    # Cevap kelime kelime gelsin ("dondu mu?" hissi olmasın). Akış
+    # açılamazsa tek seferlik yola düşülür.
+    from brain.yayin import AracIstegi, SonHata
 
-    # 2026-08-25: hazir not yigini artik her mesaja eklenmiyor.
-    # Sebep (olculdu): 2105 karakterlik knowledge dokumu her istege
-    # giriyordu; icinde dosya adlari ve profil metni vardi. Araci
-    # olmayan model bu metni VERI sanip oradan cevap uretiyordu —
-    # "uydurma" diye kaydedilen olayin kaynagi buydu. Casper ayrica
-    # kendisini anlatan hazir metni istemiyor: "baştan tanışacağım".
-    # Notlar kayboldu degil: belge_ara/read_file ile ARAC uzerinden
-    # okunur, boylece model neyin olcum neyin metin oldugunu bilir.
-
-    # Hafiza: ilgili anilari baglama ekle (kisa format)
-    # Kucuk modellerde embedding aramasi atlanir (ekstra cagri + baglam).
-    if kap.kucuk:
-        anilar = []
-    else:
-        anilar = _ilgili_anilar(text)
-    if anilar:
-        blok = "\n".join(
-            "- %s" % a["text"][:300] for a in anilar[:5]  # max 5 anı
-        )
-        mesajlar.append({
-            "role": "system",
-            "content": "Hafızadan:\n" + blok,
-        })
-
-    # Kalici profil blogu + ogrenme notu (varsa)
-    try:
-        if _profil_blogu:
-            mesajlar.append({"role": "system", "content": _profil_blogu})
-        if ogrenme_notu:
-            mesajlar.append({"role": "system", "content": ogrenme_notu})
-    except NameError:
-        pass
-
-    mesajlar += _gecmis_pencere(gecmis) + [{"role": "user", "content": text}]
-
-    # AKIS (2026-09-10): once aracsiz akis dene — cevap kelime kelime
-    # gelsin, "dondu mu?" hissi bitsin. Model arac isterse AracIstegi
-    # firlar, asagidaki tam yola dusulur. Akis acilmazsa SonHata ile
-    # dogrudan hata gosterilir (tam yol TEKRAR kota yemez).
-    from brain.yayin import AracIstegi as _AracIstegi, SonHata as _SonHata
-    _yayin = getattr(brain, "cevapla_yayin", None)
-    if _yayin is not None:
+    yayin = getattr(brain, "cevapla_yayin", None)
+    if yayin is not None:
         try:
-            _parcalar = []
-            _kaynak = ""
-            for _kaynak, _parca in _yayin(mesajlar, model):
-                _parcalar.append(_parca)
-                js_callback("BasakUI.parca(" + _j(_parca) + ")")
-            # 2026-09-10: bazi saglayicilar sayi/None parca dondurur —
-            # join patlamasin diye hepsi stringe cevrilir.
-            _tam = _temizle_fn("".join(
+            parcalar = []
+            kaynak = ""
+            for kaynak, parca in yayin(mesajlar, model):
+                parcalar.append(parca)
+                js_callback("BasakUI.parca(" + _j(parca) + ")")
+            # Bazi saglayicilar sayi/None parca dondurur — join patlamasin.
+            tam = _temizle("".join(
                 p if isinstance(p, str) else str(p) if p is not None else ""
-                for p in _parcalar))
-            # 2026-09-10 (canli sinav bulgusu): model araci METIN olarak
-            # yazdiysa (```list_files(...)```) akis onu normal yazi sanip
-            # araci hic kosturmadan ekrana veriyordu. Ham arac varsa bu
-            # metin COPtur — yari cevap gosterilmeden tam yola dusulur.
-            if ham_tool_call_ayir(_tam):
-                logger.info("Akis ham arac iceriyor, tam yola dusuluyor")
-            else:
-                gecmis += [{"role": "user", "content": text},
-                           {"role": "assistant", "content": _tam}]
-                kaydet(HISTORY_FILE, gecmis[-40:])
-                try:
-                    from chat import oturum as _oturum
-                    _oturum.kaydet_cift(text, _tam)
-                except Exception as e:
-                    logger.warning("Oturum kaydi atlandi: %s", e)
-                js_callback("BasakUI.bitir(" + _j(_tam) + ", "
-                            + _j(_kaynak or "bulut") + ")")
-                try:
-                    _motor2 = _hafiza_al()
-                    if _motor2 and _tam:
-                        _motor2.episodik_kaydet(
-                            text, _tam, speaker=aktif_konusmaci or "",
-                            onem=_onem_puanla(text))
-                except Exception as e:
-                    logger.warning("Akis anisi kaydedilemedi: %s", e)
+                for p in parcalar))
+            if tam:
+                _kaydet(text, tam, kaynak or "bulut", gecmis, js_callback,
+                        konusmaci)
                 return
-        except _AracIstegi:
-            pass  # tam yola dus: arac + detayli cevap
-        except _SonHata as e:
-            js_callback("BasakUI.error(" + _j(
-                "Beyin hatasi: " + str(e.ozet)[:100]) + ")")
-            return
+            logger.info("Akis bos dondu, tek seferlik yola dusuluyor")
+        except AracIstegi:
+            logger.info("Model arac istedi (arac yok) — tek seferlik yol")
+        except SonHata as e:
+            logger.info("Akis acilamadi (%s) — tek seferlik yol", e.ozet)
 
-    # 2026-08-26: CORE TOOLS — ucretsiz modeller 18 araci cozemez.
-    # Core set (9 arac) her zaman gonderilir; extended tools
-    # anahtar kelimeyle tetiklenir. Tam set istenirse ?full yazilir.
-    if tools:
-        from tools.definitions import CORE_TOOL_NAMES, SMALL_CORE_TOOL_NAMES, EXTENDED_TETIKLERI
-        core_names = SMALL_CORE_TOOL_NAMES if kap.kucuk else CORE_TOOL_NAMES
-        core = [t for t in tools
-                if t["function"]["name"] in core_names]
-        # Extended: mesajdaki anahtar kelimelerle tetiklenenler
-        text_lower = text.lower()
-        for ext_name, tetikler in EXTENDED_TETIKLERI.items():
-            if any(t in text_lower for t in tetikler):
-                for t in tools:
-                    if t["function"]["name"] == ext_name:
-                        core.append(t)
-                        break
-        aktif_toollar = core if core else tools
-    else:
-        aktif_toollar = None
-
+    # ── Tek seferlik yol ────────────────────────────────────────────
+    # Akış hiç açılamadıysa buraya düşülür. Akış açılamadığı için
+    # sağlayıcıdan başarılı çağrı gerçekleşmedi — kota yenmedi.
     try:
-        yanit, kaynak = brain.cevapla(
-            mesajlar, model,
-            tools=aktif_toollar,
-            **_yapi_kwargi(brain))
+        yanit, kaynak = brain.cevapla(mesajlar, model)
     except Exception as e:
-        hata_str = str(e)
-        if "429" in hata_str or "rate" in hata_str.lower():
-            js_callback("BasakUI.error(" + _j("Cok fazla istek, biraz bekle") + ")")
+        hata = str(e)
+        if "429" in hata or "rate" in hata.lower():
+            js_callback("BasakUI.error(" + _j(
+                "Cok fazla istek, biraz bekle") + ")")
         else:
-            js_callback("BasakUI.error(" + _j("Beyin hatasi: " + hata_str[:100]) + ")")
+            js_callback("BasakUI.error(" + _j(
+                "Beyin hatasi: " + hata[:150]) + ")")
         return
 
-    tool_calls = yanit.get("tool_calls")
-
-    # Tool calls yoksa
-    if not tool_calls:
-        ham_icerik = yanit.get("content", "")
-        cevap = _temizle_fn(ham_icerik)
-
-        # Raw tool call yakalama (BUG #1 fix)
-        raw_cagri_listesi = ham_tool_call_ayir(ham_icerik)
-        if raw_cagri_listesi:
-            logger.info("Raw tool call yakalandi: %s",
-                        ", ".join(ad for ad, _ in raw_cagri_listesi))
-            sahte_tool_calls = []
-            for idx, (ad, args) in enumerate(raw_cagri_listesi):
-                sahte_tool_calls.append({
-                    "id": "raw_%d" % idx,
-                    "type": "function",
-                    "function": {
-                        "name": ad,
-                        "arguments": json.dumps(args, ensure_ascii=False),
-                    },
-                })
-            cevap, arac_ciktilari = tool_calling_multi(
-                sahte_tool_calls, mesajlar, brain, model, js_callback,
-                calistir, aktif_toollar,
-                knowledge_dir=KNOWLEDGE_DIR, gorevler_file=GOREVLER_FILE)
-            cevap = _temizle_fn(cevap)
-            _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
-                            speaker=aktif_konusmaci,
-                            onem=_onem_puanla(text, arac_ciktilari))
-            return
-
-        _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
-                        speaker=aktif_konusmaci,
-                        onem=_onem_puanla(text))
+    cevap = _temizle(yanit.get("content", "") if isinstance(yanit, dict)
+                     else yanit)
+    if not cevap:
+        js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")")
         return
 
-    # Tool calling döngüsü
-    cevap, arac_ciktilari = tool_calling_multi(
-        tool_calls, mesajlar, brain, model, js_callback, calistir,
-        aktif_toollar,
-        knowledge_dir=KNOWLEDGE_DIR, gorevler_file=GOREVLER_FILE)
-    cevap = _temizle_fn(cevap)
-    _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
-                    speaker=aktif_konusmaci,
-                    onem=_onem_puanla(text, arac_ciktilari))
+    _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci)

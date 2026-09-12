@@ -1,80 +1,45 @@
-"""chat/context.py — Bağlam hazırlığı modülü.
+"""chat/context.py — Bağlam, geçmiş ve hafıza.
 
-Knowledge yükleme, hafıza entegrasyonu ve geçmiş yönetimi.
-Her sorudan önce ilgili bağlam hazırlanır.
+2026-09-13 sadeleştirmesi: araç katmanı söküldükten sonra bu modül
+`_chat_legacy.py`'ye bağlı kalmasın diye dosya yolları, JSON okuma/yazma
+ve hafıza bağlantısı buraya taşındı.
 
-Bağımlılıklar: os, json, threading (standart), memory (proje içi)
-DI Container: ContextConfig (knowledge_dir, history_file, settings_file)
+Sorumluluğu:
+  - dosya yolları ve ayar okuma
+  - modele giden geçmiş penceresi (kilo limitli)
+  - kalıcı hafıza motoruna tek giriş noktası
 """
 
 import json
 import logging
 import os
 import threading
+import uuid
 
 logger = logging.getLogger(__name__)
 
+# ── Dosya yolları ───────────────────────────────────────────────────
 
-# ── Knowledge yükleme ───────────────────────────────────────────────
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+HISTORY_FILE = os.path.join(BASE, "gecmis.json")
+SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
+KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
+OBSIDIAN_DIR = os.path.join(BASE, "Basak")
 
-KNOWLEDGE_EMBED_CHARS = 2000  # Sadece bu kadar direkt embed edilir
+# Her açılışta bir oturum kimliği — kayıtlara işlenir.
+OTURUM_ID = uuid.uuid4().hex[:8]
 
+# ── Geçmiş penceresi ────────────────────────────────────────────────
+# Modele giden pencere sayıyla değil KİLOYLA sınırlı: uzun cevaplar
+# birikip isteği şişirmesin. Kesim hafızadan silmek değildir — her çift
+# zaten hafıza motoruna yazılır, eski kısımlar aramayla geri gelir.
 
-def load_knowledge(knowledge_dir, base_dir=None):
-    """Knowledge/ klasöründeki dosyaları okur ve birleştirir.
+MAX_HISTORY = 20
+GECMIS_KILO_LIMITI = 4000
 
-    Dönüş: str (birleştirilmiş knowledge metni)
-    """
-    if base_dir is None:
-        base_dir = os.path.dirname(knowledge_dir)
-
-    try:
-        dosyalar = sorted(
-            ad for ad in os.listdir(knowledge_dir)
-            if ad.lower().endswith((".md", ".txt")) and ad != "README.md"
-        )
-    except OSError:
-        return ""
-
-    parcalar = []
-    kalan = KNOWLEDGE_EMBED_CHARS
-
-    if "INDEX.md" in dosyalar:
-        dosyalar.remove("INDEX.md")
-        dosyalar.insert(0, "INDEX.md")
-
-    # Proje dokümanları da hafızaya karışsın
-    for ad_ek in ("defter/INDEX.md", "GOREV_LISTESI.md", "AGENTS.md"):
-        tam_yol = os.path.join(base_dir, ad_ek)
-        if os.path.exists(tam_yol) and ad_ek not in dosyalar:
-            dosyalar.append(ad_ek)
-
-    for ad in dosyalar:
-        if kalan <= 0:
-            break
-        try:
-            dosya_yolu = os.path.join(knowledge_dir, ad)
-            if not os.path.exists(dosya_yolu):
-                dosya_yolu = os.path.join(base_dir, ad)
-            with open(dosya_yolu, "r",
-                       encoding="utf-8", errors="replace") as f:
-                icerik = f.read().strip()
-        except OSError:
-            continue
-        if not icerik:
-            continue
-        if len(icerik) > kalan:
-            icerik = icerik[:kalan].rstrip() + "..."
-        parcalar.append("### " + ad + "\n" + icerik)
-        kalan -= len(icerik)
-
-    return "\n\n".join(parcalar)
-
-
-# ── Geçmiş yönetimi ─────────────────────────────────────────────────
 
 def yukle(path, varsayilan):
-    """JSON dosyasını okur, hata olursa varsayılanı döndürür."""
+    """JSON dosyasını okur; hata olursa varsayılanı döndürür (BOM güvenli)."""
     try:
         with open(path, "r", encoding="utf-8-sig") as f:
             return json.load(f)
@@ -88,10 +53,11 @@ def kaydet(path, veri):
         json.dump(veri, f, ensure_ascii=False, indent=2)
 
 
-def gecmis_pencere(gecmis, limit=4000, adet_siniri=20):
+def gecmis_pencere(gecmis, limit=GECMIS_KILO_LIMITI, adet_siniri=MAX_HISTORY):
     """Kilo limitli geçmiş penceresi.
 
-    En YENİ mesajdan geriye doğru ekler; limit dolunca durur.
+    En YENİ mesajdan geriye doğru ekler; limit dolunca durur. Mesajlar
+    bütün halde alınır (ortasından kesilmez). Kronolojik sıra korunur.
     """
     secilen = []
     toplam = 0
@@ -108,36 +74,37 @@ def gecmis_pencere(gecmis, limit=4000, adet_siniri=20):
 
 
 def temizle_history(gecmis):
-    """Geçmiş mesajlarını API formatına temizler."""
-    import re as _re
+    """Geçmiş mesajlarını API biçimine indirger."""
     temiz = []
     for m in gecmis:
-        icerik = m.get("content", "") or ""
-        # Eski badge::Ö:: işaretlerini temizle
-        if isinstance(icerik, str) and 'badge::' in icerik:
-            eslesen = _re.search(r'badge::[^\"]*\"([^\"]+)\"', icerik)
-            if eslesen:
-                icerik = eslesen.group(1)
-            else:
-                icerik = _re.sub(r'badge::[^\n]*', '', icerik).strip()
-        # None content → boş string
-        if icerik is None:
-            icerik = ""
-        if m.get("role") == "assistant" and m.get("tool_calls"):
-            temiz.append({"role": "assistant", "content": icerik or ""})
-        else:
-            temiz.append({"role": m.get("role"), "content": icerik})
+        icerik = m.get("content") or ""
+        temiz.append({"role": m.get("role"), "content": icerik})
     return temiz
 
 
-# ── Hafıza entegrasyonu ─────────────────────────────────────────────
+# ── Önem puanı ──────────────────────────────────────────────────────
+# Puanı KOD verir, model tahmin etmez. Budama sırası önem → tarih
+# olduğu için açıkça "hatırla" denen bilgi gevezeliğin altında kalmaz.
+
+_ONEM_KELIMELERI = ("hatırla", "not al", "kaydet", "önemli", "unutma")
+
+
+def onem_puanla(text):
+    """Sohbet anısına başlangıç önem puanı: 3 (açık istek) veya 1."""
+    t = (text or "").lower()
+    if any(k in t for k in _ONEM_KELIMELERI):
+        return 3
+    return 1
+
+
+# ── Hafıza ──────────────────────────────────────────────────────────
 
 _hafiza = None
 _hafiza_lock = threading.Lock()
 
 
 def hafiza_al():
-    """Motoru tek seferlik oluşturur; açılamazsa None döner."""
+    """Motoru tek seferlik oluşturur; açılamazsa None (sohbet devam eder)."""
     global _hafiza
     with _hafiza_lock:
         if _hafiza is None:
@@ -151,39 +118,61 @@ def hafiza_al():
 
 
 def ilgili_anilar(sorgu, limit=4):
-    """Soruyla ilgili anıları döndürür; motor/hata durumunda boş liste."""
+    """Soruyla ilgili anıları döndürür; hata durumunda boş liste."""
     motor = hafiza_al()
     if not motor:
         return []
     try:
         return motor.ara(sorgu, limit=limit)
     except Exception as e:
-        logger.warning("Anı arama hatası: %s", e)
+        logger.warning("Ani arama hatasi: %s", e)
         return []
 
 
-# ── ContextConfig (DI Container için) ───────────────────────────────
+def _gecmisi_aktar(motor):
+    """gecmis.json'daki eski sohbeti bir kereye mahsus hafızaya taşır."""
+    kayitlar = yukle(HISTORY_FILE, [])
+    soru = None
+    sayac = 0
+    for m in kayitlar:
+        rol = m.get("role")
+        icerik = (m.get("content") or "").strip()
+        if not icerik:
+            continue
+        if rol == "user":
+            soru = icerik
+        elif rol == "assistant" and soru:
+            if motor.episodik_kaydet(soru, icerik):
+                sayac += 1
+            soru = None
+    logger.info("Eski gecmis hafizaya tasindi: %d cift", sayac)
 
-class ContextConfig:
-    """Bağlam yapılandırma ayarları."""
 
-    def __init__(self, base_dir, knowledge_dir=None, history_file=None,
-                 settings_file=None, gorevler_file=None):
-        self.base_dir = base_dir
-        self.knowledge_dir = knowledge_dir or os.path.join(base_dir, "knowledge")
-        self.history_file = history_file or os.path.join(base_dir, "gecmis.json")
-        self.settings_file = settings_file or os.path.join(base_dir, "ayarlar.json")
-        self.gorevler_file = gorevler_file or os.path.join(base_dir, "gorevler.json")
-        self.knowledge_cache = None
-        self.knowledge_lock = threading.Lock()
+def _hafiza_hazirla():
+    """Arka planda: eski geçmişi aktar, notları indeksle.
 
-    def load_and_cache_knowledge(self):
-        """Knowledge'ı yükle ve önbelleğe al."""
-        with self.knowledge_lock:
-            self.knowledge_cache = load_knowledge(self.knowledge_dir, self.base_dir)
-        return self.knowledge_cache
+    Araçlar söküldü; `knowledge/` klasörüne erişim artık YALNIZ hafıza
+    araması üzerinden. Bu yüzden indeksleme kritik — çalışmazsa notlar
+    görünmez olur.
+    """
+    motor = hafiza_al()
+    if not motor:
+        return
+    try:
+        from memory.engine import indeksle_klasor
 
-    def get_cached_knowledge(self):
-        """Önbellekteki knowledge'ı döndür."""
-        with self.knowledge_lock:
-            return self.knowledge_cache
+        if not motor.meta_al("gecmis_aktarildi", False):
+            _gecmisi_aktar(motor)
+            motor.meta_koy("gecmis_aktarildi", True)
+
+        n1 = indeksle_klasor(motor, KNOWLEDGE_DIR, "knowledge")
+        n2 = indeksle_klasor(motor, OBSIDIAN_DIR, "obsidian")
+        logger.info("Hafiza hazir: %d ani, indeksleme +%d",
+                    motor.say(), n1 + n2)
+    except Exception as e:
+        logger.warning("Hafiza hazirlanamadi (sohbet etkilenmez): %s", e)
+
+
+def init_cache():
+    """Açılışta çağrılır: hafızayı arka planda hazırlar."""
+    threading.Thread(target=_hafiza_hazirla, daemon=True).start()

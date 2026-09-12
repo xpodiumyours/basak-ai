@@ -62,15 +62,15 @@ def _bol(metin):
             for i in range(0, max(len(metin), 1), PARCA_LIMITI)]
 
 
-async def _islet(brain, kisilik, tools, metin):
+async def _islet(brain, kisilik, metin):
     """Sohbet hattini ayri thread'de kostur, son cevabi dondur."""
-    from chat.flow import mesaj_isle_yeni
+    from chat.flow import mesaj_isle
 
     kayit = Kaydedici()
 
     def _kos():
         try:
-            mesaj_isle_yeni(metin, brain, kisilik, kayit, tools)
+            mesaj_isle(metin, brain, kisilik, kayit)
         except Exception as e:
             logger.warning("Telegram islem hatasi: %s", e)
             kayit.hata = kayit.hata or "Bir sorun oldu."
@@ -84,7 +84,6 @@ def main():
 
     from brain import Brain
     from basak_app import KISILIK, init_cache
-    from tools import TOOLS
 
     bilet = _ayar("telegram_bot_token", "")
     if not bilet:
@@ -105,7 +104,7 @@ def main():
             return
         await context.bot.send_chat_action(
             chat_id=update.effective_chat.id, action="typing")
-        cevap = await _islet(beyin, KISILIK, TOOLS, metin)
+        cevap = await _islet(beyin, KISILIK, metin)
         for parca in _bol(cevap):
             await update.message.reply_text(parca)
 

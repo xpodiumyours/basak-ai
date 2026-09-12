@@ -383,11 +383,9 @@ function setOrb(s) {
     bekliyor: "BAŞAK BEKLEME MODU",
     dusunuyor: "BAŞAK DÜŞÜNÜYOR",
     cevapliyor: "BAŞAK KONUŞUYOR",
-    arac: "BAŞAK ARAÇ ÇALIŞTIRIYOR",
     hata: "HATA — BİR SORUN VAR",
     dinliyor: "BAŞAK DİNLİYOR",
-    algiliyor: "BA�?AK ALGILIYOR",
-    onay: "ONAY BEKLENİYOR"
+    algiliyor: "BA�?AK ALGILIYOR"
   };
   // Sadece orbLabel'i=güncelle, durumSatiri'ni bozma
   const orbLabel = $("orbLabel");
@@ -503,53 +501,6 @@ window.BasakUI = {
     } catch (e) {}
   },
 
-  // ONAY SİSTEMİ: Hassas araçlar için onay isteği gösterir
-  approval(data) {
-    const toolNames = {
-      'write_file_tool': 'Dosya yazma/oluşturma',
-      'deftere_kaydet': 'Deftere kayıt',
-      'save_note': 'Not kaydetme',
-      'complete_task': 'Görev tamamlama',
-      'ac_uygulama': 'Uygulama açma',
-    };
-    const toolName = toolNames[data.tool] || data.tool;
-    const argsStr = JSON.stringify(data.args, null, 2);
-
-    const div = Chat.add('basak',
-      `⚠ ONAY GEREKLİ\n\n` +
-      `▶ İ�?LEM: ${toolName}\n` +
-      `▶ DETAY:\n\`${argsStr}\`\n\n` +
-      `Bu işlemi yapmamı istiyor musun?`
-    );
-
-    // Onay butonları ekle
-    const btnDiv = document.createElement('div');
-    btnDiv.className = 'onay-butonlari';
-    btnDiv.innerHTML = `
-      <button class="onay-btn onay-kabul" onclick="BasakUI.onayGonder('${data.call_id}', true)">✓ EVET, YAP</button>
-      <button class="onay-btn onay-red" onclick="BasakUI.onayGonder('${data.call_id}', false)">✗ HAYIR, İPTAL</button>
-    `;
-    div.appendChild(btnDiv);
-
-    setOrb('onay');
-    setStatus('busy', 'ONAY BEKLENİYOR...');
-  },
-
-onayGonder(callId, kabul) {
-    // Butonları devre bırak
-    const btns = document.querySelectorAll('.onay-btn');
-    btns.forEach(b => b.disabled = true);
-
-    // Onayı Python'a gönder
-    pywebview.api.onay_ver(callId, kabul);
-
-    if (kabul) {
-      setStatus('ok', 'ONAY VERİLDİ');
-    } else {
-      setStatus('ok', 'İ�?LEM İPTAL EDİLDİ');
-    }
-    setOrb('bekliyor');
-  }
 }; // 2026-09-09: BasakUI burada kapanir. Alttaki "Görünümler" ve
    // sonraki bölümler normal kod — listenin içinde kalmıştı, bu
    // yüzden tüm ekran kodu çalışmıyordu (açılışta takılma sebebi).
@@ -763,13 +714,6 @@ async function boot() {
       state.model = status.model;
       state.ttsOn = !!status.tts_on;
       setStatus("ok", (status.cloud ? "BULUT " + (status.model || "") + " HAZIR" : (status.model || "YEREL BEYİN") + " HAZIR"));
-      // Token durumu gösterimi
-      if (status.token_durumu) {
-        const tl = $("tokenLabel");
-        const ts = $("tokenStatus");
-        if (tl) tl.textContent = "token: " + status.token_durumu;
-        if (ts) ts.style.display = "block";
-      }
       const sel = $("modelSelect");
       if (status.models && status.models.length) {
         sel.innerHTML = status.models
@@ -779,10 +723,6 @@ async function boot() {
       }
       $("btnTts").classList.toggle("active", state.ttsOn);
 
-      // Hatirlatmalari goster
-      if (status.reminders && status.reminders.trim()) {
-        Chat.add("basak", status.reminders);
-      }
       try { oturumlariYukle(); } catch (e) {}
     } else {
       // 2026-09-09: mesaj gercegi soyler. Eskiden hep "OLLAMA KAPALI"

@@ -1,12 +1,12 @@
-"""chat/gate.py — Çıkış kapıları ve dil kontrolü modülü.
+"""chat/gate.py — Çıkış temizliği ve dil kontrolü.
 
-Model cevabı kullanıcıya gitmeden denetlenir:
-  - Dil kontrolü (Türkçe mu? İngilizce sızıntı mı?)
-  - Çıkış kapısı (sözleşme modu + işaretleme sistemi)
-  - Raw tool call temizliği
+Model cevabı kullanıcıya gitmeden buradan geçer:
+  - düşünme metni (<think>) silinir
+  - emoji silinir (kişilik "emoji yok" der ama küçük modeller yine koyar)
+  - İngilizce sızıntı yakalanır
 
-Bağımlılıklar: re (standart), olcu (proje içi)
-DI Container: GateConfig (dil_esik, sozlesme_modu)
+2026-09-13: araç katmanı söküldüğü için ham araç çağrısı yakalama
+(`raw_tool_temizle`) kaldırıldı — ortada çağrılacak araç yok.
 """
 
 import logging
@@ -30,11 +30,7 @@ _TR_KELIMELER = frozenset(
 
 
 def dil_kontrol(text):
-    """Cevabın çoğunlukla Türkçe olup olmadığını kontrol eder.
-
-    Orijinal chat.py'deki mantık: karakter oranı yerine kelime tabanlı
-    İngilizce sızıntı kontrolü kullanılır.
-    """
+    """Cevabın çoğunlukla Türkçe olup olmadığını söyler."""
     if not text or not isinstance(text, str):
         return True
     return not ingilizce_sizinti_mi(text)
@@ -52,15 +48,20 @@ def ingilizce_sizinti_mi(text):
     return ing >= 3 and ing > tr
 
 
+# Emoji araliklari kod noktasiyla yazilir: kaynak dosyada duz emoji
+# karakteri birakmak okunmaz ve kodlama kazalarina acik.
+_EMOJI = re.compile("[%s-%s%s-%s%s-%s%s]" % (
+    chr(0x1F300), chr(0x1FAFF),   # semboller, pictograflar
+    chr(0x2600), chr(0x27BF),     # muhtelif semboller, dingbat
+    chr(0x2B00), chr(0x2BFF),     # oklar
+    chr(0xFE0F),                  # varyasyon secici
+))
+
+
 # ── Metin temizleme ──────────────────────────────────────────────────
 
 def temizle(text):
-    """Model çıktısını temizler — ama yapısı korunur.
-
-    - thinking/chain-of-thought blokları silinir
-    - badge:: formatları temizlenir
-    - Fazla boş satırlar tek satıra düşürülür
-    """
+    """Model çıktısını temizler — ama yapısı korunur."""
     if not text:
         return ""
     if not isinstance(text, str):
@@ -72,42 +73,7 @@ def temizle(text):
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
     # Emoji temizligi (2026-09-09): kisilik "emoji yok" der ama kucuk
     # modeller yine koyar. Gorunum katmaninda sessizce alinir.
-    text = re.sub(
-        "[\U0001F300-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F]", "",
-        text)
-    # badge::O:: veya badge::Ö:: formatını temizle
-    text = re.sub(r'badge::[OÖ]::', '', text)
-    # Kalan badge:: satırlarını da temizle
-    text = re.sub(r'badge::[^\n]*', '', text)
+    text = _EMOJI.sub("", text)
     # Fazla boş satırları tek satıra düşür
     text = re.sub(r"\n{3,}", "\n\n", text)
-    text = text.strip()
-    return text
-
-
-# ── Raw tool call tespiti (geçici — asıl parser chat/tools.py'de) ────
-
-_RAW_TOOL_PATTERNS = frozenset((
-    'list_files ', 'read_file ', 'web_search ', 'git_durum ',
-    'belge_ara ', 'dosya_bilgi ', 'add_task ', 'save_note ',
-))
-
-
-def raw_tool_temizle(metin):
-    """Raw tool call deseni varsa insancıl formata çevir."""
-    if not metin:
-        return metin
-    if any(metin.startswith(p) for p in _RAW_TOOL_PATTERNS):
-        alinti = re.search(r'"([^"]+)"', metin)
-        if alinti:
-            return alinti.group(1)
-    return metin
-
-
-# ── GateConfig (DI Container için) ───────────────────────────────────
-
-class GateConfig:
-    """Kapı yapılandırma ayarları."""
-
-    def __init__(self, sozlesme_modu="acik"):
-        self.sozlesme_modu = sozlesme_modu
+    return text.strip()

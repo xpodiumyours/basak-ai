@@ -1,7 +1,7 @@
 """tests/test_kapanis_db.py — Kapanista hafiza DB kapanisi testleri.
 
 2026-08-24'te Casper'in buldugu hata: Api.quit() DB'yi kapatirken
-self._hafiza'ya bakiyordu; gercek nesne chat.py modul-globaliydi ve Api'de
+self._hafiza'ya bakiyordu; gercek nesne chat.context modul-globali ve Api'de
 boyle bir alan hic olusturulmiyordu. Blok oluyordu, os._exit(0) DB'yi
 acik birakiyordu (WAL buyur).
 
@@ -15,7 +15,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import basak_app
-import chat as c
+from chat import context as c
 
 
 class SahteMotor:
