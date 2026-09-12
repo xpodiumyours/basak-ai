@@ -16,7 +16,7 @@ Canlı smoke'ta kalan iki aktif read-lite kusurunu düzeltmek:
 - Provider sırası, fallback, izin sistemi, file security ve legacy kapsamı değişmez.
 
 ## Mevcut kanıt
-Canlı smoke commit 2732642 üzerinde:
+Canlı smoke commit 2732642 ve tanı smoke'u üzerinde:
 - A geçti.
 - B: profil=read-lite, tool=read_file, path=`C:\Projects\Başak\ANA-PLAN.md`; tool doğru seçildi fakat final cevap dosyanın ilk başlığını vermek yerine planı özetledi.
 - C: profil=read-lite, tool=git_durum; model argümanı `{"properties":{"proje":"Başak"}}`; beyaz liste anahtarı eşleşmedi.
@@ -27,22 +27,27 @@ Canlı smoke commit 2732642 üzerinde:
 
 `tools/definitions.py::git_durum` şeması doğrudan `parameters.properties.proje` tanımlar; gerçek tool argümanı `{"proje":"basak"}` olmalıdır. Canlı model çıktısındaki üst seviye `properties` katmanı şema değildir, model hatasıdır.
 
+`brain/harness.py::HarnessProviderProxy` her gerçek provider çağrısından hemen önce ve sonra read-lite profilini görebiliyor. Düzeltmeyi burada yapmak ortak legacy tool-loop'u değiştirmeden yalnız read-lite çağrı yüzeyini düzeltmeye izin verir.
+
 ## Doğrulanmış gerçekler
 - read_file için modelin gönderdiği mutlak yol doğru.
-- B'deki sorun yol çözümü olduğuna dair kanıt yok; final özet davranışı doğrudan kodda mevcut.
+- B'deki sorun yol çözümü olduğuna dair kanıt yok; final özet talimatı doğrudan kodda mevcut.
 - git_durum beyaz listesi `basak`, `vixrex`, `numeramatch`, `xses` anahtarlarını kullanır.
-- Tool argüman düzeltme katmanı zaten `chat/tools.py::tool_argumani_duzelt` içinde mevcuttur; yeni mimari gerekmez.
+- Read-lite zaten provider proxy üzerinden model-family harness'a giriyor.
+- Legacy `_dinamik_araclar()` bütün araçları modele verir; bu ayrı kusur bu pakette değiştirilmeyecektir.
 
 ## DOĞRULANAMADI
 - Her ücretsiz modelin aynı malformed-argument biçimini üretip üretmediği doğrulanamadı.
 - B'nin her sağlayıcıda aynı özet sapmasını üretip üretmediği doğrulanamadı.
-Bu nedenle düzeltme model/provider özel değil, mevcut tool-loop sözleşmesinde deterministik ve dar yapılacaktır.
+Bu nedenle düzeltme provider özel değil, yalnız read-lite profilinde deterministik yapılacaktır.
 
 ## İzin verilen kapsam
-- `chat/tools.py`: read-lite final tool-sonuç talimatını daraltmak.
-- `chat/tools.py`: ölçüm araçlarında tek katmanlık `properties` argüman hatasını açmak ve proje anahtarını normalize etmek.
+- `brain/harness.py`: read-lite final tool-sonuç kullanıcı mesajındaki genel `DETAYLI özetle` talimatını, ilk kullanıcı talebini kanıttan doğrudan yerine getiren dar talimatla değiştirmek.
+- `brain/harness.py`: yalnız read-lite tool-call dönüşlerinde tek katmanlık `properties` model hatasını açmak.
+- `brain/harness.py`: yalnız read-lite ölçüm araçlarında proje anahtarını `basak|vixrex|numeramatch|xses` biçimine normalize etmek.
 
 ## Yasak kapsam
+- `chat/tools.py` ortak legacy tool-loop davranışını değiştirmek.
 - legacy `_dinamik_araclar` davranışını değiştirmek.
 - D/Vixrex legacy riskini bu pakete karıştırmak.
 - provider sırası/model listesi değiştirmek.
@@ -50,7 +55,7 @@ Bu nedenle düzeltme model/provider özel değil, mevcut tool-loop sözleşmesin
 - yeni test/eval altyapısı kurmak.
 
 ## Risk sınıfı
-Orta. Ortak tool-loop dosyası değişir; fakat yeni davranış yalnız mevcut `current_profile()==read-lite` ve ölçüm tool argümanı düzeltmesiyle sınırlanmalıdır.
+Orta. Provider proxy dönüşü ve mesaj yüzeyi değişir; fakat yalnız `current_profile()==read-lite` olduğunda aktif olmalıdır. Legacy ve chat-lite aynı kalmalıdır.
 
 ## Sensör
 Mevcut tek gerçek sensör: `Harness-Smoke.cmd` canlı ücretsiz-provider smoke.
