@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 
-from brain.kullanim import kullanim_ekle, openai_kullanim
+from brain.kullanim import kullanim_ekle, openai_kullanim, bitis_nedeni
 from brain.stats import ModelIstatistik
 
 
@@ -46,6 +46,30 @@ class TestKullanimCikarimi:
 
     def test_sifir_kullanim_none_doner(self):
         assert openai_kullanim(_sahte_resp((0, 0))) is None
+
+
+class TestBitisNedeni:
+    """2026-09-12: kesinti teshisi — length bitisi gorunur olmali."""
+
+    def _resp(self, neden):
+        msg = SimpleNamespace(content="yazi", tool_calls=None)
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=msg, finish_reason=neden)],
+            usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5))
+
+    def test_length_yakalanir(self):
+        assert bitis_nedeni(self._resp("length")) == "length"
+
+    def test_stop_yakalanir(self):
+        assert bitis_nedeni(self._resp("stop")) == "stop"
+
+    def test_neden_yoksa_none(self):
+        assert bitis_nedeni(_sahte_resp()) is None
+
+    def test_kullanim_ekle_bitisi_tasir(self):
+        y = kullanim_ekle({"content": "yazi"}, self._resp("length"))
+        assert y["_bitis"] == "length"
+        assert y["_kullanim"] == {"giris": 10, "cikis": 5}
 
     def test_kullanim_ekle_yaniti_degistirmez_kopyalar(self):
         yanit = {"content": "selam"}

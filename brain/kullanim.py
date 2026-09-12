@@ -49,6 +49,18 @@ def openai_kullanim(resp):
     return {"giris": giris, "cikis": cikis}
 
 
+def bitis_nedeni(resp):
+    """Modelin neden durdugu: stop / length / tool_calls / ..."""
+    try:
+        secimler = getattr(resp, "choices", None)
+        if not secimler:
+            return None
+        neden = getattr(secimler[0], "finish_reason", None)
+        return str(neden) if neden else None
+    except Exception:
+        return None
+
+
 def kullanim_ekle(yanit, resp):
     """Adaptör dönüşüne _kullanim bilgisini ekler; yanıtı döndürür."""
     try:
@@ -57,4 +69,12 @@ def kullanim_ekle(yanit, resp):
         return yanit
     if k:
         yanit["_kullanim"] = k
+    # 2026-09-12: kesinti teshisi — normal bitislerde (stop/tool_calls)
+    # yanit aynen korunur; supheli bitisler isaretlenir.
+    try:
+        neden = bitis_nedeni(resp)
+    except Exception:
+        neden = None
+    if neden and neden not in ("stop", "tool_calls"):
+        yanit["_bitis"] = neden
     return yanit

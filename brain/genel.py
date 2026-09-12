@@ -69,7 +69,7 @@ class GenelClient:
             "model": model or self.model,
             "messages": messages,
             "temperature": 0.5,
-            "max_tokens": 1024,
+            "max_tokens": 2048,
         }
         if tools:
             kwargs["tools"] = tools

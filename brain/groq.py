@@ -57,7 +57,7 @@ class GroqClient:
                 model: str = None, yapi=None) -> dict:
         """Groq'a mesaj gönderir.
 
-        Hız için: temperature=0.5, max_tokens=1024.
+        Hız için: temperature=0.5, max_tokens=2048.
         model: geçici model override (orn: openai/gpt-oss-120b).
         yapi: sozlesme modu — verildiginde JSON yanit zorlanir
         (response_format={"type": "json_object"}).
@@ -69,7 +69,7 @@ class GroqClient:
             "model": model or self.model,
             "messages": messages,
             "temperature": 0.5,
-            "max_tokens": 1024,
+            "max_tokens": 2048,
         }
         if tools:
             kwargs["tools"] = tools

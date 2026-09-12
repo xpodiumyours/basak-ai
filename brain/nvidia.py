@@ -140,7 +140,7 @@ class NvidiaClient:
                     "chat_template_kwargs": {"thinking": True}
                 }
         else:
-            kwargs["max_tokens"] = 1024
+            kwargs["max_tokens"] = 2048
         if tools:
             kwargs["tools"] = tools
 

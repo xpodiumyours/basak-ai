@@ -49,7 +49,7 @@ def akit(openai_client, model, messages):
         model=model,
         messages=messages,
         temperature=0.5,
-        max_tokens=1024,
+        max_tokens=2048,
         stream=True,
         timeout=60,
     )

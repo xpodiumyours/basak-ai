@@ -337,6 +337,13 @@ class Brain:
                 kullanim = None
                 if isinstance(yanit, dict):
                     kullanim = yanit.pop("_kullanim", None)
+                    # 2026-09-12: kesinti teshisi — length bitisi
+                    # max_tokens duvaridir, loga dus (davranis degismez).
+                    bitis = yanit.get("_bitis")
+                    if bitis and bitis not in ("stop", "tool_calls"):
+                        logger.warning(
+                            "%s cevabi '%s' ile bitti (kesinti suphesi)",
+                            ad, bitis)
                 istat.kaydet(
                     ad, sure, basarili=True, tools=bool(tools),
                     token_in=(kullanim or {}).get("giris", 0),

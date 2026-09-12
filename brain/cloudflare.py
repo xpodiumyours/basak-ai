@@ -61,7 +61,7 @@ class CloudflareClient:
     def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
         """Cloudflare'a mesaj gonderir.
 
-        Hiz icin: temperature=0.5, max_tokens=1024.
+        Hiz icin: temperature=0.5, max_tokens=2048.
         yapi: sozlesme modu icin; bu saglayici su an yok sayar.
         """
         if not self.client:
@@ -74,7 +74,7 @@ class CloudflareClient:
             "model": self.model,
             "messages": temiz_mesajlar,
             "temperature": 0.5,
-            "max_tokens": 1024,
+            "max_tokens": 2048,
         }
         if tools:
             kwargs["tools"] = tools
