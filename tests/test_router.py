@@ -29,9 +29,9 @@ class TestRegistry:
         for ad in registry.VARSAYILAN_SIRA:
             assert registry.ucretli_mi(ad) is False
 
-    def test_qwen_eski_kilidi_runtime_da_kapali(self):
+    def test_qwen_direct_api_sifir_maliyet_icin_beklemede(self):
         from brain import brain as brain_mod
-        assert brain_mod._QWEN_BEKLEMEDE is False
+        assert brain_mod._QWEN_BEKLEMEDE is True
 
 
 class TestSiniflandirma:
@@ -180,6 +180,7 @@ class TestZamanAsimiCooldown:
 
     def test_429_uzun_cooldown_alir(self, monkeypatch):
         from brain import brain as brain_mod
+        brain_mod._COOLDOWN.clear()
         glm = SahteIstemci(hata=RuntimeError("429 rate limit exceeded"))
         groq = SahteIstemci()
         b = self._taze_brain(
