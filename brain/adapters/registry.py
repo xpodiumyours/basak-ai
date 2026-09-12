@@ -5,7 +5,7 @@ Her dosyada `adapter` adında bir nesne beklenir (ProviderAdapter arayüzü).
 
 Kullanım:
     from brain.adapters.registry import discover_all
-    adapters = discover_all()  # {name: adapter_instance}
+    adapters = discover_all()  # {name: adapter_instance, ...}
 """
 
 import importlib
@@ -58,12 +58,16 @@ def create_providers(ayar: dict, adapters: dict = None) -> dict:
     if adapters is None:
         adapters = discover_all()
 
+    # Harness proxy provider/model seçimini değiştirmez; yalnız gerçek çağrı
+    # anında mevcut TaskProfile + gerçek model id ile mesaj/tool yüzeyini daraltır.
+    from brain.harness import wrap_provider
+
     providers = {}
     for ad, adapter in adapters.items():
         try:
             client = adapter.create(ayar)
             if client is not None:
-                providers[ad] = client
+                providers[ad] = wrap_provider(ad, client)
                 logger.info("Sağlayıcı başlatıldı: %s", ad)
             else:
                 # None = bos yuva (anahtar girilmemis), ariza degil.
