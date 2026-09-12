@@ -1,10 +1,8 @@
 """brain/glm.py — GLM bulut entegrasyonu (Z.ai resmi platformu).
 
-Ucuncu bulut saglayici. OpenAI-uyumlu uc:
-https://api.z.ai/api/paas/v4/
-Model: glm-4.7. Anahtar: env ZAI_API_KEY veya ayarlar.json -> zai_key.
-
-Arayuz groq.py / gemini.py ile birebir aynidir.
+OpenAI-uyumlu uç: https://api.z.ai/api/paas/v4/
+Model: ücretsiz GLM Flash. Başak modelin düşünme ve çıktı bütçesini zorla
+kapatmaz; sağlayıcının/modelin doğal varsayılanları kullanılır.
 """
 
 import json
@@ -18,15 +16,12 @@ from brain.kullanim import kullanim_ekle
 
 BASE_URL = "https://api.z.ai/api/paas/v4/"
 MODELLER = {
-    # ucretsiz katmanda bakiyesiz calisan model (2026-08 dogrulandi)
     "hizli": "glm-4.5-flash",
     "varsayilan": "glm-4.5-flash",
 }
 
 
 class GLMClient:
-    """Z.ai API istemcisi (GLM)."""
-
     def __init__(self, api_key: str, model: str = None):
         if not api_key or not api_key.strip():
             raise ValueError("GLM API anahtarı boş olamaz")
@@ -51,11 +46,6 @@ class GLMClient:
         return self.client is not None
 
     def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
-        """GLM'e mesaj gönderir. Dönen şekil groq.py ile aynıdır.
-
-        Not: dusunme (thinking) modu kapatilir — sohbet icin hiz onceliklidir.
-        yapi: sozlesme modu icin; bu saglayici su an yok sayar.
-        """
         if not self.client:
             raise RuntimeError("GLM bağlı değil")
 
@@ -63,8 +53,6 @@ class GLMClient:
             "model": self.model,
             "messages": messages,
             "temperature": 0.5,
-            "max_tokens": 1024,
-            "extra_body": {"thinking": {"type": "disabled"}},
         }
         if tools:
             kwargs["tools"] = tools
@@ -87,6 +75,6 @@ class GLMClient:
                     }
                 })
             return kullanim_ekle({"content": msg.content or "",
-                          "tool_calls": tool_calls}, resp)
+                                  "tool_calls": tool_calls}, resp)
 
         return kullanim_ekle({"content": msg.content or ""}, resp)
