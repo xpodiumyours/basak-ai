@@ -1,8 +1,7 @@
-"""brain/openrouter.py — OpenRouter bulut entegrasyonu.
+"""brain/openrouter.py — OpenRouter ücretsiz model geçidi.
 
-300+ modele tek key ile erişim. Auto-failover router.
-OpenAI-uyumlu uç: https://openrouter.ai/api/v1
-:free etiketli modeller ücretsiz.
+Yalnız ücretsiz modeller seçilir. Başak modelin çıktı uzunluğunu 1024 ile
+kesmez; tool calling seçimini modele bırakır. Ücretli model otomatik seçilmez.
 """
 
 import json
@@ -16,9 +15,7 @@ from brain.kullanim import kullanim_ekle
 
 BASE_URL = "https://openrouter.ai/api/v1"
 
-# Sadece ücretsiz modeller (":free" suffix'li) - paid modeller KULLANILMAZ
 TERCIH_SIRASI = [
-    # Ücretsiz modeller (free tier) - öncelikli
     "openai/gpt-oss-20b:free",
     "openai/gpt-oss-120b:free",
     "meta-llama/llama-3.3-70b-instruct:free",
@@ -44,8 +41,6 @@ TERCIH_SIRASI = [
 
 
 class OpenRouterClient:
-    """OpenRouter API istemcisi."""
-
     def __init__(self, api_key: str, model: str = None):
         if not api_key or not api_key.strip():
             raise ValueError("OpenRouter API anahtarı boş olamaz")
@@ -59,7 +54,7 @@ class OpenRouterClient:
             self.client = OpenAI(
                 api_key=self.api_key,
                 base_url=BASE_URL,
-                timeout=3.0,
+                timeout=60.0,
                 max_retries=0,
                 default_headers={
                     "HTTP-Referer": "http://localhost",
@@ -73,33 +68,22 @@ class OpenRouterClient:
             self.client = None
 
     def _model_bul(self) -> str:
-        """Hesapta kullanılabilir ilk ücretsiz modeli bulur.
-        SADECE :free suffix'li modeller seçilir. Paid modeller asla seçilmez.
-        """
         try:
             mevcutler = [m.id for m in self.client.models.list()]
         except Exception as e:
             logger.warning("OpenRouter model listesi alınamadı: %s", e)
             return TERCIH_SIRASI[0]
-        
-        # Sadece :free olan modelleri filtrele
+
         free_modeller = [m for m in mevcutler if m.endswith(":free")]
-        
-        # Tercih sırasına göre ilk bulunan free model
         for aday in TERCIH_SIRASI:
             if aday in free_modeller:
                 return aday
-        
-        # Prefix match sadece free modeller içinde
         for aday in TERCIH_SIRASI:
             for m in free_modeller:
                 if m == aday or m.startswith(aday.replace(":free", "") + ":"):
                     return m
-        
-        # Hiç free model yoksa (olmamalı) ilk free model
         if free_modeller:
             return free_modeller[0]
-        
         logger.warning("Hiç :free model bulunamadı!")
         return TERCIH_SIRASI[0]
 
@@ -107,10 +91,6 @@ class OpenRouterClient:
         return self.client is not None
 
     def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
-        """OpenRouter'a mesaj gönderir. Dönen şekil groq.py ile aynıdır.
-
-        yapi: sozlesme modu icin; bu saglayici su an yok sayar.
-        """
         if not self.client:
             raise RuntimeError("OpenRouter bağlı değil")
 
@@ -118,7 +98,6 @@ class OpenRouterClient:
             "model": self.model,
             "messages": messages,
             "temperature": 0.5,
-            "max_tokens": 1024,
         }
         if tools:
             kwargs["tools"] = tools
@@ -141,6 +120,6 @@ class OpenRouterClient:
                     }
                 })
             return kullanim_ekle({"content": msg.content or "",
-                          "tool_calls": tool_calls}, resp)
+                                  "tool_calls": tool_calls}, resp)
 
         return kullanim_ekle({"content": msg.content or ""}, resp)
