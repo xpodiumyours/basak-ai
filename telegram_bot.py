@@ -64,13 +64,15 @@ def _bol(metin):
 
 async def _islet(brain, kisilik, tools, metin):
     """Sohbet hattini ayri thread'de kostur, son cevabi dondur."""
-    from chat.flow import mesaj_isle_yeni
+    # Masaustu ile ayni public chat girisini kullan: TaskProfile/harness
+    # davranisi kanal degistirince farklilasmasin.
+    from chat import mesaj_isle
 
     kayit = Kaydedici()
 
     def _kos():
         try:
-            mesaj_isle_yeni(metin, brain, kisilik, kayit, tools)
+            mesaj_isle(metin, brain, kisilik, kayit, tools)
         except Exception as e:
             logger.warning("Telegram islem hatasi: %s", e)
             kayit.hata = kayit.hata or "Bir sorun oldu."
