@@ -174,10 +174,10 @@ class TestToolDefinitions:
     """Tool tanımları testleri."""
 
     def test_tools_listesi_dogru(self):
-        """TOOLS listesi 21 arac icermeli (18 + FAZ-3b is araclari)."""
-        assert len(TOOLS) == 21
+        """TOOLS listesi 22 arac icermeli (18 + FAZ-3b is araclari + is_notu)."""
+        assert len(TOOLS) == 22
         isimler = [t["function"]["name"] for t in TOOLS]
-        for ad in ("is_ac", "is_liste", "is_onayla"):
+        for ad in ("is_ac", "is_liste", "is_onayla", "is_notu"):
             assert ad in isimler
 
     def test_her_aracin_etiketi_var(self):

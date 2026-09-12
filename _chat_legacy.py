@@ -843,12 +843,19 @@ def orkestra_bilesenleri(brain):
         # 2026-09-10: gercek klasorler tasinir — bos giderse gorev/not/
         # hatirlatma araclari yanlis dosyaya bakar ya da coker.
         from tools import calistir as _calistir
+        # P-A: orkestra EXPERIMENT turu da aktif isten 8 tura kadar surer.
+        try:
+            from tools import isdosya as _isdosya
+            _uzun = _isdosya.aktif_id() is not None
+        except Exception:
+            _uzun = False
         return _tool_calling_multi(tool_calls, mesajlar, brain,
                                    _yerel_model_sec(),
                                    lambda c: None, _calistir,
                                    durum.get("araclar"),
                                    knowledge_dir=KNOWLEDGE_DIR,
-                                   gorevler_file=GOREVLER_FILE)
+                                   gorevler_file=GOREVLER_FILE,
+                                   uzun_is=_uzun)
 
     def _tek_aday(ad, istemci, mesajlar):
         """Jüri adayı: tek sağlayıcıya doğrudan çağrı; hata → None.

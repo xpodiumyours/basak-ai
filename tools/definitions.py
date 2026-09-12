@@ -96,6 +96,10 @@ EXTENDED_TETIKLERI = {
     "is_onayla": [
         "isi onayla", "onu onayla", "devam et",
     ],
+    "is_notu": [
+        "plana yaz", "işe yaz", "ise yaz", "iş dosyasına",
+        "bulguyu kaydet", "sonraki adım",
+    ],
 }
 
 
@@ -415,6 +419,23 @@ TOOLS = [
                     "is_id": {"type": "string", "description": "İş no (is-000001)"}
                 },
                 "required": ["is_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "is_notu",
+            "description": ("Aktif iş dosyasına not düşer (plan/bulgu/sonraki/"
+                            "karar). HEDEF yazılamaz."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "is_id": {"type": "string", "description": "İş no (8 harf)"},
+                    "bolum": {"type": "string", "description": "plan, bulgu, sonraki ya da karar"},
+                    "metin": {"type": "string", "description": "Not metni"},
+                },
+                "required": ["is_id", "bolum", "metin"],
             },
         },
     },

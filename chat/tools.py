@@ -23,7 +23,7 @@ TANINMIS_TOOLLAR = frozenset((
     "save_note", "deftere_kaydet", "ac_uygulama", "get_reminders",
     "video_analyze", "image_analyze", "model_stats",
     "git_durum", "belge_ara", "dosya_bilgi",
-    "is_ac", "is_liste", "is_onayla",
+    "is_ac", "is_liste", "is_onayla", "is_notu",
 ))
 
 TOOL_LABELS = {
@@ -41,6 +41,7 @@ TOOL_LABELS = {
     "is_ac": "İş açılıyor...",
     "is_liste": "İşler okunuyor...",
     "is_onayla": "İş onaylanıyor...",
+    "is_notu": "İş notu yazılıyor...",
 }
 
 
@@ -65,6 +66,8 @@ def _arac_detay(tool_name, args):
             return args.get("proje", "")
         if tool_name in ("save_note", "deftere_kaydet"):
             return args.get("title", "")
+        if tool_name == "is_notu":
+            return args.get("bolum", "")
         if tool_name == "add_task":
             return args.get("text", args.get("title", ""))
     except Exception:
@@ -227,9 +230,14 @@ TUR_SINIRI = 12  # 2026-08-25: 3'ten yukseltildi — cok adimli isler erken kesi
 ARAC_SONUC_TAVAN = 1500
 
 
+# 2026-09-12 (P-A): aktif is turunda tur tavani esner (Kimi resmi
+# desenindeki MAX_TOOL_ROUNDS=8). Varsayilan yol birebir aynidir.
+UZUN_IS_TAVANI = 8
+
+
 def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
-                        calistir, tools=None, tur_siniri=TUR_SINIRI,
-                        knowledge_dir="", gorevler_file=""):
+                       calistir, tools=None, tur_siniri=TUR_SINIRI,
+                       knowledge_dir="", gorevler_file="", uzun_is=False):
     """Tool sonuçlarını modele geri göndererek anlamlı cevap üretir.
 
     Cok adimli isler icin DONGU: model sonucu gordukten sonra yeni bir arac
@@ -243,11 +251,12 @@ def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
     tum_kaynaklar = []  # 2026-09-10: "nereden buldun" satiri icin adlar
     expanded = list(mesajlar)
 
-    # Kapasiteye gore taban: kucuk modelde tavan dusuk, guclu modelde TUR_SINIRI
+    # Kapasiteye gore taban: kucuk modelde tavan dusuk, guclu modelde TUR_SINIRI.
+    # Aktif is turunda UZUN_IS_TAVANI gecerlidir (P-A); varsayilan degismez.
     from brain.kapasite import mod_kapasite
     mevcut_kaynaklar = [ad for ad, _ in brain._bulut_zinciri()] if hasattr(brain, "_bulut_zinciri") else []
     kap = mod_kapasite(kaynaklar=mevcut_kaynaklar)
-    tavan = 3 if kap.kucuk else tur_siniri
+    tavan = UZUN_IS_TAVANI if uzun_is else (3 if kap.kucuk else tur_siniri)
 
     for tur in range(tavan):
         tur_sonuclari = []

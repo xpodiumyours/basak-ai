@@ -17,6 +17,7 @@ from tools.reminders import bugunku_hatirlatmalar
 from tools.video_analyzer import video_analyze
 from tools.olcum import git_durum, belge_ara, dosya_bilgi
 from tools.is_kuyrugu import is_ac, is_listele, is_onayla
+from tools.isdosya import is_notu as is_notu_yazdir
 from tools.tool_logger import log_tool_call
 from tools.permissions import calistirilabilir_mi
 
@@ -104,6 +105,8 @@ def _is_ac_args(a, _c):
     return (a.get("baslik", ""), a.get("adimlar", ""))
 def _is_onayla_args(a, _c):
     return (a.get("is_id", ""),)
+def _is_notu_args(a, _c):
+    return (a.get("is_id", ""), a.get("bolum", ""), a.get("metin", ""))
 
 
 def _run_simple(fn, args_fn):
@@ -173,7 +176,7 @@ TOOL_MAP = {
     "is_ac":           _run_simple(is_ac, _is_ac_args),
     "is_liste":        lambda a, c: is_listele(),
     "is_onayla":       _run_simple(is_onayla, _is_onayla_args),
-}
+    "is_notu":         _run_simple(is_notu_yazdir, _is_notu_args),}
 
 # add_task icin ozel handler (gorevler_file gerekli)
 TOOL_MAP["add_task"] = lambda a, c: add_task(a.get("text", ""), c.gorevler_file)

@@ -33,6 +33,7 @@ ETIKETLER = {
     "is_ac": ["yazma"],               # FAZ-3b: kuyruga yazar
     "is_liste": ["salt-okunur"],      # FAZ-3b: kuyrugu okur
     "is_onayla": ["yazma"],           # FAZ-3b: onay bayragi yazar
+    "is_notu": ["yazma"],             # P-A: is dosyasina yazar (yerel, geri alinir)
 }
 
 # Etiket -> calisma politikasi (2026-08-23: etiket artik BELGE degil,
