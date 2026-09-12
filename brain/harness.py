@@ -163,18 +163,23 @@ def harness_spec(profile: TaskProfile, provider: str, model_id: str | None) -> H
         return HarnessSpec(profile.name, "legacy", 99, active=False)
 
     family = resolve_model_family(provider, model_id)
-    if family == "llama-small":
-        note = (
-            "Bu tur yalnız verilen işi yap. "
-            "Dosya/repo bilgisi gerekiyorsa yalnız verilen okuma araçlarını kullan; "
-            "araç çıktısı olmadan somut içerik uydurma."
-            if profile.name == "read-lite"
-            else "Bu tur doğal ve kısa sohbet et; araç çağırma."
+    read_note = ""
+    if profile.name == "read-lite":
+        read_note = (
+            "Bu tur yalnız verilen okuma işini yap. Yalnız verilen okuma "
+            "araçlarını kullan ve araç çıktısı olmadan somut içerik uydurma. "
+            "Kullanıcı araç çıktısından belirli bir başlık, değer, commit, dosya "
+            "bilgisi veya satır istediyse onu araç çıktısından doğrudan ve tam "
+            "olarak ver; özetleme, yeniden yorumlama veya tahmin yapma. "
+            "İstenen bilgi araç çıktısında yoksa 'doğrulanamadı' de."
         )
+
+    if family == "llama-small":
+        note = read_note or "Bu tur doğal ve kısa sohbet et; araç çağırma."
         return HarnessSpec(profile.name, family, 2, note, True)
     if family in ("gpt-oss", "glm-flash"):
-        return HarnessSpec(profile.name, family, 4, "", True)
-    return HarnessSpec(profile.name, family, 3, "", True)
+        return HarnessSpec(profile.name, family, 4, read_note, True)
+    return HarnessSpec(profile.name, family, 3, read_note, True)
 
 
 def _tool_name(schema: dict) -> str:
