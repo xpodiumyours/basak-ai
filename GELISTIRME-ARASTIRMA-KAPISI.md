@@ -5,95 +5,127 @@ Tarih: **12 Eylül 2026**
 Kapsam: `xpodiumyours/basak-ai` için yapılacak bütün kod davranışı değişiklikleri  
 Ana plan ilişkisi: Bu belge `ANA-PLAN.md` fazlarının üstünde çalışan zorunlu güvenlik kapısıdır.
 
+Dayanak araştırması:
+- `research/2026-09-12-degisiklik-boyutu-ve-guvenli-gelistirme.md`
+
 ## 1. Araştırma görev değildir
 
 Araştırma; FAZ, TODO, teslim maddesi veya ürün geliştirme çıktısı olarak sayılmaz.
 
-Araştırmanın görevi şudur:
+Araştırmanın amacı:
 
-**Yapılacak kod değişikliğinin gerçekten gerekli olduğunu, mevcut Başak davranışıyla uyumunu, uygulanabilir yöntemini, risklerini ve kabul sınırlarını değişiklik başlamadan önce kanıtlamak.**
+**Yapılacak değişikliğin gerçekten gerekli olduğunu, bugünkü Başak davranışıyla ilişkisini, uygulanabilir yöntemi, riskleri, kapsam sınırını ve kabul kanıtını değişiklik başlamadan önce doğrulamak.**
 
-Bu nedenle araştırma tamamlamak "geliştirme tamamlandı" anlamına gelmez. Araştırma yalnız güvenli geliştirme için zorunlu giriş kapısıdır.
+Araştırma bitmesi geliştirme bitmesi değildir. Araştırma güvenli geliştirme için zorunlu giriş kapısıdır.
 
-## 2. Kod değişikliğinden önce araştırma metni zorunludur
+## 2. Kod değişikliğinden önce ilgili araştırma metni zorunludur
 
-Başak'ta davranışı etkileyen her kod değişikliğinden ÖNCE o değişiklikle doğrudan ilgili bir araştırma metni bulunmak zorundadır.
+Başak'ta davranışı etkileyen her kod değişikliğinden önce o değişiklikle doğrudan ilgili bir araştırma metni bulunmalıdır.
 
 Araştırma metni en az şunları içerir:
 
 1. **Hedef:** Tam olarak hangi davranış değiştirilecek?
-2. **Mevcut durum kanıtı:** Bugünkü çalışan kod gerçekte ne yapıyor? Dosya/fonksiyon/test/ölçüm kanıtı.
-3. **Sorun kanıtı:** Değişiklik neden gerekli? Gözlem, test, log, ölçüm veya doğrulanmış kullanıcı akışı.
-4. **Dış referans gerekiyorsa:** Resmî doküman, model sağlayıcı dokümanı, framework dokümanı veya birincil kaynak.
-5. **Doğrulanan gerçekler:** Kanıtla desteklenen maddeler.
-6. **Doğrulanamayanlar:** Açıkça `doğrulanamadı` olarak yazılır.
-7. **İzin verilen değişiklik:** Araştırmanın kanıtladığı en küçük kod kapsamı.
-8. **Yasak kapsam:** Bu araştırmanın kanıtlamadığı ve aynı işte değiştirilemeyecek alanlar.
-9. **Korunacak davranışlar:** Çalışan Başak'ta bozulmaması gereken özellikler.
-10. **Kabul kanıtı:** Değişiklikten sonra hangi test/ölçüm önceki durumla karşılaştırılacak?
+2. **Kabul kriteri:** Başarı neyle kanıtlanacak?
+3. **Mevcut durum kanıtı:** Bugünkü kod gerçekte ne yapıyor?
+4. **Sorun kanıtı:** Değişiklik neden gerekli?
+5. **Dış referans gerekiyorsa:** Resmî/birincil kaynak.
+6. **Doğrulanan gerçekler.**
+7. **Doğrulanamayanlar:** `DOĞRULANAMADI`.
+8. **İzin verilen kapsam:** Araştırmanın kanıtladığı alan.
+9. **Yasak kapsam:** Aynı işte değiştirilemeyecek alanlar.
+10. **Korunacak davranışlar.**
+11. **Risk sınıfı.**
+12. **Kabul sensörleri:** Test/ölçüm/review/browser/log vb.
+13. **Geri alma koşulu:** Hangi durumda değişiklik reddedilecek veya geri alınacak?
 
-Bu maddelerden hedef, mevcut durum kanıtı, sorun kanıtı veya kabul kanıtı eksikse kod değişikliği başlamaz.
+Hedef, mevcut durum kanıtı, sorun kanıtı veya kabul kriteri eksikse kod değişikliği başlamaz.
 
 ## 3. Tahmin / varsayım yasağı
 
-Araştırmadan sonra kod kararı verirken aşağıdakiler yasaktır:
+Kod kararı verirken aşağıdakiler yasaktır:
 
-- "muhtemelen"
-- "bence böyle çalışıyordur"
-- "genelde modeller böyle yapar"
-- "bu değişiklik herhalde düzeltir"
+- `muhtemelen`
+- `bence böyle çalışıyordur`
+- `genelde modeller böyle yapar`
+- `bu değişiklik herhalde düzeltir`
 - kanıt bulunmayan mimariyi gerçek kabul etmek
 - dokümanda olmayan sağlayıcı/model özelliğini varsaymak
 - test edilmemiş başarıyı tamamlanmış saymak
-- bir sorunun kök nedenini yalnız korelasyonla ilan etmek
+- korelasyonu kök neden ilan etmek
 
-Bir bilgi doğrulanamıyorsa tek doğru kayıt:
+Bir bilgi doğrulanamıyorsa kayıt:
 
 **`DOĞRULANAMADI`**
 
-Doğrulanamayan bilgi kod değişikliği için gerekliyse işlem durur. Eksik bilgi araştırılır; bulunamazsa o değişiklik yapılmaz.
+Doğrulanamayan bilgi değişiklik için gerekliyse işlem durur. Kanıt bulunamazsa o değişiklik yapılmaz.
 
 ## 4. Kaynak hiyerarşisi
 
-Araştırmada mümkün olan en doğrudan kaynak kullanılır:
+Mümkün olan en doğrudan kaynak kullanılır:
 
-1. **Başak'ın bugünkü kodu ve gerçek çalışma çıktısı** — mevcut davranışın hakikati.
-2. **Mevcut test/log/ölçüm** — davranışın ölçülebilir kanıtı.
-3. **Sağlayıcının/framework'ün resmî dokümanı veya kaynak kodu** — dış teknik davranış.
-4. **Birincil veri / resmî kurum kaynağı** — iş, mevzuat veya platform sınırı.
-5. İkincil makale/video/sosyal medya yalnız araştırma yönü bulmak için kullanılabilir; tek başına kod kararı verdirmez.
+1. Başak'ın bugünkü kodu ve gerçek çalışma çıktısı.
+2. Mevcut test/log/ölçüm.
+3. Sağlayıcının/framework'ün resmî dokümanı veya kaynak kodu.
+4. Birincil veri / resmî kurum kaynağı.
+5. İkincil makale/video/sosyal medya yalnız araştırma sorusu doğurabilir; tek başına kod kararı verdirmez.
 
-Sosyal medya paylaşımı, YouTube videosu veya üçüncü taraf yorum araştırma sorusu doğurabilir; **kanıt yerine geçmez.**
-
-## 5. Araştırma → kod geçiş kapısı
+## 5. Araştırma → kod geçiş kararı
 
 Her değişiklik için karar yalnız üç sonuçtan biridir:
 
 ### `KANITLANDI — KOD DENEYİNE İZİN`
 
 - Sorun doğrulandı.
-- Değişiklik yöntemi kaynaklarla uyumlu.
-- Kapsam küçük ve açık.
+- Yöntem kaynaklarla uyumlu.
+- İzin verilen kapsam açık.
 - Korunacak davranışlar tanımlı.
+- Risk sınıfı belli.
 - Önce/sonra kabul ölçümü belli.
-
-Yalnız bu durumda güvenli deney dalında kod değişikliği yapılabilir.
 
 ### `KANITLANMADI — KOD YAZMA`
 
-Sorun, neden veya çözüm yeterli kanıt taşımıyorsa kod değişikliği yapılmaz.
+Sorun, neden, çözüm veya kabul kanıtı yeterli değilse kod değişikliği yapılmaz.
 
 ### `RİSK / ÇELİŞKİ — DUR`
 
-Kaynaklar çelişiyorsa, mevcut çalışan akışın bozulma riski yüksekse veya kabul ölçümü kurulamadıysa değişiklik yapılmaz; araştırma daraltılır.
+Kaynaklar çelişiyorsa, mevcut çalışan akışın bozulma riski kabul edilemeyecek seviyedeyse veya doğrulama kurulamadıysa değişiklik yapılmaz; araştırma daraltılır.
 
-## 6. Araştırmanın kapsam büyütmesi yasaktır
+## 6. Değişiklik boyutu kuralı — `küçük kod` zorunluluğu yok
+
+Güvenlik kriteri kodun kaç satır olduğu değildir.
+
+Bağlayıcı kavram:
+
+**SINIRLI VE KENDİ İÇİNDE TAM DEĞİŞİKLİK PAKETİ**
+
+Bir değişiklik paketi:
+
+- tek bir doğrulanmış hedefe hizmet eder,
+- araştırmanın izin verdiği alanı aşmaz,
+- kendi içinde çalışır durumda tamamlanır,
+- gerekli test/entegrasyon/ölçüm kanıtını içerir,
+- bağımsız review edilebilir,
+- başarısız olursa geri alınabilir,
+- ilgisiz refactor veya özellik eklemez.
+
+**Sabit satır veya dosya limiti yoktur.**
+
+Karmaşık iş gerekiyorsa sırf küçük görünsün diye yarım yamaya bölünmez. Birden fazla aşamaya ayrılacaksa her aşama:
+
+- çalışır,
+- anlaşılır,
+- bağımsız doğrulanabilir,
+- build/test açısından geçerli
+
+bir ara durum üretmelidir.
+
+İşlevsel bütünlüğü bozacak kadar küçük değişiklik de yasaktır.
+
+## 7. Kapsam büyütme yasağı
 
 Araştırma yeni fikir bulmak için mevcut işi genişletmez.
 
-Örnek:
-
-Araştırma `streaming → tool-call` davranışı için yapılıyorsa aynı kod değişikliğinde:
+Örneğin araştırma `streaming → tool-call` için yapılıyorsa aynı değişiklik paketinde kanıtlanmadıkça:
 
 - hafıza mimarisi,
 - UI,
@@ -102,28 +134,49 @@ Araştırma `streaming → tool-call` davranışı için yapılıyorsa aynı kod
 - browser,
 - yeni framework
 
-değiştirilemez; bunların her biri kendi araştırma kapısını gerektirir.
+değiştirilemez.
 
-**Bir araştırma metni = bir doğrulanmış problem alanı = bir küçük deney kapsamı.**
+**Bir araştırma metni = bir doğrulanmış problem alanı.**
 
-## 7. AI ile AI geliştirirken zorunlu steering loop
+Bu problem alanı bir veya daha fazla çalışır/doğrulanabilir değişiklik paketi gerektirebilir. Paket sayısını line-count değil işlevsel bütünlük ve risk belirler.
+
+## 8. Risk sınıfı zorunludur
+
+Araştırma başlamadan değil, araştırma sonucunda değişiklik şu sınıflardan birine konur:
+
+### Düşük risk
+
+Lokal bug veya tek davranış; sınırlı etki alanı.
+
+### Orta risk
+
+Birden fazla modül, entegrasyon veya ortak sözleşme değişikliği.
+
+### Yüksek risk
+
+Mimari, kalıcı veri, migration, auth, güvenlik, provider routing, izin sistemi, dış dünya etkisi veya geniş kullanıcı davranışı değişikliği.
+
+Risk yükseldikçe sensör sayısı ve doğrulama derinliği artar. Risk, satır sayısından türetilmez.
+
+## 9. AI ile AI geliştirirken zorunlu steering loop
 
 Başak'ı geliştiren AI ajanı aşağıdaki sırayı atlayamaz:
 
-**hedefi oku → mevcut kodu doğrula → ilgili araştırmayı yap/yaz → kanıt kararını ver → güvenli dal → en küçük kod değişikliği → test/sensör/review → önce/sonra karşılaştır → regresyon varsa geri al → sonucu kullanıcıya göster → açık onay olmadan main/merge yok**
+**hedef + kabul kriteri → mevcut kodu doğrula → ilgili araştırma metni → kanıt kararı → kapsam/risk sınıfı → güvenli dal/worktree → sınırlı ve kendi içinde tam değişiklik paketi → değişikliğe uygun test/sensör/review → baseline + kabul kriteriyle karşılaştırma → regresyon varsa geri al/düzelt → sonucu kullanıcıya kanıtla göster → açık onay olmadan main/merge yok**
 
 AI ajanının kendi yazdığı kodu yalnız kendi açıklamasıyla doğru ilan etmesi yasaktır.
 
-## 8. Zorunlu sensörler değişikliğe göre seçilir
+## 10. Sensörler değişikliğin riskine göre seçilir
 
-Her değişiklikte bütün sensörleri çalıştırmak zorunlu değildir; ilgili olanlar araştırmada seçilir.
+Her değişiklikte bütün sensörler zorunlu değildir. Araştırma, ilgili sensörleri kanıtla seçer.
 
 Olası sensörler:
 
-- ünite/integration test
+- ünite testi
+- integration/e2e testi
 - lint/static analysis
 - tip kontrolü
-- CodeRabbit/code review
+- CodeRabbit/bağımsız code review
 - güvenlik kontrolü
 - gerçek browser/UI doğrulaması
 - tool-call logları
@@ -132,38 +185,55 @@ Olası sensörler:
 - görev tamamlama oranı
 - uydurma/doğrulanmamış cevap oranı
 - süre ve tur sayısı
+- migration/rollback doğrulaması
+- feature flag/canary ölçümü
 
-Sensör seçimi de tahmine göre değil, değişikliğin riskine göre araştırma metninde gerekçelendirilir.
+`Test geçti` tek başına her değişiklik için yeterli kanıt kabul edilmez; sensör değişikliğin gerçek riskini kapsamalıdır.
 
-## 9. Test manipülasyonu yasağı
+## 11. Test manipülasyonu yasağı
 
-Bir kod değişikliği mevcut doğru testi bozarsa:
+Bir değişiklik mevcut doğru testi bozarsa:
 
 - testi silmek,
-- beklentiyi sırf yeni kod geçsin diye değiştirmek,
-- testi atlamak/skip etmek,
+- beklentiyi yalnız yeni kod geçsin diye değiştirmek,
+- testi skip etmek,
 - daha dar test seçerek hatayı saklamak
 
 yasaktır.
 
-Testin kendisinin yanlış olduğu iddia ediliyorsa bunun için ayrıca kanıt gerekir. Önce test sözleşmesinin yanlış olduğu doğrulanır, sonra test değişikliği ayrı gerekçeyle yapılır.
+Testin yanlış olduğu iddia ediliyorsa bu ayrıca kanıtlanır. Test değişikliği kendi gerekçesiyle yapılır.
 
-## 10. Tamamlandı kelimesinin kanıt şartı
+## 12. Regresyon ve geri alma kuralı
+
+Değişiklik:
+
+- korunacak davranışı bozarsa,
+- kabul kriterini karşılamazsa,
+- yeni kritik hata üretirse,
+- ölçümde anlamlı gerileme yaratırsa
+
+`tamamlandı` sayılmaz.
+
+Önce değişikliğin kendisi düzeltilir; gerekirse paket geri alınır. Çalışan Başak, başarısız deney uğruna feda edilmez.
+
+## 13. `Tamamlandı` kelimesinin kanıt şartı
 
 Bir geliştirme yalnız şu durumda `tamamlandı` sayılabilir:
 
 - araştırma kapısı `KANITLANDI` sonucu verdi,
-- kod yalnız izin verilen kapsamda değişti,
-- ilgili test/ölçüm geçti,
-- önceki çalışan davranışta regresyon görülmedi,
-- dış dünyayı etkileyen işlem gerekiyorsa kullanıcı onayı alındı,
-- sonuç gerçek çıktı/diff/test/log ile gösterildi.
+- kod izin verilen kapsam içinde kaldı,
+- değişiklik paketi kendi içinde tam ve çalışır,
+- ilgili sensörler geçti,
+- baseline'a göre kabul edilemez regresyon yok,
+- gerekli bağımsız review yapıldı,
+- dış dünya etkisi gerekiyorsa kullanıcı onayı alındı,
+- sonuç gerçek diff/test/log/ekran/ölçüm ile gösterildi.
 
 Bunlardan biri eksikse durum `tamamlandı` değildir.
 
-## 11. Araştırma metni isimlendirme kuralı
+## 14. Araştırma metni isimlendirme kuralı
 
-Kod değişikliği deneyleri için araştırma kaydı şu biçimde tutulur:
+Kod davranışı değişiklikleri için araştırma kaydı:
 
 `research/<tarih>-<kisa-konu>.md`
 
@@ -171,14 +241,14 @@ Kod değişikliği deneyleri için araştırma kaydı şu biçimde tutulur:
 
 `research/2026-09-12-streaming-tool-routing.md`
 
-Mevcut üst seviye araştırma belgeleri (`ARASTIRMA.md`, `FAZ1-ARASTIRMA.md`, `ARASTIRMA-3-AI-ILE-AI-GELISTIRME-HARNESS.md`) genel ilkeleri destekler; fakat belirli kod değişikliği için **ilgili kısa araştırma metninin yerini tutmaz.**
+Genel araştırma belgeleri belirli kod değişikliği için ilgili araştırma metninin yerini tutmaz.
 
-## 12. Değişmez kural
+## 15. Değişmez kural
 
 **Araştırma bir görev değildir. Araştırma, Başak gelişiminin güvenli kapsamıdır.**
 
 **İlgili araştırma metni olmadan davranış değiştiren kod yazılmaz.**
 
-**Araştırma tamamlandıktan sonra da tahmin/varsayım yapılmaz; yalnız doğrulanmış gerçeklerle hareket edilir.**
+**Tahmin/varsayım yapılmaz. Doğrulanamayan bilgi `DOĞRULANAMADI` kalır.**
 
-**Doğrulanamayan bilgi `DOĞRULANAMADI` olarak kalır ve o bilgiye bağlı kod değişikliği yapılmaz.**
+**Güvenli değişiklik = küçük kod değildir. Güvenli değişiklik = sınırı belli, kendi içinde tam, bağımsız doğrulanabilir ve geri alınabilir değişiklik paketidir.**
