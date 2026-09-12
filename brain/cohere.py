@@ -1,10 +1,7 @@
 """brain/cohere.py — Cohere bulut entegrasyonu.
 
-Ucretsiz modeller (Trial key ile):
-- command-r — Hizli, tool calling destekli
-- command-r-plus — Guclu, genis baglam
-
-Cohere native API kullanir (OpenAI-uyumlu degil).
+Cohere native API kullanılır. Başak modelin çıktı uzunluğunu 1024 ile kesmez;
+araç seçimini modelin native tool-calling davranışına bırakır.
 """
 
 import json
@@ -24,8 +21,6 @@ MODELLER = {
 
 
 class CohereClient:
-    """Cohere API istemcisi (native SDK)."""
-
     def __init__(self, api_key: str, model: str = None):
         if not api_key or not api_key.strip():
             raise ValueError("Cohere API anahtari bos olamaz")
@@ -45,29 +40,18 @@ class CohereClient:
         return self.client is not None
 
     def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
-        """Cohere'a mesaj gonderir.
-
-        Cohere v2 API: chat metodu, tool parsing.
-        yapi: sozlesme modu icin; bu saglayici su an yok sayar.
-        """
         if not self.client:
             raise RuntimeError("Cohere bagli degil")
 
-        # Mesajlari Cohere formatina cevir
         cohere_messages = []
         for m in messages:
             role = m.get("role", "user")
             content = m.get("content", "")
             if not content:
                 continue
-            if role == "system":
-                cohere_messages.append({"role": "system", "content": content})
-            elif role == "user":
-                cohere_messages.append({"role": "user", "content": content})
-            elif role == "assistant":
-                cohere_messages.append({"role": "assistant", "content": content})
+            if role in ("system", "user", "assistant"):
+                cohere_messages.append({"role": role, "content": content})
             elif role == "tool":
-                # Tool sonuclarini user mesaji olarak ekle
                 cohere_messages.append({
                     "role": "user",
                     "content": "Araç sonucu: %s" % content,
@@ -80,11 +64,9 @@ class CohereClient:
             "model": self.model,
             "messages": cohere_messages,
             "temperature": 0.5,
-            "max_tokens": 1024,
         }
 
         if tools:
-            # Cohere formatinda tool tanimlarina cevir
             cohere_tools = []
             for t in tools:
                 if isinstance(t, dict) and t.get("type") == "function":
@@ -100,14 +82,11 @@ class CohereClient:
         try:
             resp = self.client.chat(**kwargs)
         except Exception as e:
-            # Cohere hata formatini OpenAI uyumlu cevir
             raise RuntimeError("Cohere API hatasi: %s" % str(e)[:200]) from e
 
-        # Yaniti OpenAI formatinda don
         if not resp.message:
             return {"content": ""}
 
-        # Tool call var mi kontrol et
         if resp.message.tool_calls:
             tool_calls = []
             for tc in resp.message.tool_calls:
@@ -126,11 +105,8 @@ class CohereClient:
                     },
                 })
             return kullanim_ekle({"content": resp.message.content or "",
-                          "tool_calls": tool_calls}, resp)
+                                  "tool_calls": tool_calls}, resp)
 
-        # Icerik (2026-09-10: blok "text" her zaman string DEGILDIR —
-        # sayi/None karisik blok join'i patlatiyordu; message_utils.py
-        # ile ayni kural: hepsi zorla stringe cevrilir.)
         icerik = ""
         if resp.message.content:
             if isinstance(resp.message.content, list):
