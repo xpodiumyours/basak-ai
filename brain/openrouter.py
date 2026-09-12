@@ -1,7 +1,8 @@
 """brain/openrouter.py — OpenRouter ücretsiz model geçidi.
 
-Yalnız ücretsiz modeller seçilir. Başak modelin çıktı uzunluğunu 1024 ile
-kesmez; tool calling seçimini modele bırakır. Ücretli model otomatik seçilmez.
+`openrouter/free` sıfır fiyatlı modeller arasından isteğin ihtiyaç duyduğu
+yetenekleri (ör. tool calling) destekleyen modeli sunucu tarafında seçer.
+Başak ücretli model seçmez, düşük çıktı tavanı koymaz ve araç seçimini modele bırakır.
 """
 
 import json
@@ -14,30 +15,7 @@ logger = logging.getLogger(__name__)
 from brain.kullanim import kullanim_ekle
 
 BASE_URL = "https://openrouter.ai/api/v1"
-
-TERCIH_SIRASI = [
-    "openai/gpt-oss-20b:free",
-    "openai/gpt-oss-120b:free",
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "google/gemma-2-27b-it:free",
-    "mistralai/mistral-7b-instruct:free",
-    "qwen/qwen-2.5-72b-instruct:free",
-    "nvidia/nemotron-3-super-120b-a12b:free",
-    "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "z-ai/glm-4.5-air:free",
-    "google/gemma-4-31b-it:free",
-    "nvidia/nemotron-3-nano-30b-a3b:free",
-    "nvidia/nemotron-nano-9b-v2:free",
-    "nvidia/nemotron-nano-12b-v2-vl:free",
-    "cohere/north-mini-code:free",
-    "poolside/laguna-s-2.1:free",
-    "poolside/laguna-xs-2.1:free",
-    "thinkingmachines/inkling:free",
-    "thinkingmachines/inkling-small:free",
-    "dots-studio/dots-3-note-preview:free",
-    "liquid/lfm-2.5-2.6b:free",
-    "openrouter/free",
-]
+VARSAYILAN_MODEL = "openrouter/free"
 
 
 class OpenRouterClient:
@@ -45,7 +23,10 @@ class OpenRouterClient:
         if not api_key or not api_key.strip():
             raise ValueError("OpenRouter API anahtarı boş olamaz")
         self.api_key = api_key.strip()
-        self.model = model
+        # Kullanıcı açıkça model verirse yalnız :free veya free router kabul et.
+        if model and model != VARSAYILAN_MODEL and not model.endswith(":free"):
+            raise ValueError("OpenRouter otomatik zincirde yalnız ücretsiz model kullanır")
+        self.model = model or VARSAYILAN_MODEL
         self.client = None
         self._kur()
 
@@ -61,31 +42,9 @@ class OpenRouterClient:
                     "X-Title": "Basak",
                 },
             )
-            if not self.model:
-                self.model = self._model_bul()
         except Exception as e:
             logger.warning("OpenRouter kurulamadı: %s", e)
             self.client = None
-
-    def _model_bul(self) -> str:
-        try:
-            mevcutler = [m.id for m in self.client.models.list()]
-        except Exception as e:
-            logger.warning("OpenRouter model listesi alınamadı: %s", e)
-            return TERCIH_SIRASI[0]
-
-        free_modeller = [m for m in mevcutler if m.endswith(":free")]
-        for aday in TERCIH_SIRASI:
-            if aday in free_modeller:
-                return aday
-        for aday in TERCIH_SIRASI:
-            for m in free_modeller:
-                if m == aday or m.startswith(aday.replace(":free", "") + ":"):
-                    return m
-        if free_modeller:
-            return free_modeller[0]
-        logger.warning("Hiç :free model bulunamadı!")
-        return TERCIH_SIRASI[0]
 
     def musait(self) -> bool:
         return self.client is not None
