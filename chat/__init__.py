@@ -2,10 +2,12 @@
 
 Yeni akış chat.flow üzerinden çalışır; legacy semboller geriye uyumluluk için
 korunur. Tam kapasite modunda eski orkestra/jüri/gölge katmanı ana yola
-giremez ve konuşma geçmişi 4000 karaktere zorla kesilmez.
+giremez, konuşma geçmişi 4000 karaktere kesilmez ve eski çelişkili kişilik
+metni modele taşınmaz.
 """
 
-from chat.flow import mesaj_isle_yeni as mesaj_isle  # noqa: F401
+import chat.flow as _flow_mod
+from chat.flow import mesaj_isle_yeni as _orijinal_mesaj_isle
 from chat.prompts import TOOL_YONLENDIRME, OLCU_YONLENDIRME  # noqa: F401
 
 from _chat_legacy import (  # noqa: F401, F403
@@ -35,9 +37,6 @@ from _chat_legacy import (  # noqa: F401, F403
     _hafiza_hazirla, _gecmisi_aktar, _ilgili_anilar,
 )
 
-# ── Tam kapasite uyumluluk yamaları ─────────────────────────────────
-# chat.flow bağımlılıkları çağrı anında _chat_legacy'den aldığı için burada
-# yapılan atamalar yeni ana akışa doğrudan uygulanır.
 import _chat_legacy as _legacy
 
 GECMIS_KILO_LIMITI = 60000
@@ -66,8 +65,7 @@ _legacy._gecmis_pencere = _tam_gecmis_pencere
 _legacy.GECMIS_KILO_LIMITI = GECMIS_KILO_LIMITI
 _legacy.MAX_HISTORY = MAX_HISTORY
 
-# Eski meta-zeka yolları modelin doğal yeteneklerinin önüne geçmesin ve
-# ücretsiz kotayı gölge/jüri çağrılarıyla tüketmesin.
+
 def _kapali():
     return False
 
@@ -78,3 +76,18 @@ juri_acik_mi = _kapali
 _legacy.orkestra_aktif_mi = _kapali
 _legacy.golge_mod_aktif_mi = _kapali
 _legacy.juri_acik_mi = _kapali
+
+
+# basak_app.py'deki eski KISILIK metni birbiriyle çelişen isim ve cevap
+# kuralları içeriyor. Kimlik artık chat.prompts.KIMLIK_BLOGU'nda tek kaynak.
+# Flow'un tüm çağrılarında eski metni yok say; dürüstlük ve kişisel hafıza
+# flow içinde ayrı katmanlardan zaten ekleniyor.
+def mesaj_isle(text, brain, system_prompt, js_callback, tools):
+    return _orijinal_mesaj_isle(text, brain, "", js_callback, tools)
+
+
+def _dogal_mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
+    return _orijinal_mesaj_isle(text, brain, "", js_callback, tools)
+
+
+_flow_mod.mesaj_isle_yeni = _dogal_mesaj_isle_yeni
