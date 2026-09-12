@@ -1,106 +1,104 @@
 # BAŞAK — FAZ 1 HARNESS ARAŞTIRMASI
 
-Durum: **BAŞLADI**  
+Durum: **BAŞLADI — KAPSAM DÜZELTİLDİ**  
 Tarih: **12 Eylül 2026**  
-Maliyet kuralı: **0 TL — araştırma ve deneylerde ücretli model/API zorunlu değil**
+Maliyet kuralı: **0 TL — ücretli sağlayıcı kullanılmaz**
 
-## 1. Araştırma sorusu
+## 1. Gerçek araştırma hedefi
 
-Küçük/ücretsiz/yerel model hangi çağrı düzeninde Başak'ın araçlarını daha güvenilir kullanıyor?
+Başak'ın ana çalışma hattı tek bir yerel model değildir. Ana hedef, mevcut **ücretsiz sağlayıcı zincirinin** araç kullanımı, timeout, fallback ve limit davranışını daha güvenilir hale getirmektir.
 
-Karşılaştırma:
+Bugünkü `master` registry sırası:
 
-- A: mevcut Başak — önce araçsız streaming
-- B: doğrudan tool-aware istek
-- C: minimum harness
-- D: yalnız gerektiğinde 0–3 kişisel gerçek
+`GLM → Cloudflare → Groq → NVIDIA → Cohere → Kilo → Gemini → OpenRouter → QwenCloud`
 
-## 2. Qwen resmi dokümanından doğrulananlar
+Görev tipine göre seçim motoru bu sırayı yeniden düzenleyebilir.
 
-Qwen function calling / tool use özelliğini ayrı bir araç-kullanım düzeni olarak tanımlıyor.
+`Ollama (yerel)` internet/kota bittiğinde **son çare/fallback** olarak tutulur; FAZ 1'in ana benchmark hedefi değildir.
 
-Resmi Qwen dokümanı function calling için dedicated function-calling chat template / framework desteğinin önemli olduğunu belirtiyor. Ollama da uygun model/template ile function calling yolu olarak sayılıyor. Her OpenAI-uyumlu sunucunun Qwen function calling davranışını otomatik desteklediği varsayılmamalı.
+QwenCloud ayrıca mevcut registry'de uyku durumundadır (`etkin: false`) ve hesap etkinleşmeden zincire girmez.
 
-Qwen2.5-7B-Instruct model kartı ayrıca instruction following ve structured output / JSON üretiminde Qwen2'ye göre gelişim bildirmektedir.
+## 2. Karşılaştırılacak çalışma biçimleri
 
-Kaynaklar:
-- https://qwen.readthedocs.io/en/v2.0/framework/function_call.html
-- https://huggingface.co/Qwen/Qwen2.5-7B-Instruct
+A. Mevcut Başak: önce araçsız streaming, sonra gerekirse tool-call.  
+B. Araç gerektiren görevde doğrudan tool-aware istek.  
+C. Sağlayıcı/model ailesine göre minimum harness.  
+D. Yalnız görev için gerekli 0–3 kişisel gerçek.
 
-## 3. Başak koduyla karşılaştırma
+Karşılaştırma tek modele göre değil, kullanılabilir ücretsiz sağlayıcılar üzerinde yapılır.
 
-Bugünkü `master` kodunda:
+Ölçülecekler:
 
-### A — streaming yolu
+- doğru araç seçimi,
+- araçsız düz metinle kaçış,
+- görevi gerçekten tamamlama,
+- timeout,
+- fallback başarısı,
+- kaç sağlayıcı denendiği,
+- cevap süresi,
+- uydurma/doğrulanmamış bilgi,
+- tüketilen ücretsiz kota/istek sayısı.
 
-`chat/flow.py` önce `brain.cevapla_yayin(...)` çağırır.
+## 3. Mevcut koddan doğrulanan yapısal sorun adayı
 
-Yerel Ollama streaming uygulaması `brain/yayin.py::ollama_akit(...)` içinde `/api/chat` isteğine:
+`chat/flow.py` araçsız streaming turunu önce çalıştırır.
 
-- model
-- messages
-- stream=true
+Bu ilk tur araç şemalarını modele vermeden temiz bir düz metin üretirse akış orada bitebilir ve gerçek tool-aware yol hiç çalışmayabilir.
 
-verir.
+Bu durum yalnız Ollama/Qwen'e özgü bir problem olarak ele alınmayacaktır. Aynı davranış ücretsiz bulut sağlayıcı zincirinde de ölçülecektir.
 
-**Tool şemaları bu isteğe verilmez.**
+## 4. Qwen araştırmasının doğru yeri
 
-Sonuç: model bu ilk turda structured tool call üretmek için gerekli araç şemalarını görmez. Ancak araç adını düz metin olarak yazarsa Başak'ın `ham_tool_call_ayir` koruması bunu yakalamaya çalışabilir.
+Qwen araştırması iptal edilmedi; kapsamı düzeltildi.
 
-### B — tam/tool-aware yol
+Qwen function-calling dokümanı, tool-aware şema/chat-template kullanımının önemli olduğunu gösterdi. Bu bulgu **genel harness tasarımı için referanstır**, fakat yerel qwen2.5:7b sonucu Başak'ın genel mimarisini tek başına belirleyemez.
 
-`brain/ollama.py::OllamaClient.cevapla(...)` `tools` parametresi geldiyse bunu Ollama `/api/chat` payload'ına doğrudan ekler.
+Yerel Qwen testi yalnız şunlar için tutulur:
 
-Sonuç: Başak kodunda yerel Qwen için structured tool kullanımını gerçekten destekleyen yol zaten vardır; fakat mevcut akış önce toolsuz streaming cevabı denediği için bu yol her araç gerektiren görevde kullanılmayabilir.
+- internetsiz fallback kontrolü,
+- ücretli servis olmadan izole tool-call testi,
+- ana bulut zinciri bozulursa son çare davranışı.
 
-## 4. Araştırma kararı
+## 5. Maliyetsiz sağlayıcı zinciri
 
-**KANITLANDI — yapısal:** A ve B aynı değildir. A yolu araç şemasını modele vermez; B yolu verir.
+`brain/registry.py` mevcut kartlarına göre ücretsiz ana sağlayıcılar:
 
-**KANITLANDI — referans:** Qwen'in resmi function-calling yaklaşımı modelin araç tanımlarını/function-calling formatını görmesini gerektirir.
+- GLM
+- Cloudflare
+- Groq
+- NVIDIA
+- Cohere trial
+- Kilo
+- Gemini free tier
+- OpenRouter `:free`
+- QwenCloud (şu an uyku durumunda)
+- Ollama yerel fallback
 
-**KANITLANMADI — canlı oran:** qwen2.5:7b üzerinde A'nın kaç kez düz metinle kaçtığı ve B'nin doğru aracı kaç kez seçtiği henüz güncel A/B koşumuyla sayısallaştırılmadı.
+Ücretli `deepseek`, `kimi` ve `genel/özel sağlayıcı` FAZ 0–1 benchmarkına dahil edilmez.
 
-Bu nedenle ürün koduna doğrudan değişiklik henüz alınmaz. Önce yerel maliyetsiz benchmark sonucu istenir.
+## 6. Limit koruması
 
-## 5. Maliyetsiz deney altyapısı
+Benchmark kota yakmayacak şekilde küçük tutulur.
 
-Güvenli deney dalı:
+İlk turda her kullanılabilir ücretsiz sağlayıcı için aynı 4 görev en fazla 1–3 tekrar çalıştırılır:
 
-`experiment/faz0-streaming-tool-ab-20260912`
+1. `Masaüstündeki dosyaları göster.`
+2. `Şu dosyanın içinde ne yazıyor?`
+3. `Bugünkü güncel bir bilgiyi webde araştır ve kaynağını söyle.`
+4. `Merhaba, nasılsın?` — araçsız kontrol.
 
-Bu dalda:
+Limitli sağlayıcılar gereksiz tekrar için kullanılmaz. Gemini/OpenRouter gibi sınırlı sağlayıcıların kotası korunur.
 
-- `tests/test_faz0_streaming_tool_ab.py` — yapısal A/B testi
-- `scripts/faz0_local_ab.py` — yalnız `127.0.0.1:11434` Ollama kullanan canlı yerel A/B benchmark
-- `.github/workflows/faz0-no-cost-gate.yml` — public repo standart runner üzerinde API anahtarsız kritik regresyon kapısı
+## 7. Karar kapısı
 
-bulunmaktadır.
+Yerel Qwen benchmarkı artık **geliştirme kapısı değildir**.
 
-Benchmark hiçbir bulut anahtarı kullanmaz ve tool'ları çalıştırmaz; yalnız modelin araç seçme davranışını ölçer.
+Yeni karar kapısı:
 
-## 6. DeepSeek referansından alınan ek ilke
+1. Gerçek ücretsiz sağlayıcı zincirinin mevcut A yolu ölçülür.
+2. Aynı sağlayıcılar mümkün olduğunda B/tool-aware yolda ölçülür.
+3. Tool-aware yol görev başarısını artırıyor ve normal sohbeti bozmuyorsa küçük deney koduna geçilir.
+4. Fark yoksa streaming değiştirilmez; prompt/harness yükü incelenir.
+5. Gerileme varsa deney reddedilir.
 
-DeepSeek'in güncel resmi API dokümanı `tools` verildiğinde tool calling; `tool_choice=auto|required` seçeneklerini tanımlar. Ayrıca model tarafından üretilen tool argumentlerinin her zaman geçerli olmayabileceğini, uygulamanın parametreleri doğrulaması gerektiğini açıkça belirtir.
-
-Bu ilke Başak için sağlayıcı bağımsızdır:
-
-**Model araç çağrısını üretir; kod izin, şema ve argüman doğrulamasının son hakemidir.**
-
-Başak'taki `tools/permissions.py`, executor sanitization ve deterministik kontrol yaklaşımı korunur.
-
-Kaynak:
-- https://api-docs.deepseek.com/guides/tool_calls/
-- https://api-docs.deepseek.com/api/create-chat-completion/
-
-DeepSeek ücretli API'si maliyetsiz ana yolun parçası değildir; yalnız mimari referanstır.
-
-## 7. Sıradaki karar kapısı
-
-Yerel qwen2.5:7b benchmark sonucunda:
-
-1. B doğru araç kullanımını artırır ve sohbet kontrol görevini bozmazsa → araç gerektiği güvenilir biçimde bilinen mesajlarda streaming bypass için küçük deney hazırlanır.
-2. Fark yoksa → streaming değiştirilmez; prompt/harness yüküne geçilir.
-3. B gerilerse → deney reddedilir.
-
-**Çalışan Başak kanıt olmadan değiştirilmeyecek.**
+**Çalışan Başak kanıt olmadan değiştirilmeyecek. Yerel Ollama/Qwen son çare olarak korunacak; ana geliştirme ücretsiz sağlayıcı zincirine göre yapılacak.**
