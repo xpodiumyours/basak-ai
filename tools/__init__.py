@@ -1,8 +1,8 @@
 """tools — Başak'ın tool modülleri.
 
-Araç şemaları definitions.py'de tutulur. Başak artık anahtar kelimeye göre
-araç saklamaz: tanımlı araçların tamamı modele sunulur, seçimi model yapar.
-İzin ve yazma onayı executor/chat katmanında uygulanmaya devam eder.
+Tanımlı güvenli araçların tamamı modele sunulur; seçim modele aittir. Araç
+açıklamaları yalnız ne yapabildiklerini söyler, hangi cümlede kullanılacağını
+dayatmaz. İzin ve yazma onayı executor/chat katmanında uygulanır.
 """
 
 import importlib
@@ -16,8 +16,6 @@ from tools.executor import calistir
 
 TOOLS = _definitions.TOOLS
 
-# chat/flow.py geriye uyum için bu sabitleri okumaya devam ediyor. Modül
-# tamamen yüklendikten sonra hepsini aynı tam araç setine eşitliyoruz.
 _ALL_TOOL_NAMES = {
     t.get("function", {}).get("name")
     for t in TOOLS
@@ -26,6 +24,36 @@ _ALL_TOOL_NAMES = {
 _definitions.CORE_TOOL_NAMES = set(_ALL_TOOL_NAMES)
 _definitions.SMALL_CORE_TOOL_NAMES = set(_ALL_TOOL_NAMES)
 _definitions.EXTENDED_TETIKLERI = {}
+
+# Şema açıklamaları tetikleyici/prompt değildir; yalnız kabiliyeti tarif eder.
+_ARAC_ACIKLAMALARI = {
+    "sayfa_oku": "Verilen web sayfasının içeriğini oku.",
+    "web_search": "İnternette güncel bilgi ara.",
+    "add_task": "Yeni görev ekle.",
+    "list_tasks": "Mevcut görevleri listele.",
+    "complete_task": "Bir görevi tamamlandı olarak işaretle.",
+    "save_note": "Kalıcı not kaydet.",
+    "deftere_kaydet": "Ortak deftere kayıt ekle.",
+    "read_file": "Verilen dosyanın içeriğini oku.",
+    "write_file_tool": "Dosyaya yaz veya yeni dosya oluştur; izin kuralları uygulama tarafından denetlenir.",
+    "list_files": "Verilen klasördeki dosyaları listele.",
+    "ac_uygulama": "İzin verilen yerel uygulamayı aç.",
+    "get_reminders": "Hatırlatmaları ve ilgili görevleri getir.",
+    "video_analyze": "Video veya ses dosyasını analiz et.",
+    "image_analyze": "Görüntüyü analiz et.",
+    "model_stats": "Model kullanım ve çalışma istatistiklerini getir.",
+    "git_durum": "Bir projenin git durumunu ölç.",
+    "belge_ara": "Proje belgelerinde metin ara.",
+    "dosya_bilgi": "Bir dosyanın varlık, boyut ve değişim bilgisini getir.",
+    "is_ac": "Kalıcı ve adımlı bir iş kaydı oluştur.",
+    "is_liste": "Kalıcı iş kuyruğunu listele.",
+    "is_onayla": "Onay bekleyen kalıcı işi onayla.",
+}
+for _tool in TOOLS:
+    _func = _tool.get("function", {})
+    _ad = _func.get("name")
+    if _ad in _ARAC_ACIKLAMALARI:
+        _func["description"] = _ARAC_ACIKLAMALARI[_ad]
 
 __all__ = ["TOOLS", "calistir", "TOOL_MODULES", "FUNCTION_NAME_MAP"]
 
