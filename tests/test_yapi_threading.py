@@ -33,8 +33,12 @@ def temiz_onbellek():
     """Self-healing onbellegi testler arasi sizmasin."""
     from brain import brain as brain_mod
     brain_mod._YAPI_DENEME.clear()
+    # 2026-09-12: _COOLDOWN da globaldir; onceki testlerin sogumasi
+    # sira iddialarini zehirliyordu (suite-ici flake). Izole et.
+    brain_mod._COOLDOWN.clear()
     yield
     brain_mod._YAPI_DENEME.clear()
+    brain_mod._COOLDOWN.clear()
 
 
 class SahteHTTP:

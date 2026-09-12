@@ -2,7 +2,8 @@
 
 Baglantilar: sohbetten is ac/liste/onayla araclari, zamanlayici
 saatinde kuyrugu kosturur, gunluk karta Gundem + Isler satiri duser,
-baglama inanc ozeti eklenir, juri kapaliyken kota yemez.
+defter yokken baglama inanc gürültüsü enjekte edilmez, juri kapaliyken
+kota yemez.
 """
 
 import os
@@ -113,16 +114,19 @@ class TestKartEkleri:
 
 
 class TestBaglamVeJuri:
-    def test_inanc_ozeti_tavanli(self, monkeypatch):
+    def test_inanc_ozeti_defter_yokken_enjekte_edilmez(self, monkeypatch):
+        # 2026-09-12 (P6, §11 kaydi): defter/ a359d8b ile kalkmisti;
+        # dunya_ozet kalici "Dünya modeli boş" gürültüsü üretiyordu.
+        # Davranis: defter yokken İnançlar bölümü modele GİTMEZ.
         monkeypatch.setattr(L, "_hafiza", False)
-        import chat as _c
+        monkeypatch.setattr(L, "_knowledge_cache", "kisa not")
 
         class Sahte:
             pass
         bilesenler = L.orkestra_bilesenleri(Sahte())
         blok = bilesenler["model_baglami"]()
-        assert "İnançlar:" in blok
-        assert len(blok) <= 320
+        assert "İnançlar:" not in blok
+        assert "kisa not" in blok
 
     def test_juri_kapaliyken_kota_yemez(self):
         import chat as _c

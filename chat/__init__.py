@@ -96,7 +96,6 @@ from _chat_legacy import (  # noqa: F401, F403
     SETTINGS_FILE,
     KNOWLEDGE_DIR,
     OBSIDIAN_DIR,
-    DEFTER_DIR,
     KNOWLEDGE_MAX_CHARS,
     GOREVLER_FILE,
     MAX_HISTORY,

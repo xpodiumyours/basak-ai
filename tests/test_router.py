@@ -138,6 +138,15 @@ class SahteIstemci:
 
 
 class TestBrainRouterV2:
+    @pytest.fixture(autouse=True)
+    def _cooldown_izolasyonu(self):
+        # 2026-09-12: _COOLDOWN globaldir; onceki testlerin biraktigi
+        # soguma bu testlerin sira iddiasini zehirler. Izole et.
+        import brain.brain as _b
+        _b._COOLDOWN.clear()
+        yield
+        _b._COOLDOWN.clear()
+
     def _brain(self, monkeypatch, zincir):
         from brain.brain import Brain
         b = Brain.__new__(Brain)  # __init__ anahtar/ag istemez
@@ -147,8 +156,12 @@ class TestBrainRouterV2:
     def test_ilk_saglayici_kazanir(self, monkeypatch):
         a, c = SahteIstemci(), SahteIstemci()
         b = self._brain(monkeypatch, [("groq", a), ("glm", c)])
+        # 2026-09-12: sira karisikligi uretim karari (dagitik sira) oldugu
+        # icin test acik `tercih` ile deterministiktir; ayni davranis
+        # (ilk siradaki kazanir) pinlenir, rastgelelik pinlenmez.
         yanit, kaynak = b.cevapla(
-            [{"role": "user", "content": "selam"}], "qwen2.5:3b")
+            [{"role": "user", "content": "selam"}], "qwen2.5:7b",
+            tercih=["glm", "groq"])
         assert yanit["content"] == "tamam"
         # 2026-09-09: varsayilan sirada glm groq'un onunde.
         assert kaynak.startswith("glm")
@@ -157,8 +170,12 @@ class TestBrainRouterV2:
     def test_hata_verince_siradaki_gecer(self, monkeypatch):
         a, c = SahteIstemci(), SahteIstemci(hata=RuntimeError("patladi"))
         b = self._brain(monkeypatch, [("groq", a), ("glm", c)])
+        # 2026-09-12: yukaridakiyle ayni gerekce — fallback zinciri
+        # deterministik sirayla pinlenir (hatali glm onde, saglam groq
+        # devralir; kaynak ilk denenen olur).
         yanit, kaynak = b.cevapla(
-            [{"role": "user", "content": "selam"}], "qwen2.5:3b")
+            [{"role": "user", "content": "selam"}], "qwen2.5:7b",
+            tercih=["glm", "groq"])
         assert kaynak.startswith("groq")
         assert a.cagrildi == 1 and c.cagrildi == 1
 
