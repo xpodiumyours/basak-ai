@@ -35,6 +35,16 @@ def akit(openai_client, model, messages):
 
     Yields: str parcalar. Arac cagrisi gorurse AracIstegi firlatir.
     """
+    # Harness v1: read-lite turu toolsuz streaming'e hic sokulmaz; dogrudan
+    # tam tool-calling yoluna duser. Chat-lite ise gereksiz system bloklari
+    # ayiklanarak daha hafif gonderilir. Model ailesi model id'den cozulur.
+    from brain.harness import prepare_stream
+    messages, stream_allowed, spec = prepare_stream(messages, model)
+    if not stream_allowed:
+        raise AracIstegi()
+    if spec.active:
+        logger.info("Stream harness task=%s family=%s", spec.task, spec.family)
+
     stream = openai_client.chat.completions.create(
         model=model,
         messages=messages,
@@ -60,6 +70,13 @@ def ollama_akit(base_url, model, messages):
     import json as _json
 
     import requests
+
+    from brain.harness import prepare_stream
+    messages, stream_allowed, spec = prepare_stream(messages, model, provider="yerel")
+    if not stream_allowed:
+        raise AracIstegi()
+    if spec.active:
+        logger.info("Yerel stream harness task=%s family=%s", spec.task, spec.family)
 
     r = requests.post(
         "%s/api/chat" % base_url.rstrip("/"),
