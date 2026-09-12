@@ -21,6 +21,29 @@ def _j(obj):
     return json.dumps(obj, ensure_ascii=False)
 
 
+# ── Kişisel kapı (2026-09-12, işe-göre-açma) ──────────────────────────
+# Profil bloğu YALNIZ kişisel-soruda modele gider. Kural tabanlidir
+# (model cagrisi YOK). Öğrenme/silme kalıpları ayrıca yakalanır; aynı
+# turda öğrenme olduysa tur kesinlikle kişiseldir (ogrenme_notu kuralı).
+_KISISEL_ISARETLER = (
+    # kimlik / profil / tercih sorulari
+    "hakkımda", "hakkimda", "beni anlat", "beni tanıt", "beni tanit",
+    "ben kimim", "adım", "adim", "adımı", "adimi", "ismim", "ismi ne",
+    "tercih", "sevdiğim", "sevdigim", "seviyorum", "severim",
+    "sevmiyorum", "sevmem", "hobim", "hobilerim", "bildiklerin",
+    "bildiğin", "bildigin", "beni tanıyor", "beni taniyor",
+    "hakkımda ne biliyorsun", "hakkimda ne biliyorsun",
+    # ogrenme / unutma komutlari (profil yazma yolu)
+    "hatırla", "hatirla", "unutma", "unut", "aklında tut", "aklinda tut",
+)
+
+
+def _kisisel_gerekli_mi(text):
+    """Soru kisisel baglam istiyor mu? (kural, asla yukseltmez)."""
+    t = (text or "").lower()
+    return any(k in t for k in _KISISEL_ISARETLER)
+
+
 def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
     """mesaj_isle'nin yeni versiyonu — _chat_legacy.py'den bağımsız.
 
@@ -44,10 +67,27 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
     from tools import calistir
     from brain.kapasite import mod_kapasite
 
+    # İŞ DOSYASI girişi (P-A, 2026-09-12): iki yola da (orkestra + düz)
+    # ulaşan TEK nokta burasıdır. Komutsuz turda (None, "", False) döner —
+    # davranış değişikliği sıfırdır.
+    _is_olay, _is_blok, _uzun_is = None, "", False
+    try:
+        from tools import isdosya as _isdosya
+        _is_olay, _is_blok, _uzun_is = _isdosya.tur_girisi(text)
+    except Exception as e:
+        logger.warning("Is girisi atlandi: %s", e)
+    _is_sistem = ""
+    if _is_blok:
+        _is_sistem = "Aktif iş dosyası:\n" + _is_blok
+    if _is_olay:
+        _is_sistem += ("\n" if _is_sistem else "") + "Not: " + _is_olay
+
     # ORKESTRA ana yolu
     if orkestra_aktif_mi():
-        mesaj_isle_orkestra(text, brain, system_prompt, js_callback,
-                            tools, kaydet_acik=True)
+        mesaj_isle_orkestra(text, brain,
+                            system_prompt + (
+                                "\n" + _is_sistem if _is_sistem else ""),
+                            js_callback, tools, kaydet_acik=True)
         return
 
     text = (text or "").strip()
@@ -184,14 +224,21 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
             "content": "Hafızadan:\n" + blok,
         })
 
-    # Kalici profil blogu + ogrenme notu (varsa)
+    # Kalici profil blogu + ogrenme notu (varsa).
+    # 2026-09-12 (ise-gore-acma): profil YALNIZ kisisel turda gider.
+    # Ogrenme/silme olduysa tur kesinlikle kisiseldir (VEYA kurali).
     try:
-        if _profil_blogu:
+        kisisel_tur = bool(ogrenme_notu) or _kisisel_gerekli_mi(text)
+        if _profil_blogu and kisisel_tur:
             mesajlar.append({"role": "system", "content": _profil_blogu})
         if ogrenme_notu:
             mesajlar.append({"role": "system", "content": ogrenme_notu})
     except NameError:
         pass
+
+    # Aktif is dosyasi (P-A): varsa butceli blok modele gider.
+    if _is_sistem:
+        mesajlar.append({"role": "system", "content": _is_sistem})
 
     mesajlar += _gecmis_pencere(gecmis) + [{"role": "user", "content": text}]
 
@@ -263,6 +310,14 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
                         core.append(t)
                         break
         aktif_toollar = core if core else tools
+        # P-A: aktif is turunda is_notu araci sete eklenir (plan yazimi).
+        if _uzun_is:
+            adlar = {t["function"]["name"] for t in aktif_toollar}
+            if "is_notu" not in adlar:
+                for t in tools:
+                    if t["function"]["name"] == "is_notu":
+                        aktif_toollar = aktif_toollar + [t]
+                        break
     else:
         aktif_toollar = None
 
@@ -304,7 +359,8 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
             cevap, arac_ciktilari = tool_calling_multi(
                 sahte_tool_calls, mesajlar, brain, model, js_callback,
                 calistir, aktif_toollar,
-                knowledge_dir=KNOWLEDGE_DIR, gorevler_file=GOREVLER_FILE)
+                knowledge_dir=KNOWLEDGE_DIR, gorevler_file=GOREVLER_FILE,
+                uzun_is=_uzun_is)
             cevap = _temizle_fn(cevap)
             _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
                             speaker=aktif_konusmaci,
@@ -320,7 +376,8 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
     cevap, arac_ciktilari = tool_calling_multi(
         tool_calls, mesajlar, brain, model, js_callback, calistir,
         aktif_toollar,
-        knowledge_dir=KNOWLEDGE_DIR, gorevler_file=GOREVLER_FILE)
+        knowledge_dir=KNOWLEDGE_DIR, gorevler_file=GOREVLER_FILE,
+        uzun_is=_uzun_is)
     cevap = _temizle_fn(cevap)
     _save_and_reply(text, cevap, kaynak, gecmis, js_callback,
                     speaker=aktif_konusmaci,
