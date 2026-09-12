@@ -9,9 +9,12 @@ import brain.brain as _brain_mod
 from brain.brain import Brain
 from brain import registry as _registry
 
-# Eski 403 gözleminden kalan kalıcı Qwen kilidi kaldırıldı. Anahtarı/hesabı
-# gerçekten çalışmıyorsa normal hata + cooldown/fallback mekanizması devralır.
-_brain_mod._QWEN_BEKLEMEDE = False
+# SIFIR MALIYET KILIDI — QwenCloud/DashScope yeni kullanıcı kotası süreli ve
+# hesap bilgileri tamamlandıysa kota bittikten sonra kullandıkça ödeye dönebilir.
+# Kullanıcının "Free Quota Only" hesap ayarı uygulamadan doğrulanamadığı için
+# direct QwenCloud otomatik zincire girmez. Qwen'in ücretsiz varyantları
+# OpenRouter/Kilo free rotaları üzerinden yine kullanılabilir.
+_brain_mod._QWEN_BEKLEMEDE = True
 
 # Maliyet kilidi: Brain içindeki eski kod özel/ücretli "genel" sağlayıcıyı
 # en sona ekleyebiliyordu. Kullanıcının hedefi sıfır maliyet olduğu için
