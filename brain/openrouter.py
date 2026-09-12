@@ -16,6 +16,15 @@ from brain.kullanim import kullanim_ekle
 
 BASE_URL = "https://openrouter.ai/api/v1"
 
+# Sert perde (2026-09-12, resmi dokuman: provider-routing):
+# veri saklayan ucuncu partiye yonlendirme + arac desteklemeyen
+# partiye aracli istek. Uymayan parti yoksa istek HATA verir ve
+# zincir devam eder (fail-closed).
+PERDE_TERCIHI = {
+    "data_collection": "deny",
+    "require_parameters": True,
+}
+
 # Sadece ücretsiz modeller (":free" suffix'li) - paid modeller KULLANILMAZ
 TERCIH_SIRASI = [
     # Ücretsiz modeller (free tier) - öncelikli
@@ -119,6 +128,7 @@ class OpenRouterClient:
             "messages": messages,
             "temperature": 0.5,
             "max_tokens": 2048,
+            "extra_body": {"provider": dict(PERDE_TERCIHI)},
         }
         if tools:
             kwargs["tools"] = tools
