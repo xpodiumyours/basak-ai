@@ -1,7 +1,8 @@
 """brain/cloudflare.py — Cloudflare Workers AI bulut entegrasyonu.
 
-OpenAI-uyumlu Workers AI ucu kullanılır. Başak modelin çıktı uzunluğunu
-1024 ile kesmez ve tool calling seçimini modele bırakır.
+OpenAI-uyumlu Workers AI ucu kullanılır. Varsayılan model, Workers Free
+planında kullanılabilen reasoning + multi-turn function calling destekli
+GLM-4.7-Flash'tır. Başak düşük çıktı tavanı koymaz ve araç seçimini modele bırakır.
 """
 
 import json
@@ -14,9 +15,9 @@ logger = logging.getLogger(__name__)
 from brain.kullanim import kullanim_ekle
 
 MODELLER = {
-    "hizli": "@cf/meta/llama-3.2-3b-instruct",
-    "guclu": "@cf/meta/llama-4-scout-17b-16e-instruct",
-    "varsayilan": "@cf/meta/llama-3.2-3b-instruct",
+    "hizli": "@cf/zai-org/glm-4.7-flash",
+    "guclu": "@cf/nvidia/nemotron-3-120b-a12b",
+    "varsayilan": "@cf/zai-org/glm-4.7-flash",
 }
 
 
