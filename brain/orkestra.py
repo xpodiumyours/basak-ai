@@ -125,8 +125,9 @@ class Orkestra:
                    ozet="tip=%s, arac=%d" % (tip, len(aktif_araclar)))
 
         # --- HYPOTHESIZE (birincil aday) ---
-        # 2026-08-25: ölçüm/sözleşme katmanı (OLCU_YONLENDIRME,
-        # PROMPT_BLOGU) canlı yoldan çıkarıldı — yalnız araç rehberi kalır.
+        # 2026-08-25: ölçüm/sözleşme katmanı canlı yoldan çıkarıldı —
+        # yalnız araç rehberi kalır. (2026-09-12: olcu.py silindi;
+        # ham_olcum_satirlari chat/gate.py'dedir.)
         from chat.prompts import TOOL_YONLENDIRME
         tam_sistem = sistem + TOOL_YONLENDIRME
         mesajlar = [{"role": "system", "content": tam_sistem}]

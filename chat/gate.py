@@ -5,7 +5,7 @@ Model cevabı kullanıcıya gitmeden denetlenir:
   - Çıkış kapısı (sözleşme modu + işaretleme sistemi)
   - Raw tool call temizliği
 
-Bağımlılıklar: re (standart), olcu (proje içi)
+Bağımlılıklar: re (standart)
 DI Container: GateConfig (dil_esik, sozlesme_modu)
 """
 
@@ -102,6 +102,53 @@ def raw_tool_temizle(metin):
         if alinti:
             return alinti.group(1)
     return metin
+
+
+# ── Ham ölçüm satırları (olcu.py'den birebir taşıma, 2026-09-12) ─────
+# SELECT fallback'i: kazanan metin birebir YEDEK cümle ise ham ölçüm
+# satırları basılır. Saf formatlayıcıdır — kapı/eleme mantığı YOKTUR.
+
+
+def _arac_adi(ad):
+    """Araç adını insan okuyabilir şekilde göster."""
+    return {
+        "list_files": "klasör listeleme",
+        "read_file": "dosya okuma",
+        "git_durum": "git durum",
+        "belge_ara": "belge arama",
+        "dosya_bilgi": "dosya bilgi",
+        "web_search": "web arama",
+        "sayfa_oku": "sayfa okuma",
+        "add_task": "görev ekleme",
+        "list_tasks": "görev listeleme",
+        "complete_task": "görev tamamlama",
+        "save_note": "not kaydetme",
+        "deftere_kaydet": "deftere kaydetme",
+        "write_file_tool": "dosya yazma",
+        "ac_uygulama": "uygulama başlatma",
+    }.get(ad, ad.replace("_", " "))
+
+
+def ham_olcum_satirlari(olcumler, sinir=400):
+    """Ölçüm çıktılarından okunabilir ham satırlar üretir.
+
+    Bu satırları model değil KOD üretir — birebirliği tanım gereği kesindir.
+    """
+    satirlar = []
+    for o in (olcumler or []):
+        if isinstance(o, (tuple, list)) and len(o) == 2:
+            ad, cikti = o
+        else:
+            ad, cikti = "", o
+        cikti = re.sub(r"\s+", " ", str(cikti or "")).strip()
+        if not cikti:
+            continue
+        if len(cikti) > sinir:
+            cikti = cikti[:sinir].rstrip() + "..."
+        cikti = cikti.replace('"', "'")
+        insan_ad = _arac_adi(ad) if ad else "araç"
+        satirlar.append('%s sonucu: %s' % (insan_ad, cikti))
+    return satirlar
 
 
 # ── GateConfig (DI Container için) ───────────────────────────────────

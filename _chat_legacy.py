@@ -21,9 +21,9 @@ _onay_kuyrugu = {}  # noqa: F841 — approval.py kendi state'ini yönetir
 _onay_kararlari = {}  # noqa: F841
 _onay_lock = threading.Lock()  # noqa: F841
 
-from olcu import (cikis_kapisi, PROMPT_BLOGU, YEDEK_CUMLE, HAM_BASLIK,
-                   ham_olcum_satirlari, SOZLESME_PROMPTU, sozlesme_coz,
-                   sozlesme_kapisi)
+# 2026-09-12: olcu.py silindi (ölü çıkış-kapısı temizliği).
+# Canlıda kullanılan tek parça ham_olcum_satirlari chat/gate.py'ye taşındı.
+from chat.gate import ham_olcum_satirlari
 
 # Kucuk/guclu model ayrimi: guclu modellerde tum agir katmanlar acik,
 # kucuk modellerde zorunlu tool dayatmasi ve embedding hafizasi atlanir.
@@ -40,7 +40,8 @@ HISTORY_FILE = os.path.join(BASE, "gecmis.json")
 SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
 OBSIDIAN_DIR = os.path.join(BASE, "Basak")
-DEFTER_DIR = os.path.join(BASE, "defter")
+# 2026-09-12: DEFTER_DIR kalkti (defter/ repoda yok; son kullanici
+# _model_baglami'ydi).
 KNOWLEDGE_MAX_CHARS = 5000
 GOREVLER_FILE = os.path.join(BASE, "gorevler.json")
 MAX_HISTORY = 20
@@ -203,10 +204,10 @@ def _load_knowledge():
         dosyalar.remove("INDEX.md")
         dosyalar.insert(0, "INDEX.md")
 
-    # Proje dokümanları da hafızaya karışsın (plan + kurallar)
-    # Ortak defter: yalnız INDEX her mesaja girer; tek tek kayıtlar
-    # hafıza motorunun aramasıyla, ilgiliyse çekilir (ORTAK-DEFTER.md §4)
-    for ad_ek in ("defter/INDEX.md", "GOREV_LISTESI.md", "AGENTS.md"):
+    # Proje dokümanları da hafızaya karışsın (kurallar).
+    # 2026-09-12: defter/INDEX.md + GOREV_LISTESI.md repoda YOK —
+    # ölü girdiler listeden çıkarıldı (no-op idiler).
+    for ad_ek in ("AGENTS.md",):
         if os.path.exists(os.path.join(BASE, ad_ek)) and ad_ek not in dosyalar:
             dosyalar.append(ad_ek)
 
@@ -656,8 +657,8 @@ def _hafiza_hazirla():
 
         n1 = indeksle_klasor(motor, KNOWLEDGE_DIR, "knowledge")
         n2 = indeksle_klasor(motor, OBSIDIAN_DIR, "obsidian")
-        n3 = indeksle_klasor(motor, DEFTER_DIR, "defter")
-        logger.info("Hafiza hazir: %d ani, indekleme +%d", motor.say(), n1 + n2 + n3)
+        # 2026-09-12: defter/ repoda yok — no-op indeks çağrısı kalktı.
+        logger.info("Hafiza hazir: %d ani, indekleme +%d", motor.say(), n1 + n2)
     except Exception as e:
         logger.warning("Hafiza hazirlanamadi (sohbet etkilenmez): %s", e)
 
@@ -918,16 +919,10 @@ def orkestra_bilesenleri(brain):
         return -elenen * 5
 
     def _model_baglami():
-        # FAZ-3b: not yigini + inanc ozeti (300 harf tavan — baglam diyeti).
-        blok = _knowledge_cache or ""
-        try:
-            from tools.dunya import dunya_ozet
-            ozet = dunya_ozet(DEFTER_DIR)
-            if ozet:
-                blok += "\n\nİnançlar:\n" + ozet[:300]
-        except Exception:
-            pass
-        return blok
+        # FAZ-3b: not yigini (baglam diyeti).
+        # 2026-09-12: inanc ozeti kalkti — defter/ repoda yok (a359d8b),
+        # dunya_ozet kalici "Dünya modeli boş" gürültüsü üretiyordu.
+        return _knowledge_cache or ""
 
     bilesenler = {
         "observe": observe,
@@ -942,8 +937,6 @@ def orkestra_bilesenleri(brain):
         "deney_kos": deney_kos,
         "olcu_kapisi": kimlik_kapisi,
         "kapi_v2": _kapidan_gecir,
-        "sozlesme_coz": sozlesme_coz,
-        "sozlesme_kapisi": sozlesme_kapisi,
         "ham_olcum": ham_olcum_satirlari,
         "ogren": lambda s, cev, onem=1: None,
     }
