@@ -38,8 +38,7 @@ def akit(openai_client, model, messages):
     stream = openai_client.chat.completions.create(
         model=model,
         messages=messages,
-        temperature=0.5,
-        max_tokens=1024,
+        max_tokens=4096,
         stream=True,
         timeout=60,
     )

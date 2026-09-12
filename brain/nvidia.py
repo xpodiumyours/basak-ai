@@ -64,8 +64,8 @@ MODELLER = {
 
 # Buyuk modeller: dusunerek cevap verdikleri icin normalden yavastir;
 # istemci varsayilan 20 sn timeout bunlara yetmez, cagri basina uzatilir
-_THINKING_TIMEOUT = 10.0
-_NORMAL_TIMEOUT = 3.0
+_THINKING_TIMEOUT = 20.0
+_NORMAL_TIMEOUT = 20.0
 
 
 class NvidiaClient:
@@ -129,10 +129,9 @@ class NvidiaClient:
         kwargs = {
             "model": model_adi,
             "messages": messages,
-            "temperature": 0.5,
         }
         if self._buyuk_model_mi(model_adi):
-            kwargs["max_tokens"] = 2048
+            kwargs["max_tokens"] = 4096
             kwargs["timeout"] = _THINKING_TIMEOUT
             if "deepseek" in model_adi.lower():
                 # DeepSeek NIM'de dusunme modu acik olarak istenir
@@ -140,7 +139,7 @@ class NvidiaClient:
                     "chat_template_kwargs": {"thinking": True}
                 }
         else:
-            kwargs["max_tokens"] = 1024
+            kwargs["max_tokens"] = 4096
         if tools:
             kwargs["tools"] = tools
 
