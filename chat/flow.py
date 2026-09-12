@@ -1,11 +1,15 @@
 """chat/flow.py — Ana sohbet akışı.
 
-2026-09-13 sadeleştirmesi (Casper kararı): araç katmanı, ölçü kapısı ve
-orkestra söküldü. Geriye kalan akış tek yol:
+2026-09-13 (Casper kararı): ölçü kapısı, orkestra ve araçların etrafına
+sarılmış kural katmanları söküldü. Geriye altı salt-okunur araç kaldı.
 
-    mesaj → kimlik + kişilik + profil + hafıza + geçmiş
-          → ücretsiz model zinciri (kelime kelime akar)
-          → temizlik → ekran → hafızaya yaz
+İki yol var:
+
+    sohbet   → bağlam → zincir → kelime kelime akar → ekran
+    araçlı   → bağlam + araç şeması → zincir → araç koşar → özet → ekran
+
+Hangisi olacağına `_arac_gerek()` karar verir: araç şeması her isteğe
+girerse küçük modeller şaşırıyor ve akış kapanıyor.
 
 Sağlayıcı sırası, kota takibi ve "limiti bitince diğerine geç" mantığı
 bu dosyada DEĞİL — `brain/` altında. Burası yalnız bağlamı kurar.
@@ -68,24 +72,36 @@ def _profil_isle(text, konusmaci):
         return "", ""
 
 
-# Güncel bilgi isteyen soruların işaretleri. Araç sunmak bedava değil:
-# şema modele gider, küçük modeller şaşırır ve akan cevap kapanır. Bu
-# yüzden araçlar HER mesajda değil, işaret varsa açılır.
-_INTERNET_ISARETLERI = (
+# Araç sunmak bedava değil: şema modele gider, küçük modeller şaşırır
+# ve akan cevap kapanır. Bu yüzden araçlar HER mesajda değil, işaret
+# varsa açılır. Sohbet hızlı kalsın, araştırma isterken eli çalışsın.
+_ARAC_ISARETLERI = (
+    # internet
     "araştır", "arastir", "ara bakalım", "ara bakalim", "internetten",
     "güncel", "guncel", "son durum", "haber", "fiyat", "kaç para",
     "kac para", "kaça", "kaca", "ne kadar", "rakip", "pazar",
     "hedef kitle", "müşteri", "musteri", "trend", "piyasa", "kur",
     "dolar", "euro", "hava durumu", "hava nasıl", "hava nasil",
-    "bugün ne oldu", "bugun ne oldu", "site", "sayfa", "link",
-    "http://", "https://", "www.",
+    "site", "sayfa", "link", "http://", "https://", "www.",
+    # bilgisayar
+    "dosya", "klasör", "klasor", "belge", "masaüstü", "masaustu",
+    "indirilenler", "listele", "oku", "içinde ne", "icinde ne",
+    "diskimde", "bilgisayarımda", "bilgisayarimda",
+    # proje durumu
+    "vixrex", "numeramatch", "xses", "başak projesi", "basak projesi",
+    "commit", "dal ", "branch", "ne durumda", "durumu ne", "ne oldu",
+    "değişti", "degisti",
+    # görme
+    "ekran görüntüsü", "ekran goruntusu", "görsel", "gorsel", "resim",
+    "fotoğraf", "fotograf", ".png", ".jpg", ".jpeg", "şu görüntü",
+    "su goruntu",
 )
 
 
-def _internet_gerek(text):
-    """Soru güncel/dış bilgi istiyor mu? (araç sunulsun mu)"""
+def _arac_gerek(text):
+    """Soru araç ister mi? (şema modele sunulsun mu)"""
     t = (text or "").lower()
-    return any(k in t for k in _INTERNET_ISARETLERI)
+    return any(k in t for k in _ARAC_ISARETLERI)
 
 
 def _baglam_kur(text, system_prompt, konusmaci, araclar_acik=False):
@@ -104,9 +120,14 @@ def _baglam_kur(text, system_prompt, konusmaci, araclar_acik=False):
         {"role": "system", "content": tam_prompt},
     ]
 
-    # Hafıza: soruyla ilgili anılar. Araçlar gittiği için knowledge/
-    # notlarına erişim de bu yoldan olur — motor o klasörü indeksliyor.
-    anilar = ctx.ilgili_anilar(text)
+    # Hafıza: soruyla ilgili anılar. knowledge/ notlarına erişim de bu
+    # yoldan olur — motor o klasörü indeksliyor.
+    #
+    # AMA ölçüm sorusunda hafıza KAPALI (2026-09-13, ölçülerek bulundu):
+    # "vixrex ne durumda" ikinci kez sorulduğunda model aracı koşturmak
+    # yerine dünkü cevabı hatırlayıp bugünmüş gibi veriyordu. Ölçülecek
+    # bir şey sorulduysa ölçülür; eski cevap dayanak değildir.
+    anilar = [] if araclar_acik else ctx.ilgili_anilar(text)
     if anilar:
         blok = "\n".join("- %s" % a["text"][:300] for a in anilar[:5])
         mesajlar.append({"role": "system", "content": "Hafızadan:\n" + blok})
@@ -175,10 +196,18 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
         [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
          if m.get("role") != "system"])
 
-    internet = bool(tools) and _internet_gerek(text)
-    mesajlar = _baglam_kur(text, system_prompt, konusmaci, internet)
-    mesajlar += ctx.gecmis_pencere(gecmis) + [{"role": "user",
-                                               "content": text}]
+    arac_acik = bool(tools) and _arac_gerek(text)
+    mesajlar = _baglam_kur(text, system_prompt, konusmaci, arac_acik)
+
+    # Ölçüm sorusunda geçmişteki ESKİ CEVAPLAR bağlama girmez
+    # (2026-09-13, ölçüldü): "vixrex ne durumda" ikinci kez sorulunca
+    # model aracı koşturmak yerine önceki cevabı kopyalıyordu — dünkü
+    # dal adı bugünmüş gibi dönüyordu. Kendi soruları kalır ki
+    # "peki ya numeramatch" gibi devam cümleleri anlaşılsın.
+    pencere = ctx.gecmis_pencere(gecmis)
+    if arac_acik:
+        pencere = [m for m in pencere if m.get("role") == "user"][-3:]
+    mesajlar += pencere + [{"role": "user", "content": text}]
 
     # ── Akan cevap ──────────────────────────────────────────────────
     # Cevap kelime kelime gelsin ("dondu mu?" hissi olmasın). Akış
@@ -187,7 +216,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
 
     # Araç gerekiyorsa akış atlanır: akıştan araç çağrısı çıkamaz, yarım
     # metin ekrana düşer. Araçlı tur tek seferliktir, sonra özet gelir.
-    yayin = None if internet else getattr(brain, "cevapla_yayin", None)
+    yayin = None if arac_acik else getattr(brain, "cevapla_yayin", None)
     if yayin is not None:
         try:
             parcalar = []
@@ -214,7 +243,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
     # sağlayıcıdan başarılı çağrı gerçekleşmedi — kota yenmedi.
     try:
         yanit, kaynak = brain.cevapla(
-            mesajlar, model, tools=(tools if internet else None))
+            mesajlar, model, tools=(tools if arac_acik else None))
     except Exception as e:
         hata = str(e)
         if "429" in hata or "rate" in hata.lower():

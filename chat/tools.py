@@ -20,7 +20,14 @@ ARAC_SONUC_TAVAN = 4000   # modele giden kopyanin tavani
 DURUM_METNI = {
     "web_search": "İnternette aranıyor",
     "sayfa_oku": "Sayfa okunuyor",
+    "read_file": "Dosya okunuyor",
+    "list_files": "Klasör listeleniyor",
+    "git_durum": "Proje durumu ölçülüyor",
+    "image_analyze": "Görüntü inceleniyor",
 }
+
+# Durum satırında gösterilecek argüman — araca göre değişir.
+DURUM_ALANI = ("query", "url", "path", "folder", "proje")
 
 
 def _j(obj):
@@ -40,8 +47,11 @@ def parse_args(ham):
 
 def _durum(tool_name, args):
     etiket = DURUM_METNI.get(tool_name, "Çalışıyor")
-    detay = (args or {}).get("query") or (args or {}).get("url") or ""
-    detay = str(detay)[:70]
+    detay = ""
+    for alan in DURUM_ALANI:
+        if (args or {}).get(alan):
+            detay = str(args[alan])[:70]
+            break
     return "%s: %s" % (etiket, detay) if detay else etiket + "..."
 
 
@@ -92,8 +102,8 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             tur_sonuclari.append((ad, net))
             if not net.startswith("Hata:"):
                 kosan += 1
-                etiket = (args.get("query") or args.get("url") or ad)
-                etiket = str(etiket)[:60]
+                etiket = next((str(args[a]) for a in DURUM_ALANI
+                               if args.get(a)), ad)[:60]
                 if etiket not in kaynaklar:
                     kaynaklar.append(etiket)
 

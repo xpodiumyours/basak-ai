@@ -1,32 +1,62 @@
-"""tools — Internet araclari (yalniz iki tane, ikisi de salt-okunur).
+"""tools — Başak'ın araçları. Altı tane, hepsi salt-okunur.
 
-2026-09-13: 21 araclik katman sokuldu; Casper "internet kalsin" dedi.
-Yazma, sistem, dosya araci YOK — bu paket disariya yalniz okur.
+2026-09-13: 21 araçlık katman söküldü; Casper'in seçtikleri geri geldi.
+Bu paket diske ve dışarıya YALNIZ okur. Yazma aracı yok — dolayısıyla
+izin tablosu, onay kuyruğu, yetki tavanı da yok. Tek kural beyaz liste.
+
+Not: `file_ops.write_file_ops` dosyada duruyor (kanıtlanmış yol-güvenlik
+kodunun bir parçası ve testleri var) ama HİÇBİR araç şeması ona
+bağlanmıyor — model o fonksiyona ulaşamaz.
 """
 
 import logging
+import os
 
 from tools.definitions import TOOLS, TANINMIS_TOOLLAR  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 def calistir(tool_name, args):
-    """Araci calistirir. Beyaz liste disi ad ASLA kosmaz.
+    """Aracı çalıştırır. Beyaz liste dışı ad ASLA koşmaz.
 
-    Donus: dict — {"result": ...} veya {"error": ...}
+    Dönüş: dict — {"result": ...} veya {"error": ...}
     """
     if tool_name not in TANINMIS_TOOLLAR:
         logger.info("Taninmayan arac reddedildi: %s", tool_name)
         return {"error": "'%s' diye bir arac yok." % tool_name}
 
-    from tools import web_search as _ws
+    args = args or {}
     try:
         if tool_name == "web_search":
-            return _ws.web_search(str((args or {}).get("query", "")))
+            from tools import web_search as ws
+            return ws.web_search(str(args.get("query", "")))
+
         if tool_name == "sayfa_oku":
-            return _ws.sayfa_oku(str((args or {}).get("url", "")))
+            from tools import web_search as ws
+            return ws.sayfa_oku(str(args.get("url", "")))
+
+        if tool_name == "read_file":
+            from tools import file_ops
+            return file_ops.read_file(str(args.get("path", "")), BASE)
+
+        if tool_name == "list_files":
+            from tools import file_ops
+            return file_ops.list_files(str(args.get("folder", "")), BASE)
+
+        if tool_name == "git_durum":
+            from tools import olcum
+            return olcum.git_durum(str(args.get("proje", "")))
+
+        if tool_name == "image_analyze":
+            from tools import image_analyzer
+            return image_analyzer.image_analyze(
+                str(args.get("path", "")),
+                str(args.get("soru", "") or "") or None)
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)[:150]}
+
     return {"error": "'%s' calistirilamadi." % tool_name}
