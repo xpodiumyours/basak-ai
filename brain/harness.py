@@ -194,7 +194,6 @@ def _compact_system_messages(messages: list[dict], profile: TaskProfile,
         return list(messages)
 
     out: list[dict] = []
-    note_inserted = False
     for message in messages:
         role = message.get("role")
         content = str(message.get("content") or "")
@@ -227,7 +226,6 @@ def _compact_system_messages(messages: list[dict], profile: TaskProfile,
         while insert_at < len(out) and out[insert_at].get("role") == "system":
             insert_at += 1
         out.insert(insert_at, {"role": "system", "content": note})
-        note_inserted = True
 
     return out
 
@@ -268,7 +266,7 @@ def prepare_stream(messages: list[dict], model_id: str | None,
 
 
 class HarnessProviderProxy:
-    """Provider client'ını model-family harness ile saran şeffaf proxy."""
+    """Bulut provider client'ını model-family harness ile saran şeffaf proxy."""
 
     def __init__(self, provider: str, inner):
         self._harness_provider = provider
@@ -277,8 +275,10 @@ class HarnessProviderProxy:
     def __getattr__(self, name):
         return getattr(self._harness_inner, name)
 
-    def cevapla(self, messages, tools=None, **kwargs):
-        model_id = kwargs.get("model") or getattr(self._harness_inner, "model", None)
+    def cevapla(self, messages, tools=None, model=None, yapi=None, **kwargs):
+        # `model` imzada açık tutulur: Brain._tek_cagri Groq override desteğini
+        # inspect.signature ile keşfediyor. Proxy bu sözleşmeyi gizlememeli.
+        model_id = model or getattr(self._harness_inner, "model", None)
         prepared_messages, prepared_tools, spec = prepare_call(
             messages, tools, self._harness_provider, model_id
         )
@@ -288,12 +288,22 @@ class HarnessProviderProxy:
                 spec.task, spec.family, self._harness_provider,
                 len(prepared_tools or []),
             )
+
+        call_kwargs = dict(kwargs)
+        if model is not None:
+            call_kwargs["model"] = model
+        if yapi is not None:
+            call_kwargs["yapi"] = yapi
         return self._harness_inner.cevapla(
-            prepared_messages, tools=prepared_tools, **kwargs
+            prepared_messages, tools=prepared_tools, **call_kwargs
         )
 
 
 def wrap_provider(provider: str, client):
+    # Ollama'nın imzası cevapla(messages, model, tools...) olduğu için cloud
+    # proxy sözleşmesine sokulmaz. Yerel streaming ayrı prepare_stream kullanır.
+    if provider == "yerel":
+        return client
     if client is None or isinstance(client, HarnessProviderProxy):
         return client
     return HarnessProviderProxy(provider, client)
