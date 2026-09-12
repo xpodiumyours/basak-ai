@@ -8,6 +8,7 @@ Güvenlik:
 - gerçek geçmişi/geçici hafızayı yazmaz,
 - görev dosyasını değiştirmez,
 - yalnız mevcut ayarlar/anahtarları okur,
+- ücretli provider yolu sert kapalıdır,
 - yazma/sistem aracı çağrılırsa smoke başarısız sayılır.
 """
 from __future__ import annotations
@@ -127,6 +128,18 @@ def main() -> int:
     from tools import TOOLS
 
     brain = Brain()
+    # ZERO-COST: ücretli/özel provider smoke sırasında hiçbir koşulda denenmez.
+    if hasattr(brain, "_genel"):
+        brain._genel = None
+    for paid_name in ("deepseek", "kimi"):
+        if hasattr(brain, "_providers"):
+            brain._providers.pop(paid_name, None)
+
+    try:
+        free_chain = [ad for ad, _ in brain._bulut_zinciri()]
+    except Exception:
+        free_chain = []
+
     harness_log = HarnessLog()
     logging.getLogger("brain.harness").addHandler(harness_log)
     logging.getLogger("brain.harness").setLevel(logging.INFO)
@@ -251,6 +264,7 @@ def main() -> int:
     print("\n=== BAŞAK HARNESS V1 — GERÇEK SMOKE ===")
     print("Dal:", branch)
     print("Repo commit:", short_commit or "DOĞRULANAMADI")
+    print("Ücretsiz zincir:", ", ".join(free_chain) if free_chain else "DOĞRULANAMADI")
     for item in results:
         print("\n[%s] %s" % (item["id"], "GEÇTİ" if item["passed"] else "KALDI"))
         print("  profil :", item["profile"])
