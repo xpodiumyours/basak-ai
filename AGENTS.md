@@ -4,7 +4,7 @@ Bu dosyayı kod yazan her ajan (Claude Code, Kilo Code, OpenCode) işe başlamad
 
 ## 0. Proje
 
-Başak — tamamen yerel çalışan, ücretsiz, Türkçe konuşan kişisel Jarvis. Beyin: Ollama (`qwen2.5:3b`, yerel) + zor sorularda Groq'a (ücretsiz, `llama-3.3-70b`) kaçış. Ses: Piper TTS + faster-whisper STT (ikisi de yerel). Arayüz: `ui/` altında saf HTML/CSS/JS + Three.js orb, pywebview masaüstü penceresinde açılıyor. `ARASTIRMA.md` teknoloji seçim gerekçelerini tutar.
+Başak — tamamen yerel çalışan, ücretsiz, Türkçe konuşan kişisel Jarvis. Beyin: Ollama (`qwen2.5:7b`, yerel son çare) + ücretsiz bulut zinciri (önce GLM/Groq, `openai/gpt-oss-20b` varsayılan). Ses: Piper TTS + faster-whisper STT (ikisi de yerel). Arayüz: `ui/` altında saf HTML/CSS/JS + Three.js orb, pywebview masaüstü penceresinde açılıyor. `ARASTIRMA.md` teknoloji seçim gerekçelerini tutar.
 
 **19 Ağustos 2026'da başladı, tek günlük iş.** `git` bugün kuruldu — öncesinde hiç versiyon geçmişi yoktu, ilk commit'ten öncesi kurtarılamaz.
 

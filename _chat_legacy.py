@@ -204,12 +204,8 @@ def _load_knowledge():
         dosyalar.remove("INDEX.md")
         dosyalar.insert(0, "INDEX.md")
 
-    # Proje dokümanları da hafızaya karışsın (kurallar).
-    # 2026-09-12: defter/INDEX.md + GOREV_LISTESI.md repoda YOK —
-    # ölü girdiler listeden çıkarıldı (no-op idiler).
-    for ad_ek in ("AGENTS.md",):
-        if os.path.exists(os.path.join(BASE, ad_ek)) and ad_ek not in dosyalar:
-            dosyalar.append(ad_ek)
+    # 2026-09-12: AGENTS.md girdisi kalkti — 2000 harf butce knowledge
+    # dosyalariyla (4710) doldugu icin pratikte hic giremiyordu (olu girdi).
 
     for ad in dosyalar:
         if kalan <= 0:
