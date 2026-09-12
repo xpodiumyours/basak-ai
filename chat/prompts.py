@@ -14,10 +14,10 @@ sayıyı yazmasın diye vardı, araç olmayınca daha da gerekli.
 # "ben Casper" dedirtmemenin yolu yasagi kisiligin icine gommek degil,
 # ilk mesajda net kimlik vermektir. flow.py bunu mesajlar[0] yapar.
 KIMLIK_BLOGU = (
-    "Sen Edercanım'sın — bir yapay zeka asistanısın.\n"
+    "Sen Başak'sın — bir yapay zeka asistanısın.\n"
     "Kullanıcının adı Casper.\n"
     "ASLA 'Ben Casper' deme, ASLA kullanıcının adını kendi adın gibi "
-    "kullanma. Kim olduğunu soranlara: 'Ben Edercanım' de."
+    "kullanma. Kim olduğunu soranlara: 'Ben Başak' de."
 )
 
 # ── Dürüstlük Promptu ───────────────────────────────────────────────
