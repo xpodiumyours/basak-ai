@@ -1,0 +1,327 @@
+"""tools/web_search.py — DuckDuckGo web araması + hava durumu API.
+
+Hava durumu sorguları için Open-Meteo API kullanılır (ücretsiz, API key gerektirmez).
+Diğer sorgular için DuckDuckGo kullanılır.
+"""
+
+import ipaddress
+import json
+import logging
+import re
+import socket
+import urllib.error
+import urllib.request
+from urllib.parse import urlparse
+
+logger = logging.getLogger(__name__)
+
+
+def web_search(query: str) -> dict:
+    """DuckDuckGo'da arama yapar. Hava durumu için özel API kullanır."""
+    if not query or not query.strip():
+        return {"error": "Arama sorgusu boş olamaz"}
+
+    q = query.strip()
+
+    # Hava durumu sorgusu mu?
+    if _hava_durumu_mu(q):
+        return _hava_durumu_cek(q)
+
+    # Diğer sorgular için DuckDuckGo
+    return _duckduckgo_ara(q)
+
+
+def _hava_durumu_mu(query):
+    """Sorgunun hava durumu ile ilgili olup olmadığını kontrol eder."""
+    anahtarlar = ['hava', 'sıcaklık', 'derece', 'yağmur', 'kar', 'güneş',
+                  'weather', 'temperature', 'forecast']
+    return any(k in query.lower() for k in anahtarlar)
+
+
+def _sehir_cek(query):
+    """Sorgudan şehir adını çeker."""
+    sehirler = {
+        'istanbul': (41.0082, 28.9784),
+        'ankara': (39.9334, 32.8597),
+        'izmir': (38.4237, 27.1428),
+        'bursa': (40.1885, 29.0610),
+        'antalya': (36.8969, 30.7133),
+        'trabzon': (41.0027, 39.7168),
+        'konya': (37.8746, 32.4932),
+        'adana': (37.0000, 35.3213),
+    }
+    q = query.lower()
+    for sehir, koordinat in sehirler.items():
+        if sehir in q:
+            return sehir.capitalize(), koordinat
+    return "Istanbul", (41.0082, 28.9784)  # Varsayılan
+
+
+def _hava_durumu_cek(query):
+    """Open-Meteo API ile hava durumu çeker (ücretsiz)."""
+    sehir, (enlem, boylam) = _sehir_cek(query)
+
+    try:
+        import urllib.request
+        url = (
+            f"https://api.open-meteo.com/v1/forecast?"
+            f"latitude={enlem}&longitude={boylam}"
+            f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m"
+            f"&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+            f"&timezone=Europe/Istanbul&forecast_days=1"
+        )
+        req = urllib.request.Request(url, headers={"User-Agent": "Basak/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+
+        current = data.get("current", {})
+        daily = data.get("daily", {})
+
+        sicaklik = current.get("temperature_2m", "?")
+        nem = current.get("relative_humidity_2m", "?")
+        ruzgar = current.get("wind_speed_10m", "?")
+        kod = current.get("weather_code", 0)
+
+        # Hava durumu kodunu çevir
+        durum = _hava_kodu_cevir(kod)
+
+        max_sic = daily.get("temperature_2m_max", ["?"])[0]
+        min_sic = daily.get("temperature_2m_min", ["?"])[0]
+        yagis = daily.get("precipitation_probability_max", ["?"])[0]
+
+        return {
+            "result": (
+                f"{sehir} hava durumu: {durum}, {sicaklik}°C. "
+                f"Gün içinde {min_sic}°C ile {max_sic}°C arası. "
+                f"Nem: %{nem}, Rüzgar: {ruzgar} km/s. "
+                f"Yağış ihtimali: %{yagis}."
+            )
+        }
+
+    except Exception as e:
+        logger.error("Hava durumu API hatası: %s", e)
+        return {"error": f"Hava durumu alınamadı: {e}"}
+
+
+def _hava_kodu_cevir(kod):
+    """WMO hava durumu kodunu Türkçe çevirir."""
+    harita = {
+        0: "Açık", 1: "Az bulutlu", 2: "Parçalı bulutlu", 3: "Kapalı",
+        45: "Sisli", 48: "Buzlu sis",
+        51: "Hafif çiseleme", 53: "Orta çiseleme", 55: "Şiddetli çiseleme",
+        61: "Hafif yağmur", 63: "Orta yağmur", 65: "Şiddetli yağmur",
+        71: "Hafif kar", 73: "Orta kar", 75: "Şiddetli kar",
+        80: "Hafif sağanak", 81: "Orta sağanak", 82: "Şiddetli sağanak",
+        95: "Gök gürültülü fırtına",
+    }
+    return harita.get(kod, "Bilinmeyen")
+
+
+def _duckduckgo_ara(query):
+    """DuckDuckGo'da arama yapar."""
+    try:
+        from ddgs import DDGS
+
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, region="tr-tr", max_results=3))
+
+        if not results:
+            return {"result": "Sonuç bulunamadı"}
+
+        parcalar = []
+        for r in results:
+            body = r.get("body", "").strip()
+            if not body or len(body) < 20:
+                continue
+            body = _temizle(body)
+            if body:
+                parcalar.append(body)
+
+        if not parcalar:
+            return {"result": "Sonuç bulunamadı"}
+
+        return {"result": " | ".join(parcalar[:2])}
+
+    except ImportError:
+        return {"error": "ddgs paketi yüklü değil"}
+    except Exception as e:
+        logger.error("Web arama hatası: %s", e)
+        return {"error": f"Arama yapılamadı: {e}"}
+
+
+def _temizle(text):
+    """Sonuç metnini temizler."""
+    text = re.sub(r'https?://\S+', '', text)
+    text = re.sub(r'www\.\S+', '', text)
+    text = re.sub(r'Visit\s+\w+\s*', '', text)
+    text = re.sub(r'A travel experience.*?streets,?\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'history is full of.*?new\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\s+', ' ', text).strip()
+    if text and not text.endswith('.') and not text.endswith('...'):
+        text += '.'
+    return text
+
+
+# E-2: Sayfa okuma aracı — yalnizca GET, 5000 karakter siniri
+_MAX_SAYFA = 5000
+_MAX_HAM = 2 * 1024 * 1024  # Ham HTML ust siniri (2 MB)
+
+# SSRF korumasi (2026-08-24, Casper'in bulgusu): string tabanli "localhost"
+# aramasi 127.0.0.2, [::1], onluk IP, ozel aglar ve ic IP'ye cozunen
+# domain'leri geciriyordu. Artik hostname COZULUR ve tum IP'lerin ozellikleri
+# denetlenir; yonlendirmelerde de her adim yeniden denetlenir.
+_IZINLI_PORT = (80, 443)
+
+
+def _engelli_ip_nedeni(hostname):
+    """Hostname'in cozuldugu TUM IP'ler guvenli mi?
+
+    Engel bulursa neden IP'yi, hepsi guvenliyse None dondurur.
+    getaddrinfo tabanli oldugu icin onluk/hex/sekizlik IP yazimlari ve
+    DNS uzerinden ic adreslere yonlenen domain'ler de yakalanir.
+    """
+    try:
+        bilgiler = socket.getaddrinfo(hostname, None)
+    except (socket.gaierror, OSError):
+        return "adres cozulemedi"
+    for b in bilgiler:
+        try:
+            ip = ipaddress.ip_address(b[4][0])
+        except ValueError:
+            continue
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            return str(ip)
+    return None
+
+
+def _guvenli_adres(url):
+    """URL'in adres bilesenlerini denetler; engel varsa hata metni doner."""
+    k = urlparse(url)
+    if k.scheme not in ("http", "https"):
+        return "Yalnizca http/https URL'leri okunabilir"
+    if k.port is not None and k.port not in _IZINLI_PORT:
+        return ("Guvenlik engeli: yalnizca standart web portlari "
+                "(80/443) aciktir")
+    if not k.hostname:
+        return "Gecersiz URL: sunucu adi yok"
+    engel = _engelli_ip_nedeni(k.hostname)
+    if engel:
+        return ("Guvenlik engeli: adres ic/ağ adresine cozuldu (%s)"
+                % engel[:40])
+    return None
+
+
+class _GuvenliYonlendirme(urllib.request.HTTPRedirectHandler):
+    """Her yonlendirme adimini yeniden SSRF denetiminden gecirir."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        engel = _guvenli_adres(newurl)
+        if engel:
+            logger.warning("Yonlendirme engellendi: %s", engel[:80])
+            return None   # None = takip etme -> HTTPError firlar
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def sayfa_oku(url: str) -> dict:
+    """E-2: Bir URL'den sayfa icerigini okur (yalnizca GET).
+
+    HTML icerikten etiketler soyulur, duz metin olarak dondurulur.
+    Max 5000 karakter okunur.
+
+    Args:
+        url: Okunacak URL (http:// veya https://).
+
+    Returns:
+        {"result": str} veya {"error": str}.
+    """
+    if not url or not url.strip():
+        return {"error": "URL bos olamaz"}
+
+    url = url.strip()
+
+    # URL encode: Turkce/harf disi karakterleri HTTP yolunda encode et
+    # Python http.client ASCII olmayan yollarda UnicodeEncodeError firlatir
+    try:
+        from urllib.parse import urlparse as _urlparse, quote as _quote
+        _k = _urlparse(url)
+        if _k.path:
+            _yeni_path = _quote(_k.path, safe="/:@!$&'()*+,;=-._~")
+            url = f"{_k.scheme}://{_k.netloc}{_yeni_path}"
+            if _k.query:
+                url += f"?{_k.query}"
+            if _k.fragment:
+                url += f"#{_k.fragment}"
+    except Exception:
+        pass  # Encode edilemezse orijinal URL ile devam et
+
+    # SSRF denetimi: semantik + port + cozulen IP'ler
+    engel = _guvenli_adres(url)
+    if engel:
+        return {"error": engel}
+
+    try:
+        import html as html_mod
+
+        opener = urllib.request.build_opener(_GuvenliYonlendirme())
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Basak/1.0",
+            "Accept": "text/html, text/plain",
+            "Accept-Encoding": "identity",
+        })
+        with opener.open(req, timeout=15) as resp:
+            # Icerik turunu kontrol et
+            content_type = resp.headers.get("Content-Type", "")
+            if "text/html" not in content_type and \
+               "text/plain" not in content_type:
+                return {"error": "Desteklenen icerik tipi degil: %s"
+                                 % content_type[:50]}
+
+            ham = resp.read(_MAX_HAM).decode(
+                "utf-8", errors="replace")
+
+        # HTML etiketlerini temizle
+        if "text/html" in content_type:
+            # <script>, <style>, <noscript> bloklarini temizle
+            # 1) Kapanmis bloklari kaldir
+            temiz = re.sub(
+                r'<(script|style|noscript)[^>]*>.*?</\1>',
+                '', ham, flags=re.DOTALL | re.IGNORECASE)
+            # 2) Kapanmamis bloklari kaldir (dosya sonunda kesilmis)
+            temiz = re.sub(
+                r'<(script|style|noscript)[^>]*>.*',
+                '', temiz, flags=re.DOTALL | re.IGNORECASE)
+            # HTML yorumlarini kaldir
+            temiz = re.sub(r'<!--.*?-->', '', temiz, flags=re.DOTALL)
+            # SVG iceriklerini kaldir
+            temiz = re.sub(r'<svg[^>]*>.*?</svg>', '', temiz,
+                           flags=re.DOTALL | re.IGNORECASE)
+            temiz = re.sub(r'<svg[^>]*>.*', '', temiz,
+                           flags=re.DOTALL | re.IGNORECASE)
+            # Tum HTML etiketlerini kaldir
+            temiz = re.sub(r'<[^>]+>', ' ', temiz)
+            # Kapanmamis < parcasi kaldiysa temizle
+            temiz = re.sub(r'<\s*$', '', temiz)
+            # HTML entity'leri coz
+            temiz = html_mod.unescape(temiz)
+        else:
+            temiz = ham
+
+        # Bosluklari temizle
+        temiz = re.sub(r'\s+', ' ', temiz).strip()
+
+        if len(temiz) > _MAX_SAYFA:
+            temiz = temiz[:_MAX_SAYFA] + "\n...(ilk %d karakter)" % _MAX_SAYFA
+
+        if not temiz:
+            return {"error": "Sayfa icerigi bos"}
+
+        return {"result": temiz}
+
+    except urllib.error.HTTPError as e:
+        return {"error": "HTTP hatasi %d: %s" % (e.code, url[:60])}
+    except urllib.error.URLError as e:
+        return {"error": "Baglanti hatasi: %s" % str(e.reason)[:80]}
+    except Exception as e:
+        logger.error("Sayfa okuma hatasi: %s", e)
+        return {"error": "Sayfa okunamadi: %s" % str(e)[:80]}

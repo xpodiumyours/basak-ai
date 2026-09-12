@@ -15,7 +15,7 @@ import json
 import logging
 
 from chat.prompts import (KIMLIK_BLOGU, OLCU_YONLENDIRME,
-                          BIKIMLONDIRME_YONLENDIRME)
+                          BIKIMLONDIRME_YONLENDIRME, TOOL_YONLENDIRME)
 from chat import context as ctx
 from chat.gate import temizle as _temizle
 
@@ -68,11 +68,34 @@ def _profil_isle(text, konusmaci):
         return "", ""
 
 
-def _baglam_kur(text, system_prompt, konusmaci):
+# Güncel bilgi isteyen soruların işaretleri. Araç sunmak bedava değil:
+# şema modele gider, küçük modeller şaşırır ve akan cevap kapanır. Bu
+# yüzden araçlar HER mesajda değil, işaret varsa açılır.
+_INTERNET_ISARETLERI = (
+    "araştır", "arastir", "ara bakalım", "ara bakalim", "internetten",
+    "güncel", "guncel", "son durum", "haber", "fiyat", "kaç para",
+    "kac para", "kaça", "kaca", "ne kadar", "rakip", "pazar",
+    "hedef kitle", "müşteri", "musteri", "trend", "piyasa", "kur",
+    "dolar", "euro", "hava durumu", "hava nasıl", "hava nasil",
+    "bugün ne oldu", "bugun ne oldu", "site", "sayfa", "link",
+    "http://", "https://", "www.",
+)
+
+
+def _internet_gerek(text):
+    """Soru güncel/dış bilgi istiyor mu? (araç sunulsun mu)"""
+    t = (text or "").lower()
+    return any(k in t for k in _INTERNET_ISARETLERI)
+
+
+def _baglam_kur(text, system_prompt, konusmaci, araclar_acik=False):
     """Modele gidecek mesaj listesini kurar."""
     profil_blogu, ogrenme_notu = _profil_isle(text, konusmaci)
 
-    tam_prompt = system_prompt + OLCU_YONLENDIRME + BIKIMLONDIRME_YONLENDIRME
+    tam_prompt = system_prompt
+    if araclar_acik:
+        tam_prompt += TOOL_YONLENDIRME
+    tam_prompt += OLCU_YONLENDIRME + BIKIMLONDIRME_YONLENDIRME
     if konusmaci:
         tam_prompt += "\nKonuşan: %s" % konusmaci
 
@@ -122,7 +145,7 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci):
             logger.warning("Ani kaydedilemedi: %s", e)
 
 
-def mesaj_isle(text, brain, system_prompt, js_callback):
+def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
     """Bir mesajı baştan sona işler."""
     text, konusmaci = _konusmaci_ayir((text or "").strip())
 
@@ -152,7 +175,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback):
         [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
          if m.get("role") != "system"])
 
-    mesajlar = _baglam_kur(text, system_prompt, konusmaci)
+    internet = bool(tools) and _internet_gerek(text)
+    mesajlar = _baglam_kur(text, system_prompt, konusmaci, internet)
     mesajlar += ctx.gecmis_pencere(gecmis) + [{"role": "user",
                                                "content": text}]
 
@@ -161,7 +185,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback):
     # açılamazsa tek seferlik yola düşülür.
     from brain.yayin import AracIstegi, SonHata
 
-    yayin = getattr(brain, "cevapla_yayin", None)
+    # Araç gerekiyorsa akış atlanır: akıştan araç çağrısı çıkamaz, yarım
+    # metin ekrana düşer. Araçlı tur tek seferliktir, sonra özet gelir.
+    yayin = None if internet else getattr(brain, "cevapla_yayin", None)
     if yayin is not None:
         try:
             parcalar = []
@@ -187,7 +213,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback):
     # Akış hiç açılamadıysa buraya düşülür. Akış açılamadığı için
     # sağlayıcıdan başarılı çağrı gerçekleşmedi — kota yenmedi.
     try:
-        yanit, kaynak = brain.cevapla(mesajlar, model)
+        yanit, kaynak = brain.cevapla(
+            mesajlar, model, tools=(tools if internet else None))
     except Exception as e:
         hata = str(e)
         if "429" in hata or "rate" in hata.lower():
@@ -197,6 +224,22 @@ def mesaj_isle(text, brain, system_prompt, js_callback):
             js_callback("BasakUI.error(" + _j(
                 "Beyin hatasi: " + hata[:150]) + ")")
         return
+
+    # ── Araç turu ───────────────────────────────────────────────────
+    # Model araç istediyse kod çalıştırır, sonucu modele geri verir,
+    # model özetler. Beyaz liste dışı ad buraya kadar gelse bile koşmaz.
+    tool_calls = yanit.get("tool_calls") if isinstance(yanit, dict) else None
+    if tool_calls and tools:
+        from chat.tools import arac_dongusu
+        from tools import calistir
+        cevap, kosan = arac_dongusu(
+            tool_calls, mesajlar, brain, model, js_callback, calistir,
+            tools=tools)
+        cevap = _temizle(cevap)
+        if cevap:
+            _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci)
+            return
+        logger.info("Arac turu bos dondu (%d arac kostu)", kosan)
 
     cevap = _temizle(yanit.get("content", "") if isinstance(yanit, dict)
                      else yanit)

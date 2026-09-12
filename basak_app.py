@@ -32,6 +32,7 @@ except OSError:
 import webview
 
 from brain import Brain
+from tools import TOOLS
 from voice import TTS, STT
 from chat import mesaj_isle, yukle, kaydet, init_cache
 
@@ -109,7 +110,7 @@ class Api:
 
     def _chat(self, text):
         try:
-            mesaj_isle(text, self._beyin_al(), KISILIK, self._js)
+            mesaj_isle(text, self._beyin_al(), KISILIK, self._js, TOOLS)
         except Exception as e:
             # 2026-09-10: iz birak — bir dahaki "beklenmeyen hata"da
             # hata.log'dan kok sebep okunsun.

@@ -20,6 +20,21 @@ KIMLIK_BLOGU = (
     "kullanma. Kim olduğunu soranlara: 'Ben Başak' de."
 )
 
+# ── Araç Promptu ────────────────────────────────────────────────────
+# 2026-09-13: internet araclari geri geldi (Casper karari). Prompt
+# YETENEK soyler, karari model verir — eski surumdeki "su cumlede su
+# cagri" kaliplari geri GELMEDI, model eslestirme yapmasin diye.
+TOOL_YONLENDIRME = (
+    "\nİNTERNETE ERİŞEBİLİRSİN: arama yapabilir, bir sayfayı açıp "
+    "okuyabilirsin.\n"
+    "- Güncel bilgi gerektiren sorularda (fiyat, rakip, pazar, haber, "
+    "hava) önce ARA, sonra cevapla. Ezberden söyleme.\n"
+    "- Kullanıcı bir adres verirse o sayfayı aç ve oku.\n"
+    "- Sohbette, fikir sorulduğunda veya bildiğin bir şeyde arama "
+    "yapma; doğrudan konuş.\n"
+    "- Bulduğunu Türkçe özetle, sayıyı ve ismi tam yaz.\n"
+)
+
 # ── Dürüstlük Promptu ───────────────────────────────────────────────
 # 2026-09-10 (Casper karari): 6 adimlik zorunlu akis budandi — kalip
 # degil ilke. Modelin isi durust davranmak, proseduru ezberlemek degil.
