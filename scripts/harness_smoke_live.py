@@ -116,7 +116,9 @@ def main() -> int:
     heading = _first_heading(plan)
     short_commit = _git("log", "-1", "--format=%h")
 
-    # Importlar branch doğrulamasından sonra yapılır.
+    # Önce chat paketini normal public girişinden başlat. _chat_legacy'yi
+    # doğrudan ilk import etmek chat.__init__ ile circular import üretir.
+    import chat  # noqa: F401
     import _chat_legacy as legacy
     import chat.context as chat_context
     import chat.oturum as oturum
