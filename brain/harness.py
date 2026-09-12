@@ -118,21 +118,17 @@ def task_profile_for(text: str) -> TaskProfile:
             compact_context=True, active=True,
         )
 
-    # Kişisel hafıza, web, eylem/yazma ve diğer karmaşık işler v1 kapsamı değil.
-    legacy_markers = (
-        "benim ad", "adım", "adim", "beni tanı", "beni tani", "hakkımda",
-        "hatırla", "hatirla", "unut", "seviyorum", "sevmiyorum", "profil",
-        "internet", "web", "site", "url", "link", "haber", "fiyat", "hava",
-        "dolar", "euro", "borsa", "araştır", "arastir",
-        "görev", "gorev", "hatırlat", "hatirlat", "kaydet", "dosyaya yaz",
-        "oluştur", "olustur", "sil", "gönder", "gonder", "mesaj", "mail",
-        "tarayıcı aç", "tarayici ac", "vscode aç", "vscode ac",
-        "resim", "foto", "görsel", "gorsel", "video", "transkript",
+    # v1'de chat-lite yalnız açık küçük sohbet kalıplarıdır. Başka her şey
+    # LEGACY: kapsamı bilmediğimiz işi hafif harness'a zorlamayız.
+    chat_phrases = (
+        "merhaba", "selam", "günaydın", "gunaydin", "iyi akşamlar",
+        "iyi aksamlar", "iyi geceler", "nasılsın", "nasilsin", "naber",
+        "ne haber", "teşekkür", "tesekkur", "sağ ol", "sag ol",
     )
-    if _has(t, legacy_markers):
-        return LEGACY
+    if _has(t, chat_phrases):
+        return CHAT_LITE
 
-    return CHAT_LITE
+    return LEGACY
 
 
 @contextmanager
