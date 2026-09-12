@@ -2,7 +2,8 @@
 
 Ucuncu bulut saglayici. OpenAI-uyumlu uc:
 https://api.z.ai/api/paas/v4/
-Model: glm-4.7. Anahtar: env ZAI_API_KEY veya ayarlar.json -> zai_key.
+Model: glm-4.7-flash (2026-09-12 canli dogrulandi: ucretsiz + tool_call).
+Anahtar: env ZAI_API_KEY veya ayarlar.json -> zai_key.
 
 Arayuz groq.py / gemini.py ile birebir aynidir.
 """
@@ -18,9 +19,9 @@ from brain.kullanim import kullanim_ekle
 
 BASE_URL = "https://api.z.ai/api/paas/v4/"
 MODELLER = {
-    # ucretsiz katmanda bakiyesiz calisan model (2026-08 dogrulandi)
-    "hizli": "glm-4.5-flash",
-    "varsayilan": "glm-4.5-flash",
+    # ucretsiz katman (2026-09-12 canli dogrulandi: Free + tool_call)
+    "hizli": "glm-4.7-flash",
+    "varsayilan": "glm-4.7-flash",
 }
 
 
