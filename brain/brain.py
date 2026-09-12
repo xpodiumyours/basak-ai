@@ -10,7 +10,8 @@ import os
 import time
 from datetime import datetime
 
-from brain.groq import MODELLER  # MODELLER sabitine hâlâ ihtiyaç var
+from brain.groq import GroqClient, MODELLER
+from brain.model_family import coz as _aile_coz
 from brain.ollama import OLLAMA_URL
 from brain.stats import model_stats_al
 from brain import secici, registry
@@ -71,6 +72,20 @@ _COOLDOWN_SURE = 120  # 2 dakika
 # Zaman asimi cooldown'u (2026-09-11): 429 kadar agir degil; saglayici
 # bir sonraki istekte geri gelebilir. 60 sn yeter.
 _ZAMAN_ASIMI_COOLDOWN = 60
+
+# Erisim engeli cooldown'u (2026-09-12): 403/401/yetkisiz/paid-plan
+# dakikalarda iyilesmez — her turda ölü saglayiciyi yeniden denemek
+# kota ve süre yakar. 1 saat pas geç; anahtar/model degisince temizlenir.
+_ERISIM_COOLDOWN = 3600
+
+
+def _erisim_engeli_mi(hata):
+    """Hata kalici erisim engeli mi? (403/401/paid-plan/gecersiz anahtar)."""
+    s = str(hata).lower()
+    return any(k in s for k in (
+        "403", "401", "forbidden", "denied", "unauthorized",
+        "api key", "invalid_key", "authentication",
+        "requires paid", "paid plan", "permission"))
 
 def _cooldown_kaldi(ad):
     bitis = _COOLDOWN.get(ad, 0)
@@ -186,6 +201,9 @@ class Brain:
         ayar = _ayar_yukle()
         ayar["groq_key"] = self.groq_key
         _ayar_kaydet(ayar)
+        # 2026-09-12: anahtar degisimi erisim engelini iyilestirebilir —
+        # ölü isaretli cooldown'lar temizlenir.
+        _COOLDOWN.clear()
         if self.groq_key:
             try:
                 self._groq = GroqClient(self.groq_key, self.groq_model)
@@ -202,6 +220,8 @@ class Brain:
         ayar = _ayar_yukle()
         ayar["groq_model"] = self.groq_model
         _ayar_kaydet(ayar)
+        # 2026-09-12: model degisimi erisim tablosunu yeniler.
+        _COOLDOWN.clear()
         if self.groq_key:
             try:
                 self._groq = GroqClient(self.groq_key, self.groq_model)
@@ -309,8 +329,9 @@ class Brain:
                     else:
                         raise
                 sure = time.time() - t0
-                _audit("OK kaynak=%s | %.1f sn | tools=%s | %s" %
-                       (ad, sure, bool(tools), gerekce))
+                aile = _aile_coz(ad, getattr(istemci, "model", ""))
+                _audit("OK kaynak=%s | %.1f sn | tools=%s | %s | aile=%s" %
+                       (ad, sure, bool(tools), gerekce, aile))
                 # Gercek token sayimi (2026-08-24): adaptorden gelen
                 # kullanim bilgisini ayikla ve istatistige yaz.
                 kullanim = None
@@ -332,14 +353,21 @@ class Brain:
                 if _rate_limit_mi(e):
                     _cooldown_ekle(ad)
                     logger.info("%s rate-limit, cooldown baslatildi", ad)
+                elif _erisim_engeli_mi(e):
+                    # 2026-09-12: 403/401/paid-plan dakikada iyilesmez —
+                    # her turda ölü saglayici denenmesin, 1 saat pas geç.
+                    _cooldown_ekle(ad, sure=_ERISIM_COOLDOWN)
+                    logger.info("%s erisim engeli, %d sn pas geciliyor", ad,
+                                _ERISIM_COOLDOWN)
                 elif _zaman_asimi_mi(e):
                     # 2026-09-11: zaman asimi da kisa cooldown alsin —
                     # GLM her istekte ayni duvara carpip patlamasin.
                     _cooldown_ekle(ad, sure=_ZAMAN_ASIMI_COOLDOWN)
                     logger.info("%s zaman asimi, %d sn cooldown", ad,
                                 _ZAMAN_ASIMI_COOLDOWN)
-                _audit("HATA kaynak=%s (%.1f sn): %s" %
-                       (ad, sure, str(e)[:100]))
+                _audit("HATA kaynak=%s (%.1f sn): %s | aile=%s" %
+                       (ad, sure, str(e)[:100],
+                        _aile_coz(ad, getattr(istemci, "model", ""))))
                 istat.kaydet(ad, sure, basarili=False, hata=str(e)[:100], tools=bool(tools))
 
         # Tum bulutlar dustu → yerel Ollama
@@ -435,6 +463,8 @@ class Brain:
                 hatalar.append("%s: %s" % (ad, hata[:60]))
                 if _rate_limit_mi(e):
                     _cooldown_ekle(ad)
+                elif _erisim_engeli_mi(e):
+                    _cooldown_ekle(ad, sure=_ERISIM_COOLDOWN)
                 elif _zaman_asimi_mi(e):
                     # 2026-09-11: zaman asimi da kisa cooldown alsin.
                     _cooldown_ekle(ad, sure=_ZAMAN_ASIMI_COOLDOWN)
