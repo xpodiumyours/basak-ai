@@ -1,13 +1,8 @@
 """tools — Başak'ın tool modülleri.
 
-Her tool ayrı dosyada tanımlıdır:
-- definitions.py: JSON schema tool tanımları
-- web_search.py: DuckDuckGo araması
-- tasks.py: Görev yönetimi
-- notes.py: Not yönetimi
-
-TOOLS listesi ve calistir fonksiyonu buradan import edilir.
-Araçlar dinamically olarak tools/ klasöründeki *.py dosyalarıyla yüklenir.
+Araç şemaları definitions.py'de tutulur. Başak artık anahtar kelimeye göre
+araç saklamaz: tanımlı araçların tamamı modele sunulur, seçimi model yapar.
+İzin ve yazma onayı executor/chat katmanında uygulanmaya devam eder.
 """
 
 import importlib
@@ -16,36 +11,44 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from tools.definitions import TOOLS
+from tools import definitions as _definitions
 from tools.executor import calistir
+
+TOOLS = _definitions.TOOLS
+
+# chat/flow.py geriye uyum için bu sabitleri okumaya devam ediyor. Modül
+# tamamen yüklendikten sonra hepsini aynı tam araç setine eşitliyoruz.
+_ALL_TOOL_NAMES = {
+    t.get("function", {}).get("name")
+    for t in TOOLS
+    if t.get("function", {}).get("name")
+}
+_definitions.CORE_TOOL_NAMES = set(_ALL_TOOL_NAMES)
+_definitions.SMALL_CORE_TOOL_NAMES = set(_ALL_TOOL_NAMES)
+_definitions.EXTENDED_TETIKLERI = {}
 
 __all__ = ["TOOLS", "calistir", "TOOL_MODULES", "FUNCTION_NAME_MAP"]
 
-# --- Dinamik tool yükleme başlatı ---
 TOOL_MODULES = {}
-FUNCTION_NAME_MAP = {}  # function_name -> execute function mapping
+FUNCTION_NAME_MAP = {}
 
 
 def initialize_tools():
-    """tools/ klasöründeki tüm modülleri dinamik yükle."""
+    """tools/ klasöründeki çalıştırılabilir araçları dinamik yükle."""
     global TOOL_MODULES, FUNCTION_NAME_MAP
     TOOL_MODULES = {}
     FUNCTION_NAME_MAP = {}
     package = __import__('tools')
-    for importer, modname, ispkg in pkgutil.iter_modules(package.__path__):
+    for _importer, modname, _ispkg in pkgutil.iter_modules(package.__path__):
         try:
             mod = importlib.import_module(f'tools.{modname}')
-            # Modülden execute fonksiyonunu ve isim bul
             execute_fn = getattr(mod, 'execute', None)
             func_name = getattr(mod, 'FUNCTION_NAME', None)
-            # Eğer execute fn varsa ama NAME yoksa, mod adını kullan
             if execute_fn and not func_name:
                 func_name = modname
-            # Her iki durumdaFUNCTION_NAME_MAP'e ekle
             if execute_fn:
                 FUNCTION_NAME_MAP[func_name] = execute_fn
                 logger.info(f"Araç yüklendi: {modname} -> {func_name}")
-            # Ayrıca modüldeki tüm fonksiyonları da tanı
             for attr_name in dir(mod):
                 if attr_name.startswith('_'):
                     continue
@@ -56,5 +59,4 @@ def initialize_tools():
             logger.warning(f"Araç yüklenemedi: {modname} - {e}")
 
 
-# Uygulama başlatıldığında otomatik çalıştır
 initialize_tools()
