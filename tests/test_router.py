@@ -2,7 +2,7 @@
 
 Sağlayıcı seçimi kullanıcı mesajının türüne göre yapılmaz. Sıra sabittir;
 yalnız teknik uygunluk, araç desteği ve geçici cooldown etkiler. Ücretli
-sağlayıcı otomatik zincire giremez.
+veya maliyeti doğrulanmamış sağlayıcı otomatik zincire giremez.
 """
 
 import os
@@ -17,8 +17,9 @@ from tools.permissions import ETIKETLER, izinli_mi
 class TestRegistry:
     def test_bilinmeyen_saglayici_guvenli_kart(self):
         k = registry.kart("hayali-saglayici")
-        assert k["ucretsiz"] is True
-        assert "not" in k
+        assert k["ucretsiz"] is False
+        assert k["tools"] is False
+        assert registry.ucretli_mi("hayali-saglayici") is True
 
     def test_ucretli_kartlar_taninir(self):
         assert registry.ucretli_mi("deepseek") is True
