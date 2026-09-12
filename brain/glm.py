@@ -1,8 +1,9 @@
 """brain/glm.py — GLM bulut entegrasyonu (Z.ai resmi platformu).
 
 OpenAI-uyumlu uç: https://api.z.ai/api/paas/v4/
-Model: ücretsiz GLM Flash. Başak modelin düşünme ve çıktı bütçesini zorla
-kapatmaz; sağlayıcının/modelin doğal varsayılanları kullanılır.
+Varsayılan model resmî fiyat tablosunda giriş/çıkışı ücretsiz olan
+GLM-4.7-Flash'tır. Başak düşünme veya çıktı bütçesini zorla kapatmaz.
+Z.AI'nin ücretli built-in web araması bu adaptörde açılmaz.
 """
 
 import json
@@ -16,8 +17,8 @@ from brain.kullanim import kullanim_ekle
 
 BASE_URL = "https://api.z.ai/api/paas/v4/"
 MODELLER = {
-    "hizli": "glm-4.5-flash",
-    "varsayilan": "glm-4.5-flash",
+    "hizli": "glm-4.7-flash",
+    "varsayilan": "glm-4.7-flash",
 }
 
 
