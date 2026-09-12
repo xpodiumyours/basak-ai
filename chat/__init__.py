@@ -1,117 +1,80 @@
-"""chat — Sohbet ve tool calling paketi.
+"""chat — sohbet ve tool-calling paketi.
 
-Strangler Fig gecis asamasinda: bu __init__.py eski _chat_legacy.py'deki
-tum public sembolleri yeniden export eder. Mevcut `import chat` /
-`from chat import mesaj_isle` gibi tum import'lar aynen calismaya devam eder.
-
-Yeni moduller kademeli olarak buradan export edilecek:
-  - chat.approval  → onay sistemi
-  - chat.gate      → cikis kapilari + dil kontrolu
-  - chat.context   → knowledge + hafiza + gecmis
-  - chat.tools     → tool calling dongusu
-  - chat.flow      → ana akis orkestrasyonu
+Yeni akış chat.flow üzerinden çalışır; legacy semboller geriye uyumluluk için
+korunur. Tam kapasite modunda eski orkestra/jüri/gölge katmanı ana yola
+giremez ve konuşma geçmişi 4000 karaktere zorla kesilmez.
 """
 
-# ── Backward compatibility: eski chat.py'deki her seyi export et ──────
-
-# mesaj_isle: chat.flow'dan al (yeni versiyon)
 from chat.flow import mesaj_isle_yeni as mesaj_isle  # noqa: F401
-# Prompt blokları: circular import önlemi için ayrı modülde
 from chat.prompts import TOOL_YONLENDIRME, OLCU_YONLENDIRME  # noqa: F401
 
 from _chat_legacy import (  # noqa: F401, F403
-    # Onay sistemi
-    onay_bekle,
-    onay_ver,
-    _onay_kuyrugu,
-    _onay_kararlari,
-    _onay_lock,
-    # Gecmis
+    onay_bekle, onay_ver, _onay_kuyrugu, _onay_kararlari, _onay_lock,
     _gecmis_pencere,
-    # Hafiza
-    _hafiza,
-    _hafiza_lock,
-    _hafiza_al,
-    # Tool etiketleri
-    TOOL_LABELS,
-    _TOOL_KELIMELERI,
-    _TOOL_KELIMELERI,
-    # Dinamik araclar
-    _dinamik_araclar,
-    _dosya_islemi_sinyali,
-    _tool_gerekli_mi,
-    _OLCUM_TOOLLARI,
-    _ARAC_AILESI,
-    _EK_TETIKLER,
-    _DOSYA_OKUMA,
-    _YOL_DESENI,
-    _DIS_PROJE_ADLARI,
-    # Dil kontrolu
-    _dil_kontrol,
-    _ingilizce_sizinti_mi,
-    _ING_KELIMELER,
-    _TR_KELIMELER,
-    # Knowledge
-    _load_knowledge,
-    _knowledge_cache,
-    _knowledge_lock,
+    _hafiza, _hafiza_lock, _hafiza_al,
+    TOOL_LABELS, _TOOL_KELIMELERI,
+    _dinamik_araclar, _dosya_islemi_sinyali, _tool_gerekli_mi,
+    _OLCUM_TOOLLARI, _ARAC_AILESI, _EK_TETIKLER, _DOSYA_OKUMA,
+    _YOL_DESENI, _DIS_PROJE_ADLARI,
+    _dil_kontrol, _ingilizce_sizinti_mi, _ING_KELIMELER, _TR_KELIMELER,
+    _load_knowledge, _knowledge_cache, _knowledge_lock,
     KNOWLEDGE_EMBED_CHARS,
-    # Sozlesme
-    _SOZLESME_MODU,
-    _yapi_kwargi,
-    _kapidan_gecir,
-    # Onem
-    _onem_puanla,
-    _ONEM_KELIMELERI,
-    _ONEM_YAZMA_ARACLARI,
-    # Ana akis (mesaj_isle artik chat.flow'dan gelir)
+    _SOZLESME_MODU, _yapi_kwargi, _kapidan_gecir,
+    _onem_puanla, _ONEM_KELIMELERI, _ONEM_YAZMA_ARACLARI,
     mesaj_isle_orkestra,
-    _tool_calling_multi,
-    _tool_argumani_duzelt,
-    _temizle,
-    _temizle_history,
-    _sonucu_donustur,
-    _parse_args,
-    _save_and_reply,
-    # Raw tool call parser
-    _ham_tool_call_ayir,
-    # Legacy tools
-    _ham_tool_call_ayir,
-    _raw_tool_call_var_mi,
-    _TANINMIS_TOOLLAR,
-    _RAW_TOOL_CALL_RE,
-    _RAW_ARG_RE,
-    # Dosya yollari ve sabitler
-    BASE,
-    HISTORY_FILE,
-    SETTINGS_FILE,
-    KNOWLEDGE_DIR,
-    OBSIDIAN_DIR,
-    DEFTER_DIR,
-    KNOWLEDGE_MAX_CHARS,
-    GOREVLER_FILE,
-    MAX_HISTORY,
-    GECMIS_KILO_LIMITI,
-    TUR_SINIRI,
-    OTURUM_ID,
-    # Yukle/kaydet
-    yukle,
-    kaydet,
-    # J
-    _j,
-    # Init
-    init_cache,
-    # Golge mod
-    golge_mod_aktif_mi,
-    golge_kos,
-    _benzerlik,
-    # Orkestra
-    orkestra_aktif_mi,
-    juri_acik_mi,
-    orkestra_bilesenleri,
-    _JURI_MAX,
-    # Hafiza
-    _hafiza_hazirla,
-    _gecmisi_aktar,
-    _ilgili_anilar,
+    _tool_calling_multi, _tool_argumani_duzelt, _temizle,
+    _temizle_history, _sonucu_donustur, _parse_args, _save_and_reply,
+    _ham_tool_call_ayir, _raw_tool_call_var_mi, _TANINMIS_TOOLLAR,
+    _RAW_TOOL_CALL_RE, _RAW_ARG_RE,
+    BASE, HISTORY_FILE, SETTINGS_FILE, KNOWLEDGE_DIR, OBSIDIAN_DIR,
+    DEFTER_DIR, KNOWLEDGE_MAX_CHARS, GOREVLER_FILE,
+    MAX_HISTORY, GECMIS_KILO_LIMITI, TUR_SINIRI, OTURUM_ID,
+    yukle, kaydet, _j, init_cache,
+    golge_mod_aktif_mi, golge_kos, _benzerlik,
+    orkestra_aktif_mi, juri_acik_mi, orkestra_bilesenleri, _JURI_MAX,
+    _hafiza_hazirla, _gecmisi_aktar, _ilgili_anilar,
 )
+
+# ── Tam kapasite uyumluluk yamaları ─────────────────────────────────
+# chat.flow bağımlılıkları çağrı anında _chat_legacy'den aldığı için burada
+# yapılan atamalar yeni ana akışa doğrudan uygulanır.
+import _chat_legacy as _legacy
+
+GECMIS_KILO_LIMITI = 60000
+MAX_HISTORY = 40
+
+
+def _tam_gecmis_pencere(gecmis, limit=GECMIS_KILO_LIMITI,
+                        adet_siniri=MAX_HISTORY):
+    """Son konuşmayı geniş pencereyle, mesajları bölmeden modele taşı."""
+    secilen = []
+    toplam = 0
+    for m in reversed(gecmis or []):
+        uzunluk = len(m.get("content") or "")
+        if secilen and toplam + uzunluk > limit:
+            break
+        secilen.append(m)
+        toplam += uzunluk
+        if len(secilen) >= adet_siniri:
+            break
+    secilen.reverse()
+    return secilen
+
+
+_gecmis_pencere = _tam_gecmis_pencere
+_legacy._gecmis_pencere = _tam_gecmis_pencere
+_legacy.GECMIS_KILO_LIMITI = GECMIS_KILO_LIMITI
+_legacy.MAX_HISTORY = MAX_HISTORY
+
+# Eski meta-zeka yolları modelin doğal yeteneklerinin önüne geçmesin ve
+# ücretsiz kotayı gölge/jüri çağrılarıyla tüketmesin.
+def _kapali():
+    return False
+
+
+orkestra_aktif_mi = _kapali
+golge_mod_aktif_mi = _kapali
+juri_acik_mi = _kapali
+_legacy.orkestra_aktif_mi = _kapali
+_legacy.golge_mod_aktif_mi = _kapali
+_legacy.juri_acik_mi = _kapali
