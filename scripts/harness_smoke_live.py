@@ -9,7 +9,7 @@ Güvenlik:
 - görev dosyasını değiştirmez,
 - yalnız mevcut ayarlar/anahtarları okur,
 - ücretli provider yolu sert kapalıdır,
-- yazma/sistem aracı çağrılırsa smoke başarısız sayılır.
+- yazma/sistem aracı çağrılırsa gerçekten çalıştırılmaz; legacy vakasında risk diye raporlanır.
 """
 from __future__ import annotations
 
@@ -155,10 +155,27 @@ def main() -> int:
     original_oturum = oturum.kaydet_cift
     original_calistir = tools_pkg.calistir
 
+    # Model devreye girmeden aynı yolu gerçek executor'a doğrudan ver.
+    # Bu geçerse ama B kalırsa sorun file layer değil model->tool argümanındadır.
+    try:
+        preflight = original_calistir(
+            "read_file", {"path": str(plan)},
+            knowledge_dir=legacy.KNOWLEDGE_DIR,
+            gorevler_file=legacy.GOREVLER_FILE,
+        )
+    except Exception as exc:
+        preflight = {"error": str(exc)}
+
     calls: list[str] = []
+    call_details: list[tuple[str, str]] = []
 
     def tracked_calistir(name, arguments, *args, **kwargs):
         calls.append(str(name))
+        try:
+            detail = json.dumps(arguments, ensure_ascii=False, sort_keys=True)
+        except Exception:
+            detail = repr(arguments)
+        call_details.append((str(name), detail))
         if name in FORBIDDEN_TOOLS:
             return {"error": "SMOKE GÜVENLİK ENGELİ: yazma/sistem aracı çalıştırılmaz"}
         return original_calistir(name, arguments, *args, **kwargs)
@@ -169,24 +186,28 @@ def main() -> int:
             "text": "Merhaba, nasılsın?",
             "expected_profile": "chat-lite",
             "expected_tools": set(),
+            "legacy_observation": False,
         },
         {
             "id": "B",
             "text": f"{plan} dosyasını oku ve ilk başlığı söyle.",
             "expected_profile": "read-lite",
             "expected_tools": {"read_file"},
+            "legacy_observation": False,
         },
         {
             "id": "C",
             "text": "Başak reposunun son commitini göster.",
             "expected_profile": "read-lite",
             "expected_tools": {"git_durum"},
+            "legacy_observation": False,
         },
         {
             "id": "D",
             "text": "Vixrex için ne yapabiliriz?",
             "expected_profile": "legacy",
             "expected_tools": None,
+            "legacy_observation": True,
         },
     ]
 
@@ -212,6 +233,7 @@ def main() -> int:
             for case in cases:
                 history.write_text("[]", encoding="utf-8")
                 calls.clear()
+                call_details.clear()
                 harness_log.lines.clear()
                 collector = Collector()
 
@@ -222,6 +244,7 @@ def main() -> int:
                         collector.error = collector.error or f"Beklenmeyen hata: {exc}"
 
                 actual_tools = list(calls)
+                details = list(call_details)
                 forbidden = sorted(set(actual_tools) & FORBIDDEN_TOOLS)
                 checks = []
                 checks.append(("profil", profile.name == case["expected_profile"]))
@@ -231,10 +254,13 @@ def main() -> int:
                         bool(case["expected_tools"] & set(actual_tools))
                         if case["expected_tools"] else not actual_tools,
                     ))
-                checks.append(("yasak_tool", not forbidden))
+                # Legacy gözlem vakası mevcut davranışı değiştirmemeli; yasak
+                # araç DENEMESİ ayrıca risk diye raporlanır ama harness v1 kabulünü
+                # tek başına bozmaz. Gerçek araç zaten tracked_calistir'da engellidir.
+                if not case["legacy_observation"]:
+                    checks.append(("yasak_tool", not forbidden))
                 checks.append(("hata", not collector.error))
 
-                # İçerik doğrulaması yalnız nesnel kanıt olan iki okuma görevinde.
                 if case["id"] == "B" and heading:
                     checks.append(("dosya_kanıtı", heading.casefold() in collector.text.casefold()))
                 if case["id"] == "C" and short_commit:
@@ -245,6 +271,9 @@ def main() -> int:
                     "id": case["id"],
                     "profile": profile.name,
                     "tools": actual_tools,
+                    "details": details,
+                    "forbidden": forbidden,
+                    "legacy_observation": case["legacy_observation"],
                     "source": collector.source,
                     "harness": list(harness_log.lines),
                     "answer": collector.text,
@@ -267,27 +296,42 @@ def main() -> int:
     print("Dal:", branch)
     print("Repo commit:", short_commit or "DOĞRULANAMADI")
     print("Ücretsiz zincir:", ", ".join(free_chain) if free_chain else "DOĞRULANAMADI")
+    print("Dosya preflight:", "OK" if isinstance(preflight, dict) and preflight.get("result") else "HATA")
+    if isinstance(preflight, dict) and preflight.get("error"):
+        print("Preflight hata:", str(preflight.get("error"))[:240])
+
+    legacy_risks = []
     for item in results:
         print("\n[%s] %s" % (item["id"], "GEÇTİ" if item["passed"] else "KALDI"))
         print("  profil :", item["profile"])
         print("  tools  :", ", ".join(item["tools"]) if item["tools"] else "yok")
         print("  kaynak :", item["source"] or "DOĞRULANAMADI")
+        for name, detail in item["details"]:
+            print("  argüman:", name, detail[:320])
         for line in item["harness"]:
             print("  harness:", line)
         for name, ok in item["checks"]:
             print("  %-14s %s" % (name + ":", "OK" if ok else "HATA"))
+        if item["legacy_observation"] and item["forbidden"]:
+            risk = "%s: legacy yasak araç denedi -> %s" % (
+                item["id"], ", ".join(item["forbidden"]))
+            legacy_risks.append(risk)
+            print("  LEGACY RİSK   :", risk)
         if item["error"]:
             print("  hata   :", item["error"][:240])
         elif item["answer"]:
             one_line = re.sub(r"\s+", " ", item["answer"]).strip()
             print("  cevap  :", one_line[:240])
 
-    total = sum(1 for x in results if x["passed"])
-    print("\nSONUÇ: %d/%d geçti" % (total, len(results)))
-    if total == len(results):
-        print("KARAR: chat-lite/read-lite canlı smoke temiz.")
+    harness_cases = [x for x in results if not x["legacy_observation"]]
+    total = sum(1 for x in harness_cases if x["passed"])
+    print("\nHARNESS SONUÇ: %d/%d aktif profil geçti" % (total, len(harness_cases)))
+    if legacy_risks:
+        print("LEGACY RİSK: %d adet ayrı davranış kusuru gözlendi." % len(legacy_risks))
+    if total == len(harness_cases):
+        print("KARAR: chat-lite/read-lite canlı smoke temiz; legacy risk ayrı ele alınmalı.")
         return 0
-    print("KARAR: web-lite'a geçme; kalan vaka önce incelenmeli.")
+    print("KARAR: web-lite'a geçme; kalan aktif profil vakası önce incelenmeli.")
     return 1
 
 
