@@ -13,6 +13,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
+import json
 import logging
 import re
 
@@ -53,6 +54,7 @@ _FILE_RE = re.compile(
     re.IGNORECASE,
 )
 _SMALL_LLAMA_RE = re.compile(r"llama[^\n]*(?:3b|7b|8b)", re.IGNORECASE)
+_PROJECT_KEYS = {"basak", "vixrex", "numeramatch", "xses"}
 
 
 def _has(text: str, phrases) -> bool:
@@ -189,6 +191,21 @@ def _tool_name(schema: dict) -> str:
         return ""
 
 
+def _read_lite_tool_result_instruction(content: str) -> str:
+    """Ortak tool-loop'un genel özet komutunu read-lite için daraltır."""
+    if not content.startswith("Araç sonuçları:\n"):
+        return content
+    prefix = content.split("\n\nŞimdi bu sonuçları", 1)[0]
+    return (
+        prefix +
+        "\n\nKullanıcının bu turdaki İLK talebini yalnız yukarıdaki araç "
+        "kanıtına dayanarak yerine getir. Kullanıcı belirli bir başlık, değer, "
+        "commit, dosya bilgisi veya satır istediyse yalnız onu doğrudan ver. "
+        "Genel özet çıkarma, yorum ekleme, tahmin yapma. İstenen bilgi araç "
+        "kanıtında yoksa 'doğrulanamadı' de."
+    )
+
+
 def _compact_system_messages(messages: list[dict], profile: TaskProfile,
                              note: str = "") -> list[dict]:
     if not profile.active or not profile.compact_context:
@@ -217,6 +234,9 @@ def _compact_system_messages(messages: list[dict], profile: TaskProfile,
                 marker = "\nCEVAP BiCiMi:"
                 if marker in content:
                     content = content.split(marker, 1)[0].rstrip()
+
+        if profile.name == "read-lite" and role == "user":
+            content = _read_lite_tool_result_instruction(content)
 
         if content:
             out.append({**message, "content": content})
@@ -266,6 +286,71 @@ def prepare_stream(messages: list[dict], model_id: str | None,
     return prepared, profile.stream_allowed, spec
 
 
+def _normalize_project_key(value) -> str:
+    raw = str(value or "").strip().casefold()
+    raw = raw.translate(str.maketrans({
+        "ı": "i", "ş": "s", "ğ": "g", "ü": "u", "ö": "o", "ç": "c",
+    }))
+    return raw if raw in _PROJECT_KEYS else str(value or "").strip()
+
+
+def _normalize_read_lite_tool_calls(result: dict, profile: TaskProfile) -> dict:
+    """Yalnız read-lite model çıktısındaki dar tool-argüman hatalarını düzeltir."""
+    if profile.name != "read-lite" or not isinstance(result, dict):
+        return result
+    calls = result.get("tool_calls")
+    if not isinstance(calls, list):
+        return result
+
+    changed = False
+    normalized_calls = []
+    allowed = set(profile.tool_names)
+
+    for call in calls:
+        if not isinstance(call, dict):
+            normalized_calls.append(call)
+            continue
+        func = call.get("function")
+        if not isinstance(func, dict):
+            normalized_calls.append(call)
+            continue
+        name = str(func.get("name") or "")
+        if name not in allowed:
+            normalized_calls.append(call)
+            continue
+
+        raw_args = func.get("arguments", "{}")
+        try:
+            args = json.loads(raw_args) if isinstance(raw_args, str) else dict(raw_args or {})
+        except (json.JSONDecodeError, TypeError, ValueError):
+            normalized_calls.append(call)
+            continue
+
+        # Küçük modeller bazen şemanın "properties" düğümünü gerçek argüman
+        # sanıp bir katman fazla üretir: {"properties":{"proje":"Başak"}}.
+        if set(args.keys()) == {"properties"} and isinstance(args.get("properties"), dict):
+            args = dict(args["properties"])
+            changed = True
+
+        if name in {"git_durum", "belge_ara", "dosya_bilgi"} and "proje" in args:
+            normalized = _normalize_project_key(args.get("proje"))
+            if normalized != args.get("proje"):
+                args["proje"] = normalized
+                changed = True
+
+        new_func = dict(func)
+        new_func["arguments"] = json.dumps(args, ensure_ascii=False)
+        new_call = dict(call)
+        new_call["function"] = new_func
+        normalized_calls.append(new_call)
+
+    if not changed:
+        return result
+    out = dict(result)
+    out["tool_calls"] = normalized_calls
+    return out
+
+
 class HarnessProviderProxy:
     """Bulut provider client'ını model-family harness ile saran şeffaf proxy."""
 
@@ -280,6 +365,7 @@ class HarnessProviderProxy:
         # `model` imzada açık tutulur: Brain._tek_cagri Groq override desteğini
         # inspect.signature ile keşfediyor. Proxy bu sözleşmeyi gizlememeli.
         model_id = model or getattr(self._harness_inner, "model", None)
+        profile = current_profile()
         prepared_messages, prepared_tools, spec = prepare_call(
             messages, tools, self._harness_provider, model_id
         )
@@ -295,9 +381,10 @@ class HarnessProviderProxy:
             call_kwargs["model"] = model
         if yapi is not None:
             call_kwargs["yapi"] = yapi
-        return self._harness_inner.cevapla(
+        result = self._harness_inner.cevapla(
             prepared_messages, tools=prepared_tools, **call_kwargs
         )
+        return _normalize_read_lite_tool_calls(result, profile)
 
 
 def wrap_provider(provider: str, client):
