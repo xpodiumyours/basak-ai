@@ -1,20 +1,22 @@
 """brain/kapasite.py — Model kapasite sinifi.
 
-Ucretsiz/kucuk modeller agir muhakeme katmanlarindan (zorunlu tool
-dayatmasi, her mesajda embedding/hafiza aramasi, uzun tool dongusu)
+Ucretsiz/kucuk modeller agir muhakeme katmanlarindan (her mesajda
+embedding/hafiza aramasi, genis tool kisa listesi, uzun tool dongusu)
 muaf tutulur; guclu modellerde katmanlar acik kalir.
 
-Oncelik: ayarlar.json 'gate_modu' (sikı/gevsek) > kaynak/model deseniinden
-cikarim. 'otomatik' ise mevcut saglayici havuzuna bakilir: havuzda guclu
-bir bulut saglayici (groq/glm/gemini/...) varsa guclu, yalniz kucuk/yerel
-varsa kucuk sayilir.
+2026-09-12 (P4): karar ARTIK provider havuzundan cikarilmaz.
+Sira: gate_modu > acik aile > model_adi (aile cozucuyle) > tek kaynak
+pini > tekduze-kucuk havuz > varsayilan (guclu — kilitli davranis).
 
-Kullanim:
-    from brain.kapasite import mod_kapasite
-    kap = mod_kapasite(kaynaklar=["groq", "ollama"])
-    if kap.kucuk:
-        ... hafif yollar ...
+Havuzda guclu saglayici olmasi turu guclu saydirmaz: fiilen secilecek
+model bilinmiyorsa varsayilan gecerlidir; flow.py bilinen ilk adayın
+ailesini ayrıca verir (yaklasik on-secim).
 """
+
+import json
+import os
+
+from brain.model_family import coz as _aile_coz
 
 import json
 import os
@@ -22,16 +24,25 @@ import os
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 
-# Guclu sayilan bulut saglayicilari (buyuk/free-70b sinifi)
-GUCLU_KAYNAK = {"groq", "glm", "gemini", "deepseek", "cohere",
-                 "openrouter", "cloudflare"}
-# Kucuk/yerel saglayicilar
-KUCUK_KAYNAK = {"ollama", "nvidia", "kilo", "qwen", "yerel"}
+# Aileye gore guc: P3 cozucunun etiketleri. Bilinmeyen aile ASLA
+# buraya yazilmaz — varsayilana (guclu) duser (kilitli davranis).
+GUCLU_AILE = frozenset((
+    "gpt-oss", "llama", "gemini-flash", "gemini-pro", "gemini",
+    "command-a", "command-r", "nemotron", "glm", "glm-flash",
+    "deepseek", "kimi",
+))
+KUCUK_AILE = frozenset((
+    "llama-small", "gemini-flash-lite", "qwen", "phi", "kilo-auto",
+))
 
-GUCLU_MODEL = ("70b", "llama-3.3", "llama-3.1-70b", "llama-3-70b",
-               "gemini-1.5-pro", "gemini-2", "gpt-", "claude")
-KUCUK_MODEL = ("3b", "1.5b", "0.5b", "nemotron", "qwen", "llama-3.2",
-               "llama3.2", "8b", "7b", "9b", "deepseek-r1-distill")
+# Tek kaynak pinleri (model bilinmiyorsa guvenli varsayim).
+# 2026-09-12: cloudflare gucluden CIKARILDI (varsayilan 3B sinifi),
+# openrouter iki setten de cikarildi (dinamik :free), nvidia kucukte
+# KALDI (ucretsiz hatta kucuk/hizli varsayim guvenlidir; aile biliniyorsa
+# aile gecerlidir).
+GUCLU_KAYNAK = {"groq", "glm", "gemini", "deepseek", "cohere"}
+KUCUK_KAYNAK = {"ollama", "yerel", "kilo", "qwen", "nvidia",
+                "cloudflare"}
 
 
 class Kapasite:
@@ -55,13 +66,18 @@ def _mod():
         return "otomatik"
 
 
-def mod_kapasite(model_adi=None, kaynak=None, kaynaklar=None):
-    """model_adi / kaynak / kaynaklar -> Kapasite.
+def mod_kapasite(model_adi=None, kaynak=None, kaynaklar=None,
+                 aile=None):
+    """Kapasite karari: gate_modu > aile > model_adi > kaynak > havuz.
 
-    gate_modu='sikı' -> her zaman guclu; 'gevsek' -> her zaman kucuk.
-    'otomatik': kaynak veya model adi deseninden; yoksa mevcut kaynaklar
-    havuzuna bakilir (guclu saglayici varsa guclu). Belirsizlikte guclu
-    (mevcut davranis korunur).
+    aile: model_family.coz() etiketi (örn. "llama-small"). Verildiyse
+        tek başına karar verir (unknown → varsayilana duser).
+    model_adi: aile cozucuyle siniflanir (alt-dizgi tuzagi yok).
+    kaynak: tek provider pini (guvenli varsayim).
+    kaynaklar: havuz YALNIZCA tekduze-kucukse kucuk saydirir; karisik
+        veya bilinmeyen havuz varsayilana duser (havuzdaki guclu uye
+        turu guclu yapmaz — P4 duzeltmesi).
+    Belirsizlikte guclu (kilitli davranis korunur).
     """
     mod = _mod()
     if mod == "sikı" or mod == "siki":
@@ -69,23 +85,33 @@ def mod_kapasite(model_adi=None, kaynak=None, kaynaklar=None):
     if mod == "gevsek" or mod == "gevsek":
         return Kapasite(False, mod)
 
-    aranan = " ".join(str(x) for x in (kaynak, model_adi) if x).lower()
-    if any(p in aranan for p in GUCLU_MODEL):
-        return Kapasite(True, mod)
-    if any(p in aranan for p in KUCUK_MODEL):
-        return Kapasite(False, mod)
+    if aile:
+        if aile in KUCUK_AILE:
+            return Kapasite(False, mod)
+        if aile in GUCLU_AILE:
+            return Kapasite(True, mod)
+        # unknown/dinamik-disi aile → varsayilana dus
 
-    # kaynak adi dogrudan kucuk/guclu havuzunda mi?
+    if model_adi:
+        cozulen = _aile_coz(kaynak, model_adi)
+        if cozulen in KUCUK_AILE:
+            return Kapasite(False, mod)
+        if cozulen in GUCLU_AILE:
+            return Kapasite(True, mod)
+        # cozulemedi → asagidaki kurallara dus
+
+    # kaynak adi dogrudan kucuk/guclu pininde mi?
     if kaynak:
         if kaynak in GUCLU_KAYNAK:
             return Kapasite(True, mod)
         if kaynak in KUCUK_KAYNAK:
             return Kapasite(False, mod)
 
+    # Havuz: yalniz TEKDUZE-kucukse kucuk; karisik/bilinmeyen varsayilan.
     if kaynaklar:
-        if any(k in GUCLU_KAYNAK for k in kaynaklar):
-            return Kapasite(True, mod)
-        return Kapasite(False, mod)
+        havuz = [str(k).lower() for k in kaynaklar]
+        if havuz and all(k in KUCUK_KAYNAK for k in havuz):
+            return Kapasite(False, mod)
 
     # Belirsizlik: mevcut davranisi koru (agir katmanlar acik)
     return Kapasite(True, mod)

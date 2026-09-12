@@ -118,7 +118,31 @@ def mesaj_isle_yeni(text, brain, system_prompt, js_callback, tools):
     gecmis = _temizle_history(raw_gecmis)
 
     mevcut_kaynaklar = [ad for ad, _ in brain._bulut_zinciri()] if hasattr(brain, "_bulut_zinciri") else []
-    kap = mod_kapasite(kaynaklar=mevcut_kaynaklar, model_adi=model)
+    # P4 (2026-09-12): kapasite, havuzdan degil ilk adayın ailesinden.
+    # secici saf/agizdir — ucuz on-secim; brain ici gercek secim
+    # cooldown/karneyle az farkli olabilir (yaklasiktir, guvenlidir).
+    _aile = None
+    try:
+        import random as _rnd
+        from brain import secici as _secici
+        from brain.model_family import coz as _aile_coz
+        _modeller = {ad: getattr(ist, "model", "")
+                     for ad, ist in brain._bulut_zinciri()}
+        # RNG-notr on-secim: secici genel turda karistirma yapar; uretim
+        # akisinin rastgelelik durumunu degistirmemek icin sakla/geri yukle.
+        _rng = _rnd.getstate()
+        try:
+            _onsec, _ = _secici.sec(text, tools=bool(tools),
+                                    mevcutlar=mevcut_kaynaklar)
+        finally:
+            _rnd.setstate(_rng)
+        if _onsec:
+            _aile = _aile_coz(_onsec[0], _modeller.get(_onsec[0], ""))
+    except Exception as e:
+        logger.warning("Aile on-secimi atlandi: %s", e)
+        _aile = None
+    kap = mod_kapasite(kaynaklar=mevcut_kaynaklar, model_adi=model,
+                       aile=_aile)
 
     # 2026-08-26: Prompt zinciri sadelestirildi.
     # System prompt (KISILIK) + tool/bicimlendirme yonnergeleri.
