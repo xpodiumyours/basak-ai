@@ -8,15 +8,18 @@ Başak — tamamen yerel çalışan, ücretsiz, Türkçe konuşan kişisel Jarvi
 
 **19 Ağustos 2026'da başladı, tek günlük iş.** `git` bugün kuruldu — öncesinde hiç versiyon geçmişi yoktu, ilk commit'ten öncesi kurtarılamaz.
 
-## 1. Kilitli hedef
+## 1. Kilitli hedef (2026-09-12 Casper kararı — ANA-PLAN.md §1 ile birlikte okunur)
 
-Kişisel, tamamen yerel/ücretsiz çalışan bir Jarvis: sesli + yazılı konuşabilen, Casper'ı tanıyan, **kendi notlarını (`knowledge/`) okuyup kullanabilen**, bilgisayarda arka planda güvenilir çalışan bir asistan. Bulut (Groq) sadece yerel model yetmediğinde devrede — sürekli internet/abonelik bağımlılığı hedef değil.
+1. **Modeli geliştirme; modelleri kullan.** Groq, GLM, Cloudflare, OpenRouter, Kilo, Gemini vb. hazır yetenekleri olduğu gibi alınır; modelin doğal akışına (işaret dili dayatması, zorunlu ölçüm akışı, çıkış kapısı grameri) dokunulmaz.
+2. **Geliştirdiğimiz iki şey:** (a) modeller arası **kesintisiz ücretsiz kullanım katmanı** (tek arayüz/zincir: sırala → dene → düşerse sıradakine geç), (b) **kişisel bağlam katmanı** (Casper'ı tanıyan, projeleri bilen, müşteri/para odağına hizmet eden ince katman — ANA-PLAN.md §5.4: görev gerektirmiyorsa 0, gerekiyorsa en fazla 0-3 kısa gerçek).
+3. **Ekstra araçlar modeli zorlamaz.** Web araması, görev, not, dosya/ölçüm araçları yetenek olarak sunulur (`tool_choice=auto` — kararı model verir); güvenlik kodda kalır (izin katmanı + executor), promptta değil.
+4. **Korunur:** Ollama yerel son çare, ses (TTS/STT), Telegram, tray. Kişisel, tamamen yerel/ücretsiz çalışan bir Jarvis: sesli + yazılı konuşabilen, Casper'ı tanıyan, **kendi notlarını (`knowledge/`) okuyup kullanabilen**, bilgisayarda arka planda güvenilir çalışan bir asistan. Bulut zinciri ücretsiz kotalar içinde kesintisiz akar.
 
 ## 1.1. Sonraki özellikler
 
-**GEÇERLİ PLAN TEK DOSYADIR: `ANA-PLAN.md` (2026-08-25 sürümü).** Sıra, kabul ölçüsü ve "bugün neredeyiz" oradan okunur. Yeni plan belgesi açılmaz.
+**GEÇERLİ PLAN TEK DOSYADIR: `ANA-PLAN.md` (2026-09-12 kilitli sürüm).** Sıra, kabul ölçüsü ve "bugün neredeyiz" oradan okunur. Yeni plan belgesi açılmaz.
 
-`GOREV_LISTESI.md`, `ANAPLAN-SONRASI-PROFESYONEL-MIMARI.md`, `Resmidökümanuyum.md`, `BASAK-VIZYON-VE-YOL-HARITASI.md` 2026-08-25'te `_arsiv/eski-planlar-2026-08-25/` altına taşındı. Bu dosyanın ilerleyen bölümlerinde onlara yapılan atıflar **tarihî kayıttır**, yürürlükteki plan değildir. Sırası gelen bir madde arşivden çıkarılıp `ANA-PLAN.md`'e işlenir.
+`GOREV_LISTESI.md`, `ANAPLAN-SONRASI-PROFESYONEL-MIMARI.md`, `Resmidökümanuyum.md`, `BASAK-VIZYON-VE-YOL-HARITASI.md`, `_arsiv/`, `defter/`, `ORTAK-DEFTER.md` bu repoda **yoktur** (2026-09-12 doğrulandı); bu dosyanın ilerleyen bölümlerinde onlara yapılan atıflar **ölü referanstır**, yürürlükteki plan değildir. Sıra ANA-PLAN.md §17 KİLİTLİ TODO'dan okunur.
 
 ## 2. Şu an neredeyiz / sıra
 
@@ -57,7 +60,7 @@ Kişisel, tamamen yerel/ücretsiz çalışan bir Jarvis: sesli + yazılı konuş
 35. **B1 TAMAMLANDI — SEÇİCİ KARNEYİ OKUYOR (2026-08-24, kanıtlı):** Kilitli hedefin ilk halkası: `secici.sec(karne_kullan=True)` son 72 saatte ≥5 çağrısı olup başarısı %50 altına düşen sağlayıcıyı gerekçesiyle SONA alır; terfi sonraki dilim. Üretimde `brain.cevapla` açar; varsayılan kapalı (geriye uyumlu). Kanıt: 6 yeni test (`tests/test_secici_karne.py`), 396/396 yeşil. Sonraki dilimler: B2 borç provaları + Kilo ölçümü, B3 kota.py gerçek token bütçesi.
 36. **B3 + DENEY-0 TAMAMLANDI (2026-08-24, kilitli plandan, kanıtlı):** **B3** — groq'un limiti registry'de gerçek bütçeye taşındı (`gunluk_token: 200000`, tahmini "80 istek" kalktı); `kota.engel_nedeni` bugünün gerçek token toplamını stats'tan sorup bütçe dolunca engeller; ölçüm hatası engel kurmaz (`stats.token_bugun` eklendi). **DENEY-0** — `tools/deney.py`: hipotez→kural (icerir/yok/esik_ust/esik_alt)→salt-okunur araç koşumu→desteklendi/elenmiş raporu; beyaz liste dışı araca çağrı HİÇ ulaşmaz (monkeypatch ile kanıtlı). Kanıt: 7+8 yeni test, 411/411 yeşil. Sırada: FAY-0..3 (saldırgan roller), DÜNYA-0, ORKESTRA-0.
 37. **FAY-0 TAMAMLANDI (2026-08-24, kilitli plandan, kanıtlı):** `tools/fay.py`: üç ölçen tanık (belge/git/dosya — AI üretmez, ölçer) → tek yerel modelle çarpıştırma → tek kart. Uydurma savunması kodda: modelin işaret ettiği tanık adları gerçek listede yoksa çatışma reddedilir (`_yanit_coz`); tanık başarısızsa sessizce düşer; ≥2 tanık olmadan çarpıştırma yapılmaz. Canlı kanıt: gerçek vixrex deposunda kart üretildi (git tanığı: dal `fix/v50-sharedpreferences-localstorage`, commit `a93e34e`). Kabulün son halkası Casper'ın git doğrulamasıdır. Kanıt: 10 yeni test (`tests/test_fay0.py`), 421/421 yeşil.
-8. Bunun ötesi (otomatik başlatma, sistem tepsisi, başka entegrasyonlar) — Casper istemeden ajan kendi kafasına göre eklemez. Kapsamı o büyütür. Sıradaki büyük işler `GOREV_LISTESI.md`'deki P1-P7 fazlarında.
+8. Bunun ötesi (otomatik başlatma, sistem tepsisi, başka entegrasyonlar) — Casper istemeden ajan kendi kafasına göre eklemez. Kapsamı o büyütür. Sıradaki işler `ANA-PLAN.md` §17 KİLİTLİ TODO'dadır (`GOREV_LISTESI.md` dosyası repoda yoktur).
 
 ## 3. Doğal dil çevirme kuralı
 
