@@ -5,9 +5,10 @@ Buradaki araçların HEPSİ salt-okunur. Yazma, uygulama açma, görev/not
 yönetimi yok — onlar araçtan çok bakım işi doğuruyordu ve etraflarına
 onay katmanı gerektiriyordu.
 
-Altı araç, üç iş:
+Sekiz araç, dört iş:
   internet  → web_search, sayfa_oku
   bilgisayar→ read_file, list_files, git_durum
+  belge     → belge_ara, dosya_bilgi
   görme     → image_analyze
 """
 
@@ -96,6 +97,44 @@ GIT_DURUM = {
     },
 }
 
+BELGE_ARA = {
+    "type": "function",
+    "function": {
+        "name": "belge_ara",
+        "description": ("Bir projenin kokundeki Markdown belgelerinde "
+                        "satir ara. Projeler: basak, vixrex, numeramatch, xses."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "proje": {"type": "string",
+                          "description": "basak | vixrex | numeramatch | xses"},
+                "sorgu": {"type": "string",
+                          "description": "Belgelerde aranacak metin"},
+            },
+            "required": ["proje", "sorgu"],
+        },
+    },
+}
+
+DOSYA_BILGI = {
+    "type": "function",
+    "function": {
+        "name": "dosya_bilgi",
+        "description": ("Bir proje icindeki dosya veya klasorun varlik, "
+                        "boyut ve son degisim bilgisini olcer."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "proje": {"type": "string",
+                          "description": "basak | vixrex | numeramatch | xses"},
+                "yol": {"type": "string",
+                        "description": "Proje kokune gore dosya veya klasor yolu"},
+            },
+            "required": ["proje", "yol"],
+        },
+    },
+}
+
 GORUNTU_OKU = {
     "type": "function",
     "function": {
@@ -116,7 +155,7 @@ GORUNTU_OKU = {
 }
 
 TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
-         GORUNTU_OKU]
+         BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.
