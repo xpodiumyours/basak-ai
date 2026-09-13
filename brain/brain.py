@@ -61,7 +61,7 @@ _YAPI_DENEME = {}
 # QWEN BEKLEMEDE (2026-09-09, tam tespit): hesap etkinlesmesi
 # bitene kadar (403 hatasi) Qwen zincire KATILMAZ. Casper
 # etkinlestirince False yapilir, kart registry'de hazir bekler.
-_QWEN_BEKLEMEDE = True
+_QWEN_BEKLEMEDE = False
 
 # COOLDOWN: rate-limit (429) gelince provider gecici olarak atla
 import time as _time_mod

@@ -39,41 +39,8 @@ def _karne_ozetleri(mevcutlar):
 
 # Gorev turleri ve anahtar kelimeleri (2026-09-10: gunluk konusma
 # kaliplari eklendi — noktasiz/harf eksik yazimlar da yakalanir)
-_GOREV_KELIMELERI = {
-    "kod": ["kod", "python", "javascript", "fonksiyon", "hata",
-            "debug", "script", "regex", "yazılım", "yazilim", "programla",
-            "css", "html", "sql", "api", "algoritma"],
-    "arastirma": ["araştır", "arastir", "öğren", "ogren", "kaynak",
-                  "karşılaştır", "karsilastir", "nedir", "kimdir",
-                  "detaylı", "detayli", "incele", "fiyat", "kac para",
-                  "para", "musteri", "müşteri", "rakip", "pazar",
-                  "derinlemesine"],
-    "hiz": ["hızlı", "hizli", "çabuk", "cabuk", "acele", "anında",
-            "aninda", "şimdi", "simdi"],
-}
-
-# 2026-09-09 (tam tespit): olcum gercegine gore dizeildi.
-# GLM guvenilir (%68.8) + sinirsiz bedava; Cloudflare 0 hata;
-# Groq hizli ama dakikada 8000 kelime duvari var;
-# Cohere dusuk basarili (%38.1) — karne onu zaten sona atar, burada
-# arastirmada GLM one gecer; Gemini gunluk 20'de biter (yedek).
-_TERCİHLER = {
-    "kod": ["glm", "nvidia"],        # GLM guvenilir, NVIDIA yedek
-    "arastirma": ["glm", "cohere"],    # GLM guvenilir, Cohere yedek
-    "hiz": ["groq", "cloudflare"],    # Groq en hizli, Cloudflare yedek
-}
-
-# 2026-08-26: Tool calling'i iyi calisan modeller.
-# Bu modeller tool JSON'unu cozmede daha basarili.
-_TOOL_IYILERI = {"groq", "glm", "cloudflare", "cohere"}
-
-
 def siniflandir(text):
-    """Mesaji gorev turune ayirir: kod / arastirma / hiz / genel."""
-    t = (text or "").lower()
-    for tur, kelimeler in _GOREV_KELIMELERI.items():
-        if any(k in t for k in kelimeler):
-            return tur
+    """Kelimeye gore gorev turu ayirma KALDIRILDI (2026-09-13)."""
     return "genel"
 
 
@@ -121,15 +88,7 @@ def sec(text=None, gorev_tipi=None, tools=False, mevcutlar=None,
     # Gorev turune gore one alma
     gerekce = "genel sohbet → varsayilan sira"
     onecelenen = []
-    if tip in _TERCİHLER:
-        tercih = [a for a in _TERCİHLER[tip] if a in mevcutlar]
-        if tercih:
-            kalan = [a for a in mevcutlar if a not in tercih]
-            mevcutlar = tercih + kalan
-            onecelenen = tercih
-            gerekce = "%s isi → %s öne alındı" % (
-                tip, ", ".join(registry.kart(a)["ad"] for a in tercih))
-    elif tip == "genel" and len(mevcutlar) >= 3:
+    if tip == "genel" and len(mevcutlar) >= 3:
         # Genel sohbette ilk 3 saglayiciyi rastgele sirayla baslat.
         # Bu, tek saglayicinin token limitinin hici dolmasini onler.
         ilk_3 = mevcutlar[:3]

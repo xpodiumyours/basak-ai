@@ -28,39 +28,6 @@ IZINLI_KLASORLER = [
 
 # Windows klasör isim haritası — küçük model "belgeler" dediğinde
 # gerçek yola çevirir. Hem Türkçe hem İngilizce isimleri kapsar.
-KLASOR_HARITASI = {
-    # Türkçe isimler
-    "belgeler": "Documents",
-    "belge": "Documents",
-    "bilgeler": "Documents",   # Yaygın yazım hatası
-    "bilge": "Documents",
-    "masaustu": "Desktop",
-    "masaüstü": "Desktop",
-    "indirilenler": "Downloads",
-    "indirilen": "Downloads",
-    "indirme": "Downloads",
-    "resimler": "Pictures",
-    "resim": "Pictures",
-    "videolar": "Videos",
-    "video": "Videos",
-    "müzik": "Music",
-    "muzik": "Music",
-    "belgelerim": "Documents",
-    "indirilenlerim": "Downloads",
-    "resimlerim": "Pictures",
-    "videolarim": "Videos",
-    "klasör": None,  # Belirsiz — ev dizinine yönlendir
-    "klasor": None,
-    "dosyalar": "Documents",   # Yaygın alternatif
-    "dosya": "Documents",
-    # İngilizce isimler
-    "documents": "Documents",
-    "desktop": "Desktop",
-    "downloads": "Downloads",
-    "pictures": "Pictures",
-    "videos": "Videos",
-    "music": "Music",
-}
 
 # 2026-08-24: Casper'in bulgusu — Başak sadece knowledge/ ve research-engine/
 # görebiliyor, bilgisayarın diğer dosyaları erişime kapalı. Bu whitelist
@@ -156,30 +123,13 @@ def _dis_rel_yol(yol, ad):
 
 
 def _klasor_cevir(klasor_adi):
-    r"""Kullanicinin tanidigi klasor isimlerini gercek Windows yollarina cevirir.
+    """2026-09-13: kelime->klasor haritasi kaldirildi.
 
-    'belgeler' -> C:\Users\Casper\Documents
-    'masaustu' -> C:\Users\Casper\Desktop
-    'bilgisayarimda ki belgeler klasorunde kileri listele' -> Belgeler klasoru
-
-    Donus: (cozulmus_yol, orijinal_mi) -- orijinal_mi=True ise dokunulmamis.
+    Eskiden "belgeler", "masaustu" gibi kelimeler sabit bir tabloyla
+    Windows yollarina cevriliyordu; dosyanin kendi yorumu bunu "model
+    kucukse dogru yol uretemez" diye aciklıyordu. Artik yol neyse o
+    kullanilir; model tam yolu kendisi verir (list_files tam yol doner).
     """
-    if not klasor_adi:
-        return klasor_adi, True
-    temiz = klasor_adi.strip().lower()
-    # Tam eşleşme
-    if temiz in KLASOR_HARITASI:
-        hedef = KLASOR_HARITASI[temiz]
-        if hedef is None:
-            # Belirsiz "klasör" → ev dizini
-            return os.path.expanduser("~"), False
-        return os.path.join(os.path.expanduser("~"), hedef), False
-    # Kısmi eşleşme: "bilgisayarımdaki belgeler" içinde "belgeler" ara
-    for anahtar, hedef in KLASOR_HARITASI.items():
-        if anahtar in temiz:
-            if hedef is None:
-                return os.path.expanduser("~"), False
-            return os.path.join(os.path.expanduser("~"), hedef), False
     return klasor_adi, True
 
 

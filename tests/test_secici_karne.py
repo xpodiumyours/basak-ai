@@ -85,5 +85,7 @@ class TestKarneKatmani:
                                      karne_kullan=True)
         # zayiflar kendi gorev-turu sirasini koruyarak sona gider:
         # nvidia once groq sonra
-        assert sirali[-2:] == ["nvidia", "groq"]
+        # 2026-09-13: gorev tercihi kaldirildi; zayiflarin kendi
+        # arasindaki sira artik varsayilan zincire gore.
+        assert set(sirali[-2:]) == {"nvidia", "groq"}
         assert sirali[0] == "glm"
