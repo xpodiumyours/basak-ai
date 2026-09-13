@@ -213,6 +213,10 @@ def calistir(tool_name, args):
         if tool_name == "hesapla":
             from tools import hesap
             return hesap.hesapla(str(args.get("ifade", "")))
+
+        if tool_name == "hafiza_ara":
+            from tools import hafiza
+            return hafiza.hafiza_ara(str(args.get("sorgu", "")))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

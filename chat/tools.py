@@ -50,6 +50,7 @@ DURUM_METNI = {
     "satir_duzenle": "Satır düzeltiliyor",
     "simdi": "Saat okunuyor",
     "hesapla": "Hesaplanıyor",
+    "hafiza_ara": "Hafızada aranıyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.

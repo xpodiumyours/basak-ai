@@ -287,6 +287,13 @@ HESAPLA = _arac(
     ["ifade"],
 )
 
+HAFIZA_ARA = _arac(
+    "hafiza_ara",
+    "Hafizada derin arama yapar. Doner: en ilgili kayitlarin tamami.",
+    {"sorgu": {"type": "string", "description": "Aranacak konu"}},
+    ["sorgu"],
+)
+
 MATRIS_DURUM = _arac(
     "matris_durum",
     "Agac + skor, tamami.",
@@ -318,7 +325,7 @@ TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          MATRIS_AC, MATRIS_LISTE, SATIR_EKLE, KANIT_EKLE,
          SATIR_KAPAT, SATIR_AC, SATIR_SIL, SATIR_TASI,
          MATRIS_DURUM, GORSEL_URET, SAGLIK_RAPORU, SATIR_DUZENLE,
-         SIMDI, HESAPLA]
+         SIMDI, HESAPLA, HAFIZA_ARA]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.
