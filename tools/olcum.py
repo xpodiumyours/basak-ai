@@ -47,7 +47,7 @@ def _kok(proje):
 def _hata_beyaz_liste(proje):
     adlar = ", ".join(sorted(PROJELER))
     return {"error": "Bilinmeyen proje: '%s'. Beyaz liste: %s"
-                     % ((proje or "")[:40], adlar)}
+                     % ((proje or ""), adlar)}
 
 
 def _git(proje, argv, limit=_MAX_CIKTI):
@@ -97,9 +97,7 @@ def git_durum(proje):
             satirlar.append("Commit edilmemis dosya: 0 (temiz)")
         else:
             satirlar.append("Commit edilmemis dosya: %d" % len(kirliler))
-            satirlar.extend(kirliler[:10])
-            if len(kirliler) > 10:
-                satirlar.append("(10 / %d dosya gosteriliyor)" % len(kirliler))
+            satirlar.extend(kirliler)
     return {"result": "\n".join(satirlar)}
 
 
@@ -130,7 +128,7 @@ def belge_ara(proje, sorgu):
                 for i, satir in enumerate(f, 1):
                     if q in _norm(satir):
                         bulgular.append("%s:%d: %s"
-                                        % (ad, i, satir.strip()[:160]))
+                                        % (ad, i, satir.strip()))
                         if len(bulgular) >= _MAX_ESLESME:
                             break
         except OSError:
@@ -140,7 +138,7 @@ def belge_ara(proje, sorgu):
 
     if not bulgular:
         return {"error": "Belgelerde bulunamadi: '%s'"
-                         % (sorgu or "")[:60]}
+                         % (sorgu or "")}
     return {"result": "\n".join(bulgular)}
 
 
@@ -155,7 +153,7 @@ def dosya_bilgi(proje, yol):
     tam = os.path.realpath(os.path.join(kok, rel))
     kok_gercek = os.path.realpath(kok)
     if not (tam == kok_gercek or tam.startswith(kok_gercek + os.sep)):
-        return {"error": "Yol proje disina tasiyor: %s" % rel[:60]}
+        return {"error": "Yol proje disina tasiyor: %s" % rel}
     if os.path.isdir(tam):
         try:
             n = len(os.listdir(tam))

@@ -77,7 +77,7 @@ def _aktif_koy(sid):
 
 def _baslik(metin):
     metin = re_temizle(metin)
-    return (metin[:40] + "…") if len(metin) > 40 else (metin or "Sohbet")
+    return metin or "Sohbet"
 
 
 def re_temizle(metin):

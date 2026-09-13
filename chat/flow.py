@@ -112,7 +112,7 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci):
         {"role": "user", "content": text, "oturum": ctx.OTURUM_ID},
         {"role": "assistant", "content": cevap, "oturum": ctx.OTURUM_ID},
     ]
-    ctx.kaydet(ctx.HISTORY_FILE, gecmis[-40:])
+    ctx.kaydet(ctx.HISTORY_FILE, gecmis)
 
     try:
         from chat import oturum
@@ -217,7 +217,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
                 "Cok fazla istek, biraz bekle") + ")")
         else:
             js_callback("BasakUI.error(" + _j(
-                "Beyin hatasi: " + hata[:150]) + ")")
+                "Beyin hatasi: " + hata) + ")")
         return
 
     # ── Araç turu ───────────────────────────────────────────────────

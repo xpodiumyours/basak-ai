@@ -81,7 +81,7 @@ def _temizle(text):
 
 # E-2: Sayfa okuma aracı — yalnizca GET, 5000 karakter siniri
 _MAX_SAYFA = 200000
-_MAX_HAM = 2 * 1024 * 1024  # Ham HTML ust siniri (2 MB)
+_MAX_HAM = 50 * 1024 * 1024  # Ham HTML ust siniri (50 MB)
 
 # SSRF korumasi (2026-08-24, Casper'in bulgusu): string tabanli "localhost"
 # aramasi 127.0.0.2, [::1], onluk IP, ozel aglar ve ic IP'ye cozunen
@@ -125,7 +125,7 @@ def _guvenli_adres(url):
     engel = _engelli_ip_nedeni(k.hostname)
     if engel:
         return ("Guvenlik engeli: adres ic/ağ adresine cozuldu (%s)"
-                % engel[:40])
+                % engel)
     return None
 
 
@@ -135,7 +135,7 @@ class _GuvenliYonlendirme(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         engel = _guvenli_adres(newurl)
         if engel:
-            logger.warning("Yonlendirme engellendi: %s", engel[:80])
+            logger.warning("Yonlendirme engellendi: %s", engel)
             return None   # None = takip etme -> HTTPError firlar
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
@@ -192,7 +192,7 @@ def sayfa_oku(url: str) -> dict:
             if "text/html" not in content_type and \
                "text/plain" not in content_type:
                 return {"error": "Desteklenen icerik tipi degil: %s"
-                                 % content_type[:50]}
+                                 % content_type}
 
             ham = resp.read(_MAX_HAM).decode(
                 "utf-8", errors="replace")
@@ -236,9 +236,9 @@ def sayfa_oku(url: str) -> dict:
         return {"result": temiz}
 
     except urllib.error.HTTPError as e:
-        return {"error": "HTTP hatasi %d: %s" % (e.code, url[:60])}
+        return {"error": "HTTP hatasi %d: %s" % (e.code, url)}
     except urllib.error.URLError as e:
-        return {"error": "Baglanti hatasi: %s" % str(e.reason)[:80]}
+        return {"error": "Baglanti hatasi: %s" % str(e.reason)}
     except Exception as e:
         logger.error("Sayfa okuma hatasi: %s", e)
-        return {"error": "Sayfa okunamadi: %s" % str(e)[:80]}
+        return {"error": "Sayfa okunamadi: %s" % str(e)}

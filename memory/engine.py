@@ -27,14 +27,14 @@ OLLAMA_URL = "http://127.0.0.1:11434"
 EMBED_MODEL = "nomic-embed-text:latest"
 EMBED_DIM = 768
 
-PARCA_BOYUTU = 700
+PARCA_BOYUTU = 4000
 VEKTOR_KAPALI = "vektor_kapali"
 
 # Sohbet hafizasinin satir tavani (2026-08-24, Casper'in buldugu bosluk:
 # "hafiza temizlendi" gercekte temizlemiyordu; ayrica DB sinirsiz buyuyordu).
 # En eskiler otomatik budanir — dosyalardan turetilen semantic kayitlar
 # (knowledge/defter/obsidian) bu sinira girmez.
-EPISODIK_LIMIT = 1000
+EPISODIK_LIMIT = 100000000
 
 
 def _vec_yukle(conn):
@@ -245,7 +245,7 @@ class HafizaMotoru:
         konusmaci = speaker or "Kullanıcı"
         metin = (
             "%s (%s): %s\nBaşak: %s"
-            % (konusmaci, tarih, (soru or "").strip()[:1000], (cevap or "").strip()[:1000])
+            % (konusmaci, tarih, (soru or "").strip(), (cevap or "").strip())
         )
         var_mi = self.conn.execute(
             "SELECT 1 FROM memories WHERE kind='episodic' AND text=? LIMIT 1",
@@ -386,7 +386,7 @@ class HafizaMotoru:
         try:
             r = requests.post(
                 f"{OLLAMA_URL}/api/embeddings",
-                json={"model": EMBED_MODEL, "prompt": metin[:2000]},
+                json={"model": EMBED_MODEL, "prompt": metin},
                 timeout=(5, 30),
             )
             r.raise_for_status()

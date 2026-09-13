@@ -100,7 +100,7 @@ class CohereClient:
             resp = self.client.chat(**kwargs)
         except Exception as e:
             # Cohere hata formatini OpenAI uyumlu cevir
-            raise RuntimeError("Cohere API hatasi: %s" % str(e)[:200]) from e
+            raise RuntimeError("Cohere API hatasi: %s" % str(e)) from e
 
         # Yaniti OpenAI formatinda don
         if not resp.message:

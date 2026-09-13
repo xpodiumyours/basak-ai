@@ -69,6 +69,6 @@ def calistir(tool_name, args):
                 str(args.get("soru", "") or "") or None)
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
-        return {"error": "Arac calismadi: %s" % str(e)[:150]}
+        return {"error": "Arac calismadi: %s" % str(e)}
 
     return {"error": "'%s' calistirilamadi." % tool_name}

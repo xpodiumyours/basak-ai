@@ -98,7 +98,7 @@ class Api:
             # hata.log'dan kok sebep okunsun.
             logger.exception("Sohbet hatti patladi")
             try:
-                self._js("BasakUI.error(" + self._j("Beklenmeyen hata: " + str(e)[:200]) + ")")
+                self._js("BasakUI.error(" + self._j("Beklenmeyen hata: " + str(e)) + ")")
             except Exception:
                 pass
             return
@@ -115,7 +115,7 @@ class Api:
                 # "Konusmuyor" sikayetinin sebebi buydu — kullaniciya yazilir.
                 try:
                     self._js("BasakUI.error(" + self._j(
-                        "Sesli okuma hatasi: " + str(e)[:150]) + ")")
+                        "Sesli okuma hatasi: " + str(e)) + ")")
                 except Exception:
                     pass
 

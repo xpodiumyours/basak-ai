@@ -82,7 +82,7 @@ class GroqClient:
                 raise
             logger.warning(
                 "groq aracsız turda tool_call üretti (%s) — "
-                "metin-nudge ile tek tekrar", str(e)[:120])
+                "metin-nudge ile tek tekrar", str(e))
             kwargs = dict(kwargs)
             kwargs["messages"] = list(messages)
             resp = self.client.chat.completions.create(**kwargs)

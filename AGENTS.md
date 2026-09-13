@@ -22,6 +22,50 @@ Araçlar modele **her mesajda** sunulur. Hangisini kullanacağına **model karar
 
 **Modele talimat bloğu eklenmez.** `chat/prompts.py` içinde yalnız kimlik bloğu vardır. Araç yönlendirmesi, dürüstlük ilkesi, cevap biçimi blokları 2026-09-13'te bilerek silindi; geri getirilmez.
 
+### GERİ GETİRİLMESİ KESİNLİKLE YASAK
+
+Aşağıdakiler 2026-09-13'te tek tek ölçülerek söküldü. **Hiçbiri, hiçbir gerekçeyle geri gelmez.** Geri getiren iş reddedilir; "iyileştirme", "güvenlik", "kota", "küçük model şaşırmasın" gerekçelerinin hiçbiri geçerli değildir.
+
+**1. Kelimeye bakıp karar veren kod — her türü**
+- Araç açma/kapama tetikleyicileri (`_ARAC_ISARETLERI`, `_arac_gerek`)
+- Görev türü sınıflandırması (`_GOREV_KELIMELERI`) ve sağlayıcı öne alma tablosu
+- Klasör adı haritası ("belgeler" → Documents)
+- Hava durumu router'ı ve "şehir bulunamazsa İstanbul" varsayılanı
+- Profil çıkarımı regex'leri (ad, meslek, şehir, "hatırla")
+- Önem puanı kelime kuralı
+- "İngilizce sızıntı" kelime listesi
+
+**2. Modelin çıktısına dokunan kod**
+- `<think>` bloklarını silme
+- Emoji silme
+- Boş satır kısaltma
+- Cevaba "Kaynaklar:" gibi ek satır yapıştırma
+
+**3. Modele davranış dayatan metin**
+- Araç yönlendirme prompt bloğu
+- "Bilmiyorsan bakayım mı de", "tahmin etme sor", "emoji yok" türü talimat listeleri
+- Araç şemasının açıklamasına yazılan "şunu kullanma / şöyle cevapla" koçluğu
+- Araç sonucundan sonra modele gönderilen sahte kullanıcı mesajı ("şimdi özetle")
+- Groq'un araç hatasında eklediği "yalnız düz metinle yanıt ver" mesajı
+
+**4. Küçük/büyük model ayrımı**
+- `brain/kapasite.py` gibi model adına bakıp sınıflandıran kod
+- "Küçük modelde şunu atla" mantığı
+- Zincirde küçük modeli büyüğün önüne koymak
+
+**5. Modeli daraltan tavanlar**
+- Araç turu sınırı, son turda araçları kapatma
+- Araç sonucu / dosya / sayfa / arama sonucu kırpmaları
+- Geçmiş penceresi ve hafıza kırpması
+- Düşük `max_tokens`, kısa `timeout`
+- Sağlayıcının kendi yeteneğini kapatmak (GLM `thinking=disabled` gibi)
+- Arama sonucundan URL'leri silmek
+
+**6. Sağlayıcıyı elle kapatan bayraklar**
+- `_QWEN_BEKLEMEDE` gibi hard-coded engeller
+
+**Dokunulmaz istisna:** yol kara listesi (`.env`, `.pem`, `.key`, `ayarlar.json`, Windows sistem klasörleri) ve SSRF savunması. Bunlar modeli daraltmaz, sırrı korur.
+
 **Tarihçe (tekrarlanmasın diye):** 2026-09-13'te araçların etrafına sarılı kural katmanları söküldü (izin tablosu, onay kuyruğu, ölçü kapısı, orkestra, yetki tavanı). Sonra aynı hata kelime tetikleyicisi olarak geri geldi; gerekçesi ("küçük modeller şaşırır, akış kapanır") ölçülünce çürüdü — Groq/GLM/NVIDIA üçü de akışla birlikte araç kabul ediyor ve bulut zincirinde küçük model yok. Katman `85107b8` ile kaldırıldı.
 
 ## 1. Proje

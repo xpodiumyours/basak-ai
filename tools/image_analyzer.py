@@ -132,7 +132,7 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
 
     except Exception as e:
         logger.error("Görüntü analiz hatası: %s", e)
-        return {"error": str(e)[:200], "model": kullanilacak_model}
+        return {"error": str(e), "model": kullanilacak_model}
 
 
 def image_analyze_url(gorsel_url: str, soru: str = None,
@@ -185,4 +185,4 @@ def image_analyze_url(gorsel_url: str, soru: str = None,
         }
 
     except Exception as e:
-        return {"error": str(e)[:200], "model": kullanilacak_model}
+        return {"error": str(e), "model": kullanilacak_model}

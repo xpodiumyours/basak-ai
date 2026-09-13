@@ -188,5 +188,5 @@ class NvidiaClient:
             except Exception as e:
                 son_hata = e
                 logger.warning("NVIDIA %s hatasi, siradaki modele dusuluyor: %s",
-                               model_adi, str(e)[:120])
+                               model_adi, str(e))
         raise RuntimeError("NVIDIA tüm modeller başarısız") from son_hata

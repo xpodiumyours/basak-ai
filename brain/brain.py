@@ -303,7 +303,7 @@ class Brain:
                         _YAPI_DENEME[ad] = False
                         logger.warning(
                             "%s yapi'yi kabul etmedi (%s) — yapısız tek deneme",
-                            ad, str(e)[:120])
+                            ad, str(e))
                         yanit = self._tek_cagri(
                             istemci, ad, messages, tools, override_model, None)
                     else:
@@ -328,7 +328,7 @@ class Brain:
             except Exception as e:
                 sure = time.time() - t0
                 logger.warning("%s hatasi, siradaki deneniyor: %s", ad, e)
-                hatalar.append("%s: %s" % (ad, str(e)[:80]))
+                hatalar.append("%s: %s" % (ad, str(e)))
                 if _rate_limit_mi(e):
                     _cooldown_ekle(ad)
                     logger.info("%s rate-limit, cooldown baslatildi", ad)
@@ -339,8 +339,8 @@ class Brain:
                     logger.info("%s zaman asimi, %d sn cooldown", ad,
                                 _ZAMAN_ASIMI_COOLDOWN)
                 _audit("HATA kaynak=%s (%.1f sn): %s" %
-                       (ad, sure, str(e)[:100]))
-                istat.kaydet(ad, sure, basarili=False, hata=str(e)[:100], tools=bool(tools))
+                       (ad, sure, str(e)))
+                istat.kaydet(ad, sure, basarili=False, hata=str(e), tools=bool(tools))
 
         # Tum bulutlar dustu → yerel Ollama
         istat = model_stats_al()
@@ -357,9 +357,9 @@ class Brain:
             istat.kaydet("yerel", sure, basarili=True, tools=bool(tools))
             return yanit, "yerel"
         except Exception as e:
-            istat.kaydet("yerel", 0, basarili=False, hata=str(e)[:100], tools=bool(tools))
+            istat.kaydet("yerel", 0, basarili=False, hata=str(e), tools=bool(tools))
             detay = "; ".join(hatalar) if hatalar else str(e)
-            _audit("TAM BASARISIZLIK: %s" % detay[:150])
+            _audit("TAM BASARISIZLIK: %s" % detay)
             raise RuntimeError(f"Hicbir model calismadi ({detay})") from e
 
     def cevapla_yayin(self, messages, yerel_model, tercih=None,
@@ -425,14 +425,14 @@ class Brain:
             except _Arac:
                 raise
             except Exception as e:
-                hata = str(e)[:100]
+                hata = str(e)
                 # Akis ORTASINDA kopma: UI'da yari metin var, baska
                 # saglayiciyla devam ETME (metin ikilenir). Dogrudan hata.
                 if basladi:
-                    _audit("AKIS KOPTU kaynak=%s: %s" % (ad, hata[:80]))
+                    _audit("AKIS KOPTU kaynak=%s: %s" % (ad, hata))
                     raise SonHata("cevap yolda kesildi (%s)" % ad)
                 logger.warning("%s akis hatasi: %s", ad, hata)
-                hatalar.append("%s: %s" % (ad, hata[:60]))
+                hatalar.append("%s: %s" % (ad, hata))
                 if _rate_limit_mi(e):
                     _cooldown_ekle(ad)
                 elif _zaman_asimi_mi(e):
@@ -455,8 +455,8 @@ class Brain:
         except _Arac:
             raise
         except Exception as e:
-            hatalar.append("yerel: %s" % str(e)[:60])
+            hatalar.append("yerel: %s" % str(e))
 
         detay = "; ".join(hatalar) if hatalar else "bilinmeyen hata"
-        _audit("AKIS BASARISIZ: %s" % detay[:150])
+        _audit("AKIS BASARISIZ: %s" % detay)
         raise SonHata(detay)

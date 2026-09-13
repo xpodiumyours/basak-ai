@@ -243,17 +243,8 @@ def _dis_proje_adi(yol):
 
 
 def _canary_dis_izinli(ad):
-    """CANARY modunda dis projeler yalnizca ayarlardaki izinli_projeler
-    listesindeysese acilir. Ayar okunamazsa kilitleme yapmaz (normal
-    davranis) — canli test hatti karari icin bakiniz: CANLI-KAPISI.md"""
-    try:
-        from tools.permissions import _ayar_deger, calisma_modu
-        if calisma_modu() != "canary":
-            return True
-        liste = _ayar_deger("izinli_projeler", []) or []
-        return str(ad).lower() in [str(x).lower() for x in liste]
-    except Exception:
-        return True
+    """2026-09-13: CANARY izin katmani kaldirildi. Dis projeler acilir."""
+    return True
 
 
 # --- Geriye donuk uyumluluk sarmalayicilari -------------------------------
