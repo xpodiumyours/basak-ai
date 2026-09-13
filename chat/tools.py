@@ -1,21 +1,14 @@
-"""chat/tools.py — Araç çağırma döngüsü.
+"""chat/tools.py — Modelin istediği araç çağrılarını çalıştırır.
 
-2026-09-13: 21 araçlık döngü söküldükten sonra sadeleştirilmiş hâliyle
-geri geldi. Yazma/onay kuyruğu/kapasite hesabı gibi ayrı karar katmanları
-yoktur; modelin istediği tanınmış araç çalışır. Sabit dört tur yeter.
-
-Akış: model araç ister → kod çalıştırır → sonuç modele geri gider →
-model doğal Türkçe özet yazar. Modelin gördüğü sonuç kırpılır; tam
-sonuç kırpılmaz, yalnız isteğin şişmesi engellenir.
+Mimari kural: araç seçimine kod karar vermez. Modelin çağırdığı tanınmış
+araç çalıştırılır, gerçek araç sonucu role=tool olarak modele geri verilir.
+Sabit tur sayısı, araç-sonucu özet promptu ve son turda araç kapatma yoktur.
 """
 
 import json
 import logging
 
 logger = logging.getLogger(__name__)
-
-TUR_SINIRI = 4
-ARAC_SONUC_TAVAN = 4000   # modele giden kopyanin tavani
 
 DURUM_METNI = {
     "web_search": "İnternette aranıyor",
@@ -40,7 +33,6 @@ DURUM_METNI = {
     "image_analyze": "Görüntü inceleniyor",
 }
 
-# Durum satırında gösterilecek argüman — araca göre değişir.
 DURUM_ALANI = ("query", "url", "path", "folder", "proje", "sorgu",
                "islem", "uygulama", "text", "task_id")
 
@@ -80,15 +72,27 @@ def sonucu_donustur(sonuc):
 
 
 def _kaynak_satiri(cevap, kaynaklar):
-    """'Nereden buldun' satiri — Casper'in istegi (2026-09-10)."""
     if not kaynaklar or not cevap:
         return cevap
     return cevap + "\n\nKaynaklar: " + "; ".join(kaynaklar[:5])
 
 
+def _cagri_imzasi(tool_calls):
+    """Aynı tool-call paketinin sonsuz tekrarını teknik olarak yakalar.
+
+    Bu kontrol araç seçmez ve kullanıcı metnini yorumlamaz; yalnız aynı
+    model çıktısının birebir tekrar ederek sonsuz döngüye girmesini önler.
+    """
+    parcalar = []
+    for call in tool_calls or []:
+        func = call.get("function", {}) or {}
+        parcalar.append((func.get("name", ""), func.get("arguments", "{}")))
+    return repr(parcalar)
+
+
 def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
-                 calistir, tools=None, tur_siniri=TUR_SINIRI):
-    """Araç sonuçlarını modele geri vererek cevap ürettirir.
+                 calistir, tools=None):
+    """Model araç istediği sürece sonuçları geri vererek akışı sürdürür.
 
     Dönüş: (cevap_metni, calisan_arac_sayisi)
     """
@@ -98,77 +102,65 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     expanded = list(mesajlar)
     kaynaklar = []
     kosan = 0
-    tur_sonuclari = []
+    son_sonuclar = []
+    gorulen_cagri_paketleri = set()
 
-    for tur in range(tur_siniri):
-        tur_sonuclari = []
-        for call in tool_calls:
-            func = call.get("function", {})
+    while tool_calls:
+        imza = _cagri_imzasi(tool_calls)
+        if imza in gorulen_cagri_paketleri:
+            logger.warning("Ayni arac cagrisi tekrarlandi; sonsuz dongu durduruldu")
+            break
+        gorulen_cagri_paketleri.add(imza)
+
+        expanded.append({
+            "role": "assistant",
+            "content": "",
+            "tool_calls": tool_calls,
+        })
+
+        son_sonuclar = []
+        for i, call in enumerate(tool_calls):
+            func = call.get("function", {}) or {}
             ad = func.get("name", "")
             args = parse_args(func.get("arguments", "{}"))
+            call_id = call.get("id", "call_%d" % i)
 
-            # Model olmayan bir arac uydurursa sessizce atlanir.
             if ad not in TANINMIS_TOOLLAR:
-                logger.info("Bilinmeyen arac atlandi: %s", ad)
-                continue
+                net = "Hata: '%s' diye bir arac yok." % ad
+                logger.info("Bilinmeyen arac reddedildi: %s", ad)
+            else:
+                js_callback("BasakUI.toolStatus(" + _j(_durum(ad, args)) + ")")
+                net = sonucu_donustur(calistir(ad, args))
+                if not net.startswith("Hata:"):
+                    kosan += 1
+                    etiket = next((str(args[a]) for a in DURUM_ALANI
+                                   if args.get(a)), ad)[:60]
+                    if etiket not in kaynaklar:
+                        kaynaklar.append(etiket)
 
-            js_callback("BasakUI.toolStatus(" + _j(_durum(ad, args)) + ")")
-            net = sonucu_donustur(calistir(ad, args))
-            tur_sonuclari.append((ad, net))
-            if not net.startswith("Hata:"):
-                kosan += 1
-                etiket = next((str(args[a]) for a in DURUM_ALANI
-                               if args.get(a)), ad)[:60]
-                if etiket not in kaynaklar:
-                    kaynaklar.append(etiket)
-
-        if not tur_sonuclari:
-            break
-
-        expanded = expanded + [
-            {"role": "assistant", "content": "", "tool_calls": tool_calls}]
-        for i, (_ad, sonuc) in enumerate(tur_sonuclari):
-            kirpilmis = sonuc
-            if len(sonuc) > ARAC_SONUC_TAVAN:
-                kirpilmis = (sonuc[:ARAC_SONUC_TAVAN].rstrip()
-                             + "... [devami kirpildi]")
+            son_sonuclar.append((ad, net))
             expanded.append({
                 "role": "tool",
-                "tool_call_id": tool_calls[i].get("id", "call_%d" % i),
-                "content": kirpilmis,
+                "tool_call_id": call_id,
+                "content": net,
             })
 
-        ozet = "\n".join("%s: %s" % (ad, net[:800])
-                         for ad, net in tur_sonuclari)
-        # Son turda arac verilmez ki dongu kapansin.
-        sonraki = tools if tur < tur_siniri - 1 else None
-        expanded = expanded + [{
-            "role": "user",
-            "content": (
-                "Araç sonuçları:\n" + ozet +
-                "\n\nŞimdi bu sonuçları DOĞAL TÜRKÇE ile özetle. "
-                "Bulduğun somut bilgiyi (sayı, isim, tarih) yaz; "
-                "sonuçlarda olmayan şeyi UYDURMA. Yetersizse eksik "
-                "olduğunu söyle."
-            ),
-        }]
-
         try:
-            yanit, _kaynak = brain.cevapla(expanded, model, tools=sonraki)
+            yanit, _kaynak = brain.cevapla(expanded, model, tools=tools)
         except Exception as e:
             logger.warning("Arac turu sonrasi cevap alinamadi: %s", e)
             break
 
-        yeni = yanit.get("tool_calls")
+        yeni = yanit.get("tool_calls") if isinstance(yanit, dict) else None
         if yeni:
             tool_calls = yeni
             continue
 
-        cevap = temizle(yanit.get("content", ""))
+        cevap = temizle(
+            yanit.get("content", "") if isinstance(yanit, dict) else yanit)
         if cevap:
             return _kaynak_satiri(cevap, kaynaklar), kosan
         break
 
-    # Model özet üretmediyse ham sonuç kullanıcıya gitsin — boş ekran olmasın.
-    ham = "\n".join(net for _ad, net in tur_sonuclari if net)
+    ham = "\n".join(net for _ad, net in son_sonuclar if net)
     return ham, kosan
