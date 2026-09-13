@@ -3,13 +3,9 @@
 2026-09-13 (Casper kararı): ölçü kapısı, orkestra ve araçların etrafına
 sarılmış kural katmanları söküldü. Araçlar sade şema/dispatcher yapısında.
 
-İki yol var:
-
-    sohbet   → bağlam → zincir → kelime kelime akar → ekran
-    araçlı   → bağlam + araç şeması → zincir → araç koşar → özet → ekran
-
-Hangisi olacağına `_arac_gerek()` karar verir: araç şeması her isteğe
-girerse küçük modeller şaşırıyor ve akış kapanıyor.
+Araçlar varsa her turda modele sunulur. Hangi aracın gerekip gerekmediğine
+ve hangisinin kullanılacağına model karar verir; kelime/tetikleyici filtresi yoktur.
+Araç gerçekten çağrılırsa sonuç turu taze bağlamla yürür.
 
 Sağlayıcı sırası, kota takibi ve "limiti bitince diğerine geç" mantığı
 bu dosyada DEĞİL — `brain/` altında. Burası yalnız bağlamı kurar.
@@ -72,63 +68,17 @@ def _profil_isle(text, konusmaci):
         return "", ""
 
 
-# Araç sunmak bedava değil: şema modele gider, küçük modeller şaşırır
-# ve akan cevap kapanır. Bu yüzden araçlar HER mesajda değil, işaret
-# varsa açılır. Sohbet hızlı kalsın, araştırma isterken eli çalışsın.
-_ARAC_ISARETLERI = (
-    # internet
-    "araştır", "arastir", "ara bakalım", "ara bakalim", "internetten",
-    "güncel", "guncel", "son durum", "haber", "fiyat", "kaç para",
-    "kac para", "kaça", "kaca", "ne kadar", "rakip", "pazar",
-    "hedef kitle", "müşteri", "musteri", "trend", "piyasa", "kur",
-    "dolar", "euro", "hava durumu", "hava nasıl", "hava nasil",
-    "site", "sayfa", "link", "http://", "https://", "www.",
-    "ayakta mı", "ayakta mi", "açık mı", "acik mi",
-    "çalışıyor mu", "calisiyor mu", "404", "erişilebiliyor mu",
-    "erisilebiliyor mu",
-    # bilgisayar
-    "dosya", "klasör", "klasor", "belge", "masaüstü", "masaustu",
-    "indirilenler", "listele", "oku", "içinde ne", "icinde ne",
-    "diskimde", "bilgisayarımda", "bilgisayarimda",
-    "planda", "belgede", "dokümanda", "dokumanda", "notlarda",
-    "hangi dosyada", "yaz", "kaydet", "not al", "dosya oluştur",
-    "dosya olustur",
-    # hatırlatma ve görev
-    "hatırlat", "hatirlat", "ajanda", "bugün ne var", "bugun ne var",
-    "görev", "gorev", "yapılacak", "yapilacak", "tamamladım",
-    "tamamladim",
-    # uygulama
-    "aç", "ac", "başlat", "baslat", "çalıştır", "calistir",
-    # proje durumu / kod / GitHub / test
-    "vixrex", "numeramatch", "xses", "başak projesi", "basak projesi",
-    "commit", "dal ", "branch", "ne durumda", "durumu ne", "ne oldu",
-    "değişti", "degisti", "geçiyor mu", "geciyor mu",
-    "nerede yazıyor", "nerede yaziyor", "ara kodda", "pr",
-    "pull request", "ci", "birleşti mi", "birlesti mi",
-    "test geçti mi", "test gecti mi", "kontroller", "ne değişti",
-    "ne degisti", "son commitler", "geçmiş", "gecmis",
-    "kim değiştirdi", "kim degistirdi", "diff", "testleri koş",
-    "testleri kos", "testler geçiyor mu", "testler geciyor mu",
-    "test çalıştır", "test calistir",
-    # görme
-    "ekran görüntüsü", "ekran goruntusu", "görsel", "gorsel", "resim",
-    "fotoğraf", "fotograf", ".png", ".jpg", ".jpeg", "şu görüntü",
-    "su goruntu",
-)
+def _baglam_kur(text, system_prompt, konusmaci, araclar_var=False,
+                 taze_olcum=False):
+    """Modele gidecek mesaj listesini kurar.
 
-
-def _arac_gerek(text):
-    """Soru araç ister mi? (şema modele sunulsun mu)"""
-    t = (text or "").lower()
-    return any(k in t for k in _ARAC_ISARETLERI)
-
-
-def _baglam_kur(text, system_prompt, konusmaci, araclar_acik=False):
-    """Modele gidecek mesaj listesini kurar."""
+    Araç şemaları varsa araç yönlendirmesi her turda verilir. Taze ölçüm
+    yalnız model gerçekten araç çağırdıktan sonraki araç turunda açılır.
+    """
     profil_blogu, ogrenme_notu = _profil_isle(text, konusmaci)
 
     tam_prompt = system_prompt
-    if araclar_acik:
+    if araclar_var:
         tam_prompt += TOOL_YONLENDIRME
     tam_prompt += OLCU_YONLENDIRME + BIKIMLONDIRME_YONLENDIRME
     if konusmaci:
@@ -139,14 +89,9 @@ def _baglam_kur(text, system_prompt, konusmaci, araclar_acik=False):
         {"role": "system", "content": tam_prompt},
     ]
 
-    # Hafıza: soruyla ilgili anılar. knowledge/ notlarına erişim de bu
-    # yoldan olur — motor o klasörü indeksliyor.
-    #
-    # AMA ölçüm sorusunda hafıza KAPALI (2026-09-13, ölçülerek bulundu):
-    # "vixrex ne durumda" ikinci kez sorulduğunda model aracı koşturmak
-    # yerine dünkü cevabı hatırlayıp bugünmüş gibi veriyordu. Ölçülecek
-    # bir şey sorulduysa ölçülür; eski cevap dayanak değildir.
-    anilar = [] if araclar_acik else ctx.ilgili_anilar(text)
+    # Normal sohbette ilgili anılar korunur. Model gerçekten araç
+    # çağırdığında araç turu taze kurulur ve eski anılar dayanak olmaz.
+    anilar = [] if taze_olcum else ctx.ilgili_anilar(text)
     if anilar:
         blok = "\n".join("- %s" % a["text"][:300] for a in anilar[:5])
         mesajlar.append({"role": "system", "content": "Hafızadan:\n" + blok})
@@ -215,27 +160,17 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
         [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
          if m.get("role") != "system"])
 
-    arac_acik = bool(tools) and _arac_gerek(text)
-    mesajlar = _baglam_kur(text, system_prompt, konusmaci, arac_acik)
+    araclar_var = bool(tools)
+    mesajlar = _baglam_kur(
+        text, system_prompt, konusmaci, araclar_var=araclar_var)
+    mesajlar += ctx.gecmis_pencere(gecmis) + [
+        {"role": "user", "content": text}]
 
-    # Ölçüm sorusunda geçmişteki ESKİ CEVAPLAR bağlama girmez
-    # (2026-09-13, ölçüldü): "vixrex ne durumda" ikinci kez sorulunca
-    # model aracı koşturmak yerine önceki cevabı kopyalıyordu — dünkü
-    # dal adı bugünmüş gibi dönüyordu. Kendi soruları kalır ki
-    # "peki ya numeramatch" gibi devam cümleleri anlaşılsın.
-    pencere = ctx.gecmis_pencere(gecmis)
-    if arac_acik:
-        pencere = [m for m in pencere if m.get("role") == "user"][-3:]
-    mesajlar += pencere + [{"role": "user", "content": text}]
-
-    # ── Akan cevap ──────────────────────────────────────────────────
-    # Cevap kelime kelime gelsin ("dondu mu?" hissi olmasın). Akış
-    # açılamazsa tek seferlik yola düşülür.
+    # Araç yoksa kelime kelime akış korunur. Araçlar varsa modelin araç
+    # seçebilmesi için tek seferlik çağrıda tüm şemalar her turda sunulur.
     from brain.yayin import AracIstegi, SonHata
 
-    # Araç gerekiyorsa akış atlanır: akıştan araç çağrısı çıkamaz, yarım
-    # metin ekrana düşer. Araçlı tur tek seferliktir, sonra özet gelir.
-    yayin = None if arac_acik else getattr(brain, "cevapla_yayin", None)
+    yayin = None if araclar_var else getattr(brain, "cevapla_yayin", None)
     if yayin is not None:
         try:
             parcalar = []
@@ -253,16 +188,15 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
                 return
             logger.info("Akis bos dondu, tek seferlik yola dusuluyor")
         except AracIstegi:
-            logger.info("Model arac istedi (arac yok) — tek seferlik yol")
+            logger.info("Model arac istedi — tek seferlik yola dusuluyor")
         except SonHata as e:
             logger.info("Akis acilamadi (%s) — tek seferlik yol", e.ozet)
 
-    # ── Tek seferlik yol ────────────────────────────────────────────
-    # Akış hiç açılamadıysa buraya düşülür. Akış açılamadığı için
-    # sağlayıcıdan başarılı çağrı gerçekleşmedi — kota yenmedi.
+    # Tek seferlik çağrıda araçlar varsa tamamı modele sunulur. Model
+    # isterse araç çağırır, istemezse doğrudan normal yanıt verir.
     try:
         yanit, kaynak = brain.cevapla(
-            mesajlar, model, tools=(tools if arac_acik else None))
+            mesajlar, model, tools=(tools if araclar_var else None))
     except Exception as e:
         hata = str(e)
         if "429" in hata or "rate" in hata.lower():
@@ -273,15 +207,22 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
                 "Beyin hatasi: " + hata[:150]) + ")")
         return
 
-    # ── Araç turu ───────────────────────────────────────────────────
-    # Model araç istediyse kod çalıştırır, sonucu modele geri verir,
-    # model özetler. Beyaz liste dışı ad buraya kadar gelse bile koşmaz.
+    # Model araç istediyse araç turunu taze bağlamla yürüt: anıları alma,
+    # eski assistant cevaplarını çıkar. Kararı kelime listesi değil model verdi.
     tool_calls = yanit.get("tool_calls") if isinstance(yanit, dict) else None
     if tool_calls and tools:
         from chat.tools import arac_dongusu
         from tools import calistir
+
+        arac_mesajlar = _baglam_kur(
+            text, system_prompt, konusmaci,
+            araclar_var=True, taze_olcum=True)
+        pencere = [m for m in ctx.gecmis_pencere(gecmis)
+                   if m.get("role") == "user"][-3:]
+        arac_mesajlar += pencere + [{"role": "user", "content": text}]
+
         cevap, kosan = arac_dongusu(
-            tool_calls, mesajlar, brain, model, js_callback, calistir,
+            tool_calls, arac_mesajlar, brain, model, js_callback, calistir,
             tools=tools)
         cevap = _temizle(cevap)
         if cevap:
