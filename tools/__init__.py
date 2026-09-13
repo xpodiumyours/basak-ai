@@ -129,6 +129,10 @@ def calistir(tool_name, args):
             return olcum.git_degisenler(
                 str(args.get("proje", "")),
                 taban=str(args.get("taban", "") or "origin/master"))
+
+        if tool_name == "adres_kontrol":
+            from tools import web_search as ws
+            return ws.adres_kontrol(str(args.get("url", "")))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

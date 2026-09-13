@@ -202,11 +202,20 @@ GIT_DEGISENLER = _arac(
     ["proje"],
 )
 
+ADRES_KONTROL = _arac(
+    "adres_kontrol",
+    "Bir web adresinin canli durumunu olcer. Doner: HTTP durum kodu, "
+    "yanit suresi, son adres. Sayfa govdesi indirilmez. "
+    "Ic ag adresleri reddedilir.",
+    {"url": {"type": "string", "description": "Kontrol edilecek adres"}},
+    ["url"],
+)
+
 TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
          HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR,
          UYGULAMA_AC, ICERIK_ARA, GITHUB_DURUM,
-         GIT_GECMIS, GIT_DEGISENLER]
+         GIT_GECMIS, GIT_DEGISENLER, ADRES_KONTROL]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.
