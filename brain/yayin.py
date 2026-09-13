@@ -30,17 +30,24 @@ class SonHata(Exception):
         self.ozet = ozet
 
 
-def akit(openai_client, model, messages):
+def akit(openai_client, model, messages, tools=None):
     """OpenAI-uyumlu istemciden metin parcasi uretir (generator).
 
     Yields: str parcalar. Arac cagrisi gorurse AracIstegi firlatir.
+
+    2026-09-13: tools artik akisa da tasinir. Olculdu — groq, glm ve
+    nvidia ucu de stream=True ile birlikte tools kabul ediyor. Boylece
+    ARACI MODEL SECER: duz sohbette metin akitir, olcum gerekiyorsa
+    arac ister (AracIstegi). Kelime listesiyle tetikleme kalkti.
     """
+    ekstra = {"tools": tools} if tools else {}
     stream = openai_client.chat.completions.create(
         model=model,
         messages=messages,
         max_tokens=4096,
         stream=True,
         timeout=60,
+        **ekstra
     )
     for chunk in stream:
         try:

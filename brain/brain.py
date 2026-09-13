@@ -363,7 +363,7 @@ class Brain:
             raise RuntimeError(f"Hicbir model calismadi ({detay})") from e
 
     def cevapla_yayin(self, messages, yerel_model, tercih=None,
-                      gorev_tipi=None):
+                      gorev_tipi=None, tools=None):
         """Akan cevap uretir: yield (kaynak, parca).
 
         Aracsiz duz sohbet icindir (tools=None). Model arac isterse
@@ -393,7 +393,7 @@ class Brain:
                     break
             sirali, gerekce = _secici.sec(
                 text=soru, gorev_tipi=gorev_tipi,
-                tools=False, mevcutlar=mevcutlar,
+                tools=bool(tools), mevcutlar=mevcutlar,
                 karne_kullan=True, cooldown=_COOLDOWN)
 
         istemciler = dict(zincir)
@@ -415,7 +415,7 @@ class Brain:
                     model = getattr(istemci, "model", None)
                     if ham is None or not model:
                         continue
-                    uretici = akit(ham, model, messages)
+                    uretici = akit(ham, model, messages, tools=tools)
                 basladi = False  # akis ortasi kopma takibi
                 for parca in uretici:
                     basladi = True

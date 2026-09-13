@@ -101,7 +101,12 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
 
             js_callback("BasakUI.toolStatus(" + _j(_durum(ad, args)) + ")")
             net = sonucu_donustur(calistir(ad, args))
-            tur_sonuclari.append((ad, net))
+            # Çağrı kimliği sonuçla BİRLİKTE taşınır. Eskiden sonuçlar
+            # sırayla eşleştiriliyordu (tool_calls[i]); model tanımadığı
+            # bir araç isteyip o atlanınca dizi kayıyor ve sonuç YANLIŞ
+            # çağrıya bağlanıyordu.
+            tur_sonuclari.append(
+                (ad, net, call.get("id") or "call_%d" % len(tur_sonuclari)))
             if not net.startswith("Hata:"):
                 kosan += 1
                 etiket = next((str(args[a]) for a in DURUM_ALANI
@@ -112,33 +117,28 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
         if not tur_sonuclari:
             break
 
+        # Standart sıra (Groq/OpenAI belgeleri): kullanıcı → tool_calls
+        # taşıyan assistant → her çağrı için bir `tool` mesajı. Model
+        # sonucu görüp KENDİ karar verir: ya cevabı yazar ya yeni araç
+        # ister. Araya "şimdi şunu özetle" gibi sahte kullanıcı mesajı
+        # KONULMAZ — belgeler ek talimat gerekmediğini söylüyor ve o
+        # mesaj sonucu ikinci kez göndererek bağlamı da şişiriyordu.
         expanded = expanded + [
             {"role": "assistant", "content": "", "tool_calls": tool_calls}]
-        for i, (_ad, sonuc) in enumerate(tur_sonuclari):
+        for ad, sonuc, cagri_id in tur_sonuclari:
             kirpilmis = sonuc
             if len(sonuc) > ARAC_SONUC_TAVAN:
                 kirpilmis = (sonuc[:ARAC_SONUC_TAVAN].rstrip()
                              + "... [devami kirpildi]")
             expanded.append({
                 "role": "tool",
-                "tool_call_id": tool_calls[i].get("id", "call_%d" % i),
+                "tool_call_id": cagri_id,
+                "name": ad,          # Groq belgesi: name zorunlu
                 "content": kirpilmis,
             })
 
-        ozet = "\n".join("%s: %s" % (ad, net[:800])
-                         for ad, net in tur_sonuclari)
         # Son turda arac verilmez ki dongu kapansin.
         sonraki = tools if tur < tur_siniri - 1 else None
-        expanded = expanded + [{
-            "role": "user",
-            "content": (
-                "Araç sonuçları:\n" + ozet +
-                "\n\nŞimdi bu sonuçları DOĞAL TÜRKÇE ile özetle. "
-                "Bulduğun somut bilgiyi (sayı, isim, tarih) yaz; "
-                "sonuçlarda olmayan şeyi UYDURMA. Yetersizse eksik "
-                "olduğunu söyle."
-            ),
-        }]
 
         try:
             yanit, _kaynak = brain.cevapla(expanded, model, tools=sonraki)
@@ -157,5 +157,5 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
         break
 
     # Model özet üretmediyse ham sonuç kullanıcıya gitsin — boş ekran olmasın.
-    ham = "\n".join(net for _ad, net in tur_sonuclari if net)
+    ham = "\n".join(net for _ad, net, _id in tur_sonuclari if net)
     return ham, kosan

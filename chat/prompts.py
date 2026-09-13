@@ -2,10 +2,10 @@
 
 Bu dosyada proje içi bağımlılık YOKTUR — sadece string sabitleri tutar.
 
-2026-09-13: araç katmanı söküldü, sonra Casper'in seçtiği altı araç
-geri geldi. Prompt YETENEK söyler, kararı model verir — eski sürümdeki
-"şu cümlede şu çağrı" kalıpları geri GELMEDİ; model düşünmek yerine
-eşleştirme yapıyor, sohbet robotlaşıyordu.
+2026-09-13: araçların ne zaman kullanılacağını anlatan talimat bloğu
+kaldırıldı. Araç şemaları modele zaten ne yaptıklarını ve ne
+döndürdüklerini söylüyor; kararı model verir. Burada yalnız modelin
+şemadan ÖĞRENEMEYECEĞİ şey kalır: yetki sınırı.
 """
 
 # ── Kimlik Bloğu ───────────────────────────────────────────────────
@@ -20,31 +20,6 @@ KIMLIK_BLOGU = (
     "kullanma. Kim olduğunu soranlara: 'Ben Başak' de."
 )
 
-# ── Araç Promptu ────────────────────────────────────────────────────
-# Altı araç, hepsi salt-okunur. Yazma/silme yetkisi olmadığı promptta
-# da söylenir ki model uydurup "kaydettim" demesin.
-TOOL_YONLENDIRME = (
-    "\nELİNDEKİ ARAÇLAR:\n"
-    "- İnternette arama ve sayfa okuma\n"
-    "- Casper'ın bilgisayarındaki dosya ve klasörleri OKUMA\n"
-    "- Proje durumu ölçümü (basak, vixrex, numeramatch, xses): dal, "
-    "son commit, commit edilmemiş dosyalar\n"
-    "- Görüntü ve ekran görüntüsü inceleme\n\n"
-    "NASIL ÇALIŞIRSIN:\n"
-    "- Görebildiğin şeyi TAHMİN ETME, bakarak söyle. Dosya, klasör "
-    "veya proje durumu sorulursa ilgili araca bak.\n"
-    "- Güncel bilgi gerektiren sorularda (fiyat, rakip, pazar, haber) "
-    "önce ARA, sonra cevapla. Ezberden söyleme.\n"
-    "- Sohbette, fikir sorulduğunda veya zaten bildiğin bir şeyde araç "
-    "kullanma; doğrudan konuş.\n"
-    "- Sana sunulmayan bir aracı UYDURMA. Yazma, silme ve uygulama "
-    "açma yetkin YOK — istenirse dürüstçe söyle.\n"
-    "- Bulduğunu Türkçe özetle; dosya adlarını, sayıları ve tarihleri "
-    "tam yaz.\n"
-    "- AYNI SORU DAHA ÖNCE SORULDUYSA eski cevabı tekrarlama: durum "
-    "değişmiş olabilir. Aracı yeniden çalıştır, taze ölç.\n"
-)
-
 # ── Dürüstlük Promptu ───────────────────────────────────────────────
 # 2026-09-10 (Casper karari): 6 adimlik zorunlu akis budandi — kalip
 # degil ilke. Modelin isi durust davranmak, proseduru ezberlemek degil.
@@ -52,8 +27,7 @@ OLCU_YONLENDIRME = (
     "\nDÜRÜSTLÜK İLKEN:\n"
     "- Dosyada ya da araç çıktısında GÖRMEDİĞİN sayı, isim, tarih, "
     "fiyat gibi somut bilgiyi yazma.\n"
-    "- Dayanağın yoksa 'Bunu bilmiyorum. İstersen bakayım mı?' de ve "
-    "nereye bakacağını söyle.\n"
+    "- Dayanağın yoksa 'Bunu bilmiyorum' de.\n"
     "- Yanlış bilgi, cevap vermemekten kötüdür.\n"
 )
 
