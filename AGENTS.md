@@ -12,6 +12,21 @@ Başak — tamamen yerel çalışan, ücretsiz, Türkçe konuşan kişisel Jarvi
 
 Kişisel, tamamen yerel/ücretsiz çalışan bir Jarvis: sesli + yazılı konuşabilen, Casper'ı tanıyan, **kendi notlarını (`knowledge/`) okuyup kullanabilen**, bilgisayarda arka planda güvenilir çalışan bir asistan. Bulut (Groq) sadece yerel model yetmediğinde devrede — sürekli internet/abonelik bağımlılığı hedef değil.
 
+## 1.0. ÜST NORM — MODELLERİ CHATBOTA ÇEVİRMEK YASAK
+
+Bu kural diğer bütün eski plan, yorum, test ve tarihî kayıtlardan üstündür.
+
+- Ücretsiz/yerel modellerin doğal muhakeme ve tool-calling yeteneği korunur; model zekâsının yerine kural motoru yazılmaz.
+- Kullanıcı mesajındaki **kelime, ifade, regex, anahtar kelime, niyet etiketi veya örnek cümleye bakarak** araç açmak/kapatmak, araç seçmek, sağlayıcı/model seçmek, yetki seti daraltmak/genişletmek veya cevap akışı belirlemek **YASAKTIR**.
+- `_ARAC_ISARETLERI`, `_arac_gerek`, keyword router, intent router, regex-NLU, “şu kelime geçerse şu aracı/modeli kullan” türü mekanizmalar **YASAKTIR ve geri getirilemez**.
+- Araçlar modele tool/function şemalarıyla sunulur. **Hangi aracı kullanacağına, kullanıp kullanmayacağına ve araçtan sonra başka araca ihtiyaç olup olmadığına model karar verir.** Kod bu kararı kullanıcı kelimelerinden çıkarmaz.
+- Tool şemalarının açıklaması yalnız aracın **ne yaptığını ve parametrelerini** tarif eder; “şu durumda kullan”, “sohbette kullanma”, “önce bunu yap”, “bu kelimelerde çağır” gibi davranış dayatmaları yazılmaz.
+- Promptlarla modele araç seçimi dayatmak veya araç kullanmasını engellemek yasaktır. Modelin reasoning/thinking özelliği sırf akışı kontrol etmek için zorla kapatılmaz.
+- Sağlayıcı sürekliliği yalnız teknik uygunluk/erişilebilirlik ve gerçek hata/fallback için olabilir; **kullanıcı mesajını sınıflandırıp görev türüne göre sağlayıcı öne alma yasaktır**.
+- Güvenlik yalnız aracın gerçek dünyada ne yapabileceğinin sınırıdır: SSRF, gizli dosya/sır koruması, güvenli yol, sabit komut, `shell=False`, tanımlı araç beyaz listesi gibi yürütme sınırları korunur. Bu güvenlikler modelin hangi aracı seçeceğine karar veremez.
+- Bu dosyanın aşağısındaki eski tarihî kayıtlar keyword/tetikleyici/router/araç dayatması anlatıyorsa **yalnız tarihî kayıttır; yeniden uygulanamaz ve bu üst normu geçersiz kılamaz**.
+- Yeni bir özellik eklenirken “küçük model şaşırır”, “daha güvenli olur”, “daha disiplinli olur” gerekçesiyle modele kelime tabanlı karar katmanı eklemek yasaktır. Böyle bir ihtiyaç varsa araç şeması veya teknik yürütme sınırı düzeltilir; model davranışı chatbot mantığıyla yeniden yazılmaz.
+
 ## 1.1. Sonraki özellikler
 
 **GEÇERLİ PLAN TEK DOSYADIR: `ANA-PLAN.md` (2026-08-25 sürümü).** Sıra, kabul ölçüsü ve "bugün neredeyiz" oradan okunur. Yeni plan belgesi açılmaz.
