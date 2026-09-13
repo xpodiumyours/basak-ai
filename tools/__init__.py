@@ -1,4 +1,4 @@
-"""tools — Başak'ın araçları. Dokuz tane: sekizi salt-okunur, biri yazma.
+"""tools — Başak'ın araçları. On üç tane: sekizi salt-okunur, biri yazma.
 
 2026-09-13: 21 araçlık katman söküldü; Casper'in seçtikleri geri geldi.
 Yazma YALNIZ knowledge/ altinadir (write_knowledge dar sarmalayici) —
@@ -14,6 +14,8 @@ from tools.definitions import TOOLS, TANINMIS_TOOLLAR  # noqa: F401
 logger = logging.getLogger(__name__)
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
+GOREVLER_FILE = os.path.join(BASE, "gorevler.json")
 
 
 def calistir(tool_name, args):
@@ -71,6 +73,28 @@ def calistir(tool_name, args):
                 str(args.get("path", "")),
                 str(args.get("content", "") or ""),
                 BASE)
+
+        if tool_name == "get_reminders":
+            from tools import reminders
+            return reminders.bugunku_hatirlatmalar(
+                KNOWLEDGE_DIR, GOREVLER_FILE)
+
+        if tool_name == "add_task":
+            from tools import tasks
+            return tasks.add_task(
+                str(args.get("text", "")), GOREVLER_FILE)
+
+        if tool_name == "list_tasks":
+            from tools import tasks
+            return tasks.list_tasks(GOREVLER_FILE)
+
+        if tool_name == "complete_task":
+            from tools import tasks
+            try:
+                task_id = int(args.get("task_id", 0))
+            except (TypeError, ValueError):
+                return {"error": "Gorev no sayi olmali."}
+            return tasks.complete_task(task_id, GOREVLER_FILE)
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

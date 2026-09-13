@@ -6,7 +6,8 @@ cevapla") buraya YAZILMAZ — o, aracın etrafına sarılmış bir kural
 katmanıdır ve 2026-09-13'te bilerek söküldü. Hangi aracı seçeceğine
 model karar verir.
 
-Dokuz araç: sekizi salt-okunur, biri knowledge/ alti yazma.
+Dokuz + dort arac: sekizi salt-okunur, biri knowledge/ alti yazma,
+dordü hatirlatma/gorev (yerel JSON, ag yok).
 """
 
 
@@ -113,8 +114,38 @@ DOSYA_YAZ = _arac(
     ["path", "content"],
 )
 
+HATIRLATMA_OZET = _arac(
+    "get_reminders",
+    "Bugunku hatirlatmalari ve gorev ozetini doner: tarihli notlar, "
+    "bekleyen gorevler, karsilama metni.",
+    {},
+    [],
+)
+
+GOREV_EKLE = _arac(
+    "add_task",
+    "Gorev listesine yeni gorev ekler. Doner: eklenen gorev (no + metin).",
+    {"text": {"type": "string", "description": "Gorev aciklamasi"}},
+    ["text"],
+)
+
+GOREV_LISTELE = _arac(
+    "list_tasks",
+    "Gorev listesini doner: no, metin, durum, tarih.",
+    {},
+    [],
+)
+
+GOREV_BITIR = _arac(
+    "complete_task",
+    "Verilen nodaki gorevi tamamlandi isaretler. Doner: sonuc.",
+    {"task_id": {"type": "integer", "description": "Gorev no"}},
+    ["task_id"],
+)
+
 TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
-         BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ]
+         BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
+         HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

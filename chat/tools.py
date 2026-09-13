@@ -25,10 +25,15 @@ DURUM_METNI = {
     "dosya_bilgi": "Dosya bilgisi ölçülüyor",
     "image_analyze": "Görüntü inceleniyor",
     "write_file_tool": "Dosya yazılıyor",
+    "get_reminders": "Hatırlatmalar ölçülüyor",
+    "add_task": "Görev ekleniyor",
+    "list_tasks": "Görevler listeleniyor",
+    "complete_task": "Görev kapatılıyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.
-DURUM_ALANI = ("query", "url", "path", "folder", "proje")
+DURUM_ALANI = ("query", "url", "path", "folder", "proje", "text",
+               "task_id")
 
 
 def _j(obj):
