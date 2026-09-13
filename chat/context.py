@@ -30,9 +30,9 @@ OBSIDIAN_DIR = os.path.join(BASE, "Basak")
 OTURUM_ID = uuid.uuid4().hex[:8]
 
 # ── Geçmiş penceresi ────────────────────────────────────────────────
-# Modele giden pencere sayıyla değil KİLOYLA sınırlı: uzun cevaplar
-# birikip isteği şişirmesin. Kesim hafızadan silmek değildir — her çift
-# zaten hafıza motoruna yazılır, eski kısımlar aramayla geri gelir.
+# Ozgu-ajan (2026-09-13 Faz 1, AGENTS.md S0-5): kilo/adet kirpmasi YOK.
+# Gecmis tam verilir; karari model + saglayici baglami verir.
+# Uyumluluk icin imza korunur (limit/adet_siniri kullanilmaz).
 
 MAX_HISTORY = 200
 GECMIS_KILO_LIMITI = 200000
@@ -54,32 +54,21 @@ def kaydet(path, veri):
 
 
 def gecmis_pencere(gecmis, limit=GECMIS_KILO_LIMITI, adet_siniri=MAX_HISTORY):
-    """Kilo limitli geçmiş penceresi.
+    """Gecmisi tam dondurur (kirpma yok).
 
-    En YENİ mesajdan geriye doğru ekler; limit dolunca durur. Mesajlar
-    bütün halde alınır (ortasından kesilmez). Kronolojik sıra korunur.
+    Uyumluluk icin limit/adet_siniri parametreleri durur, kullanilmaz.
     """
-    secilen = []
-    toplam = 0
-    for m in reversed(gecmis or []):
-        uzunluk = len(m.get("content") or "")
-        if secilen and toplam + uzunluk > limit:
-            break
-        secilen.append(m)
-        toplam += uzunluk
-        if len(secilen) >= adet_siniri:
-            break
-    secilen.reverse()
-    return secilen
+    return list(gecmis or [])
 
 
 def temizle_history(gecmis):
-    """Geçmiş mesajlarını API biçimine indirger."""
-    temiz = []
-    for m in gecmis:
-        icerik = m.get("content") or ""
-        temiz.append({"role": m.get("role"), "content": icerik})
-    return temiz
+    """Geçmiş mesajlarını API biçimine indirger.
+
+    Native alanlar korunur (tool_calls/tool_call_id/name): cok-turlu
+    arac gecmisi bozulmaz. Yalniz yerel metadata (oturum) duser.
+    """
+    from brain.message_utils import mesajlari_temizle
+    return mesajlari_temizle(gecmis)
 
 
 # ── Önem puanı ──────────────────────────────────────────────────────

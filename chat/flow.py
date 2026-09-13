@@ -141,22 +141,16 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
         js_callback("BasakUI.error(" + _j("Bos mesaj") + ")")
         return
 
-    # Yerel model YOKSA ve bulut da yoksa duracağız. Yalnız yerelin
-    # kapalı olması sohbeti kesmez — bulut zinciri ayakta olabilir.
-    modeller = brain.yerel_modeller()
-    if not modeller and not brain.bulut_musait():
+    # Ozgu-ajan (Faz 2): SADECE bulut zinciri. Yerel model yok.
+    # Bulut musait degilse dur; baska on kosul yok.
+    if not brain.bulut_musait():
         js_callback("BasakUI.error(" + _j(
-            "Hicbir beyin yok: Ollama kapali ve bulut anahtarlari da "
-            "hazir degil") + ")")
+            "Hicbir beyin yok: bulut anahtarlari hazir degil") + ")")
         return
 
-    model = ctx.yukle(ctx.SETTINGS_FILE, {}).get("model")
-    if modeller:
-        if model not in modeller:
-            model = modeller[0]
-    else:
-        # Yerel model yok — ayarlardaki ad bulut zincirine taşınmasın.
-        model = None
+    # Zincirdeki bulut saglayici kendi modelini secer; disaridan
+    # model adi tasiyarak karistirma.
+    model = None
 
     gecmis = ctx.temizle_history(
         [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
@@ -166,8 +160,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
     # O liste, araclarin etrafina sarilmis bir kural katmaniydi — bu
     # gece soktugumuz seyin aynisi. Gerekcesi de olculunce curudu:
     # (a) groq/glm/nvidia ucu de akisla birlikte tools kabul ediyor,
-    # (b) bulut zincirinde "kucuk model" yok; tek kucuk olan yerel
-    # qwen2.5:7b ve o zaten son care. Artik araci MODEL secer.
+    # (b) zincirde kucuk/yerel model yok. Artik araci MODEL secer.
     arac_acik = bool(tools)
     mesajlar = _baglam_kur(text, system_prompt, konusmaci, arac_acik)
 

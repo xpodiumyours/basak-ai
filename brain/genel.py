@@ -48,7 +48,7 @@ class GenelClient:
         try:
             self.client = OpenAI(
                 api_key=self.api_key,
-                timeout=180.0,
+                timeout=20.0,
                 max_retries=0,
                 base_url=self.base_url,
             )
@@ -68,7 +68,7 @@ class GenelClient:
         kwargs = {
             "model": model or self.model,
             "messages": messages,
-            "max_tokens": 32768,
+            "max_tokens": 4096,
         }
         if tools:
             kwargs["tools"] = tools

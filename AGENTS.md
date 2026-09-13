@@ -70,7 +70,7 @@ Aşağıdakiler 2026-09-13'te tek tek ölçülerek söküldü. **Hiçbiri, hiçb
 
 ## 1. Proje
 
-Başak — tamamen yerel çalışan, ücretsiz, Türkçe konuşan kişisel Jarvis. Beyin: Ollama (`qwen2.5:3b`, yerel) + zor sorularda Groq'a (ücretsiz, `llama-3.3-70b`) kaçış. Ses: Piper TTS + faster-whisper STT (ikisi de yerel). Arayüz: `ui/` altında saf HTML/CSS/JS + Three.js orb, pywebview masaüstü penceresinde açılıyor. `ARASTIRMA.md` teknoloji seçim gerekçelerini tutar.
+Başak — ücretsiz bulutla çalışan, Türkçe konuşan kişisel Jarvis. Beyin: ücretsiz bulut zinciri (sırayla GLM > Cloudflare > Groq > NVIDIA > Cohere > Kilo > Gemini > OpenRouter > Qwen; limit biten düşer, sıradaki devralır). Yerel model YOK (Faz 2'de kaldirildi). Ses: Piper TTS + faster-whisper STT (ikisi de yerel). Arayüz: `ui/` altında saf HTML/CSS/JS + Three.js orb, pywebview masaüstü penceresinde açılıyor. `ARASTIRMA.md` teknoloji seçim gerekçelerini tutar.
 
 **19 Ağustos 2026'da başladı, tek günlük iş.** `git` bugün kuruldu — öncesinde hiç versiyon geçmişi yoktu, ilk commit'ten öncesi kurtarılamaz.
 
@@ -86,7 +86,7 @@ Kişisel, tamamen yerel/ücretsiz çalışan bir Jarvis: sesli + yazılı konuş
 
 ## 2. Şu an neredeyiz / sıra
 
-1. **Çalışıyor:** sohbet (Ollama), TTS açma/kapama, sesli dinleme (STT), model seçimi, geçmiş (`gecmis.json`), 3D orb durum göstergesi (bekliyor/düşünüyor/cevaplıyor/hata/dinliyor — `ui/app.js`).
+1. **Çalışıyor:** sohbet (bulut zinciri), TTS açma/kapama, sesli dinleme (STT), geçmiş (`gecmis.json`), 3D orb durum göstergesi (bekliyor/düşünüyor/cevaplıyor/hata/dinliyor — `ui/app.js`).
 2. **YAPILDI (2026-08-21, kanıtlı):** `knowledge/` notları her cevaba karışıyor — `chat.py` `_load_knowledge()` tüm `.md/.txt` dosyalarını okuyup sohbete "Casper'ın notları" bloğu olarak ekliyor; üstelik `GOREV_LISTESI.md` + `AGENTS.md` de dahil, sınır 12.000 karakter. Kanıt: 12.113 karakter yüklendi, doğum günü sorusu notlardan cevaplandı.
 3. **P2 TAMAMLANDI (2026-08-22, Casper onaylı):** `memory/engine.py` — SQLite (`data/memory/basak.db`) üzerinde sqlite-vec (anlam araması, Ollama `nomic-embed-text`) + FTS5/BM25 hibrit arama (RRF birleşim). Akış: her sorudan önce ilgili anılar sistem bağlamına ekleniyor (`_ilgili_anilar`), her cevaptan sonra episodic anı kaydediliyor; `gecmis.json` aktarıldı; `knowledge/` + Obsidian defteri (`Basak/`) mtime takibiyle indeksleniyor. Bozulma direnci: embedding/vec yoksa BM25-only. Kanıt: knowledge'da olmayan bilgi ("favori çay markası Çaykur") yalnız hafızaya eklenip gerçek sohbet hattından soruldu → Başak doğru cevapladı; 44/44 test yeşil; Casper canlı onay verdi. Not: Obsidian `.canvas` dosyaları henüz indekslenmiyor (sadece `.md`).
 4. **ŞU AN: P3 Router v2 kod tamamlandı (2026-08-22), Casper canlı onayı bekleniyor.** `brain/registry.py` + `brain/secici.py` + `brain/kota.py` + `tools/permissions.py`; `brain/brain.py` Router v2'ye geçti, `chat.py` oturum kimliği üretiyor. Kabul kanıtları: (a) kod sorusu → zincir NVIDIA'yı seçti, UI "Nemotron · kod işi" gösterdi; audit: `OK kaynak=nvidia | istek=1 | kod isi → NVIDIA NIM, GLM öne alındı`; (b) kota dolan sağlayıcı atlandı: `ATLANDI kaynak=groq | neden=gunluk istek limiti doldu`, sıradaki devraldı; (c) DeepSeek zincirde olmasına rağmen `ATLANDI | neden=ucretli cagri varsayilan engelli`. 74/74 test yeşil (`pytest tests/test_router.py` = 30 yeni test). Not: çoklu oturum/yarım görev yönetimi UI tarafı P6 Web UI v2'de genişler.
@@ -142,7 +142,7 @@ Her UI görevinde: önce **`ui-ux-pro-max`** skill'ini oku, sonra `ui/style.css`
 - **Dosyayı düzenle, yeniden yazma.** Küçük bir düzeltme için `basak_app.py`/`brain.py`/`voice.py`'yi baştan üretme.
 - **Sır asla commit'e girmez.** `GROQ_API_KEY`, `ayarlar.json`, `gecmis.json` — hepsi `.gitignore`'da, öyle kalacak. Pre-commit hook bunu da kontrol ediyor (§6).
 - **Var olmayan paket kurma.** Yeni bir pip paketi eklemeden önce gerçekten var olduğunu doğrula (`pip show`/PyPI).
-- **Hata yollarını es geçme.** Ollama kapalıysa, mikrofon yoksa, Groq anahtarı geçersizse — kullanıcıya anlamlı bir mesaj dönsün (mevcut kod bunu zaten yapıyor, bu standardı düşürme).
+- **Hata yollarını es geçme.** Bulut biletleri geçersizse, mikrofon yoksa, Groq anahtarı geçersizse — kullanıcıya anlamlı bir mesaj dönsün (mevcut kod bunu zaten yapıyor, bu standardı düşürme).
 
 ## 6. Doğrulama
 

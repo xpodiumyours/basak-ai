@@ -242,3 +242,51 @@ def sayfa_oku(url: str) -> dict:
     except Exception as e:
         logger.error("Sayfa okuma hatasi: %s", e)
         return {"error": "Sayfa okunamadi: %s" % str(e)}
+
+
+def adres_kontrol(url: str) -> dict:
+    """Canli adres kontrolu (Is 7): govde indirilmeden baslik okunur.
+
+    Doner: HTTP durum kodu + yanit suresi + son yonlendirme adresi.
+    Once HEAD denenir; sunucu desteklemezse govdesi okunMAyan kisa GET.
+    SSRF savunmasi mevcut _guvenli_adres + _GuvenliYonlendirme ile
+    aynen kullanilir (yeni savunma YAZILMADI).
+    """
+    import time as _time
+
+    if not url or not str(url).strip():
+        return {"error": "URL bos olamaz"}
+    url = str(url).strip()
+
+    engel = _guvenli_adres(url)
+    if engel:
+        return {"error": engel}
+
+    def _istek(yontem):
+        opener = urllib.request.build_opener(_GuvenliYonlendirme())
+        req = urllib.request.Request(url, method=yontem, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Basak/1.0",
+            "Accept-Encoding": "identity",
+        })
+        basla = _time.time()
+        with opener.open(req, timeout=15) as resp:
+            sure = _time.time() - basla
+            return resp.status, sure, resp.geturl()
+
+    try:
+        try:
+            durum, sure, son = _istek("HEAD")
+        except urllib.error.HTTPError as e:
+            if e.code in (400, 403, 404, 405, 501):
+                durum, sure, son = _istek("GET")
+            else:
+                return {"error": "HTTP hatasi %d: %s" % (e.code, url)}
+        return {"result": "durum: %d | sure: %.2f sn | adres: %s"
+                          % (durum, sure, son)}
+    except urllib.error.HTTPError as e:
+        return {"error": "HTTP hatasi %d: %s" % (e.code, url)}
+    except urllib.error.URLError as e:
+        return {"error": "Baglanti hatasi: %s" % str(e.reason)}
+    except Exception as e:
+        logger.error("Adres kontrol hatasi: %s", e)
+        return {"error": "Adres kontrol edilemedi: %s" % str(e)}

@@ -403,6 +403,41 @@ def write_file_ops(yol: str, icerik: str, base_dir: str) -> dict:
         return {"error": f"Dosya yazilamadi: {e}"}
 
 
+def write_knowledge(yol: str, icerik: str, base_dir: str) -> dict:
+    """knowledge/ altina not dosyasi yazar (arac-dostu dar sarmalayici).
+
+    ARAC-PLANI Is 1: modelin yazma yetkisi YALNIZ knowledge/ altidir.
+    write_file_ops genis tablolara (ev, C:\\Projects) dokunmaz — bu
+    fonksiyon yolu cozer, knowledge/ disi her hedefi REDDEDER, dosya
+    olusturur. Kara liste (_yasak_mi) aynen gecerlidir.
+    Onay kutusu YOK (ozgur-ajan): knowledge not alanidir.
+    """
+    if not yol or not str(yol).strip():
+        return {"error": "Dosya yolu bos olamaz"}
+    if not icerik:
+        return {"error": "Icerik bos olamaz"}
+
+    izinli, mesaj, mutlak_yol = _guvenli_yolu_coz(str(yol).strip(), base_dir)
+    if not izinli:
+        return {"error": mesaj}
+
+    try:
+        kok = os.path.realpath(os.path.join(base_dir, "knowledge"))
+        if not _altinda_mi(mutlak_yol, kok):
+            return {"error": ("Buraya yazma izni yok — yazilabilir: "
+                              "yalniz knowledge/ alti.")}
+        if _yasak_mi(mutlak_yol):
+            return {"error": "Bu yol kara listede — yazma yasak."}
+        klasor = os.path.dirname(mutlak_yol)
+        os.makedirs(klasor, exist_ok=True)
+        with open(mutlak_yol, "w", encoding="utf-8") as f:
+            f.write(icerik)
+        return {"result": "Dosya yazildi: %s" % os.path.relpath(
+            mutlak_yol, kok)}
+    except OSError as e:
+        return {"error": "Dosya yazilamadi: %s" % e}
+
+
 def list_files(klasor: str, base_dir: str) -> dict:
     """Bir klasördeki dosyaları listeler.
 

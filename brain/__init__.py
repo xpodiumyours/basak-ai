@@ -1,8 +1,8 @@
 """brain — Başak'ın beyin modülü.
 
-9 bulut saglayici + Ollama (yerel) destekli.
-Sirayla: Groq, GLM, Cloudflare, Cohere, NVIDIA, OpenRouter,
-QwenCloud, Gemini → Ollama.
+9 bulut saglayici (ucretsiz zincir, ozgur-ajan: yerel model yok).
+Sirayla: GLM, Cloudflare, Groq, NVIDIA, Cohere, Kilo,
+Gemini, OpenRouter, QwenCloud.
 """
 
 from brain.brain import Brain

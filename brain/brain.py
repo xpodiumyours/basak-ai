@@ -1,7 +1,7 @@
 """brain/brain.py — Basak'in ana beyin sinifi.
 
-Varsayilan: Groq (ucretsiz, hizli).
-Yerel Ollama sadece Groq calismazsa fallback olarak kullanilir.
+Ozgu-ajan (Faz 2): SADECE ucretsiz bulut zinciri. Yerel model yok —
+hata verirse siradaki bulut devralir, hepsi duserse acik hata doner.
 """
 
 import json
@@ -10,8 +10,7 @@ import os
 import time
 from datetime import datetime
 
-from brain.groq import MODELLER  # MODELLER sabitine hâlâ ihtiyaç var
-from brain.ollama import OLLAMA_URL
+from brain.groq import MODELLER, GroqClient  # MODELLER sabiti + anahtar yenileme
 from brain.stats import model_stats_al
 from brain import secici, registry
 
@@ -57,11 +56,6 @@ def _ayar_kaydet(veri: dict):
 # yapi'yi 400/invalid_request_error ile reddederse burada False isaretlenir
 # ve sonraki cagrilarda yapi hic gonderilmez (registry karti degismez).
 _YAPI_DENEME = {}
-
-# QWEN BEKLEMEDE (2026-09-09, tam tespit): hesap etkinlesmesi
-# bitene kadar (403 hatasi) Qwen zincire KATILMAZ. Casper
-# etkinlestirince False yapilir, kart registry'de hazir bekler.
-_QWEN_BEKLEMEDE = False
 
 # COOLDOWN: rate-limit (429) gelince provider gecici olarak atla
 import time as _time_mod
@@ -126,7 +120,6 @@ class Brain:
         )
         self.groq_model = ayar.get("groq_model", MODELLER["varsayilan"])
         self._groq = self._providers.get("groq")
-        self._ollama = self._providers.get("yerel")
         self._gemini = self._providers.get("gemini")
         self._glm = self._providers.get("glm")
         self._nvidia = self._providers.get("nvidia")
@@ -143,10 +136,9 @@ class Brain:
         """Musait bulut istemcilerini toplar: [(ad, istemci)].
 
         DIKKAT: Bu listenin sirasi ONCELIK SIRASI DEGILDIR. Gercek
-        sirayi secici.sec() belirler (registry.VARSAYILAN_SIRA temel;
-        gorev tipi + karne yeniden dizer). Buradaki sira yalnizca
-        secici'ye mevcut havuzi vermek ve 'tercih'siz eski cagilarda
-        yedek siralamak icindir. Son care her zaman Ollama (yerel).
+        sirayi secici.sec() belirler (registry.VARSAYILAN_SIRA temel).
+        Buradaki sira yalnizca secici'ye mevcut havuzu vermek ve
+        'tercih'siz eski cagrilarda yedek siralamak icindir.
         """
         zincir = []
         if self._groq is not None and self._groq.musait():
@@ -164,9 +156,7 @@ class Brain:
         if self._openrouter is not None and self._openrouter.musait():
             zincir.append(("openrouter", self._openrouter))
         if self._qwen is not None and self._qwen.musait():
-            # QWEN BEKLEMEDE disinda normal katilim
-            if not _QWEN_BEKLEMEDE:
-                zincir.append(("qwen", self._qwen))
+            zincir.append(("qwen", self._qwen))
         if self._gemini is not None and self._gemini.musait():
             zincir.append(("gemini", self._gemini))
         # 2026-09-10: ozel saglayici EN SONDA — bedavalar once denenir,
@@ -178,7 +168,7 @@ class Brain:
         return zincir
 
     def bulut_musait(self) -> bool:
-        # Herhangi bir bulut saglayici hazirsa True. Ollama son caredir.
+        # Herhangi bir bulut saglayici hazirsa True.
         return bool(self._bulut_zinciri())
 
     def anahtar_ayarla(self, key: str):
@@ -208,12 +198,6 @@ class Brain:
             except ValueError:
                 self._groq = None
 
-    def yerel_modeller(self) -> list:
-        return self._ollama.modeller()
-
-    def yerel_cevap(self, messages, model, tools=None):
-        return self._ollama.cevapla(messages, model, tools=tools)
-
     def _tek_cagri(self, istemci, ad, messages, tools, override_model,
                    yapi_deger):
         """Tek saglayiciya cagri kurar; yapi_deger None ise eski davranis.
@@ -235,16 +219,18 @@ class Brain:
             return istemci.cevapla(messages, tools=tools, **ekstra)
         return istemci.cevapla(messages, **ekstra)
 
-    def cevapla(self, messages, yerel_model, tools=None,
+    def cevapla(self, messages, yerel_model=None, tools=None,
                 tercih=None, gorev_tipi=None, override_model=None, yapi=None):
-        """Mesajlara cevap verir — Router v2 (P3, kota katmanı söküldü).
+        """Mesajlara cevap verir — Router v2 (bulut zinciri).
 
         Akis: secici motoru sirayi belirler → deneme; hata verirse siradaki
-        devralir; hepsi duserse yerel Ollama son care.
+        devralir; hepsi duserse RuntimeError (yerel yedek YOK — Faz 2).
 
-        Donus: (yanit, gosterim) — gosterim "nvidia · kod isi" tarzinda
-        seffaf secim bilgisi tasir.
+        Donus: (yanit, gosterim) — gosterim "nvidia" tarzinda seffaf
+        secim bilgisi tasir.
         tercih: eski cagri uyumlulugu icin acik sira zorlamasi.
+        yerel_model: uyumluluk icin durur, kullanilmaz (bulut kendi
+        modelini secer).
         yapi: sozlesme modu (FAZ 1.1) — dict|None; destekleyen saglayiciya
         tasınır, 400/invalid_request_error ile reddedilirse ayni saglayici
         yapi'siz bir kez daha denenir (_YAPI_DENEME self-healing onbellegi).
@@ -342,33 +328,19 @@ class Brain:
                        (ad, sure, str(e)))
                 istat.kaydet(ad, sure, basarili=False, hata=str(e), tools=bool(tools))
 
-        # Tum bulutlar dustu → yerel Ollama
-        istat = model_stats_al()
-        try:
-            t0 = time.time()
-            if yapi:
-                yanit = self._ollama.cevapla(
-                    messages, yerel_model, tools=tools, yapi=yapi)
-            else:
-                yanit = self._ollama.cevapla(messages, yerel_model, tools=tools)
-            sure = time.time() - t0
-            _audit("OK kaynak=yerel | %.1f sn | tools=%s | dustu=%d bulut"
-                   % (sure, bool(tools), len(hatalar)))
-            istat.kaydet("yerel", sure, basarili=True, tools=bool(tools))
-            return yanit, "yerel"
-        except Exception as e:
-            istat.kaydet("yerel", 0, basarili=False, hata=str(e), tools=bool(tools))
-            detay = "; ".join(hatalar) if hatalar else str(e)
-            _audit("TAM BASARISIZLIK: %s" % detay)
-            raise RuntimeError(f"Hicbir model calismadi ({detay})") from e
+        # Tum bulutlar dustu → acik hata (yerel yedek yok — Faz 2).
+        detay = "; ".join(hatalar) if hatalar else "bulut zinciri bos"
+        _audit("TAM BASARISIZLIK: %s" % detay)
+        raise RuntimeError(f"Hicbir model calismadi ({detay})")
 
-    def cevapla_yayin(self, messages, yerel_model, tercih=None,
+    def cevapla_yayin(self, messages, yerel_model=None, tercih=None,
                       gorev_tipi=None, tools=None):
         """Akan cevap uretir: yield (kaynak, parca).
 
         Aracsiz duz sohbet icindir (tools=None). Model arac isterse
         AracIstegi firlatir — cagiran tam yola duser. Hicbir saglayici
         akis acamazsa SonHata firlatir (tam yol TEKRAR denemez — kota yenmez).
+        yerel_model: uyumluluk icin durur, kullanilmaz.
 
         Not: akis sirasinda istatistik/token yazilmaz (kismi sayim
         butceyi bozar). Basari/zaman olcumu tam yolda yapilir.
@@ -405,17 +377,11 @@ class Brain:
             if _cooldown_kaldi(ad) > 0:
                 continue
             try:
-                if ad == "yerel":
-                    from brain.yayin import ollama_akit
-                    uretici = ollama_akit(
-                        getattr(istemci, "base_url", OLLAMA_URL),
-                        yerel_model, messages)
-                else:
-                    ham = getattr(istemci, "client", None)
-                    model = getattr(istemci, "model", None)
-                    if ham is None or not model:
-                        continue
-                    uretici = akit(ham, model, messages, tools=tools)
+                ham = getattr(istemci, "client", None)
+                model = getattr(istemci, "model", None)
+                if ham is None or not model:
+                    continue
+                uretici = akit(ham, model, messages, tools=tools)
                 basladi = False  # akis ortasi kopma takibi
                 for parca in uretici:
                     basladi = True
@@ -439,23 +405,6 @@ class Brain:
                     # 2026-09-11: zaman asimi da kisa cooldown alsin.
                     _cooldown_ekle(ad, sure=_ZAMAN_ASIMI_COOLDOWN)
                 continue
-
-        # Yerel son care (zincirde yoksa dogrudan dene). Yerel hizli
-        # oldugu icin once biriktirilir, sonra verilir — yari metin
-        # ikilenme riski olmaz.
-        try:
-            from brain.yayin import ollama_akit
-            if yerel_model:
-                birikmis = list(ollama_akit(OLLAMA_URL, yerel_model,
-                                            messages))
-                for parca in birikmis:
-                    yield "yerel", parca
-                _audit("OK kaynak=yerel | akis")
-                return
-        except _Arac:
-            raise
-        except Exception as e:
-            hatalar.append("yerel: %s" % str(e))
 
         detay = "; ".join(hatalar) if hatalar else "bilinmeyen hata"
         _audit("AKIS BASARISIZ: %s" % detay)

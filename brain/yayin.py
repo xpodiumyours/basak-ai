@@ -44,9 +44,9 @@ def akit(openai_client, model, messages, tools=None):
     stream = openai_client.chat.completions.create(
         model=model,
         messages=messages,
-        max_tokens=32768,
+        max_tokens=4096,
         stream=True,
-        timeout=180,
+        timeout=20,
         **ekstra
     )
     for chunk in stream:
@@ -57,35 +57,5 @@ def akit(openai_client, model, messages, tools=None):
         if getattr(delta, "tool_calls", None):
             raise AracIstegi()
         parca = getattr(delta, "content", None) or ""
-        if parca:
-            yield parca
-
-
-def ollama_akit(base_url, model, messages):
-    """Yerel Ollama'dan akan cevap (requests streaming)."""
-    import json as _json
-
-    import requests
-
-    r = requests.post(
-        "%s/api/chat" % base_url.rstrip("/"),
-        json={"model": model, "messages": messages, "stream": True},
-        stream=True,
-        timeout=(3, 60),
-    )
-    r.raise_for_status()
-    for satir in r.iter_lines(decode_unicode=True):
-        if not satir:
-            continue
-        try:
-            veri = _json.loads(satir)
-        except ValueError:
-            continue
-        if veri.get("done"):
-            break
-        msg = veri.get("message", {}) or {}
-        if msg.get("tool_calls"):
-            raise AracIstegi()
-        parca = msg.get("content", "") or ""
         if parca:
             yield parca

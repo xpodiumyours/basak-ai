@@ -1,6 +1,6 @@
 """tests/live/test_boot.py — Açılış provası (GERÇEK ortam).
 
-CANLI-KAPISI.md kabulü: Brain açılır, Ollama/bulut durumu ölçülür,
+CANLI-KAPISI.md kabulü: Brain açılır, bulut zinciri ölçülür,
 Api.boot() sözlüğü sağlıklı döner, hafıza DB'si düzgün kapanır ve
 yeniden açılabilir.
 """
@@ -17,11 +17,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
 def test_beyin_acilisi_ve_zincir(rapor):
     from brain import Brain
     b = Brain()
-    yerel = b.yerel_modeller()
     bulutlar = [ad for ad, _ in b._bulut_zinciri()]
-    rapor("acilis", {"yerel": yerel, "bulut": bulutlar})
-    # Ortam sağlıklıysa en az bir beyin kaynağı olmalı
-    assert yerel or bulutlar, "Ne Ollama ne bulut zinciri ayakta"
+    rapor("acilis", {"bulut": bulutlar})
+    # Ortam sağlıklıysa en az bir bulut kaynagi olmalı (yerel yok — Faz 2)
+    assert bulutlar, "Bulut zinciri ayakta degil"
 
 
 def test_api_boot_sozlugu(rapor):

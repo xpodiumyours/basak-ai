@@ -1,11 +1,10 @@
-"""tests/test_ollama_bagimsizlik.py — Ollama kapaliyken bulutla sohbet.
+"""tests/test_ollama_bagimsizlik.py — bulut-only sohbet sozlesmesi.
 
-2026-08-24'te Casper'in buldugu hata: mesaj_isle() brain.yerel_modeller()
-bos oldugunda HEMEN hata donuyordu; Groq/GLM/NVIDIA/Kilo hazir olsa bile
-sohbet yolu kesiliyordu. Oysa mimaride Ollama SON CARE, on kosul degil.
-boot() da ok'u yalniz yerel modele bagliyordu.
+Faz 2 (ozgur-ajan): yerel model TAMAMEN kaldirildi. Brain SADECE
+bulut zinciridir; mesaj_isle() yerel kontrol yapmaz, boot() ok'u
+yalniz buluta baglar.
 
-Kural: dur yalnizca "yerel YOK ve bulut YOK" iken gelir.
+Kural: bulut YOKSA durur; bulut VARSA model adi tasiyarak konusur.
 """
 
 import os
@@ -21,28 +20,21 @@ import chat as c
 
 
 class BulutluBrain:
-    """Yerel modeli yok; bulut zinciri ayakta (sahte)."""
+    """Bulut zinciri ayakta (sahte). Yerel kavrami yok."""
 
     def __init__(self, cevap="buluttan cevap"):
         self._cevap = cevap
-        self.gelen_yerel_model = None
-
-    def yerel_modeller(self):
-        return []
 
     def bulut_musait(self):
         return True
 
-    def cevapla(self, messages, yerel_model, tools=None,
+    def cevapla(self, messages, model=None, tools=None,
                 override_model=None):
-        self.gelen_yerel_model = yerel_model   # None gelebilir (tam bulut)
+        assert model is None   # disaridan model adi tasinmaz
         return {"content": self._cevap}, "groq"
 
 
 class CeholBrain:
-    def yerel_modeller(self):
-        return []
-
     def bulut_musait(self):
         return False
 
@@ -78,20 +70,29 @@ def izole(monkeypatch, tmp_path):
     return tmp_path
 
 
-class TestOllamaBagimsizlik:
-    def test_ollama_kapali_bulut_acik_sohbet_surer(self, izole):
+class TestBulutOnly:
+    def test_bulut_acik_sohbet_surer(self, izole):
         brain = BulutluBrain()
         kutu, cb = _toplayici()
         c.mesaj_isle("merhaba nasilsin?", brain, "SYS", cb)
         assert kutu["hata"] is None
         assert kutu["cevap"] == "buluttan cevap"
-        assert brain.gelen_yerel_model is None
 
     def test_hicbir_beyin_yoksa_durur(self, izole):
         kutu, cb = _toplayici()
         c.mesaj_isle("merhaba", CeholBrain(), "SYS", cb)
         assert kutu["cevap"] is None
         assert "beyin" in (kutu["hata"] or "")
+
+    def test_yerel_modeller_cagrilmaz(self, izole):
+        # Faz 2: akis brain.yerel_modeller()'e HIC bakmaz.
+        class SikiBrain(BulutluBrain):
+            def __getattr__(self, ad):
+                assert ad != "yerel_modeller", "yerel kontrol geri geldi!"
+                raise AttributeError(ad)
+        kutu, cb = _toplayici()
+        c.mesaj_isle("selam", SikiBrain(), "SYS", cb)
+        assert kutu["cevap"] == "buluttan cevap"
 
 
 class TestBoot:
@@ -101,8 +102,6 @@ class TestBoot:
         api = basak_app.Api.__new__(basak_app.Api)   # Brain'siz kurulum
 
         class Sahte:
-            def yerel_modeller(self):
-                return []
             def bulut_musait(self):
                 return True
 
@@ -117,8 +116,6 @@ class TestBoot:
         api = basak_app.Api.__new__(basak_app.Api)
 
         class Sahte:
-            def yerel_modeller(self):
-                return []
             def bulut_musait(self):
                 return False
 

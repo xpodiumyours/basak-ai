@@ -1,12 +1,9 @@
-"""tools — Başak'ın araçları. Sekiz tane, hepsi salt-okunur.
+"""tools — Başak'ın araçları. On üç tane: sekizi salt-okunur, biri yazma.
 
 2026-09-13: 21 araçlık katman söküldü; Casper'in seçtikleri geri geldi.
-Bu paket diske ve dışarıya YALNIZ okur. Yazma aracı yok — dolayısıyla
-izin tablosu, onay kuyruğu, yetki tavanı da yok. Tek kural beyaz liste.
-
-Not: `file_ops.write_file_ops` dosyada duruyor (kanıtlanmış yol-güvenlik
-kodunun bir parçası ve testleri var) ama HİÇBİR araç şeması ona
-bağlanmıyor — model o fonksiyona ulaşamaz.
+Yazma YALNIZ knowledge/ altinadir (write_knowledge dar sarmalayici) —
+dolayısıyla izin tablosu, onay kuyruğu, yetki tavanı yok. Tek kural
+beyaz liste + yol kara listesi.
 """
 
 import logging
@@ -17,6 +14,8 @@ from tools.definitions import TOOLS, TANINMIS_TOOLLAR  # noqa: F401
 logger = logging.getLogger(__name__)
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
+GOREVLER_FILE = os.path.join(BASE, "gorevler.json")
 
 
 def calistir(tool_name, args):
@@ -67,6 +66,77 @@ def calistir(tool_name, args):
             return image_analyzer.image_analyze(
                 str(args.get("path", "")),
                 str(args.get("soru", "") or "") or None)
+
+        if tool_name == "write_file_tool":
+            from tools import file_ops
+            return file_ops.write_knowledge(
+                str(args.get("path", "")),
+                str(args.get("content", "") or ""),
+                BASE)
+
+        if tool_name == "get_reminders":
+            from tools import reminders
+            return reminders.bugunku_hatirlatmalar(
+                KNOWLEDGE_DIR, GOREVLER_FILE)
+
+        if tool_name == "add_task":
+            from tools import tasks
+            return tasks.add_task(
+                str(args.get("text", "")), GOREVLER_FILE)
+
+        if tool_name == "list_tasks":
+            from tools import tasks
+            return tasks.list_tasks(GOREVLER_FILE)
+
+        if tool_name == "complete_task":
+            from tools import tasks
+            try:
+                task_id = int(args.get("task_id", 0))
+            except (TypeError, ValueError):
+                return {"error": "Gorev no sayi olmali."}
+            return tasks.complete_task(task_id, GOREVLER_FILE)
+
+        if tool_name == "ac_uygulama":
+            from tools import app_launcher
+            return app_launcher.ac_uygulama(
+                str(args.get("uygulama", "")),
+                str(args.get("parametre", "") or ""))
+
+        if tool_name == "icerik_ara":
+            from tools import olcum
+            return olcum.icerik_ara(
+                str(args.get("proje", "")),
+                str(args.get("sorgu", "")),
+                str(args.get("uzanti", "") or "") or None)
+
+        if tool_name == "github_durum":
+            from tools import github
+            return github.github_durum(
+                str(args.get("islem", "")),
+                str(args.get("proje", "")),
+                no=args.get("no"),
+                durum=str(args.get("durum", "") or "open"))
+
+        if tool_name == "git_gecmis":
+            from tools import olcum
+            return olcum.git_gecmis(
+                str(args.get("proje", "")),
+                dosya=str(args.get("dosya", "") or "") or None,
+                adet=args.get("adet", 10))
+
+        if tool_name == "git_degisenler":
+            from tools import olcum
+            return olcum.git_degisenler(
+                str(args.get("proje", "")),
+                taban=str(args.get("taban", "") or "origin/master"))
+
+        if tool_name == "adres_kontrol":
+            from tools import web_search as ws
+            return ws.adres_kontrol(str(args.get("url", "")))
+
+        if tool_name == "testleri_kos":
+            from tools import testkos
+            return testkos.testleri_kos(str(args.get("proje", "")))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

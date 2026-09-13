@@ -67,7 +67,7 @@ class ModelIstatistik:
         """Bir model çağrısını kaydeder.
 
         Args:
-            model: Model adı (ör: "groq", "nvidia", "yerel").
+            model: Model adı (ör: "groq", "nvidia", "glm").
             sure_sn: Yanıt süresi (saniye).
             basarili: Başarılı mı.
             hata: Hata mesajı (başarısızsa).

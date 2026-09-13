@@ -1,9 +1,8 @@
-"""tests/testgecmis_pencere.py — Baglam diyeti Adim 3: kilo limitli gecmis.
+"""tests/testgecmis_pencere.py — ozgur-ajan: gecmis kirpmasiz verilir.
 
-Kural: "son N mesaj" yerine en yeniden geriye dogru karakter butcesiyle
-toplanma. Mesajlar butun halde tutulur, kronoloji korunur, her kosulda
-en yeni mesaj gecer. Kesim YALNIZ model penceresini ilgilendirir —
-hafizaya yazma bundan once yapilir (kesim = unutmak degil).
+2026-09-13 Faz 1 (AGENTS.md S0-5): kilo/adet kirpmasi kaldirildi.
+gecmis_pencere() tam listeyi dondurur; imza uyumluluk icin korunur.
+Kesim YOK — hafizaya yazma akistan once yapilir.
 """
 
 import os
@@ -27,7 +26,8 @@ class TestGecmisPencere:
         gecmis = [mesaj("user", "selam"), mesaj("assistant", "merhaba")]
         assert len(gecmis_pencere(gecmis)) == 2
 
-    def test_limit_asilinca_eskiler_duser(self):
+    def test_limit_asilinca_eskiler_dusmez(self):
+        # Faz 1: kirpma yok — limit parametresi yoksayilir, hepsi doner
         gecmis = ([mesaj("user", "x" * 2500),
                    mesaj("assistant", "y" * 2500),
                    mesaj("user", "son soru"),
@@ -35,8 +35,7 @@ class TestGecmisPencere:
         sonuc = gecmis_pencere(gecmis, limit=4000)
         icerikler = [m["content"] for m in sonuc]
         assert "son soru" in icerikler and "son cevap" in icerikler
-        assert all(not c.startswith("xxx") for c in icerikler)
-        assert len(sonuc) == 3  # y mesaji butun halde kalir, x duser
+        assert len(sonuc) == 4
 
     def test_en_yeni_mesaj_her_kosulda_garanti(self):
         dev = mesaj("assistant", "z" * (GECMIS_KILO_LIMITI * 2))
@@ -56,12 +55,27 @@ class TestGecmisPencere:
         sonuc = [m["content"] for m in gecmis_pencere(gecmis)]
         assert sonuc == ["1", "2", "3", "4"]
 
-    def test_adet_siniri_yine_gecerli(self):
+    def test_adet_siniri_uygulanmaz(self):
         from chat.context import MAX_HISTORY
         gecmis = [mesaj("user", str(i)) for i in range(MAX_HISTORY + 30)]
-        assert len(gecmis_pencere(gecmis)) == MAX_HISTORY
+        assert len(gecmis_pencere(gecmis)) == MAX_HISTORY + 30
 
     def test_content_none_olursa_cokmez(self):
         gecmis = [{"role": "assistant", "content": None},
                   mesaj("user", "soru")]
         assert [m["content"] for m in gecmis_pencere(gecmis)] == [None, "soru"]
+
+    def test_tool_alanlari_korunur(self):
+        from chat.context import temizle_history
+        gecmis = [
+            {"role": "assistant", "content": "",
+             "tool_calls": [{"id": "1", "function": {"name": "web_search"}}],
+             "oturum": "abc"},
+            {"role": "tool", "content": "sonuc",
+             "tool_call_id": "1", "name": "web_search", "oturum": "abc"},
+        ]
+        sonuc = temizle_history(gecmis)
+        assert sonuc[0]["tool_calls"][0]["function"]["name"] == "web_search"
+        assert sonuc[1]["tool_call_id"] == "1"
+        assert sonuc[1]["name"] == "web_search"
+        assert all("oturum" not in m for m in sonuc)

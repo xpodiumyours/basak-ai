@@ -89,11 +89,9 @@ SAGLAYICILAR = {
         "tools": True,
         "gucleri": ["genel"],
         "gunluk_istek": None,
-        # 2026-09-09: hesap etkinlesmesi bekleniyor (403). Casper
-        # etkinlestirene kadar brain zincire KATMAZ (brain.py'deki
-        # _QWEN_BEKLEMEDE bayragi). Kart burada durur, sira korunur.
-        "etkin": False,
-        "not": "UYKUDA — Model etkinlesmesi bekleniyor; canlaninca zincire girer.",
+        # Anahtar varsa zincire katilir (dashscope_key); yoksa bos yuva.
+        "etkin": True,
+        "not": "DashScope anahtari girilince zincire girer.",
     },
     "nvidia": {
         "ad": "NVIDIA NIM",
@@ -124,23 +122,12 @@ SAGLAYICILAR = {
         "gunluk_istek": 50,   # :free modeller tipik ucretsiz katman limiti
         "not": "Sadece :free modeller; son care bulut.",
     },
-    "yerel": {
-        "ad": "Ollama (yerel)",
-        "ucretsiz": True,
-        "tools": True,
-        "gucleri": ["genel"],
-        "gunluk_istek": None,
-        "not": "Internet/kota bitse bile calisir — son care.",
-    },
 }
 
-# Varsayilan oncelik sirasi (gorev turuna gore secici yeniden siralar).
+# Varsayilan oncelik sirasi (secici yeniden SIRALAMAZ — bu sira korunur).
 # Ucretli saglayici sonda: kazayla cagrilmasin.
-# 2026-09-09 (tam tespit): olcum gercegine gore dizeildi —
-# GLM sinirsiz bedava + guvenilir, Cloudflare 0 hata, Groq hizli,
-# Nvidia guclu, Cohere dusuk basarili, Kilo %25 ile yedek,
-# Gemini gunluk 20'de biter, OpenRouter gunluk 50'de biter,
-# Qwen UYKUDA (etkinlesince one alinir). Kilo-once kurali kaldirildi.
+# Olcum gercegine gore dizili: GLM + Cloudflare onde, Groq hizli,
+# Nvidia guclu, Cohere/Kilo yedek, Gemini/OpenRouter kota sonu, Qwen anahtarla.
 # DeepSeek karti asagida durur (ucretli oldugu bilinsin) ama zincire
 # HIC girmez — adaptoru yok, testler ucretli oldugunu dogrular.
 VARSAYILAN_SIRA = [

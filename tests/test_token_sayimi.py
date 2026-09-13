@@ -110,14 +110,7 @@ class TestBrainKablolama:
 
         b._groq = SahteSaglayici()
 
-        class SahteOllama:
-            def cevapla(self, *a, **kw):
-                raise RuntimeError("ulasilmadi")
-
-        b._ollama = SahteOllama()
-
-        yanit, gosterim = b.cevapla([{"role": "user", "content": "selam"}],
-                                    yerel_model="yerel-x")
+        yanit, gosterim = b.cevapla([{"role": "user", "content": "selam"}])
         assert yanit["content"] == "tamam"
         assert "_kullanim" not in yanit          # ayiklandi
         assert gosterim.startswith("groq")

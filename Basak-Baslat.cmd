@@ -12,8 +12,7 @@ if errorlevel 1 (
     echo  HATA: Basak baslatilamadi!
     echo  Sirasiyla kontrol et:
     echo   1. Internet baglantin var mi?
-    echo   2. Ollama calisiyor mu? Kontrol et: ollama list
-    echo   3. Bulut biletleri gecerli mi? (ayarlar.json'daki anahtarlar)
+    echo   2. Bulut biletleri gecerli mi? (ayarlar.json'daki anahtarlar)
     echo.
 )
 pause

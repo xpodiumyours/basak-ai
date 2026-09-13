@@ -39,14 +39,21 @@ class TestPuaniVeren:
 
 class TestOnemliHayattaKalir:
     def test_kabul_olcutu_onemli_gevezelikten_uzun_yasar(self, motor):
-        """50 önemsiz sohbet önemli kaydı kovamaz."""
+        """50 önemsiz sohbet önemli kaydı kovamaz (budama sıralaması).
+
+        2026-09-13 duzeltmesi: dongu eskiden range(EPISODIK_LIMIT)
+        idi; limit 1000'den 100M'a cikarilinca test sonsuz donguye
+        girip paketi kilitliyordu (temel dalda da takili). Kabul
+        niyeti ayni: budama onem DESC + yeni DESC siralar, onem=3
+        kayit dusuk-onemlilerden once GIDEMEZ.
+        """
         motor.episodik_kaydet(
             "proje planını hatırla",
             "VixRex planı: önce vitrin, sonra ödeme modülü", onem=3)
-        for i in range(EPISODIK_LIMIT):
+        for i in range(50):
             motor.episodik_kaydet("gevezelik %d" % i,
                                   "sıradan cevap %d" % i)
-        motor._budu()
+        motor._budu(limit=10)
         kalan = [r[0] for r in motor.conn.execute(
             "SELECT text FROM memories")]
         assert any("VixRex planı" in t for t in kalan), \
