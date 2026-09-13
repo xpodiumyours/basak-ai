@@ -206,6 +206,7 @@ def icerik_ara(proje, sorgu, uzanti=None):
             return {"error": "Uzanti gecersiz."}
         if not ext.startswith("."):
             ext = "." + ext
+
     bulgular = []
     for dizin, altlar, dosyalar in os.walk(kok):
         altlar[:] = sorted(a for a in altlar if a not in _ICERIK_ATLA)
@@ -225,6 +226,7 @@ def icerik_ara(proje, sorgu, uzanti=None):
                 metin = ham.decode("utf-8-sig", errors="replace")
             except OSError:
                 continue
+
             rel = os.path.relpath(tam, kok).replace(os.sep, "/")
             for i, satir in enumerate(metin.splitlines(), 1):
                 if q in _norm(satir):
@@ -236,9 +238,52 @@ def icerik_ara(proje, sorgu, uzanti=None):
                 break
         if len(bulgular) >= _MAX_ESLESME:
             break
+
     if not bulgular:
         return {"error": "Kodda bulunamadi: '%s'" % (sorgu or "")[:60]}
     cikti = "\n".join(bulgular)
     if len(cikti) > _MAX_CIKTI:
         cikti = cikti[:_MAX_CIKTI] + "\n...(kisaltildi)"
     return {"result": cikti}
+
+
+def git_gecmis(proje, dosya=None, adet=10):
+    """Son commitleri veya bir dosyanin git gecmisini okur."""
+    kok = _kok(proje)
+    if kok is None:
+        return _hata_beyaz_liste(proje)
+    try:
+        n = max(1, min(int(adet), 30))
+    except (TypeError, ValueError):
+        return {"error": "adet sayi olmali."}
+
+    argv = ["log", "--oneline", "-n", str(n)]
+    rel = str(dosya or "").strip()
+    if rel:
+        tam = os.path.realpath(os.path.join(kok, rel))
+        kok_gercek = os.path.realpath(kok)
+        try:
+            if os.path.commonpath([tam, kok_gercek]) != kok_gercek:
+                return {"error": "Dosya yolu proje disina tasiyor."}
+        except ValueError:
+            return {"error": "Dosya yolu proje disina tasiyor."}
+        argv.extend(["--", os.path.relpath(tam, kok)])
+
+    cikti = _git(proje, argv)
+    if cikti is None:
+        return {"error": "Git gecmisi okunamadi."}
+    return {"result": cikti or "Commit bulunamadi."}
+
+
+def git_degisenler(proje, taban="origin/master"):
+    """Taban ref ile HEAD arasindaki dosya istatistigini okur."""
+    if _kok(proje) is None:
+        return _hata_beyaz_liste(proje)
+    ref = str(taban or "origin/master").strip()
+    if (not ref or ref.startswith("-") or ".." in ref or
+            not re.match(r"^[A-Za-z0-9._/-]+$", ref)):
+        return {"error": "Gecersiz git tabani."}
+    cikti = _git(proje, ["diff", "--stat", ref + "...HEAD"])
+    if cikti is None:
+        return {"error": "Git degisiklikleri okunamadi: %s" % ref}
+    return {"result": cikti or "Degisiklik yok."}

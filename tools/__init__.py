@@ -24,6 +24,10 @@ def calistir(tool_name,args):
    from tools import file_ops;return file_ops.list_files(str(args.get("folder","")),BASE)
   if tool_name=="git_durum":
    from tools import olcum;return olcum.git_durum(str(args.get("proje","")))
+  if tool_name=="git_gecmis":
+   from tools import olcum;return olcum.git_gecmis(str(args.get("proje","")),args.get("dosya"),args.get("adet",10))
+  if tool_name=="git_degisenler":
+   from tools import olcum;return olcum.git_degisenler(str(args.get("proje","")),str(args.get("taban","origin/master") or "origin/master"))
   if tool_name=="belge_ara":
    from tools import olcum;return olcum.belge_ara(str(args.get("proje","")),str(args.get("sorgu","")))
   if tool_name=="dosya_bilgi":

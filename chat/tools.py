@@ -1,17 +1,17 @@
 import json,logging
 logger=logging.getLogger(__name__);TUR_SINIRI=4;ARAC_SONUC_TAVAN=4000
-DURUM_METNI={"web_search":"İnternette aranıyor","sayfa_oku":"Sayfa okunuyor","read_file":"Dosya okunuyor","list_files":"Klasör listeleniyor","git_durum":"Proje durumu ölçülüyor","belge_ara":"Belgelerde aranıyor","dosya_bilgi":"Dosya bilgisi ölçülüyor","icerik_ara":"Kodda aranıyor","github_durum":"GitHub durumu ölçülüyor","write_file_tool":"Dosya yazılıyor","get_reminders":"Hatırlatmalar kontrol ediliyor","add_task":"Görev ekleniyor","list_tasks":"Görevler listeleniyor","complete_task":"Görev tamamlanıyor","ac_uygulama":"Uygulama açılıyor","image_analyze":"Görüntü inceleniyor"}
-DURUM_ALANI=("query","url","path","folder","proje","sorgu","text","task_id","uygulama","islem")
-def _j(obj):return json.dumps(obj,ensure_ascii=False)
-def parse_args(ham):
- if isinstance(ham,dict):return ham
+DURUM_METNI={"web_search":"İnternette aranıyor","sayfa_oku":"Sayfa okunuyor","read_file":"Dosya okunuyor","list_files":"Klasör listeleniyor","git_durum":"Proje durumu ölçülüyor","git_gecmis":"Git geçmişi okunuyor","git_degisenler":"Değişiklikler ölçülüyor","belge_ara":"Belgelerde aranıyor","dosya_bilgi":"Dosya bilgisi ölçülüyor","icerik_ara":"Kodda aranıyor","github_durum":"GitHub durumu ölçülüyor","write_file_tool":"Dosya yazılıyor","get_reminders":"Hatırlatmalar kontrol ediliyor","add_task":"Görev ekleniyor","list_tasks":"Görevler listeleniyor","complete_task":"Görev tamamlanıyor","ac_uygulama":"Uygulama açılıyor","image_analyze":"Görüntü inceleniyor"}
+DURUM_ALANI=("query","url","path","folder","proje","sorgu","text","task_id","uygulama","islem","dosya","taban")
+def _j(o):return json.dumps(o,ensure_ascii=False)
+def parse_args(h):
+ if isinstance(h,dict):return h
  try:
-  c=json.loads(ham or "{}");return c if isinstance(c,dict) else {}
+  c=json.loads(h or "{}");return c if isinstance(c,dict) else {}
  except (ValueError,TypeError):return {}
-def _durum(tool_name,args):
- e=DURUM_METNI.get(tool_name,"Çalışıyor");d=""
- for a in DURUM_ALANI:
-  if (args or {}).get(a):d=str(args[a])[:70];break
+def _durum(n,a):
+ e=DURUM_METNI.get(n,"Çalışıyor");d=""
+ for x in DURUM_ALANI:
+  if (a or {}).get(x):d=str(a[x])[:70];break
  return "%s: %s"%(e,d) if d else e+"..."
 def sonucu_donustur(s):
  if isinstance(s,dict):
@@ -26,11 +26,11 @@ def arac_dongusu(tool_calls,mesajlar,brain,model,js_callback,calistir,tools=None
  for tur in range(tur_siniri):
   tur_sonuclari=[]
   for call in tool_calls:
-   func=call.get("function",{});ad=func.get("name","");args=parse_args(func.get("arguments","{}"))
+   f=call.get("function",{});ad=f.get("name","");args=parse_args(f.get("arguments","{}"))
    if ad not in TANINMIS_TOOLLAR:continue
    js_callback("BasakUI.toolStatus("+_j(_durum(ad,args))+")");net=sonucu_donustur(calistir(ad,args));tur_sonuclari.append((ad,net))
    if not net.startswith("Hata:"):
-    kosan+=1;etiket=next((str(args[a]) for a in DURUM_ALANI if args.get(a)),ad)[:60]
+    kosan+=1;etiket=next((str(args[x]) for x in DURUM_ALANI if args.get(x)),ad)[:60]
     if etiket not in kaynaklar:kaynaklar.append(etiket)
   if not tur_sonuclari:break
   expanded=expanded+[{"role":"assistant","content":"","tool_calls":tool_calls}]
