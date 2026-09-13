@@ -16,6 +16,9 @@ import os
 import re
 import subprocess
 
+from tools.file_ops import YASAK_DOSYA_KALIPLARI, _yasak_mi
+from tools.tool_logger import _kirmala
+
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Beyaz liste — model yol veremez, yalnız bu anahtarlardan seçer
@@ -173,3 +176,69 @@ def dosya_bilgi(proje, yol):
                              _time.localtime(st.st_mtime))
     return {"result": "%s: var | %d bayt | son degisim %s"
                       % (rel, st.st_size, degisti)}
+
+
+_ICERIK_ATLA = frozenset({
+    ".git", "node_modules", "__pycache__", "build", "dist", ".next",
+    "venv", ".codex-worktrees",
+})
+
+
+def _icerik_satiri_kirmala(satir):
+    """Tarihsel kiralamayi kullanir; plandaki iki eksik oneki tamamlar."""
+    temiz = _kirmala(satir)
+    temiz = re.sub(r"\bghp_[A-Za-z0-9]{8,}", "ghp_***", temiz)
+    temiz = re.sub(r"\beyJ[A-Za-z0-9._-]{8,}", "eyJ***", temiz)
+    return temiz
+
+
+def icerik_ara(proje, sorgu, uzanti=None):
+    """Proje genelinde metin arar; hassas dosyalari hic acmaz."""
+    kok = _kok(proje)
+    if kok is None:
+        return _hata_beyaz_liste(proje)
+    q = _norm(sorgu)
+    if not q:
+        return {"error": "Arama sorgusu bos."}
+    ext = str(uzanti or "").strip().lower()
+    if ext:
+        if "/" in ext or "\\" in ext:
+            return {"error": "Uzanti gecersiz."}
+        if not ext.startswith("."):
+            ext = "." + ext
+    bulgular = []
+    for dizin, altlar, dosyalar in os.walk(kok):
+        altlar[:] = sorted(a for a in altlar if a not in _ICERIK_ATLA)
+        for ad in sorted(dosyalar):
+            if ext and not ad.lower().endswith(ext):
+                continue
+            tam = os.path.join(dizin, ad)
+            if _yasak_mi(tam):
+                continue
+            try:
+                if os.path.getsize(tam) > 1_000_000:
+                    continue
+                with open(tam, "rb") as f:
+                    ham = f.read(1_000_001)
+                if len(ham) > 1_000_000 or b"\x00" in ham:
+                    continue
+                metin = ham.decode("utf-8-sig", errors="replace")
+            except OSError:
+                continue
+            rel = os.path.relpath(tam, kok).replace(os.sep, "/")
+            for i, satir in enumerate(metin.splitlines(), 1):
+                if q in _norm(satir):
+                    bulgular.append("%s:%d: %s" %
+                                    (rel, i, _icerik_satiri_kirmala(satir).strip()[:160]))
+                    if len(bulgular) >= _MAX_ESLESME:
+                        break
+            if len(bulgular) >= _MAX_ESLESME:
+                break
+        if len(bulgular) >= _MAX_ESLESME:
+            break
+    if not bulgular:
+        return {"error": "Kodda bulunamadi: '%s'" % (sorgu or "")[:60]}
+    cikti = "\n".join(bulgular)
+    if len(cikti) > _MAX_CIKTI:
+        cikti = cikti[:_MAX_CIKTI] + "\n...(kisaltildi)"
+    return {"result": cikti}
