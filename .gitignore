@@ -56,3 +56,4 @@ tr_TR-dfki-medium.onnx.json
 
 # Kullanici verisi — asla commit edilmez (tablo + gorevler kisiye ozel)
 data/matris/
+data/uretilen/
