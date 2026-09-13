@@ -47,9 +47,21 @@ FAZ 1 bitti ve birleşti (`a218f2b`). Başak'ta **sekiz** araç var, hepsi salt-
 - `belge_ara` yalnız proje **kök** `.md` dosyalarına bakıyor (`os.listdir`, özyinelemeli değil). Ölçüldü: "matris" vixrex kökünde yok ama alt klasörlerde var — bu yüzden gerekiyor.
 - `tools/olcum.py` içine `icerik_ara(proje, sorgu, uzanti=None)`.
 - Beyaz liste `PROJELER`'den (`_kok`), dışına çıkılmaz.
-- Atlanacak: `.git`, `node_modules`, `__pycache__`, `build`, `dist`, `.next`, `venv`, `.codex-worktrees`.
+- Atlanacak klasörler: `.git`, `node_modules`, `__pycache__`, `build`, `dist`, `.next`, `venv`, `.codex-worktrees`.
 - Sınırlar: dosya başı 1 MB, en fazla 8 eşleşme, çıktı 1.500 karakter. İkili dosya okunmaz.
 - Dönüş: `dosya:satır: içerik`.
+
+> ### ⚠️ SIR SIZINTISI — bu maddeyi atlama
+>
+> **Ölçüldü (2026-09-13):** `C:\Projects\vixrex` içinde gerçek `.env.local` (16 satırda anahtar deseni), `.env.production` (11), `.env.vercel-tesis` (10) ve benzerleri var. `xses`'te de bir tane. `icerik_ara` özyinelemeli tarama yaptığı için bu dosyaları okur ve eşleşen satırlar **ücretsiz bulut modeline gider**. Kilo'nun kartında "gönderilen yazıları kaydedebilir" yazıyor.
+>
+> `read_file` bu dosyaları zaten engelliyor (`file_ops.YASAK_DOSYA_KALIPLARI` — ölçüldü, `.env.local` ve `.env.production` denendi, ikisi de reddedildi). `icerik_ara` **aynı korumayı kullanmak zorunda**:
+>
+> 1. `from tools.file_ops import YASAK_DOSYA_KALIPLARI, _yasak_mi` — yeni kara liste YAZMA, mevcudunu kullan. Kalıba uyan dosya hiç açılmaz.
+> 2. Buna ek olarak **çıktı maskelenir**: dönen satırlarda `api_key`, `token`, `parola`, `secret`, `sk-`, `ghp_`, `gsk_`, `nvapi-`, `eyJ`, `Bearer` desenleri `***` ile değiştirilir. Hazır kod var: `git show 27b03a9:tools/tool_logger.py` içindeki `_kirmala`. Onu al, yeniden yazma.
+> 3. Sebep: kara liste dosya ADINA bakar. Normal adlı bir dosyada (örn. `config.ts`) gömülü anahtar varsa ad koruması yakalamaz — maskeleme ikinci savunma hattıdır.
+>
+> **Kabul kanıtı (Claude ölçecek):** "vixrex'te SUPABASE geçiyor mu" sorulur. `.env.local` içeriği çıktıda **görünmeyecek**; görünürse iş reddedilir.
 
 ### İş 5 — GitHub durumu (PR + CI)
 - `gh` kurulu ve yetkili (`xpodiumyours`, ölçüldü). Yeni anahtar gerekmez.
@@ -130,6 +142,9 @@ Bunlar ölçülerek kazanıldı. Diff'te geri alınmışsa iş reddedilir:
 | 6 | Güvenlik testleri | Yol kaçışı + SSRF yeşil |
 | 7 | Yan etki | Düz sohbet hâlâ akıyor; ölçüm sorusu hâlâ araç koşturuyor |
 | 8 | **Yazma sınırı** | `knowledge/` dışına yazma denemesi reddedilir — dosyanın oluşmadığı **diskte** doğrulanır |
+| 9 | **Sır sızıntısı** | "vixrex'te SUPABASE geçiyor mu" sorulur; `.env` içeriği çıktıda görünmemeli |
+| 10 | **GitHub salt-okunur** | `gh` çağrılarında yalnız `pr list` / `pr view` / `run list` var; `merge`, `create`, `close`, `delete` YOK |
+| 11 | **Test komutu sabit** | `testleri_kos` model argümanı almıyor; komut kodda tablodan geliyor |
 
 Bir commit kapıdan geçmezse **yalnız o commit** geri alınır, gerisi birleşir.
 
