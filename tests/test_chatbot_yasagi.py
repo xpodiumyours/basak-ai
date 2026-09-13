@@ -173,7 +173,7 @@ class TestYasakIsimYok:
     DOSYALAR = ("brain/secici.py", "brain/brain.py", "chat/flow.py",
                 "chat/tools.py", "chat/context.py", "chat/prompts.py",
                 "chat/gate.py", "tools/definitions.py",
-                "tools/__init__.py")
+                "tools/__init__.py", "tools/matris.py")
 
     def _isimler(self, agac):
         for dugum in ast.walk(agac):

@@ -1,9 +1,11 @@
-"""tools — Başak'ın araçları. On üç tane: sekizi salt-okunur, biri yazma.
+"""tools — Başak'ın araçları. Yirmi dokuz tane.
 
 2026-09-13: 21 araçlık katman söküldü; Casper'in seçtikleri geri geldi.
-Yazma YALNIZ knowledge/ altinadir (write_knowledge dar sarmalayici) —
-dolayısıyla izin tablosu, onay kuyruğu, yetki tavanı yok. Tek kural
-beyaz liste + yol kara listesi.
+Okuyanlar serbesttir. Etkisi olanlar dardir: dosya yazma yalniz
+knowledge/ alti, tablo/gorev yazma yalniz kendi dosyalari, komutlar
+sabit tablodan, uygulamalar beyaz listeden. Bu yuzden izin tablosu,
+onay kuyruğu, yetki tavanı yok. Tek kural beyaz liste + yol kara
+listesi + sabit komutlar.
 """
 
 import logging
@@ -137,6 +139,55 @@ def calistir(tool_name, args):
         if tool_name == "testleri_kos":
             from tools import testkos
             return testkos.testleri_kos(str(args.get("proje", "")))
+
+        if tool_name == "matris_ac":
+            from tools import matris
+            return matris.matris_ac(
+                str(args.get("baslik", "")),
+                str(args.get("fikir", "") or ""))
+
+        if tool_name == "matris_liste":
+            from tools import matris
+            return matris.matris_liste()
+
+        if tool_name == "satir_ekle":
+            from tools import matris
+            bagli = args.get("bagli", []) or []
+            if not isinstance(bagli, list):
+                bagli = [bagli]
+            return matris.satir_ekle(
+                args.get("matris"), str(args.get("tur", "")),
+                str(args.get("metin", "")),
+                ust=args.get("ust"), neden=str(args.get("neden", "") or ""),
+                bagli=bagli)
+
+        if tool_name == "kanit_ekle":
+            from tools import matris
+            return matris.kanit_ekle(
+                args.get("matris"), args.get("satir"),
+                str(args.get("kanit", "")))
+
+        if tool_name == "satir_kapat":
+            from tools import matris
+            return matris.satir_kapat(args.get("matris"), args.get("satir"))
+
+        if tool_name == "satir_ac":
+            from tools import matris
+            return matris.satir_ac(args.get("matris"), args.get("satir"))
+
+        if tool_name == "satir_sil":
+            from tools import matris
+            return matris.satir_sil(args.get("matris"), args.get("satir"))
+
+        if tool_name == "satir_tasi":
+            from tools import matris
+            return matris.satir_tasi(
+                args.get("matris"), args.get("satir"),
+                args.get("yeni_ust"))
+
+        if tool_name == "matris_durum":
+            from tools import matris
+            return matris.matris_durum(args.get("matris"))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

@@ -220,11 +220,102 @@ TEST_KOS = _arac(
     ["proje"],
 )
 
+MATRIS_AC = _arac(
+    "matris_ac",
+    "Fikir icin ilerleme tablosu acar. Doner: tablo numarasi. "
+    "Tablo canli agactir: dal eklenir, silinir, tasinir.",
+    {"baslik": {"type": "string", "description": "Tablo basligi"},
+     "fikir": {"type": "string", "description": "Fikrin ozeti"}},
+    ["baslik"],
+)
+
+MATRIS_LISTE = _arac(
+    "matris_liste",
+    "Tum tablolari skorlariyla doner: numara, baslik, kanitli sayisi.",
+    {},
+    [],
+)
+
+SATIR_EKLE = _arac(
+    "satir_ekle",
+    "Tabloya satir ekler. Doner: satir numarasi. Tur: arastirma, "
+    "katman, adim, detay. ust: baglanacagi satir (yoksa kok). "
+    "bagli: once bitmesi gereken satir numaralari.",
+    {"matris": {"type": "integer", "description": "Tablo numarasi"},
+     "tur": {"type": "string",
+             "description": "arastirma | katman | adim | detay"},
+     "metin": {"type": "string", "description": "Satir metni"},
+     "ust": {"type": "integer",
+             "description": "Ust satir numarasi (kok icin bos)"},
+     "neden": {"type": "string",
+               "description": "Ustteki hangi ise yaradigi"},
+     "bagli": {"type": "array",
+               "description": "Once bitmesi gereken satirlar"}},
+    ["matris", "tur", "metin"],
+)
+
+KANIT_EKLE = _arac(
+    "kanit_ekle",
+    "Satira kanit notu duser. Doner: sonuc. Kanitsiz satir kapanmaz.",
+    {"matris": {"type": "integer", "description": "Tablo numarasi"},
+     "satir": {"type": "integer", "description": "Satir numarasi"},
+     "kanit": {"type": "string", "description": "Kanit metni"}},
+    ["matris", "satir", "kanit"],
+)
+
+SATIR_KAPAT = _arac(
+    "satir_kapat",
+    "Satiri kanitli kapatir. Doner: sonuc. Kanit yoksa veya bagli "
+    "satirlar bitmemisse reddedilir.",
+    {"matris": {"type": "integer", "description": "Tablo numarasi"},
+     "satir": {"type": "integer", "description": "Satir numarasi"}},
+    ["matris", "satir"],
+)
+
+SATIR_AC = _arac(
+    "satir_ac",
+    "Kapanmis satiri yeniden acar. Doner: sonuc.",
+    {"matris": {"type": "integer", "description": "Tablo numarasi"},
+     "satir": {"type": "integer", "description": "Satir numarasi"}},
+    ["matris", "satir"],
+)
+
+SATIR_SIL = _arac(
+    "satir_sil",
+    "Satiri arsive kaldirir (skor disi, geri donulebilir). Alt "
+    "satirlar bir uste baglanir. Doner: sonuc.",
+    {"matris": {"type": "integer", "description": "Tablo numarasi"},
+     "satir": {"type": "integer", "description": "Satir numarasi"}},
+    ["matris", "satir"],
+)
+
+SATIR_TASI = _arac(
+    "satir_tasi",
+    "Satiri baska dalin altina tasir. Doner: sonuc. Dongu kurarsa "
+    "reddedilir.",
+    {"matris": {"type": "integer", "description": "Tablo numarasi"},
+     "satir": {"type": "integer", "description": "Satir numarasi"},
+     "yeni_ust": {"type": "integer",
+                  "description": "Yeni ust satir (kok icin bos)"}},
+    ["matris", "satir"],
+)
+
+MATRIS_DURUM = _arac(
+    "matris_durum",
+    "Tabloyu agac + skor olarak doner: satirlar, baglantilar, "
+    "kanit sayilari, kanitli/toplam skor. Tamami cikar.",
+    {"matris": {"type": "integer", "description": "Tablo numarasi"}},
+    ["matris"],
+)
+
 TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
          HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR,
          UYGULAMA_AC, ICERIK_ARA, GITHUB_DURUM,
-         GIT_GECMIS, GIT_DEGISENLER, ADRES_KONTROL, TEST_KOS]
+         GIT_GECMIS, GIT_DEGISENLER, ADRES_KONTROL, TEST_KOS,
+         MATRIS_AC, MATRIS_LISTE, SATIR_EKLE, KANIT_EKLE,
+         SATIR_KAPAT, SATIR_AC, SATIR_SIL, SATIR_TASI,
+         MATRIS_DURUM]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

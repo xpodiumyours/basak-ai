@@ -36,6 +36,15 @@ DURUM_METNI = {
     "git_degisenler": "Değişenler ölçülüyor",
     "adres_kontrol": "Adres kontrol ediliyor",
     "testleri_kos": "Testler koşuyor",
+    "matris_ac": "Tablo açılıyor",
+    "matris_liste": "Tablolar listeleniyor",
+    "satir_ekle": "Satır ekleniyor",
+    "kanit_ekle": "Kanıt ekleniyor",
+    "satir_kapat": "Satır kapatılıyor",
+    "satir_ac": "Satır açılıyor",
+    "satir_sil": "Satır arşivleniyor",
+    "satir_tasi": "Satır taşınıyor",
+    "matris_durum": "Tablo okunuyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.

@@ -26,6 +26,9 @@ boş konuşan bir chatbot kalıyordu. On günün özeti bu.
 5. **Küçük/büyük model ayrımı:** modele adına bakıp farklı davranmak.
 6. **Sormadan konuşma:** kullanıcı sormadan mesaj yok — açılışta da
    kapanışta da durduk yere konuşulmaz. Başak çağrılınca gelir.
+7. **Tablo kararı birlikte:** ilerleme tablosu her işte zorunlu
+   değildir; açılıp açılmayacağına kullanıcıyla birlikte karar
+   verilir. Model kendi başına tablo açıp işi tabloya boğmaz.
 
 ## Serbest olan (dokunulmaz)
 
