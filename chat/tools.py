@@ -45,6 +45,7 @@ DURUM_METNI = {
     "satir_sil": "Satır arşivleniyor",
     "satir_tasi": "Satır taşınıyor",
     "matris_durum": "Tablo okunuyor",
+    "gorsel_uret": "Görsel üretiliyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.

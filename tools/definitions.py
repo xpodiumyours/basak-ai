@@ -270,6 +270,15 @@ MATRIS_DURUM = _arac(
     ["matris"],
 )
 
+GORSEL_URET = _arac(
+    "gorsel_uret",
+    "Aciklamadan gorsel uretir, dosyaya kaydeder. Doner: yol.",
+    {"aciklama": {"type": "string", "description": "Ne cizilsin"},
+     "genislik": {"type": "integer", "description": "En (256-2048)"},
+     "yukseklik": {"type": "integer", "description": "Boy (256-2048)"}},
+    ["aciklama"],
+)
+
 TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
          HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR,
@@ -277,7 +286,7 @@ TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          GIT_GECMIS, GIT_DEGISENLER, ADRES_KONTROL, TEST_KOS,
          MATRIS_AC, MATRIS_LISTE, SATIR_EKLE, KANIT_EKLE,
          SATIR_KAPAT, SATIR_AC, SATIR_SIL, SATIR_TASI,
-         MATRIS_DURUM]
+         MATRIS_DURUM, GORSEL_URET]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

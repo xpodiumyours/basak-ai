@@ -188,6 +188,13 @@ def calistir(tool_name, args):
         if tool_name == "matris_durum":
             from tools import matris
             return matris.matris_durum(args.get("matris"))
+
+        if tool_name == "gorsel_uret":
+            from tools import gorsel
+            return gorsel.gorsel_uret(
+                str(args.get("aciklama", "")),
+                genislik=args.get("genislik", 1024),
+                yukseklik=args.get("yukseklik", 1024))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}
