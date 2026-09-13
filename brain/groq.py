@@ -12,7 +12,7 @@ from brain.kullanim import kullanim_ekle
 MODELLER = {
     "hizli": "openai/gpt-oss-20b",
     "guclu": "openai/gpt-oss-120b",
-    "varsayilan": "openai/gpt-oss-20b",
+    "varsayilan": "openai/gpt-oss-120b",
 }
 
 
