@@ -205,6 +205,14 @@ def calistir(tool_name, args):
             return matris.satir_duzenle(
                 args.get("matris"), args.get("satir"),
                 metin=args.get("metin"), neden=args.get("neden"))
+
+        if tool_name == "simdi":
+            from tools import hesap
+            return hesap.simdi()
+
+        if tool_name == "hesapla":
+            from tools import hesap
+            return hesap.hesapla(str(args.get("ifade", "")))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

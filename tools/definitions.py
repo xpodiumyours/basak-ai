@@ -273,6 +273,20 @@ SATIR_DUZENLE = _arac(
     ["matris", "satir"],
 )
 
+SIMDI = _arac(
+    "simdi",
+    "Su anki tarih ve saati doner: gun, ay, yil, haftanin gunu, saat.",
+    {},
+    [],
+)
+
+HESAPLA = _arac(
+    "hesapla",
+    "Dort islem yapar: + - * / % ** ve parantez. Doner: sonuc.",
+    {"ifade": {"type": "string", "description": "Orn. (120*18)/100"}},
+    ["ifade"],
+)
+
 MATRIS_DURUM = _arac(
     "matris_durum",
     "Agac + skor, tamami.",
@@ -303,7 +317,8 @@ TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          GIT_GECMIS, GIT_DEGISENLER, ADRES_KONTROL, TEST_KOS,
          MATRIS_AC, MATRIS_LISTE, SATIR_EKLE, KANIT_EKLE,
          SATIR_KAPAT, SATIR_AC, SATIR_SIL, SATIR_TASI,
-         MATRIS_DURUM, GORSEL_URET, SAGLIK_RAPORU, SATIR_DUZENLE]
+         MATRIS_DURUM, GORSEL_URET, SAGLIK_RAPORU, SATIR_DUZENLE,
+         SIMDI, HESAPLA]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

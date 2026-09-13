@@ -48,6 +48,8 @@ DURUM_METNI = {
     "gorsel_uret": "Görsel üretiliyor",
     "saglik_raporu": "Hat sağlığı ölçülüyor",
     "satir_duzenle": "Satır düzeltiliyor",
+    "simdi": "Saat okunuyor",
+    "hesapla": "Hesaplanıyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.
