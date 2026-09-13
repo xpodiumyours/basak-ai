@@ -31,6 +31,7 @@ DURUM_METNI = {
     "complete_task": "Görev kapatılıyor",
     "ac_uygulama": "Uygulama açılıyor",
     "icerik_ara": "İçerikte aranıyor",
+    "github_durum": "GitHub ölçülüyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.

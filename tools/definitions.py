@@ -166,10 +166,25 @@ ICERIK_ARA = _arac(
     ["proje", "sorgu"],
 )
 
+GITHUB_DURUM = _arac(
+    "github_durum",
+    "GitHub'da PR ve CI durumunu okur (salt-okunur). Doner: "
+    "isleme gore PR listesi, PR detayi veya son 5 calisma. "
+    "Yazan komut yok.",
+    {"islem": {"type": "string",
+               "description": "pr_liste | pr_goruntule | calisma_liste"},
+     "proje": _PROJE,
+     "no": {"type": "integer",
+            "description": "PR numarasi (pr_goruntule icin)"},
+     "durum": {"type": "string",
+               "description": "PR durumu: open, closed, merged, all"}},
+    ["islem", "proje"],
+)
+
 TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
          HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR,
-         UYGULAMA_AC, ICERIK_ARA]
+         UYGULAMA_AC, ICERIK_ARA, GITHUB_DURUM]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

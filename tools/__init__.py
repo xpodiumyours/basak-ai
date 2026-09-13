@@ -108,6 +108,14 @@ def calistir(tool_name, args):
                 str(args.get("proje", "")),
                 str(args.get("sorgu", "")),
                 str(args.get("uzanti", "") or "") or None)
+
+        if tool_name == "github_durum":
+            from tools import github
+            return github.github_durum(
+                str(args.get("islem", "")),
+                str(args.get("proje", "")),
+                no=args.get("no"),
+                durum=str(args.get("durum", "") or "open"))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}
