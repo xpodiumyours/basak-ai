@@ -17,6 +17,7 @@ bu dosyada DEĞİL — `brain/` altında. Burası yalnız bağlamı kurar.
 
 import json
 import logging
+import re
 
 from chat.prompts import (KIMLIK_BLOGU, OLCU_YONLENDIRME,
                           BIKIMLONDIRME_YONLENDIRME, TOOL_YONLENDIRME)
@@ -97,13 +98,66 @@ _ARAC_ISARETLERI = (
     "ekran görüntüsü", "ekran goruntusu", "görsel", "gorsel", "resim",
     "fotoğraf", "fotograf", ".png", ".jpg", ".jpeg", "şu görüntü",
     "su goruntu",
+    # yetenek soruları (2026-09-13, Casper'in ekran görüntüsünden):
+    # "başka bir şey göremiyor musun" deyince araç kapalı kalıyordu ve
+    # model "erişimim yok" diyordu — elleri varken. Neyi görebildiği
+    # sorulduğunda araçlar AÇIK olmalı ki bakarak cevap versin.
+    "görebiliyor", "gorebiliyor", "göremiyor", "goremiyor",
+    "görebilir", "gorebilir", "erişebiliyor", "erisebiliyor",
+    "erişimin", "erisimin", "yapabiliyor", "bakabiliyor",
 )
 
+# Devam cümlesi: kendi başına tetikleyici taşımaz ama bir önceki tur
+# araç kullandıysa o turun konusunu sürdürüyordur ("peki başka?").
+_DEVAM_ISARETLERI = (
+    "başka", "baska", "peki", "daha", "devam", "bir de", "neler",
+    "ne var", "onu", "şunu", "sunu", "orada", "içinde", "icinde",
+)
 
-def _arac_gerek(text):
-    """Soru araç ister mi? (şema modele sunulsun mu)"""
+# Son turda araç kullanıldı mı? Devam cümlesinde araçları açık tutar.
+_son_tur_aracli = False
+
+
+def _derle(isaretler):
+    """Tetikleyicileri ikiye ayırır: uzunlar düz arama, kısalar kelime
+    sınırıyla.
+
+    2026-09-13 (ölçüldü): düz arama kısa kelimeleri kelime ORTASINDA
+    yakalıyordu — "kur" yüzünden "teşekkürler" ve "kurulum", "oku"
+    yüzünden "okula gidiyorum" araç açıyordu. 15 sıradan cümlede 4
+    yanlış tetikleme. Kısa olanlar artık \\b ile sınırlanır.
+    """
+    kisa = tuple(k for k in isaretler if len(k) <= 4 and k.isalpha())
+    uzun = tuple(k for k in isaretler if k not in kisa)
+    desen = None
+    if kisa:
+        desen = re.compile(
+            r"\b(?:%s)\b" % "|".join(re.escape(k) for k in kisa))
+    return uzun, desen
+
+
+_ARAC_UZUN, _ARAC_KISA_RE = _derle(_ARAC_ISARETLERI)
+_DEVAM_UZUN, _DEVAM_KISA_RE = _derle(_DEVAM_ISARETLERI)
+
+
+def _eslesti(t, uzun, kisa_re):
+    if any(k in t for k in uzun):
+        return True
+    return bool(kisa_re and kisa_re.search(t))
+
+
+def _arac_gerek(text, devam=False):
+    """Soru araç ister mi? (şema modele sunulsun mu)
+
+    devam=True ise bir önceki tur araç kullanmıştır; o zaman devam
+    cümleleri de araçları açar.
+    """
     t = (text or "").lower()
-    return any(k in t for k in _ARAC_ISARETLERI)
+    if _eslesti(t, _ARAC_UZUN, _ARAC_KISA_RE):
+        return True
+    if devam and _eslesti(t, _DEVAM_UZUN, _DEVAM_KISA_RE):
+        return True
+    return False
 
 
 def _baglam_kur(text, system_prompt, konusmaci, araclar_acik=False):
@@ -198,7 +252,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
         [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
          if m.get("role") != "system"])
 
-    arac_acik = bool(tools) and _arac_gerek(text)
+    global _son_tur_aracli
+    arac_acik = bool(tools) and _arac_gerek(text, devam=_son_tur_aracli)
+    _son_tur_aracli = arac_acik
     mesajlar = _baglam_kur(text, system_prompt, konusmaci, arac_acik)
 
     # Ölçüm sorusunda geçmişteki ESKİ CEVAPLAR bağlama girmez
