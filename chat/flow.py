@@ -1,7 +1,7 @@
 """chat/flow.py — Ana sohbet akışı.
 
 2026-09-13 (Casper kararı): ölçü kapısı, orkestra ve araçların etrafına
-sarılmış kural katmanları söküldü. Geriye altı salt-okunur araç kaldı.
+sarılmış kural katmanları söküldü. Geriye sekiz salt-okunur araç kaldı.
 
 İki yol var:
 
@@ -87,6 +87,8 @@ _ARAC_ISARETLERI = (
     "dosya", "klasör", "klasor", "belge", "masaüstü", "masaustu",
     "indirilenler", "listele", "oku", "içinde ne", "icinde ne",
     "diskimde", "bilgisayarımda", "bilgisayarimda",
+    "planda", "belgede", "dokümanda", "dokumanda", "notlarda",
+    "hangi dosyada",
     # proje durumu
     "vixrex", "numeramatch", "xses", "başak projesi", "basak projesi",
     "commit", "dal ", "branch", "ne durumda", "durumu ne", "ne oldu",

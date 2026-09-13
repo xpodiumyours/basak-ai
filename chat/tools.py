@@ -23,6 +23,8 @@ DURUM_METNI = {
     "read_file": "Dosya okunuyor",
     "list_files": "Klasör listeleniyor",
     "git_durum": "Proje durumu ölçülüyor",
+    "belge_ara": "Belgelerde aranıyor",
+    "dosya_bilgi": "Dosya bilgisi ölçülüyor",
     "image_analyze": "Görüntü inceleniyor",
 }
 

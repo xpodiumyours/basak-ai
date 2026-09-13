@@ -1,4 +1,4 @@
-"""tools — Başak'ın araçları. Altı tane, hepsi salt-okunur.
+"""tools — Başak'ın araçları. Sekiz tane, hepsi salt-okunur.
 
 2026-09-13: 21 araçlık katman söküldü; Casper'in seçtikleri geri geldi.
 Bu paket diske ve dışarıya YALNIZ okur. Yazma aracı yok — dolayısıyla
@@ -49,6 +49,18 @@ def calistir(tool_name, args):
         if tool_name == "git_durum":
             from tools import olcum
             return olcum.git_durum(str(args.get("proje", "")))
+
+        if tool_name == "belge_ara":
+            from tools import olcum
+            return olcum.belge_ara(
+                str(args.get("proje", "")),
+                str(args.get("sorgu", "")))
+
+        if tool_name == "dosya_bilgi":
+            from tools import olcum
+            return olcum.dosya_bilgi(
+                str(args.get("proje", "")),
+                str(args.get("yol", "")))
 
         if tool_name == "image_analyze":
             from tools import image_analyzer
