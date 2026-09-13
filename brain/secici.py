@@ -1,178 +1,30 @@
-"""brain/secici.py — Model Secim Motoru (P3, kural tabanli + seffaf).
+"""brain/secici.py — Saglayici surekliligi.
 
-Gorev turunu anahtar kelimelerle siniflandirr, saglayici sirasini
-gerekcesiyle dondurur. Kurallar seffaf: hangi gorev turu hangi
-saglayiciyi one aldigi acikca yazilir.
-
-Genel sohbette saglayicilar sirayla distribute edilerek
-boylece tek bir saglayicinin token limiti hici dolmaz (P3 optimizasyonu).
-
-Not: Eski `route_by_intent` fonksiyonu 2026-08-24 denetiminde silindi —
-hicbir yerden cagrilmiyordu (Router v2'nin yerini sec()/siniflandir()
-aldi).
+Kullanici mesaji siniflandirilmaz. Anahtar kelime, gorev turu, arac varligi,
+karne veya tahmini token butcesi saglayici sirasini degistirmez. Bu modul
+yalniz mevcut saglayicilari registry'deki sabit fallback sirasinda dondurur.
 """
-
-import random
 
 from brain import registry
 
-# --- B1: Karne katmani (2026-08-24, kilitli hedef ilk halka) ---
-# Kurallar temel sirayi verir; AMA yeterli ornekleme olan ve basari
-# oranini esik altina dusuren saglayici deneyime gore SONA atilir.
-# Terfi (bandit tarzi one alma) sonraki dilimdir — once guvenli indirim.
-_MIN_ORNEKLEM = 5        # bu kadar cagri yoksa karne sesini cikarmaz
-_BASARI_ESIK = 50.0      # altinda kalan zayif sayilir
 
-
-def _karne_ozetleri(mevcutlar):
-    """Son 72 saatin yeterli orneklemli performans ozetleri."""
-    try:
-        from brain.stats import model_stats_al
-        istat = model_stats_al()
-        ozetler = istat.ozet(son_saat=72)
-    except Exception:
-        return {}
-    return {o["model"]: o for o in ozetler
-            if o["model"] in set(mevcutlar)
-            and o.get("toplam", 0) >= _MIN_ORNEKLEM}
-
-
-# Gorev turleri ve anahtar kelimeleri (2026-09-10: gunluk konusma
-# kaliplari eklendi — noktasiz/harf eksik yazimlar da yakalanir)
-_GOREV_KELIMELERI = {
-    "kod": ["kod", "python", "javascript", "fonksiyon", "hata",
-            "debug", "script", "regex", "yazılım", "yazilim", "programla",
-            "css", "html", "sql", "api", "algoritma"],
-    "arastirma": ["araştır", "arastir", "öğren", "ogren", "kaynak",
-                  "karşılaştır", "karsilastir", "nedir", "kimdir",
-                  "detaylı", "detayli", "incele", "fiyat", "kac para",
-                  "para", "musteri", "müşteri", "rakip", "pazar",
-                  "derinlemesine"],
-    "hiz": ["hızlı", "hizli", "çabuk", "cabuk", "acele", "anında",
-            "aninda", "şimdi", "simdi"],
-}
-
-# 2026-09-09 (tam tespit): olcum gercegine gore dizeildi.
-# GLM guvenilir (%68.8) + sinirsiz bedava; Cloudflare 0 hata;
-# Groq hizli ama dakikada 8000 kelime duvari var;
-# Cohere dusuk basarili (%38.1) — karne onu zaten sona atar, burada
-# arastirmada GLM one gecer; Gemini gunluk 20'de biter (yedek).
-_TERCİHLER = {
-    "kod": ["glm", "nvidia"],        # GLM guvenilir, NVIDIA yedek
-    "arastirma": ["glm", "cohere"],    # GLM guvenilir, Cohere yedek
-    "hiz": ["groq", "cloudflare"],    # Groq en hizli, Cloudflare yedek
-}
-
-# 2026-08-26: Tool calling'i iyi calisan modeller.
-# Bu modeller tool JSON'unu cozmede daha basarili.
-_TOOL_IYILERI = {"groq", "glm", "cloudflare", "cohere"}
-
-
-def siniflandir(text):
-    """Mesaji gorev turune ayirir: kod / arastirma / hiz / genel."""
-    t = (text or "").lower()
-    for tur, kelimeler in _GOREV_KELIMELERI.items():
-        if any(k in t for k in kelimeler):
-            return tur
+def siniflandir(_text):
+    """Eski cagri uyumlulugu; kullanici mesaji artik siniflandirilmaz."""
     return "genel"
 
 
 def sec(text=None, gorev_tipi=None, tools=False, mevcutlar=None,
         karne_kullan=False, cooldown=None):
-    """Saglayici sirasini ve gerekceyi dondurur: (sirali_adlar, gerekce).
+    """Mevcut saglayicilari sabit fallback sirasinda dondurur.
 
-    - mevcutlar: su an kullanilabilir saglayici adlari (brain zinciri).
-      None ise registry varsayilan sirasi kullanilir (test icin).
-    - tools=True: tool destegi olmayan saglayicilar sona atilir.
-    - karne_kullan=True: yeterli ornekleme olan ve basarisi esik alti
-      olan saglayici SONA atilir (B1 — uretimde brain.cevapla acar).
-    - Gerekce seffaf: "kod isi → nvidia one alindi" gibi okunabilir metin.
+    Parametreler eski cagri uyumlulugu icin korunur; hicbiri kullanici
+    mesajina veya arac durumuna gore siralama yapmaz.
     """
-    tip = gorev_tipi or siniflandir(text)
+    del text, gorev_tipi, tools, karne_kullan, cooldown
 
     if mevcutlar is None:
-        mevcutlar = list(registry.VARSAYILAN_SIRA)
-    else:
-        # Registry varsayilan sirasina gore sabitlenmis temel sira
-        temel = [a for a in registry.VARSAYILAN_SIRA if a in mevcutlar]
-        bilinmeyen = [a for a in mevcutlar if a not in registry.VARSAYILAN_SIRA]
-        mevcutlar = temel + bilinmeyen
+        return list(registry.VARSAYILAN_SIRA), "sabit fallback sirasi"
 
-    # Tool gerekiyorsa: desteklemeyenler sona, iyi tool yapanlar one
-    if tools:
-        destekli = [a for a in mevcutlar if registry.tool_destegi_var_mi(a)]
-        desteksiz = [a for a in mevcutlar
-                     if not registry.tool_destegi_var_mi(a)]
-        # Tool calling'i iyi yapanlar one alinir
-        iyiler = [a for a in destekli if a in _TOOL_IYILERI]
-        digerleri = [a for a in destekli if a not in _TOOL_IYILERI]
-        mevcutlar = iyiler + digerleri + desteksiz
-
-    # Cooldown: rate-limit almis saglayicilari sondan once
-    if cooldown:
-        import time as _t
-        now = _t.time()
-        cooldown_aktif = [a for a in mevcutlar if cooldown.get(a, 0) > now]
-        cooldown_bitmis = [a for a in mevcutlar if a not in cooldown_aktif]
-        if cooldown_aktif:
-            mevcutlar = cooldown_bitmis + cooldown_aktif
-            gerekce = 'cooldown: ' + ', '.join(cooldown_aktif) + ' sona alindi'
-
-    # Gorev turune gore one alma
-    gerekce = "genel sohbet → varsayilan sira"
-    onecelenen = []
-    if tip in _TERCİHLER:
-        tercih = [a for a in _TERCİHLER[tip] if a in mevcutlar]
-        if tercih:
-            kalan = [a for a in mevcutlar if a not in tercih]
-            mevcutlar = tercih + kalan
-            onecelenen = tercih
-            gerekce = "%s isi → %s öne alındı" % (
-                tip, ", ".join(registry.kart(a)["ad"] for a in tercih))
-    elif tip == "genel" and len(mevcutlar) >= 3:
-        # Genel sohbette ilk 3 saglayiciyi rastgele sirayla baslat.
-        # Bu, tek saglayicinin token limitinin hici dolmasini onler.
-        ilk_3 = mevcutlar[:3]
-        kalan = mevcutlar[3:]
-        random.shuffle(ilk_3)
-        mevcutlar = ilk_3 + kalan
-        gerekce = "genel sohbet → dagitilmis sira (" + ", ".join(
-            registry.kart(a)["ad"] for a in ilk_3) + ")"
-
-    # Token butcesi bilinci: gunluk limitin %%90 uzerinde olanlar sona
-    if cooldown is not None:  # cooldown dict varsa token verisi de olabilir
-        try:
-            from brain.stats import model_stats_al
-            istat = model_stats_al()
-            for a in list(mevcutlar):
-                giris, _ = istat.token_bugun(a)
-                # Groq icin 200K limit, digerleri icin 50K tahmini
-                limit = 180000 if a == "groq" else 50000
-                if giris > limit:
-                    mevcutlar.remove(a)
-                    mevcutlar.append(a)  # sona ekle
-                    gerekce += " | %s token limiti yakin (%%%d)" % (a, int(giris/limit*100))
-        except Exception:
-            pass  # olcum hatasi sohbeti bozmasin
-
-    # B1 karne katmani: deneyim, kural sirasini yalnizca GERIYE itebilir.
-    # Yeterli ornekleme (>=5 cagri) olan ve basari orani esik alti olan
-    # saglayici sona alinir; gerekceye seffaf yazilir.
-    if karne_kullan:
-        karne = _karne_ozetleri(mevcutlar)
-        zayif = [a for a in mevcutlar
-                 if a in karne
-                 and karne[a]["basari_orani"] < _BASARI_ESIK]
-        if zayif:
-            saglam = [a for a in mevcutlar if a not in zayif]
-            detay = ", ".join(
-                "%s (%%%s)" % (a, karne[a]["basari_orani"]) for a in zayif)
-            mevcutlar = saglam + zayif
-            gerekce += " | karne: %s sona alindi" % detay
-
-    # 2026-09-09: kilo-once kurali KALDIRILDI (tam tespit).
-    # Kilo basarisi %25 (16 cagrida 4 basari) — en onde duramaz.
-    # Sira artik VARSAYILAN_SIRA + gorev tercihi + karne ile belirlenir.
-    # Kilo yedek olarak zincirde durur, one alinmaz.
-
-    return list(mevcutlar), gerekce
+    temel = [a for a in registry.VARSAYILAN_SIRA if a in mevcutlar]
+    bilinmeyen = [a for a in mevcutlar if a not in registry.VARSAYILAN_SIRA]
+    return temel + bilinmeyen, "sabit fallback sirasi"
