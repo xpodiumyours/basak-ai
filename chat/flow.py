@@ -24,8 +24,7 @@ import json
 import logging
 import re
 
-from chat.prompts import (KIMLIK_BLOGU, OLCU_YONLENDIRME,
-                          BIKIMLONDIRME_YONLENDIRME)
+from chat.prompts import KIMLIK_BLOGU
 from chat import context as ctx
 from chat.gate import temizle as _temizle
 
@@ -82,7 +81,7 @@ def _baglam_kur(text, system_prompt, konusmaci, araclar_acik=False):
     """Modele gidecek mesaj listesini kurar."""
     profil_blogu, ogrenme_notu = _profil_isle(text, konusmaci)
 
-    tam_prompt = system_prompt + OLCU_YONLENDIRME + BIKIMLONDIRME_YONLENDIRME
+    tam_prompt = system_prompt
     if konusmaci:
         tam_prompt += "\nKonuşan: %s" % konusmaci
 
