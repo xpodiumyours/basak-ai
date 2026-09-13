@@ -34,8 +34,8 @@ OTURUM_ID = uuid.uuid4().hex[:8]
 # birikip isteği şişirmesin. Kesim hafızadan silmek değildir — her çift
 # zaten hafıza motoruna yazılır, eski kısımlar aramayla geri gelir.
 
-MAX_HISTORY = 20
-GECMIS_KILO_LIMITI = 4000
+MAX_HISTORY = 200
+GECMIS_KILO_LIMITI = 200000
 
 
 def yukle(path, varsayilan):
@@ -86,14 +86,8 @@ def temizle_history(gecmis):
 # Puanı KOD verir, model tahmin etmez. Budama sırası önem → tarih
 # olduğu için açıkça "hatırla" denen bilgi gevezeliğin altında kalmaz.
 
-_ONEM_KELIMELERI = ("hatırla", "not al", "kaydet", "önemli", "unutma")
-
-
 def onem_puanla(text):
-    """Sohbet anısına başlangıç önem puanı: 3 (açık istek) veya 1."""
-    t = (text or "").lower()
-    if any(k in t for k in _ONEM_KELIMELERI):
-        return 3
+    """Her anı eşit önemde. Kelimeye bakıp puan veren kod kaldırıldı."""
     return 1
 
 
@@ -117,7 +111,7 @@ def hafiza_al():
     return _hafiza or None
 
 
-def ilgili_anilar(sorgu, limit=4):
+def ilgili_anilar(sorgu, limit=20):
     """Soruyla ilgili anıları döndürür; hata durumunda boş liste."""
     motor = hafiza_al()
     if not motor:

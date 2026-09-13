@@ -19,8 +19,10 @@ BASE_URL = "https://openrouter.ai/api/v1"
 # Sadece ücretsiz modeller (":free" suffix'li) - paid modeller KULLANILMAZ
 TERCIH_SIRASI = [
     # Ücretsiz modeller (free tier) - öncelikli
-    "openai/gpt-oss-20b:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
     "openai/gpt-oss-120b:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "openai/gpt-oss-20b:free",
     "meta-llama/llama-3.3-70b-instruct:free",
     "google/gemma-2-27b-it:free",
     "mistralai/mistral-7b-instruct:free",
@@ -59,7 +61,7 @@ class OpenRouterClient:
             self.client = OpenAI(
                 api_key=self.api_key,
                 base_url=BASE_URL,
-                timeout=20.0,
+                timeout=180.0,
                 max_retries=0,
                 default_headers={
                     "HTTP-Referer": "http://localhost",
@@ -117,7 +119,7 @@ class OpenRouterClient:
         kwargs = {
             "model": self.model,
             "messages": messages,
-            "max_tokens": 4096,
+            "max_tokens": 32768,
         }
         if tools:
             kwargs["tools"] = tools

@@ -14,8 +14,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-TUR_SINIRI = 4
-ARAC_SONUC_TAVAN = 4000   # modele giden kopyanin tavani
+TUR_SINIRI = 25
+ARAC_SONUC_TAVAN = 500000  # kirpma yok
 
 DURUM_METNI = {
     "web_search": "İnternette aranıyor",

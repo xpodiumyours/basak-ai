@@ -18,7 +18,7 @@ from brain.kullanim import kullanim_ekle
 MODELLER = {
     "hizli": "openai/gpt-oss-20b",
     "guclu": "openai/gpt-oss-120b",
-    "varsayilan": "openai/gpt-oss-20b",  # Hızlı model varsayılan
+    "varsayilan": "openai/gpt-oss-120b",  # buyuk model varsayilan
 }
 
 
@@ -26,9 +26,8 @@ class GroqClient:
     """Groq API istemcisi."""
 
     # FAZ 1.4d: aracsız turda model yine de tool_call üretirse Groq 400 döner
-    # ("Tool choice is none, but model called a tool"). Tek nudge'lı tekrar.
-    _NUDGE = {"role": "system",
-              "content": "Bu turda arac yok; yalniz duz metinle yanit ver."}
+    # ("Tool choice is none, but model called a tool"). Mesaja dokunmadan
+    # tek tekrar; modele "duz metin yaz" diye dayatma YAPILMAZ.
 
     def __init__(self, api_key: str, model: str = None):
         if not api_key or not api_key.strip():
@@ -42,7 +41,7 @@ class GroqClient:
         try:
             self.client = OpenAI(
                 api_key=self.api_key,
-                timeout=20.0,
+                timeout=180.0,
                 max_retries=0,
                 base_url="https://api.groq.com/openai/v1",
             )
@@ -57,7 +56,7 @@ class GroqClient:
                 model: str = None, yapi=None) -> dict:
         """Groq'a mesaj gönderir.
 
-        Cevap tavani: max_tokens=4096 (sicaklik saglayicinin kendi
+        Cevap tavani: max_tokens=32768 (sicaklik saglayicinin kendi
         varsayilani — 2026-09-13'te sabit 0.5 kaldirildi).
         model: geçici model override (orn: openai/gpt-oss-120b).
         yapi: sozlesme modu — verildiginde JSON yanit zorlanir
@@ -69,7 +68,7 @@ class GroqClient:
         kwargs = {
             "model": model or self.model,
             "messages": messages,
-            "max_tokens": 4096,
+            "max_tokens": 32768,
         }
         if tools:
             kwargs["tools"] = tools
@@ -85,7 +84,7 @@ class GroqClient:
                 "groq aracsız turda tool_call üretti (%s) — "
                 "metin-nudge ile tek tekrar", str(e)[:120])
             kwargs = dict(kwargs)
-            kwargs["messages"] = list(messages) + [self._NUDGE]
+            kwargs["messages"] = list(messages)
             resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
 

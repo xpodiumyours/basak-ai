@@ -61,10 +61,10 @@ class TestGroqToolChoice:
         yanit = g.cevapla(MESAJLAR)
         assert yanit["content"] == "ok"
         assert len(g.client.kayit) == 2
+        # 2026-09-13: nudge kaldirildi. Tekrar denemede mesajlar
+        # AYNEN gider; modele "duz metin yaz" diye dayatilmaz.
         ikinci = g.client.kayit[1]["messages"]
-        assert ikinci[:-1] == MESAJLAR
-        assert ikinci[-1]["role"] == "system"
-        assert "arac" in ikinci[-1]["content"]
+        assert ikinci == MESAJLAR
 
     def test_orijinal_mesajlar_bozulmaz(self):
         g = _adaptör([Exception(BUG), "ok"])

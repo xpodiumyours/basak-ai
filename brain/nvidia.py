@@ -30,8 +30,9 @@ BASE_URL = "https://integrate.api.nvidia.com/v1"
 # veren ve katalogdan dusenler cikarildi. Zamanasimi yiyenler yedekte.
 TERCIH_SIRASI = [
     # CANLI — katalogda + chat kanitli
-    "openai/gpt-oss-20b",                    # tool destekli
-    "nvidia/nemotron-3-ultra-550b-a55b",     # 6.5s olculu, 1M baglam
+    "nvidia/nemotron-3-ultra-550b-a55b",     # 550b, 1M baglam
+    "nvidia/nemotron-3-super-120b-a12b",     # 120b
+    "openai/gpt-oss-20b",                    # hizli yedek
     "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",  # TURKCE + multimodal
     "moonshotai/kimi-k3",                    # yavas ama canli (27.9s)
     # --- Katalogda ama 10.09.2026 chat zamanasimli (yedek) ---
@@ -64,8 +65,8 @@ MODELLER = {
 
 # Buyuk modeller: dusunerek cevap verdikleri icin normalden yavastir;
 # istemci varsayilan 20 sn timeout bunlara yetmez, cagri basina uzatilir
-_THINKING_TIMEOUT = 20.0
-_NORMAL_TIMEOUT = 20.0
+_THINKING_TIMEOUT = 600.0
+_NORMAL_TIMEOUT = 180.0
 
 
 class NvidiaClient:
@@ -131,7 +132,7 @@ class NvidiaClient:
             "messages": messages,
         }
         if self._buyuk_model_mi(model_adi):
-            kwargs["max_tokens"] = 4096
+            kwargs["max_tokens"] = 32768
             kwargs["timeout"] = _THINKING_TIMEOUT
             if "deepseek" in model_adi.lower():
                 # DeepSeek NIM'de dusunme modu acik olarak istenir
@@ -139,7 +140,7 @@ class NvidiaClient:
                     "chat_template_kwargs": {"thinking": True}
                 }
         else:
-            kwargs["max_tokens"] = 4096
+            kwargs["max_tokens"] = 32768
         if tools:
             kwargs["tools"] = tools
 

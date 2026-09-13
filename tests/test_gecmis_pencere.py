@@ -57,8 +57,9 @@ class TestGecmisPencere:
         assert sonuc == ["1", "2", "3", "4"]
 
     def test_adet_siniri_yine_gecerli(self):
-        gecmis = [mesaj("user", str(i)) for i in range(50)]
-        assert len(gecmis_pencere(gecmis)) == 20
+        from chat.context import MAX_HISTORY
+        gecmis = [mesaj("user", str(i)) for i in range(MAX_HISTORY + 30)]
+        assert len(gecmis_pencere(gecmis)) == MAX_HISTORY
 
     def test_content_none_olursa_cokmez(self):
         gecmis = [{"role": "assistant", "content": None},

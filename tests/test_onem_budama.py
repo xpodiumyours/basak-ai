@@ -28,16 +28,12 @@ def motor(tmp_path):
 
 
 class TestPuaniVeren:
-    def test_acik_hatirlatma_3(self):
-        assert onem_puanla("Bunu hatırla: sunucu adresi x") == 3
+    """2026-09-13: kelimeye gore onem puani veren kod kaldirildi.
+    Her ani esit; budama yalniz tarihe gore yapilir."""
 
-    def test_onemli_kelimesi_3(self):
-        assert onem_puanla("Önemli: yarın toplantı var") == 3
-
-    def test_siradan_sohbet_1(self):
-        assert onem_puanla("bugün hava nasıl?") == 1
-
-    def test_bos_girdi_1(self):
+    def test_her_ani_esit_puan(self):
+        assert onem_puanla("Bunu hatirla: sunucu adresi x") == 1
+        assert onem_puanla("bugun hava nasil?") == 1
         assert onem_puanla("") == 1
 
 

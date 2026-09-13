@@ -44,9 +44,9 @@ def akit(openai_client, model, messages, tools=None):
     stream = openai_client.chat.completions.create(
         model=model,
         messages=messages,
-        max_tokens=4096,
+        max_tokens=32768,
         stream=True,
-        timeout=60,
+        timeout=180,
         **ekstra
     )
     for chunk in stream:

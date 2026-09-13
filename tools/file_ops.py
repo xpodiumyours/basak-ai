@@ -329,7 +329,7 @@ def read_file(yol: str, base_dir: str) -> dict:
 
     Sadece izin verilen klasörlerdeki dosyaları okur.
     E-1: dış projelerden de okunabilir (salt okunur).
-    Max 5000 karakter okunur.
+    Tamami okunur (2026-09-13: 5.000 tavani kaldirildi).
     """
     if not yol or not yol.strip():
         return {"error": "Dosya yolu boş olamaz"}
@@ -346,7 +346,7 @@ def read_file(yol: str, base_dir: str) -> dict:
             return {"error": f"Bu bir dosya değil: {yol}"}
 
         with open(mutlak_yol, "r", encoding="utf-8", errors="replace") as f:
-            icerik = f.read(5000)
+            icerik = f.read()
 
         if len(icerik) == 5000:
             icerik += "\n... (ilk 5000 karakter)"

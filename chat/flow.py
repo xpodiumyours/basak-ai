@@ -95,7 +95,7 @@ def _baglam_kur(text, system_prompt, konusmaci, araclar_acik=False):
     #
     anilar = ctx.ilgili_anilar(text)
     if anilar:
-        blok = "\n".join("- %s" % a["text"][:300] for a in anilar[:5])
+        blok = "\n".join("- %s" % a["text"] for a in anilar)
         mesajlar.append({"role": "system", "content": "Hafızadan:\n" + blok})
 
     if profil_blogu:

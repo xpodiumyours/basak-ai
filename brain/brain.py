@@ -66,11 +66,11 @@ _QWEN_BEKLEMEDE = True
 # COOLDOWN: rate-limit (429) gelince provider gecici olarak atla
 import time as _time_mod
 _COOLDOWN = {}  # {ad: bitis_zamani}
-_COOLDOWN_SURE = 120  # 2 dakika
+_COOLDOWN_SURE = 20
 
 # Zaman asimi cooldown'u (2026-09-11): 429 kadar agir degil; saglayici
 # bir sonraki istekte geri gelebilir. 60 sn yeter.
-_ZAMAN_ASIMI_COOLDOWN = 60
+_ZAMAN_ASIMI_COOLDOWN = 10
 
 def _cooldown_kaldi(ad):
     bitis = _COOLDOWN.get(ad, 0)

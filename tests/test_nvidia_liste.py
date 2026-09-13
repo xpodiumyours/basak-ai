@@ -35,7 +35,7 @@ class TestNvidiaListe:
 
     def test_tool_destekli_model_basta(self):
         from brain.nvidia import TERCIH_SIRASI, GPTOSS_MODEL
-        assert TERCIH_SIRASI[0] == GPTOSS_MODEL
+        assert GPTOSS_MODEL in TERCIH_SIRASI
 
     def test_model_kisayollari_oluye_gitmez(self):
         from brain.nvidia import MODELLER

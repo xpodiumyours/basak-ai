@@ -245,3 +245,14 @@ def blok(motor):
         return ""
     return ("Casper hakkinda KALICI bilinenler (bunlari tekrar sorma):\n"
             + "\n".join("- " + p for p in parcalar))
+
+
+# 2026-09-13 (Casper karari): kullanici cumlelerini regex'le yorumlayip
+# profil uretmek kelime tabanli chatbot mantigiydi. Model kendi
+# hatirlar; kod adina karar vermez.
+def ogren(motor, text, speaker=""):
+    return []
+
+
+def unut(motor, text):
+    return 0

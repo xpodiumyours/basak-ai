@@ -26,8 +26,8 @@ PROJELER = {
     "xses": r"C:\Projects\xses",
 }
 
-_MAX_CIKTI = 1500
-_MAX_ESLESME = 8
+_MAX_CIKTI = 200000
+_MAX_ESLESME = 200
 
 _FOLD = str.maketrans({
     "ı": "i", "I": "i", "İ": "i", "ş": "s", "Ş": "s", "ğ": "g", "Ğ": "g",

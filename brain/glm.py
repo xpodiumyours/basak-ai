@@ -39,7 +39,7 @@ class GLMClient:
         try:
             self.client = OpenAI(
                 api_key=self.api_key,
-                timeout=20.0,
+                timeout=180.0,
                 max_retries=0,
                 base_url=BASE_URL,
             )
@@ -53,7 +53,7 @@ class GLMClient:
     def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
         """GLM'e mesaj gönderir. Dönen şekil groq.py ile aynıdır.
 
-        Not: dusunme (thinking) modu kapatilir — sohbet icin hiz onceliklidir.
+        Not: dusunme (thinking) modu ACIK — modelin kendi muhakemesi kesilmez.
         yapi: sozlesme modu icin; bu saglayici su an yok sayar.
         """
         if not self.client:
@@ -62,8 +62,8 @@ class GLMClient:
         kwargs = {
             "model": self.model,
             "messages": messages,
-            "max_tokens": 4096,
-            "extra_body": {"thinking": {"type": "disabled"}},
+            "max_tokens": 32768,
+            "extra_body": {"thinking": {"type": "enabled"}},
         }
         if tools:
             kwargs["tools"] = tools
