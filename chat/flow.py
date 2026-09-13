@@ -1,15 +1,8 @@
 """chat/flow.py — Ana sohbet akışı.
 
-2026-09-13 (Casper kararı): ölçü kapısı, orkestra ve araçların etrafına
-sarılmış kural katmanları söküldü. Araçlar sade şema/dispatcher yapısında.
-
-Araçlar varsa her turda modele sunulur. Hangi aracın gerekip gerekmediğine
-ve hangisinin kullanılacağına model yalnız tool şemalarından karar verir.
-Kelime/tetikleyici filtresi ve araç seçimini yönlendiren prompt yoktur.
-Araç gerçekten çağrılırsa sonuç turu taze bağlamla yürür.
-
-Sağlayıcı sırası, kota takibi ve "limiti bitince diğerine geç" mantığı
-bu dosyada DEĞİL — `brain/` altında. Burası yalnız bağlamı kurar.
+Araçlar her normal turda modele sunulur. Hangi aracın gerekip gerekmediğine,
+hangisinin kullanılacağına ve araçtan sonra ne yapılacağına model karar verir.
+Kullanıcı metnini sınıflandıran araç filtresi veya araç için ayrı bağlam yoktur.
 """
 
 import json
@@ -36,43 +29,19 @@ def _konusmaci_ayir(text):
     return text[:eslesme.start()].strip(), eslesme.group(1)
 
 
-def _profil_isle(text, konusmaci):
-    """Kalıcı profili günceller. Dönüş: (profil_blogu, ogrenme_notu).
-
-    'benim adım X', 'hatırla: ...' gibi cümleler profile yazılır;
-    'unut: X' siler. Öğrenilen şey aynı turun bağlamına not düşülür ki
-    model "tamam, adını öğrendim" diyebilsin.
-    """
+def _profil_blogu():
+    """Mevcut kalıcı profili bağlama ekler; kullanıcı metnini yorumlamaz."""
     try:
-        from memory.profil import ogren, unut, blok
+        from memory.profil import blok
         motor = ctx.hafiza_al()
-        if not motor or not text:
-            return "", ""
-
-        silinen = unut(motor, text)
-        if silinen == -1:
-            not_ = ("Not: Casper hakkındaki tüm profil bilgilerini "
-                    "SİLDİN. Bunu doğrula.")
-        elif silinen:
-            not_ = ("Not: profilden %d kayıt sildin (istek: %s). "
-                    "Bunu doğrula." % (silinen, text))
-        else:
-            yeniler = ogren(motor, text, speaker=konusmaci or "")
-            not_ = ""
-            if yeniler:
-                not_ = ("Not: profile yeni bilgi eklendi: %s. Kısaca "
-                        "doğrulayıp sohbete devam et."
-                        % "; ".join("%s=%s" % (a, d) for a, d in yeniler))
-        return blok(motor), not_
+        return blok(motor) if motor else ""
     except Exception as e:
-        logger.warning("Profil islenemedi: %s", e)
-        return "", ""
+        logger.warning("Profil okunamadi: %s", e)
+        return ""
 
 
-def _baglam_kur(text, system_prompt, konusmaci, taze_olcum=False):
-    """Modele gidecek mesaj listesini kurar."""
-    profil_blogu, ogrenme_notu = _profil_isle(text, konusmaci)
-
+def _baglam_kur(text, system_prompt, konusmaci):
+    """Modele gidecek sistem ve kişisel bağlamı kurar."""
     tam_prompt = system_prompt + OLCU_YONLENDIRME + BIKIMLONDIRME_YONLENDIRME
     if konusmaci:
         tam_prompt += "\nKonuşan: %s" % konusmaci
@@ -82,17 +51,14 @@ def _baglam_kur(text, system_prompt, konusmaci, taze_olcum=False):
         {"role": "system", "content": tam_prompt},
     ]
 
-    # Normal sohbette ilgili anılar korunur. Model gerçekten araç
-    # çağırdığında araç turu taze kurulur ve eski anılar dayanak olmaz.
-    anilar = [] if taze_olcum else ctx.ilgili_anilar(text)
+    anilar = ctx.ilgili_anilar(text)
     if anilar:
-        blok = "\n".join("- %s" % a["text"][:300] for a in anilar[:5])
+        blok = "\n".join("- %s" % a["text"] for a in anilar)
         mesajlar.append({"role": "system", "content": "Hafızadan:\n" + blok})
 
+    profil_blogu = _profil_blogu()
     if profil_blogu:
         mesajlar.append({"role": "system", "content": profil_blogu})
-    if ogrenme_notu:
-        mesajlar.append({"role": "system", "content": ogrenme_notu})
 
     return mesajlar
 
@@ -113,7 +79,6 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci):
 
     js_callback("BasakUI.bitir(" + _j(cevap) + ", " + _j(kaynak) + ")")
 
-    # Ekran güncellendikten SONRA anıyı yaz — cevabı bekletmesin.
     motor = ctx.hafiza_al()
     if motor and cevap:
         try:
@@ -132,8 +97,6 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
         js_callback("BasakUI.error(" + _j("Bos mesaj") + ")")
         return
 
-    # Yerel model YOKSA ve bulut da yoksa duracağız. Yalnız yerelin
-    # kapalı olması sohbeti kesmez — bulut zinciri ayakta olabilir.
     modeller = brain.yerel_modeller()
     if not modeller and not brain.bulut_musait():
         js_callback("BasakUI.error(" + _j(
@@ -146,7 +109,6 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
         if model not in modeller:
             model = modeller[0]
     else:
-        # Yerel model yok — ayarlardaki ad bulut zincirine taşınmasın.
         model = None
 
     gecmis = ctx.temizle_history(
@@ -158,8 +120,6 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
     mesajlar += ctx.gecmis_pencere(gecmis) + [
         {"role": "user", "content": text}]
 
-    # Araç yoksa kelime kelime akış korunur. Araçlar varsa modelin araç
-    # seçebilmesi için tek seferlik çağrıda tüm şemalar her turda sunulur.
     from brain.yayin import AracIstegi, SonHata
 
     yayin = None if araclar_var else getattr(brain, "cevapla_yayin", None)
@@ -170,7 +130,6 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
             for kaynak, parca in yayin(mesajlar, model):
                 parcalar.append(parca)
                 js_callback("BasakUI.parca(" + _j(parca) + ")")
-            # Bazi saglayicilar sayi/None parca dondurur — join patlamasin.
             tam = _temizle("".join(
                 p if isinstance(p, str) else str(p) if p is not None else ""
                 for p in parcalar))
@@ -184,8 +143,6 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
         except SonHata as e:
             logger.info("Akis acilamadi (%s) — tek seferlik yol", e.ozet)
 
-    # Tek seferlik çağrıda araçlar varsa tamamı modele sunulur. Model
-    # isterse araç çağırır, istemezse doğrudan normal yanıt verir.
     try:
         yanit, kaynak = brain.cevapla(
             mesajlar, model, tools=(tools if araclar_var else None))
@@ -199,21 +156,13 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
                 "Beyin hatasi: " + hata[:150]) + ")")
         return
 
-    # Model araç istediyse araç turunu taze bağlamla yürüt: anıları alma,
-    # eski assistant cevaplarını çıkar. Araç seçimi modele aittir.
     tool_calls = yanit.get("tool_calls") if isinstance(yanit, dict) else None
     if tool_calls and tools:
         from chat.tools import arac_dongusu
         from tools import calistir
 
-        arac_mesajlar = _baglam_kur(
-            text, system_prompt, konusmaci, taze_olcum=True)
-        pencere = [m for m in ctx.gecmis_pencere(gecmis)
-                   if m.get("role") == "user"][-3:]
-        arac_mesajlar += pencere + [{"role": "user", "content": text}]
-
         cevap, kosan = arac_dongusu(
-            tool_calls, arac_mesajlar, brain, model, js_callback, calistir,
+            tool_calls, mesajlar, brain, model, js_callback, calistir,
             tools=tools)
         cevap = _temizle(cevap)
         if cevap:
