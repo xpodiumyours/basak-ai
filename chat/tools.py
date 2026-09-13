@@ -1,15 +1,9 @@
-"""chat/tools.py — Araç çağırma döngüsü.
-
-Akış: model araç ister → kod çalıştırır → sonuç modele geri gider →
-model doğal Türkçe özet yazar. Modelin gördüğü sonuç kırpılır; tam
-sonuç kırpılmaz, yalnız isteğin şişmesi engellenir.
-"""
+"""chat/tools.py — Araç çağırma döngüsü."""
 
 import json
 import logging
 
 logger = logging.getLogger(__name__)
-
 TUR_SINIRI = 4
 ARAC_SONUC_TAVAN = 4000
 
@@ -22,10 +16,14 @@ DURUM_METNI = {
     "belge_ara": "Belgelerde aranıyor",
     "dosya_bilgi": "Dosya bilgisi ölçülüyor",
     "write_file_tool": "Dosya yazılıyor",
+    "get_reminders": "Hatırlatmalar kontrol ediliyor",
+    "add_task": "Görev ekleniyor",
+    "list_tasks": "Görevler listeleniyor",
+    "complete_task": "Görev tamamlanıyor",
     "image_analyze": "Görüntü inceleniyor",
 }
 
-DURUM_ALANI = ("query", "url", "path", "folder", "proje")
+DURUM_ALANI = ("query", "url", "path", "folder", "proje", "text", "task_id")
 
 
 def _j(obj):
@@ -75,7 +73,6 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     kaynaklar = []
     kosan = 0
     tur_sonuclari = []
-
     for tur in range(tur_siniri):
         tur_sonuclari = []
         for call in tool_calls:
@@ -90,55 +87,30 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             tur_sonuclari.append((ad, net))
             if not net.startswith("Hata:"):
                 kosan += 1
-                etiket = next((str(args[a]) for a in DURUM_ALANI
-                               if args.get(a)), ad)[:60]
+                etiket = next((str(args[a]) for a in DURUM_ALANI if args.get(a)), ad)[:60]
                 if etiket not in kaynaklar:
                     kaynaklar.append(etiket)
-
         if not tur_sonuclari:
             break
-
-        expanded = expanded + [
-            {"role": "assistant", "content": "", "tool_calls": tool_calls}]
+        expanded = expanded + [{"role": "assistant", "content": "", "tool_calls": tool_calls}]
         for i, (_ad, sonuc) in enumerate(tur_sonuclari):
-            kirpilmis = sonuc
-            if len(sonuc) > ARAC_SONUC_TAVAN:
-                kirpilmis = (sonuc[:ARAC_SONUC_TAVAN].rstrip()
-                             + "... [devami kirpildi]")
-            expanded.append({
-                "role": "tool",
-                "tool_call_id": tool_calls[i].get("id", "call_%d" % i),
-                "content": kirpilmis,
-            })
-
-        ozet = "\n".join("%s: %s" % (ad, net[:800])
-                         for ad, net in tur_sonuclari)
+            kirpilmis = sonuc if len(sonuc) <= ARAC_SONUC_TAVAN else sonuc[:ARAC_SONUC_TAVAN].rstrip() + "... [devami kirpildi]"
+            expanded.append({"role": "tool", "tool_call_id": tool_calls[i].get("id", "call_%d" % i), "content": kirpilmis})
+        ozet = "\n".join("%s: %s" % (ad, net[:800]) for ad, net in tur_sonuclari)
         sonraki = tools if tur < tur_siniri - 1 else None
-        expanded = expanded + [{
-            "role": "user",
-            "content": (
-                "Araç sonuçları:\n" + ozet +
-                "\n\nŞimdi bu sonuçları DOĞAL TÜRKÇE ile özetle. "
-                "Bulduğun somut bilgiyi (sayı, isim, tarih) yaz; "
-                "sonuçlarda olmayan şeyi UYDURMA. Yetersizse eksik "
-                "olduğunu söyle."
-            ),
-        }]
+        expanded = expanded + [{"role": "user", "content": "Araç sonuçları:\n" + ozet + "\n\nŞimdi bu sonuçları DOĞAL TÜRKÇE ile özetle. Bulduğun somut bilgiyi yaz; sonuçlarda olmayan şeyi UYDURMA."}]
         try:
             yanit, _kaynak = brain.cevapla(expanded, model, tools=sonraki)
         except Exception as e:
             logger.warning("Arac turu sonrasi cevap alinamadi: %s", e)
             break
-
         yeni = yanit.get("tool_calls")
         if yeni:
             tool_calls = yeni
             continue
-
         cevap = temizle(yanit.get("content", ""))
         if cevap:
             return _kaynak_satiri(cevap, kaynaklar), kosan
         break
-
     ham = "\n".join(net for _ad, net in tur_sonuclari if net)
     return ham, kosan
