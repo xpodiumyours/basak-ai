@@ -97,10 +97,11 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
         # base64 çevir
         img_b64, mime = _goruntu_b64(goruntu_yolu)
 
-        # Prompt
+        # Prompt: soru yoksa notr varsayilan (model nasil anlatacagina
+        # kendisi karar verir; davranis dayatma yok).
         soru = (soru or "").strip()
         if not soru:
-            soru = "Bu görüntüyü detaylı şekilde açıkla. Varsa metin, nesne, renk, konum bilgilerini ver. Türkçe cevap ver."
+            soru = "Bu görüntüyü açıkla."
 
         client = OpenAI(api_key=nvidia_key, base_url="https://integrate.api.nvidia.com/v1", timeout=30.0)
 
@@ -114,8 +115,7 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
                     {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_b64}"}}
                 ]
             }],
-            max_tokens=500,
-            temperature=0.5,
+            max_tokens=4096,
         )
         sure = time.time() - t0
 
@@ -158,7 +158,7 @@ def image_analyze_url(gorsel_url: str, soru: str = None,
 
         soru = (soru or "").strip()
         if not soru:
-            soru = "Bu görüntüyü detaylı şekilde açıkla. Türkçe cevap ver."
+            soru = "Bu görüntüyü açıkla."
 
         client = OpenAI(api_key=nvidia_key, base_url="https://integrate.api.nvidia.com/v1", timeout=30.0)
 
@@ -172,8 +172,7 @@ def image_analyze_url(gorsel_url: str, soru: str = None,
                     {"type": "image_url", "image_url": {"url": gorsel_url}}
                 ]
             }],
-            max_tokens=500,
-            temperature=0.5,
+            max_tokens=4096,
         )
         sure = time.time() - t0
 

@@ -246,7 +246,6 @@ class Brain:
             kalanlar = [a for a in mevcutlar if a not in tercih]
             sirali = one_alinan + kalanlar
             gerekce = "acik tercihle siralandi"
-            tip = gorev_tipi or "genel"
         else:
             soru = ""
             for m in reversed(messages):
@@ -255,10 +254,7 @@ class Brain:
                     break
             sirali, gerekce = secici.sec(
                 text=soru, gorev_tipi=gorev_tipi,
-                tools=bool(tools), mevcutlar=mevcutlar,
-                karne_kullan=True,    # B1: deneyim sirayi geriye itebilir
-                cooldown=_COOLDOWN)   # rate-limit cooldown bilgisi
-            tip = secici.siniflandir(soru)
+                tools=bool(tools), mevcutlar=mevcutlar)
 
         istemciler = dict(zincir)
         hatalar = []
@@ -306,11 +302,8 @@ class Brain:
                     ad, sure, basarili=True, tools=bool(tools),
                     token_in=(kullanim or {}).get("giris", 0),
                     token_out=(kullanim or {}).get("cikis", 0))
-                # Secim gorunur olsun: one alinma varsa gosterimde tasi
-                gosterim = ad
-                if tip in ("kod", "arastirma", "hiz") and ad in sirali[:2]:
-                    gosterim = "%s · %s isi" % (ad, tip)
-                return yanit, gosterim
+                # Secim gorunur olsun: hangi saglayici cevapladysa adi tasinir.
+                return yanit, ad
             except Exception as e:
                 sure = time.time() - t0
                 logger.warning("%s hatasi, siradaki deneniyor: %s", ad, e)
@@ -365,8 +358,7 @@ class Brain:
                     break
             sirali, gerekce = _secici.sec(
                 text=soru, gorev_tipi=gorev_tipi,
-                tools=bool(tools), mevcutlar=mevcutlar,
-                karne_kullan=True, cooldown=_COOLDOWN)
+                tools=bool(tools), mevcutlar=mevcutlar)
 
         istemciler = dict(zincir)
         hatalar = []
