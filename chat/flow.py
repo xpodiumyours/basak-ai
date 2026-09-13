@@ -4,7 +4,8 @@
 sarılmış kural katmanları söküldü. Araçlar sade şema/dispatcher yapısında.
 
 Araçlar varsa her turda modele sunulur. Hangi aracın gerekip gerekmediğine
-ve hangisinin kullanılacağına model karar verir; kelime/tetikleyici filtresi yoktur.
+ve hangisinin kullanılacağına model yalnız tool şemalarından karar verir.
+Kelime/tetikleyici filtresi ve araç seçimini yönlendiren prompt yoktur.
 Araç gerçekten çağrılırsa sonuç turu taze bağlamla yürür.
 
 Sağlayıcı sırası, kota takibi ve "limiti bitince diğerine geç" mantığı
@@ -15,7 +16,7 @@ import json
 import logging
 
 from chat.prompts import (KIMLIK_BLOGU, OLCU_YONLENDIRME,
-                          BIKIMLONDIRME_YONLENDIRME, TOOL_YONLENDIRME)
+                          BIKIMLONDIRME_YONLENDIRME)
 from chat import context as ctx
 from chat.gate import temizle as _temizle
 
@@ -68,19 +69,11 @@ def _profil_isle(text, konusmaci):
         return "", ""
 
 
-def _baglam_kur(text, system_prompt, konusmaci, araclar_var=False,
-                 taze_olcum=False):
-    """Modele gidecek mesaj listesini kurar.
-
-    Araç şemaları varsa araç yönlendirmesi her turda verilir. Taze ölçüm
-    yalnız model gerçekten araç çağırdıktan sonraki araç turunda açılır.
-    """
+def _baglam_kur(text, system_prompt, konusmaci, taze_olcum=False):
+    """Modele gidecek mesaj listesini kurar."""
     profil_blogu, ogrenme_notu = _profil_isle(text, konusmaci)
 
-    tam_prompt = system_prompt
-    if araclar_var:
-        tam_prompt += TOOL_YONLENDIRME
-    tam_prompt += OLCU_YONLENDIRME + BIKIMLONDIRME_YONLENDIRME
+    tam_prompt = system_prompt + OLCU_YONLENDIRME + BIKIMLONDIRME_YONLENDIRME
     if konusmaci:
         tam_prompt += "\nKonuşan: %s" % konusmaci
 
@@ -161,8 +154,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
          if m.get("role") != "system"])
 
     araclar_var = bool(tools)
-    mesajlar = _baglam_kur(
-        text, system_prompt, konusmaci, araclar_var=araclar_var)
+    mesajlar = _baglam_kur(text, system_prompt, konusmaci)
     mesajlar += ctx.gecmis_pencere(gecmis) + [
         {"role": "user", "content": text}]
 
@@ -208,15 +200,14 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
         return
 
     # Model araç istediyse araç turunu taze bağlamla yürüt: anıları alma,
-    # eski assistant cevaplarını çıkar. Kararı kelime listesi değil model verdi.
+    # eski assistant cevaplarını çıkar. Araç seçimi modele aittir.
     tool_calls = yanit.get("tool_calls") if isinstance(yanit, dict) else None
     if tool_calls and tools:
         from chat.tools import arac_dongusu
         from tools import calistir
 
         arac_mesajlar = _baglam_kur(
-            text, system_prompt, konusmaci,
-            araclar_var=True, taze_olcum=True)
+            text, system_prompt, konusmaci, taze_olcum=True)
         pencere = [m for m in ctx.gecmis_pencere(gecmis)
                    if m.get("role") == "user"][-3:]
         arac_mesajlar += pencere + [{"role": "user", "content": text}]
