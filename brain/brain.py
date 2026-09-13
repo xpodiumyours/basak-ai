@@ -58,11 +58,6 @@ def _ayar_kaydet(veri: dict):
 # ve sonraki cagrilarda yapi hic gonderilmez (registry karti degismez).
 _YAPI_DENEME = {}
 
-# QWEN BEKLEMEDE (2026-09-09, tam tespit): hesap etkinlesmesi
-# bitene kadar (403 hatasi) Qwen zincire KATILMAZ. Casper
-# etkinlestirince False yapilir, kart registry'de hazir bekler.
-_QWEN_BEKLEMEDE = False
-
 # COOLDOWN: rate-limit (429) gelince provider gecici olarak atla
 import time as _time_mod
 _COOLDOWN = {}  # {ad: bitis_zamani}
@@ -164,9 +159,7 @@ class Brain:
         if self._openrouter is not None and self._openrouter.musait():
             zincir.append(("openrouter", self._openrouter))
         if self._qwen is not None and self._qwen.musait():
-            # QWEN BEKLEMEDE disinda normal katilim
-            if not _QWEN_BEKLEMEDE:
-                zincir.append(("qwen", self._qwen))
+            zincir.append(("qwen", self._qwen))
         if self._gemini is not None and self._gemini.musait():
             zincir.append(("gemini", self._gemini))
         # 2026-09-10: ozel saglayici EN SONDA — bedavalar once denenir,

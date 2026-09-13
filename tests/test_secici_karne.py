@@ -1,9 +1,8 @@
-"""tests/test_secici_karne.py — B1: Seçicinin karne katmanı testleri.
+"""tests/test_secici_karne.py — ozgur-ajan: secici passthrough testleri.
 
-Kilitli hedefin ilk halkası: secici artık deneyimi okuyor.
-Politika (bilinçli dar): yeterli örneklem (>=5) olan ve başarı oranı
-%50 altına düşen sağlayıcı SONA alınır; terfi yok (sonraki dilim).
-Karne kapalıysa davranış eskisi gibi — mevcut akış bozulmaz.
+2026-09-13 Faz 1: karne/token/shuffle siralama artiklari silindi.
+Secici registry sirasini korur; karne/cooldown/tools siralamayi degistirmez.
+Atlama (cooldown/429) brain/brain.py'de yapilir.
 """
 
 import os
@@ -36,21 +35,20 @@ def _doldur(istat, model, basarili, basarisiz):
 
 class TestKarneKatmani:
     def test_kapaliyken_davranis_eski_gibi(self, istat):
-        _doldur(istat, "nvidia", 0, 8)   # kotu karnesine ragmen
+        _doldur(istat, "nvidia", 0, 8)   # kotu karneye ragmen sira degismez
         sirali, gerekce = secici.sec(gorev_tipi="kod",
                                      mevcutlar=MEVCUTLAR)
-        assert sirali[0] == "glm"        # 2026-09-09: kilo-once kaldirildi, kodda glm onde
+        assert sirali[0] == "glm"        # registry sirasi korunur
         assert "karne" not in gerekce
 
-    def test_zayif_saglayici_sona_alinir(self, istat):
-        _doldur(istat, "nvidia", 2, 6)   # %25 — esik alti
+    def test_zayif_saglayici_sona_alinmaz(self, istat):
+        # Faz 1: karne siralamayi degistirmez (passthrough)
+        _doldur(istat, "nvidia", 2, 6)   # %25 — esik alti olsa da
         sirali, gerekce = secici.sec(gorev_tipi="kod",
                                      mevcutlar=MEVCUTLAR,
                                      karne_kullan=True)
-        # nvidia tercih listesindeydi ama karne onu sona atti
-        assert sirali[-1] == "nvidia"
-        assert sirali[0] == "glm"
-        assert "karne" in gerekce and "%25.0" in gerekce
+        assert sirali == ["glm", "groq", "nvidia", "kilo"]
+        assert "karne" not in gerekce
 
     def test_saglam_karne_sirayi_degistirmez(self, istat):
         _doldur(istat, "nvidia", 7, 1)   # %87.5
@@ -83,9 +81,11 @@ class TestKarneKatmani:
         sirali, gerekce = secici.sec(gorev_tipi="kod",
                                      mevcutlar=MEVCUTLAR,
                                      karne_kullan=True)
-        # zayiflar kendi gorev-turu sirasini koruyarak sona gider:
-        # nvidia once groq sonra
-        # 2026-09-13: gorev tercihi kaldirildi; zayiflarin kendi
-        # arasindaki sira artik varsayilan zincire gore.
-        assert set(sirali[-2:]) == {"nvidia", "groq"}
+        # Faz 1: zayiflar da sona gitmez, registry sirasi korunur
+        assert sirali[0] == "glm"
+        assert "karne" not in gerekce
+
+    def test_tools_ve_cooldown_sirayi_degistirmez(self, istat):
+        sirali, _ = secici.sec(gorev_tipi="kod", mevcutlar=MEVCUTLAR,
+                               tools=True, cooldown={"glm": 9999999999})
         assert sirali[0] == "glm"

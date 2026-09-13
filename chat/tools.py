@@ -1,21 +1,19 @@
-"""chat/tools.py — Araç çağırma döngüsü (yalnız internet araçları).
+"""chat/tools.py — Araç çağırma döngüsü (ozgur-ajan).
 
-2026-09-13: 21 araçlık döngü söküldükten sonra sadeleştirilmiş hâliyle
-geri geldi. Fark: iki araç, yazma yok, onay kuyruğu yok, kapasite
-hesabı yok. Sabit dört tur yeter — ara, sayfayı aç, özetle.
+2026-09-13 Faz 1: modeli daraltan tavanlar silindi (AGENTS.md S0-2, S0-5).
+- TUR_SINIRI yok: model tool_calls dondurdukce dongu surer.
+- Son-tur tools=None kapatma yok: her turda tam sema verilir.
+- ARAC_SONUC_TAVAN kirpmasi yok: tam sonuc modele gider.
+- "Kaynaklar:" ek satiri yok: model kendi cevabini yazar.
 
-Akış: model araç ister → kod çalıştırır → sonuç modele geri gider →
-model doğal Türkçe özet yazar. Modelin gördüğü sonuç kırpılır; tam
-sonuç kırpılmaz, yalnız isteğin şişmesi engellenir.
+Korunan (guvenlik): TANINMIS_TOOLLAR beyaz listesi — modelin
+uydurdugu ad CALISMAZ. DURUM_METNI ekran etiketidir.
 """
 
 import json
 import logging
 
 logger = logging.getLogger(__name__)
-
-TUR_SINIRI = 25
-ARAC_SONUC_TAVAN = 500000  # kirpma yok
 
 DURUM_METNI = {
     "web_search": "İnternette aranıyor",
@@ -66,28 +64,22 @@ def sonucu_donustur(sonuc):
     return str(sonuc)
 
 
-def _kaynak_satiri(cevap, kaynaklar):
-    """'Nereden buldun' satiri — Casper'in istegi (2026-09-10)."""
-    if not kaynaklar or not cevap:
-        return cevap
-    return cevap + "\n\nKaynaklar: " + "; ".join(kaynaklar[:5])
-
-
 def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
-                 calistir, tools=None, tur_siniri=TUR_SINIRI):
+                 calistir, tools=None, tur_siniri=None):
     """Araç sonuçlarını modele geri vererek cevap ürettirir.
 
+    Ozgu-ajan: tur_siniri parametresi uyumluluk icin durur, kullanilmaz.
+    Dongu model cevap yazana kadar surer; tam sonuc tasinir.
     Dönüş: (cevap_metni, calisan_arac_sayisi)
     """
     from chat.gate import temizle
     from tools.definitions import TANINMIS_TOOLLAR
 
     expanded = list(mesajlar)
-    kaynaklar = []
     kosan = 0
     tur_sonuclari = []
 
-    for tur in range(tur_siniri):
+    while tool_calls:
         tur_sonuclari = []
         for call in tool_calls:
             func = call.get("function", {})
@@ -109,10 +101,6 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 (ad, net, call.get("id") or "call_%d" % len(tur_sonuclari)))
             if not net.startswith("Hata:"):
                 kosan += 1
-                etiket = next((str(args[a]) for a in DURUM_ALANI
-                               if args.get(a)), ad)[:60]
-                if etiket not in kaynaklar:
-                    kaynaklar.append(etiket)
 
         if not tur_sonuclari:
             break
@@ -126,22 +114,15 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
         expanded = expanded + [
             {"role": "assistant", "content": "", "tool_calls": tool_calls}]
         for ad, sonuc, cagri_id in tur_sonuclari:
-            kirpilmis = sonuc
-            if len(sonuc) > ARAC_SONUC_TAVAN:
-                kirpilmis = (sonuc[:ARAC_SONUC_TAVAN].rstrip()
-                             + "... [devami kirpildi]")
             expanded.append({
                 "role": "tool",
                 "tool_call_id": cagri_id,
                 "name": ad,          # Groq belgesi: name zorunlu
-                "content": kirpilmis,
+                "content": sonuc,
             })
 
-        # Son turda arac verilmez ki dongu kapansin.
-        sonraki = tools if tur < tur_siniri - 1 else None
-
         try:
-            yanit, _kaynak = brain.cevapla(expanded, model, tools=sonraki)
+            yanit, _kaynak = brain.cevapla(expanded, model, tools=tools)
         except Exception as e:
             logger.warning("Arac turu sonrasi cevap alinamadi: %s", e)
             break
@@ -153,7 +134,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
 
         cevap = temizle(yanit.get("content", ""))
         if cevap:
-            return _kaynak_satiri(cevap, kaynaklar), kosan
+            return cevap, kosan
         break
 
     # Model özet üretmediyse ham sonuç kullanıcıya gitsin — boş ekran olmasın.

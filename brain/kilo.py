@@ -28,7 +28,8 @@ BASE_URL = "https://api.kilo.ai/api/gateway/v1"
 YER_TUTUCU_ANAHTAR = "anahtarsiz"
 
 # Düşünme metni bütçeden yediği için dar tutulamaz (dosya başındaki nota bak).
-VARSAYILAN_JETON = 32768
+# ARAC-PLANI S5 cizgisi: 4096 (1024'te duzgun cevap olculdu).
+VARSAYILAN_JETON = 4096
 
 # kilo-auto/free ücretsiz modeller arasında kendi yönlendirir.
 # Tek tek modeller yedek: liste sunucu tarafında değişiyor.
@@ -55,7 +56,7 @@ class KiloClient:
             self.client = OpenAI(
                 api_key=YER_TUTUCU_ANAHTAR,
                 base_url=BASE_URL,
-                timeout=180.0,
+                timeout=20.0,
                 max_retries=0,
                 default_headers={
                     "HTTP-Referer": "http://localhost",

@@ -58,6 +58,8 @@ def mesajlari_temizle(messages: list) -> list:
             kopya["tool_calls"] = m["tool_calls"]
         if "tool_call_id" in m:
             kopya["tool_call_id"] = m["tool_call_id"]
+        if "name" in m:
+            kopya["name"] = m["name"]
 
         temiz.append(kopya)
     return temiz

@@ -64,9 +64,10 @@ MODELLER = {
 # Otomatik secim her zaman hizli Nemotron hattini tercih eder.
 
 # Buyuk modeller: dusunerek cevap verdikleri icin normalden yavastir;
-# istemci varsayilan 20 sn timeout bunlara yetmez, cagri basina uzatilir
+# model-odakli istisna: dusunen hatta jeton/zaman genis tutulur
+# (ARAC-PLANI S5 cizgisi normal hat icin 4096/20.0).
 _THINKING_TIMEOUT = 600.0
-_NORMAL_TIMEOUT = 180.0
+_NORMAL_TIMEOUT = 20.0
 
 
 class NvidiaClient:
@@ -140,7 +141,7 @@ class NvidiaClient:
                     "chat_template_kwargs": {"thinking": True}
                 }
         else:
-            kwargs["max_tokens"] = 32768
+            kwargs["max_tokens"] = 4096
         if tools:
             kwargs["tools"] = tools
 
