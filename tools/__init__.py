@@ -26,7 +26,6 @@ def calistir(tool_name, args):
     if tool_name not in TANINMIS_TOOLLAR:
         logger.info("Taninmayan arac reddedildi: %s", tool_name)
         return {"error": "'%s' diye bir arac yok." % tool_name}
-
     args = args or {}
     try:
         if tool_name == "web_search":
@@ -72,11 +71,15 @@ def calistir(tool_name, args):
             except (TypeError, ValueError):
                 return {"error": "Gorev numarasi gecersiz."}
             return tasks.complete_task(task_id, GOREVLER_FILE)
+        if tool_name == "ac_uygulama":
+            from tools import app_launcher
+            return app_launcher.ac_uygulama(
+                str(args.get("uygulama", "")),
+                str(args.get("parametre", "") or ""))
         if tool_name == "image_analyze":
             from tools import image_analyzer
             return image_analyzer.image_analyze(str(args.get("path", "")), str(args.get("soru", "") or "") or None)
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)[:150]}
-
     return {"error": "'%s' calistirilamadi." % tool_name}

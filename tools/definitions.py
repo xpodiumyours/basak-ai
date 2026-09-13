@@ -12,7 +12,8 @@ HATIRLATMALAR={"type":"function","function":{"name":"get_reminders","description
 GOREV_EKLE={"type":"function","function":{"name":"add_task","description":"Gorev ekle.","parameters":{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}}}
 GOREV_LISTELE={"type":"function","function":{"name":"list_tasks","description":"Gorevleri listele.","parameters":{"type":"object","properties":{}}}}
 GOREV_TAMAMLA={"type":"function","function":{"name":"complete_task","description":"Gorevi tamamlandi isaretle.","parameters":{"type":"object","properties":{"task_id":{"type":"integer"}},"required":["task_id"]}}}
+UYGULAMA_AC={"type":"function","function":{"name":"ac_uygulama","description":"Beyaz listedeki uygulamayi ac.","parameters":{"type":"object","properties":{"uygulama":{"type":"string","description":"tarayici | notepad | calculator | file_manager | vscode"},"parametre":{"type":"string"}},"required":["uygulama"]}}}
 GORUNTU_OKU={"type":"function","function":{"name":"image_analyze","description":"Goruntu incele.","parameters":{"type":"object","properties":{"path":{"type":"string"},"soru":{"type":"string"}},"required":["path"]}}}
 
-TOOLS=[WEB_ARAMA,SAYFA_OKU,DOSYA_OKU,KLASOR_LISTELE,GIT_DURUM,BELGE_ARA,DOSYA_BILGI,DOSYA_YAZ,HATIRLATMALAR,GOREV_EKLE,GOREV_LISTELE,GOREV_TAMAMLA,GORUNTU_OKU]
+TOOLS=[WEB_ARAMA,SAYFA_OKU,DOSYA_OKU,KLASOR_LISTELE,GIT_DURUM,BELGE_ARA,DOSYA_BILGI,DOSYA_YAZ,HATIRLATMALAR,GOREV_EKLE,GOREV_LISTELE,GOREV_TAMAMLA,UYGULAMA_AC,GORUNTU_OKU]
 TANINMIS_TOOLLAR=frozenset(t["function"]["name"] for t in TOOLS)
