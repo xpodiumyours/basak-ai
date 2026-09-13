@@ -1,16 +1,14 @@
 """tools/definitions.py — Modele sunulan araç şemaları.
 
-2026-09-13: 21 araçlık yığın söküldü, Casper'in seçtikleri geri geldi.
-Araç planındaki yeni yetenekler aynı sade şema listesine eklenir; gerçek
-çalıştırma ve güvenlik sınırları tools/__init__.py ve ilgili modüllerdedir.
+Şemalar yalnız aracın ne yaptığını ve hangi parametreleri aldığını açıklar.
+Kullanıcı cümlesi, sohbet türü veya niyet için kullanım kuralı içermez.
 """
 
 WEB_ARAMA = {
     "type": "function",
     "function": {
         "name": "web_search",
-        "description": ("Internette guncel bilgi ara: fiyat, haber, hava, "
-                        "rakip, pazar. Sohbet icin kullanma."),
+        "description": "İnternette web araması yap.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -25,8 +23,7 @@ SAYFA_OKU = {
     "type": "function",
     "function": {
         "name": "sayfa_oku",
-        "description": ("Bir web sayfasinin icerigini oku "
-                        "(GET, HTML temizlenir, max 5000 karakter)."),
+        "description": "Bir web sayfasının metin içeriğini oku.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -41,7 +38,7 @@ ADRES_KONTROL = {
     "type": "function",
     "function": {
         "name": "adres_kontrol",
-        "description": "Canli web adresinin HTTP durumunu, yanit suresini ve son adresini olc.",
+        "description": "Web adresinin HTTP durumunu, yanıt süresini ve son adresini ölç.",
         "parameters": {
             "type": "object",
             "properties": {"url": {"type": "string"}},
@@ -54,14 +51,11 @@ DOSYA_OKU = {
     "type": "function",
     "function": {
         "name": "read_file",
-        "description": ("Bir dosyanin icerigini oku. Casper'in ev klasoru "
-                        "ve C:\\Projects okunabilir; sifre/sistem "
-                        "dosyalari kapali."),
+        "description": "Yerel bir dosyanın içeriğini oku; hassas ve sistem dosyaları kapalıdır.",
         "parameters": {
             "type": "object",
             "properties": {
-                "path": {"type": "string",
-                         "description": "Dosya yolu veya adi"}
+                "path": {"type": "string", "description": "Dosya yolu veya adı"}
             },
             "required": ["path"],
         },
@@ -72,13 +66,11 @@ KLASOR_LISTELE = {
     "type": "function",
     "function": {
         "name": "list_files",
-        "description": ("Bir klasordeki dosyalari listele (Belgeler, "
-                        "Masaustu, Indirilenler, proje klasorleri)."),
+        "description": "Yerel bir klasördeki dosya ve klasörleri listele.",
         "parameters": {
             "type": "object",
             "properties": {
-                "folder": {"type": "string",
-                           "description": "Klasor adi veya yolu"}
+                "folder": {"type": "string", "description": "Klasör yolu"}
             },
             "required": ["folder"],
         },
@@ -89,7 +81,7 @@ DOSYA_YAZ = {
     "type": "function",
     "function": {
         "name": "write_file_tool",
-        "description": "Yalniz knowledge/ altina dosya kaydet.",
+        "description": "knowledge/ altına dosya kaydet.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -105,7 +97,7 @@ HATIRLATMALAR = {
     "type": "function",
     "function": {
         "name": "get_reminders",
-        "description": "Bugunku ve yaklasan hatirlatmalari getir.",
+        "description": "Bugünkü ve yaklaşan hatırlatmaları getir.",
         "parameters": {"type": "object", "properties": {}},
     },
 }
@@ -114,7 +106,7 @@ GOREV_EKLE = {
     "type": "function",
     "function": {
         "name": "add_task",
-        "description": "Yeni gorev ekle.",
+        "description": "Yeni görev ekle.",
         "parameters": {
             "type": "object",
             "properties": {"text": {"type": "string"}},
@@ -127,7 +119,7 @@ GOREV_LISTELE = {
     "type": "function",
     "function": {
         "name": "list_tasks",
-        "description": "Bekleyen gorevleri listele.",
+        "description": "Bekleyen görevleri listele.",
         "parameters": {"type": "object", "properties": {}},
     },
 }
@@ -136,7 +128,7 @@ GOREV_TAMAMLA = {
     "type": "function",
     "function": {
         "name": "complete_task",
-        "description": "Gorevi tamamlandi isaretle.",
+        "description": "Görevi tamamlandı işaretle.",
         "parameters": {
             "type": "object",
             "properties": {"task_id": {"type": "integer"}},
@@ -149,7 +141,7 @@ UYGULAMA_AC = {
     "type": "function",
     "function": {
         "name": "ac_uygulama",
-        "description": "Beyaz listedeki uygulamayi ac.",
+        "description": "Tanımlı uygulamalardan birini aç.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -165,14 +157,11 @@ GIT_DURUM = {
     "type": "function",
     "function": {
         "name": "git_durum",
-        "description": ("Bir projenin dal, son commit ve commit edilmemis "
-                        "dosyalarini olcer. Projeler: basak, vixrex, "
-                        "numeramatch, xses."),
+        "description": "Bir projenin dal, son commit ve commit edilmemiş dosyalarını ölç.",
         "parameters": {
             "type": "object",
             "properties": {
-                "proje": {"type": "string",
-                          "description": "basak | vixrex | numeramatch | xses"}
+                "proje": {"type": "string", "description": "basak | vixrex | numeramatch | xses"}
             },
             "required": ["proje"],
         },
@@ -183,7 +172,7 @@ GIT_GECMIS = {
     "type": "function",
     "function": {
         "name": "git_gecmis",
-        "description": "Projenin son commitlerini veya bir dosyanin git gecmisini oku.",
+        "description": "Projenin son commitlerini veya bir dosyanın git geçmişini oku.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -200,7 +189,7 @@ GIT_DEGISENLER = {
     "type": "function",
     "function": {
         "name": "git_degisenler",
-        "description": "Taban ref ile HEAD arasindaki degisen dosya istatistigini oku.",
+        "description": "Taban ref ile HEAD arasındaki değişen dosya istatistiğini oku.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -216,15 +205,12 @@ BELGE_ARA = {
     "type": "function",
     "function": {
         "name": "belge_ara",
-        "description": ("Bir projenin kokundeki Markdown belgelerinde "
-                        "satir ara. Projeler: basak, vixrex, numeramatch, xses."),
+        "description": "Bir projenin kökündeki Markdown belgelerinde satır ara.",
         "parameters": {
             "type": "object",
             "properties": {
-                "proje": {"type": "string",
-                          "description": "basak | vixrex | numeramatch | xses"},
-                "sorgu": {"type": "string",
-                          "description": "Belgelerde aranacak metin"},
+                "proje": {"type": "string", "description": "basak | vixrex | numeramatch | xses"},
+                "sorgu": {"type": "string", "description": "Belgelerde aranacak metin"},
             },
             "required": ["proje", "sorgu"],
         },
@@ -235,7 +221,7 @@ ICERIK_ARA = {
     "type": "function",
     "function": {
         "name": "icerik_ara",
-        "description": "Proje genelindeki metin dosyalarinda kod veya ifade ara.",
+        "description": "Proje genelindeki metin dosyalarında kod veya ifade ara.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -252,15 +238,12 @@ DOSYA_BILGI = {
     "type": "function",
     "function": {
         "name": "dosya_bilgi",
-        "description": ("Bir proje icindeki dosya veya klasorun varlik, "
-                        "boyut ve son degisim bilgisini olcer."),
+        "description": "Bir proje içindeki dosya veya klasörün varlık, boyut ve son değişim bilgisini ölç.",
         "parameters": {
             "type": "object",
             "properties": {
-                "proje": {"type": "string",
-                          "description": "basak | vixrex | numeramatch | xses"},
-                "yol": {"type": "string",
-                        "description": "Proje kokune gore dosya veya klasor yolu"},
+                "proje": {"type": "string", "description": "basak | vixrex | numeramatch | xses"},
+                "yol": {"type": "string", "description": "Proje köküne göre dosya veya klasör yolu"},
             },
             "required": ["proje", "yol"],
         },
@@ -271,7 +254,7 @@ GITHUB_DURUM = {
     "type": "function",
     "function": {
         "name": "github_durum",
-        "description": "GitHub PR listesi, PR detayi veya son CI kosumlarini oku.",
+        "description": "GitHub PR listesi, PR detayı veya son CI koşumlarını oku.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -289,12 +272,11 @@ TESTLERI_KOS = {
     "type": "function",
     "function": {
         "name": "testleri_kos",
-        "description": "Beyaz listedeki projenin kodda sabit test komutunu calistir.",
+        "description": "Tanımlı projenin kodda sabit test komutunu çalıştır.",
         "parameters": {
             "type": "object",
             "properties": {
-                "proje": {"type": "string",
-                          "description": "basak | vixrex | numeramatch | xses"}
+                "proje": {"type": "string", "description": "basak | vixrex | numeramatch | xses"}
             },
             "required": ["proje"],
         },
@@ -305,15 +287,12 @@ GORUNTU_OKU = {
     "type": "function",
     "function": {
         "name": "image_analyze",
-        "description": ("Bir goruntu/ekran goruntusu dosyasini incele ve "
-                        "icindekini anlat."),
+        "description": "Bir görüntü veya ekran görüntüsü dosyasını incele.",
         "parameters": {
             "type": "object",
             "properties": {
-                "path": {"type": "string",
-                         "description": "Goruntu dosyasinin yolu"},
-                "soru": {"type": "string",
-                         "description": "Goruntu hakkinda sorulacak sey"},
+                "path": {"type": "string", "description": "Görüntü dosyasının yolu"},
+                "soru": {"type": "string", "description": "Görüntü hakkında sorulacak şey"},
             },
             "required": ["path"],
         },
@@ -327,6 +306,4 @@ TOOLS = [
     ICERIK_ARA, DOSYA_BILGI, GITHUB_DURUM, TESTLERI_KOS, GORUNTU_OKU,
 ]
 
-# Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
-# Yetkiyi kod verir, model kendine yetki yazamaz.
 TANINMIS_TOOLLAR = frozenset(t["function"]["name"] for t in TOOLS)
