@@ -1,4 +1,3 @@
-"""tools/definitions.py — Modele sunulan araç şemaları."""
 WEB_ARAMA={"type":"function","function":{"name":"web_search","description":"Internette guncel bilgi ara.","parameters":{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}}}
 SAYFA_OKU={"type":"function","function":{"name":"sayfa_oku","description":"Web sayfasi oku.","parameters":{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}}}
 DOSYA_OKU={"type":"function","function":{"name":"read_file","description":"Dosya oku.","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}}
@@ -6,7 +5,8 @@ KLASOR_LISTELE={"type":"function","function":{"name":"list_files","description":
 GIT_DURUM={"type":"function","function":{"name":"git_durum","description":"Proje durumunu olc.","parameters":{"type":"object","properties":{"proje":{"type":"string"}},"required":["proje"]}}}
 BELGE_ARA={"type":"function","function":{"name":"belge_ara","description":"Kok Markdown belgelerinde ara.","parameters":{"type":"object","properties":{"proje":{"type":"string"},"sorgu":{"type":"string"}},"required":["proje","sorgu"]}}}
 DOSYA_BILGI={"type":"function","function":{"name":"dosya_bilgi","description":"Dosya bilgisi olc.","parameters":{"type":"object","properties":{"proje":{"type":"string"},"yol":{"type":"string"}},"required":["proje","yol"]}}}
-ICERIK_ARA={"type":"function","function":{"name":"icerik_ara","description":"Proje genelindeki metin dosyalarinda kod veya ifade ara.","parameters":{"type":"object","properties":{"proje":{"type":"string","description":"basak | vixrex | numeramatch | xses"},"sorgu":{"type":"string"},"uzanti":{"type":"string","description":"Opsiyonel dosya uzantisi, orn .py"}},"required":["proje","sorgu"]}}}
+ICERIK_ARA={"type":"function","function":{"name":"icerik_ara","description":"Proje genelinde kod veya ifade ara.","parameters":{"type":"object","properties":{"proje":{"type":"string"},"sorgu":{"type":"string"},"uzanti":{"type":"string"}},"required":["proje","sorgu"]}}}
+GITHUB_DURUM={"type":"function","function":{"name":"github_durum","description":"GitHub PR veya CI durumunu oku.","parameters":{"type":"object","properties":{"proje":{"type":"string"},"islem":{"type":"string","enum":["pr_list","pr_view","run_list"]},"pr_numarasi":{"type":"integer"},"durum":{"type":"string","enum":["open","closed","all"]}},"required":["proje","islem"]}}}
 DOSYA_YAZ={"type":"function","function":{"name":"write_file_tool","description":"Yalniz knowledge altina dosya kaydet.","parameters":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}}
 HATIRLATMALAR={"type":"function","function":{"name":"get_reminders","description":"Hatirlatmalari getir.","parameters":{"type":"object","properties":{}}}}
 GOREV_EKLE={"type":"function","function":{"name":"add_task","description":"Gorev ekle.","parameters":{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}}}
@@ -14,5 +14,5 @@ GOREV_LISTELE={"type":"function","function":{"name":"list_tasks","description":"
 GOREV_TAMAMLA={"type":"function","function":{"name":"complete_task","description":"Gorevi tamamlandi isaretle.","parameters":{"type":"object","properties":{"task_id":{"type":"integer"}},"required":["task_id"]}}}
 UYGULAMA_AC={"type":"function","function":{"name":"ac_uygulama","description":"Beyaz listedeki uygulamayi ac.","parameters":{"type":"object","properties":{"uygulama":{"type":"string"},"parametre":{"type":"string"}},"required":["uygulama"]}}}
 GORUNTU_OKU={"type":"function","function":{"name":"image_analyze","description":"Goruntu incele.","parameters":{"type":"object","properties":{"path":{"type":"string"},"soru":{"type":"string"}},"required":["path"]}}}
-TOOLS=[WEB_ARAMA,SAYFA_OKU,DOSYA_OKU,KLASOR_LISTELE,GIT_DURUM,BELGE_ARA,DOSYA_BILGI,ICERIK_ARA,DOSYA_YAZ,HATIRLATMALAR,GOREV_EKLE,GOREV_LISTELE,GOREV_TAMAMLA,UYGULAMA_AC,GORUNTU_OKU]
+TOOLS=[WEB_ARAMA,SAYFA_OKU,DOSYA_OKU,KLASOR_LISTELE,GIT_DURUM,BELGE_ARA,DOSYA_BILGI,ICERIK_ARA,GITHUB_DURUM,DOSYA_YAZ,HATIRLATMALAR,GOREV_EKLE,GOREV_LISTELE,GOREV_TAMAMLA,UYGULAMA_AC,GORUNTU_OKU]
 TANINMIS_TOOLLAR=frozenset(t["function"]["name"] for t in TOOLS)
