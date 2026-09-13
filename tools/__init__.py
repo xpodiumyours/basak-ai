@@ -1,12 +1,9 @@
-"""tools — Başak'ın araçları. Sekiz tane, hepsi salt-okunur.
+"""tools — Başak'ın araçları. Dokuz tane: sekizi salt-okunur, biri yazma.
 
 2026-09-13: 21 araçlık katman söküldü; Casper'in seçtikleri geri geldi.
-Bu paket diske ve dışarıya YALNIZ okur. Yazma aracı yok — dolayısıyla
-izin tablosu, onay kuyruğu, yetki tavanı da yok. Tek kural beyaz liste.
-
-Not: `file_ops.write_file_ops` dosyada duruyor (kanıtlanmış yol-güvenlik
-kodunun bir parçası ve testleri var) ama HİÇBİR araç şeması ona
-bağlanmıyor — model o fonksiyona ulaşamaz.
+Yazma YALNIZ knowledge/ altinadir (write_knowledge dar sarmalayici) —
+dolayısıyla izin tablosu, onay kuyruğu, yetki tavanı yok. Tek kural
+beyaz liste + yol kara listesi.
 """
 
 import logging
@@ -67,6 +64,13 @@ def calistir(tool_name, args):
             return image_analyzer.image_analyze(
                 str(args.get("path", "")),
                 str(args.get("soru", "") or "") or None)
+
+        if tool_name == "write_file_tool":
+            from tools import file_ops
+            return file_ops.write_knowledge(
+                str(args.get("path", "")),
+                str(args.get("content", "") or ""),
+                BASE)
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

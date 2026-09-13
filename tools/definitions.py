@@ -6,7 +6,7 @@ cevapla") buraya YAZILMAZ — o, aracın etrafına sarılmış bir kural
 katmanıdır ve 2026-09-13'te bilerek söküldü. Hangi aracı seçeceğine
 model karar verir.
 
-Sekiz araç, hepsi salt-okunur.
+Dokuz araç: sekizi salt-okunur, biri knowledge/ alti yazma.
 """
 
 
@@ -103,8 +103,18 @@ GORUNTU_OKU = _arac(
     ["path"],
 )
 
+DOSYA_YAZ = _arac(
+    "write_file_tool",
+    "knowledge/ klasoru altina not dosyasi yazar. Doner: yazilan yol. "
+    "Yalniz knowledge/ altina yazar; baska yol reddedilir.",
+    {"path": {"type": "string",
+              "description": "knowledge/ altinda dosya yolu"},
+     "content": {"type": "string", "description": "Dosya icerigi"}},
+    ["path", "content"],
+)
+
 TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
-         BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU]
+         BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

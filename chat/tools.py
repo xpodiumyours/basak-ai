@@ -24,6 +24,7 @@ DURUM_METNI = {
     "belge_ara": "Belgelerde aranıyor",
     "dosya_bilgi": "Dosya bilgisi ölçülüyor",
     "image_analyze": "Görüntü inceleniyor",
+    "write_file_tool": "Dosya yazılıyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.
