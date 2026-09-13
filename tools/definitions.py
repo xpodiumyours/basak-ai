@@ -6,8 +6,8 @@ cevapla") buraya YAZILMAZ — o, aracın etrafına sarılmış bir kural
 katmanıdır ve 2026-09-13'te bilerek söküldü. Hangi aracı seçeceğine
 model karar verir.
 
-Dokuz + dort arac: sekizi salt-okunur, biri knowledge/ alti yazma,
-dordü hatirlatma/gorev (yerel JSON, ag yok).
+Dokuz + dort + bes + dokuz arac: okuyanlar serbest, etkisi olanlar
+dar tablolarda (dosya/gorev/tablo yazma, sabit komut, beyaz liste).
 """
 
 
@@ -31,190 +31,162 @@ _PROJE = {"type": "string",
 
 WEB_ARAMA = _arac(
     "web_search",
-    "Internette arama yapar. Doner: baslik ve kisa metinlerden olusan "
-    "sonuc listesi.",
-    {"query": {"type": "string", "description": "Arama sorgusu"}},
+    "Internette arar; baslik+kisa metin listesi doner.",
+    {"query": {"type": "string", "description": "Sorgu"}},
     ["query"],
 )
 
 SAYFA_OKU = _arac(
     "sayfa_oku",
-    "Verilen web adresini acar ve sayfanin metnini doner. HTML "
-    "temizlenir, en fazla 5000 karakter. Yalniz http/https ve 80/443 "
-    "portu; ic ag adresleri reddedilir.",
-    {"url": {"type": "string", "description": "Okunacak adres"}},
+    "Sayfayi acar, duz metnini doner (en fazla 5000 karakter). Yalniz "
+    "http/https 80/443; ic ag yasak.",
+    {"url": {"type": "string", "description": "Adres"}},
     ["url"],
 )
 
 DOSYA_OKU = _arac(
     "read_file",
-    "Bir dosyanin icerigini doner. Erisim: Casper'in ev klasoru "
-    "(Belgeler, Masaustu, Indirilenler) ve C:\\Projects altindaki "
-    "projeler. Sir dosyalari (.env, .pem, .key, ayarlar.json) ve "
-    "Windows sistem klasorleri reddedilir.",
-    {"path": {"type": "string", "description": "Dosya yolu veya adi"}},
+    "Dosya icerigini doner. Sifre (.env/.pem/.key/ayarlar.json) ve "
+    "sistem klasorleri yasak.",
+    {"path": {"type": "string", "description": "Dosya yolu"}},
     ["path"],
 )
 
 KLASOR_LISTELE = _arac(
     "list_files",
-    "Bir klasordeki dosya ve alt klasorleri doner: ad + boyut. Klasor "
-    "kisa adla (masaustu, belgeler, indirilenler) veya tam yolla "
-    "verilebilir.",
-    {"folder": {"type": "string", "description": "Klasor adi veya yolu"}},
+    "Klasordekileri doner: ad+boyut. Ad veya tam yol verilir.",
+    {"folder": {"type": "string", "description": "Klasor"}},
     ["folder"],
 )
 
 GIT_DURUM = _arac(
     "git_durum",
-    "Bir yazilim projesinin o ANKI durumunu olcer. Doner: aktif dal "
-    "adi, son commit (hash + tarih + mesaj), commit edilmemis dosya "
-    "sayisi ve ilk 10 dosyanin adi.",
+    "Projenin anlik durumu: dal, son commit, kirli dosya sayisi + ilk "
+    "10 ad.",
     {"proje": _PROJE},
     ["proje"],
 )
 
 BELGE_ARA = _arac(
     "belge_ara",
-    "Bir projenin KOK klasorundeki .md belgelerinde metin arar; alt "
-    "klasorlere bakmaz. Doner: eslesen dosya adlari ve satirlar.",
+    "Proje kokundeki .md'lerde arar (alta inmez). Dosya:satir doner.",
     {"proje": _PROJE,
-     "sorgu": {"type": "string", "description": "Aranacak metin"}},
+     "sorgu": {"type": "string", "description": "Metin"}},
     ["proje", "sorgu"],
 )
 
 DOSYA_BILGI = _arac(
     "dosya_bilgi",
-    "Bir proje icindeki dosya veya klasorun var olup olmadigini, "
-    "boyutunu ve son degisim tarihini doner. Icerigi okumaz.",
+    "Dosya/klasor var mi, boyut, son degisim. Icerigi okumaz.",
     {"proje": _PROJE,
-     "yol": {"type": "string",
-             "description": "Proje kokune gore dosya veya klasor yolu"}},
+     "yol": {"type": "string", "description": "Koke gore yol"}},
     ["proje", "yol"],
 )
 
 GORUNTU_OKU = _arac(
     "image_analyze",
-    "Bir goruntu veya ekran goruntusu dosyasini inceler. Doner: "
-    "goruntude ne oldugunun yazili aciklamasi; soru verilirse o soruya "
-    "odaklanir.",
-    {"path": {"type": "string", "description": "Goruntu dosyasinin yolu"},
-     "soru": {"type": "string",
-              "description": "Goruntu hakkinda sorulacak sey"}},
+    "Goruntuyu aciklar; soru verilirse ona odaklanir.",
+    {"path": {"type": "string", "description": "Goruntu yolu"},
+     "soru": {"type": "string", "description": "Soru"}},
     ["path"],
 )
 
 DOSYA_YAZ = _arac(
     "write_file_tool",
-    "knowledge/ klasoru altina not dosyasi yazar. Doner: yazilan yol. "
-    "Yalniz knowledge/ altina yazar; baska yol reddedilir.",
-    {"path": {"type": "string",
-              "description": "knowledge/ altinda dosya yolu"},
-     "content": {"type": "string", "description": "Dosya icerigi"}},
+    "knowledge/ altina yazar, yolu doner. Disi reddedilir.",
+    {"path": {"type": "string", "description": "knowledge/ alti yol"},
+     "content": {"type": "string", "description": "Icerik"}},
     ["path", "content"],
 )
 
 HATIRLATMA_OZET = _arac(
     "get_reminders",
-    "Bugunku hatirlatmalari ve gorev ozetini doner: tarihli notlar, "
-    "bekleyen gorevler, karsilama metni.",
+    "Bugunun hatirlatma+gorev ozeti.",
     {},
     [],
 )
 
 GOREV_EKLE = _arac(
     "add_task",
-    "Gorev listesine yeni gorev ekler. Doner: eklenen gorev (no + metin).",
-    {"text": {"type": "string", "description": "Gorev aciklamasi"}},
+    "Listeye gorev ekler; no+metin doner.",
+    {"text": {"type": "string", "description": "Gorev"}},
     ["text"],
 )
 
 GOREV_LISTELE = _arac(
     "list_tasks",
-    "Gorev listesini doner: no, metin, durum, tarih.",
+    "Gorevler: no, metin, durum, tarih.",
     {},
     [],
 )
 
 GOREV_BITIR = _arac(
     "complete_task",
-    "Verilen nodaki gorevi tamamlandi isaretler. Doner: sonuc.",
+    "Nodaki gorevi kapatir.",
     {"task_id": {"type": "integer", "description": "Gorev no"}},
     ["task_id"],
 )
 
 UYGULAMA_AC = _arac(
     "ac_uygulama",
-    "Beyaz listedeki bir uygulamayi acar (tarayici, notepad, "
-    "calculator, file_manager, vscode). Doner: sonuc. "
-    "Liste disi uygulama reddedilir.",
-    {"uygulama": {"type": "string", "description": "Uygulama adi"},
-     "parametre": {"type": "string",
-                   "description": "Adres veya dosya yolu"}},
+    "Beyaz listedekini acar: tarayici, notepad, calculator, "
+    "file_manager, vscode. Disi reddedilir.",
+    {"uygulama": {"type": "string", "description": "Ad"},
+     "parametre": {"type": "string", "description": "Adres/yol"}},
     ["uygulama"],
 )
 
 ICERIK_ARA = _arac(
     "icerik_ara",
-    "Bir projenin tum klasorlerinde metin arar. Doner: "
-    "dosya:satir: icerik satirlari (en fazla 8). "
-    "Sifre dosyalari acilmaz, anahtar desenleri maskelenir.",
+    "Projenin her yerinde arar; dosya:satir doner (en fazla 8). Sifre "
+    "dosyalari acilmaz, anahtarlar maskelenir.",
     {"proje": _PROJE,
-     "sorgu": {"type": "string", "description": "Aranacak metin"},
-     "uzanti": {"type": "string",
-                "description": "Dosya uzantisi süzgeci (orn. .py)"}},
+     "sorgu": {"type": "string", "description": "Metin"},
+     "uzanti": {"type": "string", "description": "Orn. .py"}},
     ["proje", "sorgu"],
 )
 
 GITHUB_DURUM = _arac(
     "github_durum",
-    "GitHub'da PR ve CI durumunu okur (salt-okunur). Doner: "
-    "isleme gore PR listesi, PR detayi veya son 5 calisma. "
-    "Yazan komut yok.",
+    "PR/CI okur (salt-okunur): liste, detay veya son 5 kosu. Yazan "
+    "komut yok.",
     {"islem": {"type": "string",
                "description": "pr_liste | pr_goruntule | calisma_liste"},
      "proje": _PROJE,
-     "no": {"type": "integer",
-            "description": "PR numarasi (pr_goruntule icin)"},
+     "no": {"type": "integer", "description": "PR no"},
      "durum": {"type": "string",
-               "description": "PR durumu: open, closed, merged, all"}},
+               "description": "open, closed, merged, all"}},
     ["islem", "proje"],
 )
 
 GIT_GECMIS = _arac(
     "git_gecmis",
-    "Bir projenin son commitlerini listeler. Doner: oneline satirlari "
-    "(en fazla 30).",
+    "Son commitler (en fazla 30).",
     {"proje": _PROJE,
-     "dosya": {"type": "string",
-               "description": "Tek dosya süzgeci (proje kokune gore)"},
-     "adet": {"type": "integer", "description": "Kac commit (en fazla 30)"}},
+     "dosya": {"type": "string", "description": "Tek dosya suzgeci"},
+     "adet": {"type": "integer", "description": "Kac commit"}},
     ["proje"],
 )
 
 GIT_DEGISENLER = _arac(
     "git_degisenler",
-    "Taban dal ile HEAD arasi degisen dosya ozetini doner "
-    "(diff --stat).",
+    "Taban ile HEAD arasi ozet (diff --stat).",
     {"proje": _PROJE,
-     "taban": {"type": "string",
-               "description": "Taban referans (orn. origin/master)"}},
+     "taban": {"type": "string", "description": "Orn. origin/master"}},
     ["proje"],
 )
 
 ADRES_KONTROL = _arac(
     "adres_kontrol",
-    "Bir web adresinin canli durumunu olcer. Doner: HTTP durum kodu, "
-    "yanit suresi, son adres. Sayfa govdesi indirilmez. "
-    "Ic ag adresleri reddedilir.",
-    {"url": {"type": "string", "description": "Kontrol edilecek adres"}},
+    "Adres canli mi: durum kodu, sure, son adres. Govde inmez; ic ag "
+    "yasak.",
+    {"url": {"type": "string", "description": "Adres"}},
     ["url"],
 )
 
 TEST_KOS = _arac(
     "testleri_kos",
-    "Bir projenin testlerini kosturur. Doner: sonuc ozeti + ciktinin "
-    "sonu. Komut tabloda sabittir; vixrex'te tanimli degil.",
+    "Proje testlerini kosturur, ozet doner. Komut sabit; vixrex yok.",
     {"proje": {"type": "string",
                "description": "basak | numeramatch | xses"}},
     ["proje"],
@@ -222,89 +194,79 @@ TEST_KOS = _arac(
 
 MATRIS_AC = _arac(
     "matris_ac",
-    "Fikir icin ilerleme tablosu acar. Doner: tablo numarasi. "
-    "Tablo canli agactir: dal eklenir, silinir, tasinir.",
-    {"baslik": {"type": "string", "description": "Tablo basligi"},
-     "fikir": {"type": "string", "description": "Fikrin ozeti"}},
+    "Fikir tablosu acar, numarasini doner. Agac canlidir.",
+    {"baslik": {"type": "string", "description": "Baslik"},
+     "fikir": {"type": "string", "description": "Fikir ozeti"}},
     ["baslik"],
 )
 
 MATRIS_LISTE = _arac(
     "matris_liste",
-    "Tum tablolari skorlariyla doner: numara, baslik, kanitli sayisi.",
+    "Tablolar + skorlari.",
     {},
     [],
 )
 
 SATIR_EKLE = _arac(
     "satir_ekle",
-    "Tabloya satir ekler. Doner: satir numarasi. Tur: arastirma, "
-    "katman, adim, detay. ust: baglanacagi satir (yoksa kok). "
-    "bagli: once bitmesi gereken satir numaralari.",
-    {"matris": {"type": "integer", "description": "Tablo numarasi"},
+    "Satira ekler, numarasini doner. ust bos=kok. bagli: once "
+    "bitecekler.",
+    {"matris": {"type": "integer", "description": "Tablo no"},
      "tur": {"type": "string",
              "description": "arastirma | katman | adim | detay"},
-     "metin": {"type": "string", "description": "Satir metni"},
-     "ust": {"type": "integer",
-             "description": "Ust satir numarasi (kok icin bos)"},
-     "neden": {"type": "string",
-               "description": "Ustteki hangi ise yaradigi"},
-     "bagli": {"type": "array",
-               "description": "Once bitmesi gereken satirlar"}},
+     "metin": {"type": "string", "description": "Satir"},
+     "ust": {"type": "integer", "description": "Ust no (bos=kok)"},
+     "neden": {"type": "string", "description": "Ne ise yaradigi"},
+     "bagli": {"type": "array", "description": "Once bitecek no'lar"}},
     ["matris", "tur", "metin"],
 )
 
 KANIT_EKLE = _arac(
     "kanit_ekle",
-    "Satira kanit notu duser. Doner: sonuc. Kanitsiz satir kapanmaz.",
-    {"matris": {"type": "integer", "description": "Tablo numarasi"},
-     "satir": {"type": "integer", "description": "Satir numarasi"},
-     "kanit": {"type": "string", "description": "Kanit metni"}},
+    "Satira kanit yazar. Kanitsiz kapanmaz.",
+    {"matris": {"type": "integer", "description": "Tablo no"},
+     "satir": {"type": "integer", "description": "Satir no"},
+     "kanit": {"type": "string", "description": "Kanit"}},
     ["matris", "satir", "kanit"],
 )
 
 SATIR_KAPAT = _arac(
     "satir_kapat",
-    "Satiri kanitli kapatir. Doner: sonuc. Kanit yoksa veya bagli "
-    "satirlar bitmemisse reddedilir.",
-    {"matris": {"type": "integer", "description": "Tablo numarasi"},
-     "satir": {"type": "integer", "description": "Satir numarasi"}},
+    "Kanitli kapatir. Kanitsiz veya baglisi bitmemisse red.",
+    {"matris": {"type": "integer", "description": "Tablo no"},
+     "satir": {"type": "integer", "description": "Satir no"}},
     ["matris", "satir"],
 )
 
 SATIR_AC = _arac(
     "satir_ac",
-    "Kapanmis satiri yeniden acar. Doner: sonuc.",
-    {"matris": {"type": "integer", "description": "Tablo numarasi"},
-     "satir": {"type": "integer", "description": "Satir numarasi"}},
+    "Kapanani yeniden acar.",
+    {"matris": {"type": "integer", "description": "Tablo no"},
+     "satir": {"type": "integer", "description": "Satir no"}},
     ["matris", "satir"],
 )
 
 SATIR_SIL = _arac(
     "satir_sil",
-    "Satiri arsive kaldirir (skor disi, geri donulebilir). Alt "
-    "satirlar bir uste baglanir. Doner: sonuc.",
-    {"matris": {"type": "integer", "description": "Tablo numarasi"},
-     "satir": {"type": "integer", "description": "Satir numarasi"}},
+    "Arsive kaldirir (skor disi). Altlar bir uste baglanir.",
+    {"matris": {"type": "integer", "description": "Tablo no"},
+     "satir": {"type": "integer", "description": "Satir no"}},
     ["matris", "satir"],
 )
 
 SATIR_TASI = _arac(
     "satir_tasi",
-    "Satiri baska dalin altina tasir. Doner: sonuc. Dongu kurarsa "
-    "reddedilir.",
-    {"matris": {"type": "integer", "description": "Tablo numarasi"},
-     "satir": {"type": "integer", "description": "Satir numarasi"},
-     "yeni_ust": {"type": "integer",
-                  "description": "Yeni ust satir (kok icin bos)"}},
+    "Dali tasir. Dongu red.",
+    {"matris": {"type": "integer", "description": "Tablo no"},
+     "satir": {"type": "integer", "description": "Satir no"},
+     "yeni_ust": {"type": "integer", "description": "Yeni ust (bos=kok)"}},
     ["matris", "satir"],
 )
 
 MATRIS_DURUM = _arac(
     "matris_durum",
-    "Tabloyu agac + skor olarak doner: satirlar, baglantilar, "
-    "kanit sayilari, kanitli/toplam skor. Tamami cikar.",
-    {"matris": {"type": "integer", "description": "Tablo numarasi"}},
+    "Agac + skor, tamami.",
+    {"matris": {"type": "integer", "description": "Tablo no"}},
     ["matris"],
 )
 

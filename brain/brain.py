@@ -79,6 +79,26 @@ def _rate_limit_mi(hata):
     return any(k in s for k in ("429", "rate", "limit", "too many", "quota"))
 
 
+def _bekleme_suresi(hata):
+    """Saglayicinin soyledigi bekleme suresi (sn) — yoksa None.
+
+    429/413 mesajlari "try again in 10.7s" tasir; sabit 20 sn yerine
+    soylenene uyulur (bosuna erken donup kota yenmez). Tavan 180 sn:
+    saf teknik bekleme, secim karari degil.
+    """
+    import re as _re
+    s = str(hata)
+    m = _re.search(r"try again in ([\d.]+)s", s)
+    if not m:
+        m = _re.search(r"(?i)retry[-\s]?after[:\s]+([\d.]+)", s)
+    if not m:
+        return None
+    try:
+        return max(1.0, min(180.0, float(m.group(1))))
+    except ValueError:
+        return None
+
+
 def _zaman_asimi_mi(hata):
     """Hata zaman asimi mi? (2026-09-11)
 
@@ -309,8 +329,10 @@ class Brain:
                 logger.warning("%s hatasi, siradaki deneniyor: %s", ad, e)
                 hatalar.append("%s: %s" % (ad, str(e)))
                 if _rate_limit_mi(e):
-                    _cooldown_ekle(ad)
-                    logger.info("%s rate-limit, cooldown baslatildi", ad)
+                    bekle = _bekleme_suresi(e)
+                    _cooldown_ekle(ad, sure=bekle)
+                    logger.info("%s rate-limit, %.0f sn cooldown",
+                                ad, bekle or _COOLDOWN_SURE)
                 elif _zaman_asimi_mi(e):
                     # 2026-09-11: zaman asimi da kisa cooldown alsin —
                     # GLM her istekte ayni duvara carpip patlamasin.
@@ -392,7 +414,7 @@ class Brain:
                 logger.warning("%s akis hatasi: %s", ad, hata)
                 hatalar.append("%s: %s" % (ad, hata))
                 if _rate_limit_mi(e):
-                    _cooldown_ekle(ad)
+                    _cooldown_ekle(ad, sure=_bekleme_suresi(e))
                 elif _zaman_asimi_mi(e):
                     # 2026-09-11: zaman asimi da kisa cooldown alsin.
                     _cooldown_ekle(ad, sure=_ZAMAN_ASIMI_COOLDOWN)
