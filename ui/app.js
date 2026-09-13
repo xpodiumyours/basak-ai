@@ -459,7 +459,7 @@ window.BasakUI = {
     kilidiAc();
     setOrb("cevapliyor");
     if (!state.ttsOn) setTimeout(() => setOrb("bekliyor"), 2200);
-    const ml = modelInfo || state.model || "yerel beyin";
+    const ml = modelInfo || state.model || "bulut";
     setStatus("ok", ml + " HAZIR");
     $("input").focus();
     try { oturumlariYukle(); } catch (e) {}
@@ -678,7 +678,7 @@ const bk = $("btnKey"); if (bk) bk.addEventListener("click", async () => {
   const gk = $("groqKey"); const key = gk ? gk.value.trim() : '';
   const r = await api().set_key(key);
   if (r && r.cloud) {
-    setStatus("ok", (state.model || "yerel beyin") + " + GROQ HAZIR");
+    setStatus("ok", (state.model || "bulut") + " + GROQ HAZIR");
     $("btnKey").textContent = "KAYDEDİLDİ";
   } else {
     $("btnKey").textContent = "ANAHTAR GEÇERSİZ";
@@ -713,24 +713,24 @@ async function boot() {
       $("btnMic").disabled = false;
       state.model = status.model;
       state.ttsOn = !!status.tts_on;
-      setStatus("ok", (status.cloud ? "BULUT " + (status.model || "") + " HAZIR" : (status.model || "YEREL BEYİN") + " HAZIR"));
+      setStatus("ok", "BULUT HAZIR");
       const sel = $("modelSelect");
       if (status.models && status.models.length) {
         sel.innerHTML = status.models
           .map((m) => "<option>" + mdKacis(m) + "</option>").join("");
         sel.value = status.model || status.models[0];
         sel.onchange = () => { state.model = sel.value; api().set_model(sel.value); setStatus("ok", sel.value + " HAZIR"); };
+      } else if (sel) {
+        sel.style.display = "none";   // Faz 2: yerel model listesi yok
       }
       $("btnTts").classList.toggle("active", state.ttsOn);
 
       try { oturumlariYukle(); } catch (e) {}
     } else {
-      // 2026-09-09: mesaj gercegi soyler. Eskiden hep "OLLAMA KAPALI"
-      // yaziyordu; oysa bulut biletleri de olmus olabilir. boot() ok=false
-      // demek: yerel YOK ve bulut YOK. Dugmeler kilitli kalir cunku
-      // gonderilecek beyin yok; hazir olunca acilir.
-      setStatus("err", "HİÇBİR BEYİN YOK — Ollama kapalı, bulut biletleri de hazır değil");
-      Chat.sistem("▲ Başak açılamadı: bilgisayardaki model (Ollama) kapalı ve internet biletleri de geçersiz. Önce internet bağlantını, sonra biletleri kontrol et.");
+      // Faz 2: SADECE bulut. ok=false demek bulut zinciri ayakta
+      // degil (bilet yok/ag yok). Dugmeler kilitli kalir.
+      setStatus("err", "HİÇBİR BEYİN YOK — bulut biletleri hazır değil");
+      Chat.sistem("▲ Başak açılamadı: internet biletleri geçersiz. Önce internet bağlantını, sonra ayarlar.json'daki anahtarları kontrol et.");
       setOrb("hata");
     }
   } catch (e) {

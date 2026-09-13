@@ -122,14 +122,6 @@ SAGLAYICILAR = {
         "gunluk_istek": 50,   # :free modeller tipik ucretsiz katman limiti
         "not": "Sadece :free modeller; son care bulut.",
     },
-    "yerel": {
-        "ad": "Ollama (yerel)",
-        "ucretsiz": True,
-        "tools": True,
-        "gucleri": ["genel"],
-        "gunluk_istek": None,
-        "not": "Internet/kota bitse bile calisir — son care.",
-    },
 }
 
 # Varsayilan oncelik sirasi (secici yeniden SIRALAMAZ — bu sira korunur).

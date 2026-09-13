@@ -14,7 +14,6 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from brain.groq import GroqClient
-from brain.ollama import OllamaClient
 from brain.gemini import GeminiClient
 from brain.glm import GLMClient
 from brain.nvidia import NvidiaClient
@@ -124,42 +123,6 @@ class TestAdaptorYapi:
         g.cevapla(MESAJ, tools=[{}])
         assert "response_format" not in g.client.kayit[1]
 
-    def test_ollama_yapi_ile_format_json(self, monkeypatch):
-        from brain import ollama as ollama_mod
-        yakalanan = {}
-
-        monkeypatch.setattr(
-            ollama_mod.requests, "get",
-            lambda *a, **k: SahteHTTP({"models": [{"name": "qwen2.5:3b"}]}))
-
-        def sahte_post(url, json=None, timeout=None):
-            yakalanan["payload"] = json
-            return SahteHTTP({"message": {"content": "ok"}})
-
-        monkeypatch.setattr(ollama_mod.requests, "post", sahte_post)
-
-        c = OllamaClient()
-        c.cevapla(MESAJ, "qwen2.5:3b", yapi=YAPI)
-        assert yakalanan["payload"]["format"] == "json"
-
-    def test_ollama_yapi_siz_format_yok(self, monkeypatch):
-        from brain import ollama as ollama_mod
-        yakalanan = {}
-
-        monkeypatch.setattr(
-            ollama_mod.requests, "get",
-            lambda *a, **k: SahteHTTP({"models": [{"name": "qwen2.5:3b"}]}))
-
-        def sahte_post(url, json=None, timeout=None):
-            yakalanan["payload"] = json
-            return SahteHTTP({"message": {"content": "ok"}})
-
-        monkeypatch.setattr(ollama_mod.requests, "post", sahte_post)
-
-        c = OllamaClient()
-        c.cevapla(MESAJ, "qwen2.5:3b")
-        assert "format" not in yakalanan["payload"]
-
     def test_tum_adaptorlar_yapi_parametresini_kabul_eder(self):
         # Accept-and-ignore adaptorler: yapi ile de yapi'siz de calisir.
         for cls in (GeminiClient, GLMClient, NvidiaClient, KiloClient,
@@ -178,7 +141,6 @@ class TestBrainYapiTasima:
     def _brain(self, monkeypatch, zincir, tmp_path):
         from brain.brain import Brain
         b = Brain.__new__(Brain)  # __init__ anahtar/ag istemez
-        b._ollama = YapiSahteIstemci()
         monkeypatch.setattr(b, "_bulut_zinciri", lambda: zincir)
         return b
 
@@ -187,7 +149,7 @@ class TestBrainYapiTasima:
         b = self._brain(monkeypatch, [("glm", ilk), ("cloudflare", sira_disi)],
                         tmp_path)
         yanit, kaynak = b.cevapla(
-            MESAJ, "qwen2.5:3b", tercih=("glm", "cloudflare"), yapi=YAPI)
+            MESAJ, None, tercih=("glm", "cloudflare"), yapi=YAPI)
         assert yanit["content"] == "tamam"
         assert kaynak.startswith("glm")
         assert ilk.son_yapi == YAPI
@@ -198,7 +160,7 @@ class TestBrainYapiTasima:
         # Eski cagrilar hic yapi kwarg'i gormez — geriye uyumluluk.
         ilk = YapiSahteIstemci()
         b = self._brain(monkeypatch, [("glm", ilk)], tmp_path)
-        b.cevapla(MESAJ, "qwen2.5:3b", tercih=("glm",))
+        b.cevapla(MESAJ, None, tercih=("glm",))
         assert ilk.son_yapi == "__gelmedi__"
 
     def test_400_invalid_request_isaretler_ve_yapisiz_tekrar(
@@ -211,7 +173,7 @@ class TestBrainYapiTasima:
                         tmp_path)
 
         yanit, kaynak = b.cevapla(
-            MESAJ, "qwen2.5:3b", tercih=("glm", "cloudflare"), yapi=YAPI)
+            MESAJ, None, tercih=("glm", "cloudflare"), yapi=YAPI)
 
         from brain import brain as brain_mod
         assert brain_mod._YAPI_DENEME.get("glm") is False
@@ -223,7 +185,7 @@ class TestBrainYapiTasima:
         assert yanit["content"] == "tamam"
 
         # Sonraki cagrida kirtilmis saglayiciya yapi HIC gitmez
-        b.cevapla(MESAJ, "qwen2.5:3b", tercih=("glm", "cloudflare"), yapi=YAPI)
+        b.cevapla(MESAJ, None, tercih=("glm", "cloudflare"), yapi=YAPI)
         assert ilk.yapi_cagrildi == 1
         assert ilk.cagrildi == 3
 
@@ -237,7 +199,7 @@ class TestBrainYapiTasima:
                         tmp_path)
 
         yanit, kaynak = b.cevapla(
-            MESAJ, "qwen2.5:3b", tercih=("glm", "cloudflare"), yapi=YAPI)
+            MESAJ, None, tercih=("glm", "cloudflare"), yapi=YAPI)
 
         from brain import brain as brain_mod
         assert "glm" not in brain_mod._YAPI_DENEME
@@ -245,10 +207,9 @@ class TestBrainYapiTasima:
         assert kaynak.startswith("cloudflare")
         assert yanit["content"] == "tamam"
 
-    def test_yerel_fallback_yapi_alir(self, monkeypatch, tmp_path):
-        # Tum bulutlar duserse yerel Ollama cagrisi da yapi tasir.
+    def test_tum_bulut_duserse_acik_hata(self, monkeypatch, tmp_path):
+        # Faz 2: yerel yedek YOK — tum bulutlar duserse RuntimeError.
         ilk = YapiSahteIstemci(hata=RuntimeError("patladi"))
         b = self._brain(monkeypatch, [("glm", ilk)], tmp_path)
-        b._ollama = YapiSahteIstemci()
-        b.cevapla(MESAJ, "qwen2.5:3b", tercih=("glm",), yapi=YAPI)
-        assert b._ollama.son_yapi == YAPI
+        with pytest.raises(RuntimeError, match="Hicbir model calismadi"):
+            b.cevapla(MESAJ, None, tercih=("glm",), yapi=YAPI)

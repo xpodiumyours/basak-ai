@@ -157,23 +157,19 @@ class Api:
 
     def boot(self):
         beyin = self._beyin_al()
-        modeller = beyin.yerel_modeller()
         bulut = beyin.bulut_musait()
-        model = None
-        if modeller:
-            kayitli = yukle(SETTINGS_FILE, {}).get("model")
-            model = kayitli if kayitli in modeller else modeller[0]
         return {
-            # ok: Ollama-bagimsizlik (2026-08-24): yerel model ON KOSUL degil;
-            # bulut zinciri ayaktayken de Basak acilir ve sohbet eder.
-            "ok": bool(modeller) or bool(bulut),
-            "models": modeller or [], "model": model,
+            # Ozgu-ajan (Faz 2): SADECE bulut. ok = bulut zinciri ayakta.
+            "ok": bool(bulut),
+            "models": [], "model": None,
             "cloud": bulut,
             "tts_on": self.tts_on,
-            "current_model": model,
+            "current_model": None,
         }
 
     def set_model(self, m):
+        # Uyumluluk icin durur (eski UI model listesi). Zincir kendi
+        # modelini secer; kayitli ad akisa tasinmaz.
         kaydet(SETTINGS_FILE, {**yukle(SETTINGS_FILE, {}), "model": m})
         return {"ok": True}
 
