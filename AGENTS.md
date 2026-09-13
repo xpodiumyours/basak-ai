@@ -2,7 +2,29 @@
 
 Bu dosyayı kod yazan her ajan (Claude Code, Kilo Code, OpenCode) işe başlamadan önce okur. Kurallar bağlayıcıdır. Casper kod yazmıyor, doğal dille tarif ediyor — tarifi karara çevirmek ajanın işi, "anlamadım" diye boş bırakmak değil.
 
-## 0. Proje
+## 0. EN ÜST KURAL — CHATBOT YAPMA
+
+**Bu kural diğer her şeyin üstündedir. Çiğneyen iş reddedilir.**
+
+Araçlar modele **her mesajda** sunulur. Hangisini kullanacağına **model karar verir**.
+
+**Yeni kelime/tetikleyici mantığı YAZILMAZ.** "Şu kelime geçerse şu aracı aç", "şu cümlede şu çağrı" türü hiçbir eşleştirme kurulmaz. Böyle bir liste büyüdükçe sistem akıllanmaz — kural ezberleyen bir chatbot'a döner.
+
+**Araç eklemek üç yerdir, dördüncüsü yoktur:**
+
+| # | Nereye | Ne |
+|---|---|---|
+| 1 | `tools/definitions.py` | Araç şeması |
+| 2 | `tools/__init__.py` → `calistir()` | Dispatcher dalı |
+| 3 | `chat/tools.py` → `DURUM_METNI` | Ekranda görünen durum etiketi |
+
+**Araç açıklamasına davranış koçluğu yazılmaz.** Açıklama yalnız olguyu söyler: ne yapar, hangi parametreyi alır, **ne döndürür**, sınırı nedir. "Şunu kullanma", "şöyle cevapla", "önce ara sonra konuş" gibi cümleler açıklamaya da prompt'a da girmez.
+
+**Modele talimat bloğu eklenmez.** `chat/prompts.py` içinde yalnız kimlik bloğu vardır. Araç yönlendirmesi, dürüstlük ilkesi, cevap biçimi blokları 2026-09-13'te bilerek silindi; geri getirilmez.
+
+**Tarihçe (tekrarlanmasın diye):** 2026-09-13'te araçların etrafına sarılı kural katmanları söküldü (izin tablosu, onay kuyruğu, ölçü kapısı, orkestra, yetki tavanı). Sonra aynı hata kelime tetikleyicisi olarak geri geldi; gerekçesi ("küçük modeller şaşırır, akış kapanır") ölçülünce çürüdü — Groq/GLM/NVIDIA üçü de akışla birlikte araç kabul ediyor ve bulut zincirinde küçük model yok. Katman `85107b8` ile kaldırıldı.
+
+## 1. Proje
 
 Başak — tamamen yerel çalışan, ücretsiz, Türkçe konuşan kişisel Jarvis. Beyin: Ollama (`qwen2.5:3b`, yerel) + zor sorularda Groq'a (ücretsiz, `llama-3.3-70b`) kaçış. Ses: Piper TTS + faster-whisper STT (ikisi de yerel). Arayüz: `ui/` altında saf HTML/CSS/JS + Three.js orb, pywebview masaüstü penceresinde açılıyor. `ARASTIRMA.md` teknoloji seçim gerekçelerini tutar.
 
