@@ -404,6 +404,26 @@ class HafizaMotoru:
         except sqlite3.Error:
             pass
 
+    def vektorleri_temizle(self):
+        """Vektor uzayi degisince: vektorleri SILER, metinlere DOKUNMAZ.
+
+        Farkli saglayicilarin vektorleri ayni tabloda karisamaz
+        (uzakliklar anlamsizlasir). Donus: temizlenen satir sayisi.
+        """
+        with self._lock:
+            try:
+                sayi = self.conn.execute(
+                    "SELECT COUNT(*) FROM memories WHERE has_vec=1"
+                ).fetchone()[0]
+                if self.vektor_var:
+                    self.conn.execute("DELETE FROM memories_vec")
+                self.conn.execute("UPDATE memories SET has_vec=0")
+                self.conn.commit()
+                return sayi
+            except sqlite3.DatabaseError as e:
+                logger.warning("Vektor temizligi basarisiz: %s", e)
+                return 0
+
 
 def _serialize(vektor):
     """float32 little-endian bayt dizisi — sqlite-vec formati."""

@@ -24,6 +24,8 @@ boş konuşan bir chatbot kalıyordu. On günün özeti bu.
    tavanı, karne/shuffle ile sıralama oyunu, orkestra/jüri/gölge,
    elle kapatma bayrakları, sahte yönlendirme mesajları.
 5. **Küçük/büyük model ayrımı:** modele adına bakıp farklı davranmak.
+6. **Sormadan konuşma:** kullanıcı sormadan mesaj yok — açılışta da
+   kapanışta da durduk yere konuşulmaz. Başak çağrılınca gelir.
 
 ## Serbest olan (dokunulmaz)
 
