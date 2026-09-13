@@ -17,30 +17,21 @@ from brain.kullanim import kullanim_ekle
 BASE_URL = "https://openrouter.ai/api/v1"
 
 # Sadece ücretsiz modeller (":free" suffix'li) - paid modeller KULLANILMAZ
+# 2026-09-13 olcumu (canli katalog, 19 model): sirf katalogda OLANLAR.
+# Oluler cikarildi (gpt-oss, llama-3.3, mistral-7b, qwen-2.5, glm-4.5-air,
+# nano-9b/12b). lightning:free olculdu — 105 sn + dusunce sizdiriyor,
+# varsayilan DEGIL (ultra ispatli, listede durur).
 TERCIH_SIRASI = [
-    # Ücretsiz modeller (free tier) - öncelikli
     "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "openai/gpt-oss-120b:free",
     "nvidia/nemotron-3-super-120b-a12b:free",
-    "openai/gpt-oss-20b:free",
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "google/gemma-2-27b-it:free",
-    "mistralai/mistral-7b-instruct:free",
-    "qwen/qwen-2.5-72b-instruct:free",
-    "nvidia/nemotron-3-super-120b-a12b:free",
-    "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "z-ai/glm-4.5-air:free",
     "google/gemma-4-31b-it:free",
-    "nvidia/nemotron-3-nano-30b-a3b:free",
-    "nvidia/nemotron-nano-9b-v2:free",
-    "nvidia/nemotron-nano-12b-v2-vl:free",
-    "cohere/north-mini-code:free",
     "poolside/laguna-s-2.1:free",
     "poolside/laguna-xs-2.1:free",
-    "thinkingmachines/inkling:free",
+    "cohere/north-mini-code:free",
     "thinkingmachines/inkling-small:free",
-    "dots-studio/dots-3-note-preview:free",
-    "liquid/lfm-2.5-2.6b:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "inclusionai/ling-3.0-flash-fin:free",
+    "nex-n2.5-mini:free",
     "openrouter/free",
 ]
 
