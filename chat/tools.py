@@ -35,6 +35,7 @@ DURUM_METNI = {
     "git_gecmis": "Commit geçmişi ölçülüyor",
     "git_degisenler": "Değişenler ölçülüyor",
     "adres_kontrol": "Adres kontrol ediliyor",
+    "testleri_kos": "Testler koşuyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.

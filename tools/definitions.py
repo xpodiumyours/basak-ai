@@ -211,11 +211,20 @@ ADRES_KONTROL = _arac(
     ["url"],
 )
 
+TEST_KOS = _arac(
+    "testleri_kos",
+    "Bir projenin testlerini kosturur. Doner: sonuc ozeti + ciktinin "
+    "sonu. Komut tabloda sabittir; vixrex'te tanimli degil.",
+    {"proje": {"type": "string",
+               "description": "basak | numeramatch | xses"}},
+    ["proje"],
+)
+
 TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
          HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR,
          UYGULAMA_AC, ICERIK_ARA, GITHUB_DURUM,
-         GIT_GECMIS, GIT_DEGISENLER, ADRES_KONTROL]
+         GIT_GECMIS, GIT_DEGISENLER, ADRES_KONTROL, TEST_KOS]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

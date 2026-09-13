@@ -133,6 +133,10 @@ def calistir(tool_name, args):
         if tool_name == "adres_kontrol":
             from tools import web_search as ws
             return ws.adres_kontrol(str(args.get("url", "")))
+
+        if tool_name == "testleri_kos":
+            from tools import testkos
+            return testkos.testleri_kos(str(args.get("proje", "")))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}
