@@ -1,10 +1,7 @@
 """brain/glm.py — GLM bulut entegrasyonu (Z.ai resmi platformu).
 
-Ucuncu bulut saglayici. OpenAI-uyumlu uc:
-https://api.z.ai/api/paas/v4/
-Model: glm-4.7. Anahtar: env ZAI_API_KEY veya ayarlar.json -> zai_key.
-
-Arayuz groq.py / gemini.py ile birebir aynidir.
+OpenAI-uyumlu uç: https://api.z.ai/api/paas/v4/
+Model: glm-4.5-flash. Anahtar: env ZAI_API_KEY veya ayarlar.json -> zai_key.
 """
 
 import json
@@ -18,7 +15,6 @@ from brain.kullanim import kullanim_ekle
 
 BASE_URL = "https://api.z.ai/api/paas/v4/"
 MODELLER = {
-    # ucretsiz katmanda bakiyesiz calisan model (2026-08 dogrulandi)
     "hizli": "glm-4.5-flash",
     "varsayilan": "glm-4.5-flash",
 }
@@ -39,7 +35,7 @@ class GLMClient:
         try:
             self.client = OpenAI(
                 api_key=self.api_key,
-                timeout=20.0,
+                timeout=120.0,
                 max_retries=0,
                 base_url=BASE_URL,
             )
@@ -51,19 +47,13 @@ class GLMClient:
         return self.client is not None
 
     def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
-        """GLM'e mesaj gönderir. Dönen şekil groq.py ile aynıdır.
-
-        Not: dusunme (thinking) modu kapatilir — sohbet icin hiz onceliklidir.
-        yapi: sozlesme modu icin; bu saglayici su an yok sayar.
-        """
+        """GLM'e mesaj gönderir; reasoning ve çıktı ayarları modele bırakılır."""
         if not self.client:
             raise RuntimeError("GLM bağlı değil")
 
         kwargs = {
             "model": self.model,
             "messages": messages,
-            "max_tokens": 4096,
-            "extra_body": {"thinking": {"type": "disabled"}},
         }
         if tools:
             kwargs["tools"] = tools
@@ -86,6 +76,6 @@ class GLMClient:
                     }
                 })
             return kullanim_ekle({"content": msg.content or "",
-                          "tool_calls": tool_calls}, resp)
+                                  "tool_calls": tool_calls}, resp)
 
         return kullanim_ekle({"content": msg.content or ""}, resp)
