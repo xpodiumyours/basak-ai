@@ -199,6 +199,12 @@ def calistir(tool_name, args):
         if tool_name == "saglik_raporu":
             from tools import saglik
             return saglik.saglik_raporu()
+
+        if tool_name == "satir_duzenle":
+            from tools import matris
+            return matris.satir_duzenle(
+                args.get("matris"), args.get("satir"),
+                metin=args.get("metin"), neden=args.get("neden"))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

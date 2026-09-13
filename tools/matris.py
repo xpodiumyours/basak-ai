@@ -342,3 +342,28 @@ def matris_durum(matris):
     if arsivli:
         cikti.append("arsivde: %d" % arsivli)
     return {"result": "\n".join(cikti)}
+
+
+def satir_duzenle(matris, satir, metin=None, neden=None):
+    """Satirin metnini/nedenini duzeltir. Durum, kanit, baglanti
+    degismez — yalniz yazi duzelir."""
+    yeni_metin = (metin or "").strip() if metin is not None else None
+    yeni_neden = (neden or "").strip() if neden is not None else None
+    if not yeni_metin and not yeni_neden:
+        return {"error": "Degisecek yazi verilmedi (metin veya neden)."}
+    with _KILIT:
+        veri = _yukle(matris)
+        if veri is None:
+            return {"error": "Tablo bulunamadi: %s" % matris}
+        hedef = _satir_bul(veri, satir)
+        if hedef is None:
+            return {"error": "Satir bulunamadi: %s" % satir}
+        try:
+            if yeni_metin:
+                hedef["metin"] = yeni_metin
+            if yeni_neden:
+                hedef["neden"] = yeni_neden
+            _atomik_yaz(veri["id"], veri)
+        except OSError as e:
+            return {"error": "Duzenlenemedi: %s" % e}
+    return {"result": "Satir duzenlendi (#%d)" % hedef["id"]}

@@ -263,6 +263,16 @@ SATIR_TASI = _arac(
     ["matris", "satir"],
 )
 
+SATIR_DUZENLE = _arac(
+    "satir_duzenle",
+    "Satir yazisini duzeltir. Durum, kanit, baglanti degismez.",
+    {"matris": {"type": "integer", "description": "Tablo no"},
+     "satir": {"type": "integer", "description": "Satir no"},
+     "metin": {"type": "string", "description": "Yeni yazi"},
+     "neden": {"type": "string", "description": "Yeni neden"}},
+    ["matris", "satir"],
+)
+
 MATRIS_DURUM = _arac(
     "matris_durum",
     "Agac + skor, tamami.",
@@ -293,7 +303,7 @@ TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          GIT_GECMIS, GIT_DEGISENLER, ADRES_KONTROL, TEST_KOS,
          MATRIS_AC, MATRIS_LISTE, SATIR_EKLE, KANIT_EKLE,
          SATIR_KAPAT, SATIR_AC, SATIR_SIL, SATIR_TASI,
-         MATRIS_DURUM, GORSEL_URET, SAGLIK_RAPORU]
+         MATRIS_DURUM, GORSEL_URET, SAGLIK_RAPORU, SATIR_DUZENLE]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

@@ -19,7 +19,7 @@ from tools.definitions import TANINMIS_TOOLLAR, TOOLS
 
 ALETLER = ("matris_ac", "matris_liste", "satir_ekle", "kanit_ekle",
            "satir_kapat", "satir_ac", "satir_sil", "satir_tasi",
-           "matris_durum")
+           "matris_durum", "satir_duzenle")
 
 
 class TestUcYer:
@@ -98,6 +98,21 @@ class TestAgac:
         assert "error" in matris.satir_ekle(m, "adim", "   ")
         assert "error" in matris.satir_ekle(m, "adim", "x", ust=999)
         assert "error" in matris.kanit_ekle(m, 1, "   ")
+
+    def test_duzenle_yaziyi_degistirir_durumu_degistirmez(
+            self, tmp_path, monkeypatch):
+        monkeypatch.setattr(matris, "MATRIS_KOK", str(tmp_path))
+        m = matris.matris_ac("T", "")["matris"]
+        a = matris.satir_ekle(m, "adim", "eski yazi")
+        matris.kanit_ekle(m, a["satir"], "k")
+        matris.satir_kapat(m, a["satir"])
+        r = matris.satir_duzenle(m, a["satir"], metin="yeni yazi")
+        assert "result" in r, r
+        durum = matris.matris_durum(m)["result"]
+        assert "yeni yazi" in durum and "eski yazi" not in durum
+        assert "[x] #%d" % a["satir"] in durum  # kanitli kaldi
+        assert "error" in matris.satir_duzenle(m, a["satir"])
+        assert "error" in matris.satir_duzenle(m, 999, metin="x")
 
     def test_calistir_hatti(self, tmp_path, monkeypatch):
         from tools import calistir
