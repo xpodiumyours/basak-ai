@@ -18,7 +18,9 @@ from brain.kullanim import kullanim_ekle
 MODELLER = {
     "hizli": "openai/gpt-oss-20b",
     "guclu": "openai/gpt-oss-120b",
-    "varsayilan": "openai/gpt-oss-120b",  # buyuk model varsayilan
+    "varsayilan": "openai/gpt-oss-20b",  # hizli varsayilan (Casper karari):
+    # 120b dakika kotasi (8000) alet dongulerinde tikaniyor; 20b hizli ve
+    # tutumlu. Agir is gerekirse model adiyla guclu cagrilabilir.
 }
 
 

@@ -1,6 +1,7 @@
 # Kişisel/gizli veri — asla commit edilmez
 ayarlar.json
 gecmis.json
+gorevler.json
 *.env
 .env
 
@@ -52,3 +53,6 @@ research-engine/
 # Buyuk indirilen ses modeli (kaynak kod degil, tekrar indirilebilir)
 tr_TR-dfki-medium.onnx
 tr_TR-dfki-medium.onnx.json
+
+# Kullanici verisi — asla commit edilmez (tablo + gorevler kisiye ozel)
+data/matris/
