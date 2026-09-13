@@ -74,6 +74,62 @@ Her faz **ayrı dal, ayrı commit, ayrı doğrulama**. Bir faz geçmeden sonraki
 
 **Kabul kanıtı:** Zamanlayıcı elle tetiklenir, kart üretilir, içeriğindeki commit hash'i `git log` ile birebir doğrulanır.
 
+### FAZ 6 — İçerik arama (proje genelinde)
+
+**Neden:** `belge_ara` yalnız proje **kök klasöründeki** `.md` dosyalarına bakıyor (`os.listdir(kok)`, özyinelemeli değil). "Şu satır gerçekten eklenmiş mi", "bu fonksiyon hangi dosyada" sorulamıyor. Ajanın "yaptım" iddiasını doğrulamanın ana yolu bu.
+
+- **Yeni kod gerekir** (geçmişte yok). `tools/olcum.py` içine `icerik_ara(proje, sorgu, uzanti=None)`.
+- Beyaz liste `PROJELER`'den gelir (`_kok`), dışına çıkılmaz.
+- Atlanacak klasörler: `.git`, `node_modules`, `__pycache__`, `build`, `dist`, `.next`, `venv`.
+- Sınırlar: dosya başı 1 MB tavanı, en fazla 8 eşleşme (`_MAX_ESLESME`), çıktı 1.500 karakter (`_MAX_CIKTI`). İkili dosya okunmaz.
+- Dönüş: `dosya:satır: içerik` biçiminde.
+- Tetikleyiciler: `"hangi dosyada"`, `"geçiyor mu"`, `"var mı"`, `"nerede yazıyor"`, `"ara kodda"`.
+
+**Kabul kanıtı:** Temiz hafızayla "vixrex'te `_guvenli_yolu_coz` hangi dosyada geçiyor?" → gerçek dosya/satır döner; aynı sorgu `grep` ile birebir doğrulanır.
+
+### FAZ 7 — GitHub durumu (PR + CI)
+
+**Neden:** İş akışı PR üzerinden yürüyor. "Birleşti mi", "**CI yeşil mi**" sorusunun nesnel cevabı burada. Ajanın yeşil dediği CI gerçekten yeşil mi, tek kanıt bu.
+
+- **Yeni anahtar GEREKMEZ.** `gh` makinede kurulu ve yetkili (hesap: `xpodiumyours`, ölçüldü 2026-09-13).
+- Depo eşlemesi (ölçüldü, uydurulmayacak):
+
+  | proje | depo |
+  |---|---|
+  | basak | `xpodiumyours/basak-ai` |
+  | vixrex | `xpodiumyours/vixrex` |
+  | numeramatch | `xpodiumyours/NumeraMatch` |
+  | xses | `xpodiumyours/xses` |
+
+- `subprocess` **sabit argv**, `shell=False`, `timeout=20`. Serbest komut YOK — yalnız şu üçü:
+  - `gh pr list --repo R --state S --json number,title,state,headRefName`
+  - `gh pr view N --repo R --json number,title,state,mergedAt,statusCheckRollup`
+  - `gh run list --repo R --limit 5 --json name,status,conclusion,headBranch`
+- Model depo adı **veremez**; yalnız proje anahtarı verir, eşleme koddadır.
+- Tetikleyiciler: `"pr"`, `"pull request"`, `"ci"`, `"birleşti mi"`, `"test geçti mi"`, `"kontroller"`.
+
+**Kabul kanıtı:** "vixrex'te açık PR var mı" → gerçek liste; aynı sonuç `gh pr list` ile birebir doğrulanır. Uydurma depo adı denemesi reddedilir.
+
+### FAZ 8 — Git geçmişi ve değişenler
+
+**Neden:** `git_durum` yalnız dal + SON commit + kirli dosya sayısı veriyor. "Bu dalda ne değişti", "şu dosyaya en son ne zaman dokunuldu" sorulamıyor.
+
+- `tools/olcum.py`'deki mevcut `_git()` yardımcısı kullanılır (sabit argv, `shell=False`, `timeout=10`) — yeni bir komut çalıştırıcı YAZILMAZ.
+- İki fonksiyon:
+  - `git_gecmis(proje, dosya=None, adet=10)` → `log --oneline -n <adet> [-- <dosya>]`
+  - `git_degisenler(proje, taban="origin/master")` → `diff --stat <taban>...HEAD`
+- `adet` üst sınırı 30; `dosya` proje kökü dışına çıkamaz (yol `_kok` içinde çözülür).
+- Tetikleyiciler: `"ne değişti"`, `"son commitler"`, `"geçmiş"`, `"kim değiştirdi"`, `"diff"`.
+
+**Kabul kanıtı:** "basak'ta son 5 commit ne" → çıktı `git log --oneline -5` ile birebir aynı.
+
+### BEKLEMEDE — şimdilik yapılmayacak
+
+| Araç | Neden beklemede |
+|---|---|
+| **Canlı adres kontrolü** (HTTP durum kodu, yanıt süresi) | Faydalı ama `sayfa_oku` çoğu durumu zaten yakalıyor. Sıra 6-8'den sonra. |
+| **Test koşturma** (`pytest`) | En güçlü kanıt AMA kod çalıştırıyor — diğer araçların hepsi yalnız okuyor. Onay katmanı tartışmasını geri getirir. Casper ayrıca karar verecek. |
+
 ---
 
 ## 3. DOKUNULMAZ — bu dosyalar değişirse faz REDDEDİLİR
