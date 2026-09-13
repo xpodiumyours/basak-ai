@@ -143,9 +143,21 @@ GOREV_BITIR = _arac(
     ["task_id"],
 )
 
+UYGULAMA_AC = _arac(
+    "ac_uygulama",
+    "Beyaz listedeki bir uygulamayi acar (tarayici, notepad, "
+    "calculator, file_manager, vscode). Doner: sonuc. "
+    "Liste disi uygulama reddedilir.",
+    {"uygulama": {"type": "string", "description": "Uygulama adi"},
+     "parametre": {"type": "string",
+                   "description": "Adres veya dosya yolu"}},
+    ["uygulama"],
+)
+
 TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
-         HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR]
+         HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR,
+         UYGULAMA_AC]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

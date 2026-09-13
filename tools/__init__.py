@@ -95,6 +95,12 @@ def calistir(tool_name, args):
             except (TypeError, ValueError):
                 return {"error": "Gorev no sayi olmali."}
             return tasks.complete_task(task_id, GOREVLER_FILE)
+
+        if tool_name == "ac_uygulama":
+            from tools import app_launcher
+            return app_launcher.ac_uygulama(
+                str(args.get("uygulama", "")),
+                str(args.get("parametre", "") or ""))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

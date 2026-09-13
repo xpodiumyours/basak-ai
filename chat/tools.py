@@ -29,6 +29,7 @@ DURUM_METNI = {
     "add_task": "Görev ekleniyor",
     "list_tasks": "Görevler listeleniyor",
     "complete_task": "Görev kapatılıyor",
+    "ac_uygulama": "Uygulama açılıyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.
