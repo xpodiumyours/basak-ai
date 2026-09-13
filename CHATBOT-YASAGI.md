@@ -29,6 +29,9 @@ boş konuşan bir chatbot kalıyordu. On günün özeti bu.
 7. **Tablo kararı birlikte:** ilerleme tablosu her işte zorunlu
    değildir; açılıp açılmayacağına kullanıcıyla birlikte karar
    verilir. Model kendi başına tablo açıp işi tabloya boğmaz.
+8. **Bitti demek için okumak şart:** tablo işi bitince, tablonun
+   durumu okunmadan bitti denmez. "Ekledim" iddiası tabloda
+   görünmüyorsa yapılmamış sayılır.
 
 ## Serbest olan (dokunulmaz)
 
