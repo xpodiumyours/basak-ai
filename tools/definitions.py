@@ -181,10 +181,32 @@ GITHUB_DURUM = _arac(
     ["islem", "proje"],
 )
 
+GIT_GECMIS = _arac(
+    "git_gecmis",
+    "Bir projenin son commitlerini listeler. Doner: oneline satirlari "
+    "(en fazla 30).",
+    {"proje": _PROJE,
+     "dosya": {"type": "string",
+               "description": "Tek dosya süzgeci (proje kokune gore)"},
+     "adet": {"type": "integer", "description": "Kac commit (en fazla 30)"}},
+    ["proje"],
+)
+
+GIT_DEGISENLER = _arac(
+    "git_degisenler",
+    "Taban dal ile HEAD arasi degisen dosya ozetini doner "
+    "(diff --stat).",
+    {"proje": _PROJE,
+     "taban": {"type": "string",
+               "description": "Taban referans (orn. origin/master)"}},
+    ["proje"],
+)
+
 TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
          HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR,
-         UYGULAMA_AC, ICERIK_ARA, GITHUB_DURUM]
+         UYGULAMA_AC, ICERIK_ARA, GITHUB_DURUM,
+         GIT_GECMIS, GIT_DEGISENLER]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

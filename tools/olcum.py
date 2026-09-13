@@ -275,3 +275,46 @@ def icerik_ara(proje, sorgu, uzanti=None):
     if len(cikti) > _ICERIK_CIKTI_TAVAN:
         cikti = cikti[:_ICERIK_CIKTI_TAVAN] + "\n...(kisaltildi)"
     return {"result": cikti}
+
+
+_TABAN_KALIP = re.compile(r"^[A-Za-z0-9][A-Za-z0-9/_.\-]*$")
+
+
+def git_gecmis(proje, dosya=None, adet=10):
+    """Son commit listesi (Is 6, salt-okunur, mevcut _git yardimcisi).
+
+    adet tavani 30; dosya proje koku disina cikamaz.
+    """
+    kok = _kok(proje)
+    if kok is None:
+        return _hata_beyaz_liste(proje)
+    try:
+        adet = max(1, min(30, int(adet)))
+    except (TypeError, ValueError):
+        adet = 10
+    argv = ["log", "--oneline", "-n", str(adet)]
+    if dosya:
+        rel = str(dosya).strip()
+        tam = os.path.realpath(os.path.join(kok, rel))
+        kok_gercek = os.path.realpath(kok)
+        if not (tam == kok_gercek or tam.startswith(kok_gercek + os.sep)):
+            return {"error": "Yol proje disina tasiyor: %s" % rel}
+        argv += ["--", rel]
+    cikti = _git(proje, argv)
+    if cikti is None:
+        return {"error": "git gecmisi okunamadi."}
+    return {"result": cikti or "(bos depo)"}
+
+
+def git_degisenler(proje, taban="origin/master"):
+    """Taban ile HEAD arasi degisen dosya ozeti (Is 6, salt-okunur)."""
+    kok = _kok(proje)
+    if kok is None:
+        return _hata_beyaz_liste(proje)
+    taban = (taban or "origin/master").strip()
+    if not _TABAN_KALIP.match(taban):
+        return {"error": "Gecersiz taban: '%s'." % taban}
+    cikti = _git(proje, ["diff", "--stat", "%s...HEAD" % taban])
+    if cikti is None:
+        return {"error": "git degisenler okunamadi."}
+    return {"result": cikti or "(degisen yok)"}

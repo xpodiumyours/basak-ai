@@ -116,6 +116,19 @@ def calistir(tool_name, args):
                 str(args.get("proje", "")),
                 no=args.get("no"),
                 durum=str(args.get("durum", "") or "open"))
+
+        if tool_name == "git_gecmis":
+            from tools import olcum
+            return olcum.git_gecmis(
+                str(args.get("proje", "")),
+                dosya=str(args.get("dosya", "") or "") or None,
+                adet=args.get("adet", 10))
+
+        if tool_name == "git_degisenler":
+            from tools import olcum
+            return olcum.git_degisenler(
+                str(args.get("proje", "")),
+                taban=str(args.get("taban", "") or "origin/master"))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

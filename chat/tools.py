@@ -32,6 +32,8 @@ DURUM_METNI = {
     "ac_uygulama": "Uygulama açılıyor",
     "icerik_ara": "İçerikte aranıyor",
     "github_durum": "GitHub ölçülüyor",
+    "git_gecmis": "Commit geçmişi ölçülüyor",
+    "git_degisenler": "Değişenler ölçülüyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.
