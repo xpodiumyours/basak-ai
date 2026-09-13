@@ -154,10 +154,22 @@ UYGULAMA_AC = _arac(
     ["uygulama"],
 )
 
+ICERIK_ARA = _arac(
+    "icerik_ara",
+    "Bir projenin tum klasorlerinde metin arar. Doner: "
+    "dosya:satir: icerik satirlari (en fazla 8). "
+    "Sifre dosyalari acilmaz, anahtar desenleri maskelenir.",
+    {"proje": _PROJE,
+     "sorgu": {"type": "string", "description": "Aranacak metin"},
+     "uzanti": {"type": "string",
+                "description": "Dosya uzantisi süzgeci (orn. .py)"}},
+    ["proje", "sorgu"],
+)
+
 TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
          HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR,
-         UYGULAMA_AC]
+         UYGULAMA_AC, ICERIK_ARA]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

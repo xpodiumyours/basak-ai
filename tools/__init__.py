@@ -101,6 +101,13 @@ def calistir(tool_name, args):
             return app_launcher.ac_uygulama(
                 str(args.get("uygulama", "")),
                 str(args.get("parametre", "") or ""))
+
+        if tool_name == "icerik_ara":
+            from tools import olcum
+            return olcum.icerik_ara(
+                str(args.get("proje", "")),
+                str(args.get("sorgu", "")),
+                str(args.get("uzanti", "") or "") or None)
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}
