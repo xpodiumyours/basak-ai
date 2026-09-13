@@ -1,11 +1,8 @@
 """brain/cloudflare.py — Cloudflare Workers AI bulut entegrasyonu.
 
-Ucretsiz modeller (tool calling destekli):
-- @cf/meta/llama-3.1-8b-instruct — Hizli, genel amacli
-- @cf/mistralai/mistral-7b-instruct-v0.2 — Alternatif
-- @cf/google/gemma-2b-it — Kucuk ve hizli
-
-API: OpenAI-uyumlu (chat/completions)
+OpenAI-uyumlu Workers AI ucu kullanılır. Varsayılan model, Workers Free
+planında kullanılabilen reasoning + multi-turn function calling destekli
+GLM-4.7-Flash'tır. Başak düşük çıktı tavanı koymaz ve araç seçimini modele bırakır.
 """
 
 import json
@@ -17,17 +14,14 @@ logger = logging.getLogger(__name__)
 
 from brain.kullanim import kullanim_ekle
 
-# Ucretsiz modeller (tool calling destekli)
 MODELLER = {
-    "hizli": "@cf/meta/llama-3.2-3b-instruct",
-    "guclu": "@cf/meta/llama-4-scout-17b-16e-instruct",
-    "varsayilan": "@cf/meta/llama-3.2-3b-instruct",
+    "hizli": "@cf/zai-org/glm-4.7-flash",
+    "guclu": "@cf/nvidia/nemotron-3-120b-a12b",
+    "varsayilan": "@cf/zai-org/glm-4.7-flash",
 }
 
 
 class CloudflareClient:
-    """Cloudflare Workers AI istemcisi (OpenAI-uyumlu)."""
-
     def __init__(self, account_id: str, api_token: str, model: str = None):
         if not account_id or not account_id.strip():
             raise ValueError("Cloudflare Account ID bos olamaz")
@@ -48,7 +42,7 @@ class CloudflareClient:
             self.client = OpenAI(
                 api_key=self.api_token,
                 base_url=base_url,
-                timeout=3.0,
+                timeout=60.0,
                 max_retries=0,
             )
         except Exception as e:
@@ -59,22 +53,15 @@ class CloudflareClient:
         return self.client is not None
 
     def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
-        """Cloudflare'a mesaj gonderir.
-
-        Hiz icin: temperature=0.5, max_tokens=1024.
-        yapi: sozlesme modu icin; bu saglayici su an yok sayar.
-        """
         if not self.client:
             raise RuntimeError("Cloudflare bagli degil")
 
         from brain.message_utils import mesajlari_temizle
         temiz_mesajlar = mesajlari_temizle(messages)
-
         kwargs = {
             "model": self.model,
             "messages": temiz_mesajlar,
             "temperature": 0.5,
-            "max_tokens": 1024,
         }
         if tools:
             kwargs["tools"] = tools
@@ -97,6 +84,6 @@ class CloudflareClient:
                     },
                 })
             return kullanim_ekle({"content": msg.content or "",
-                          "tool_calls": tool_calls}, resp)
+                                  "tool_calls": tool_calls}, resp)
 
         return kullanim_ekle({"content": msg.content or ""}, resp)

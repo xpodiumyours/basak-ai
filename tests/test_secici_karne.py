@@ -1,89 +1,49 @@
-"""tests/test_secici_karne.py — B1: Seçicinin karne katmanı testleri.
+"""tests/test_secici_karne.py — performans karnesi semantik router değildir.
 
-Kilitli hedefin ilk halkası: secici artık deneyimi okuyor.
-Politika (bilinçli dar): yeterli örneklem (>=5) olan ve başarı oranı
-%50 altına düşen sağlayıcı SONA alınır; terfi yok (sonraki dilim).
-Karne kapalıysa davranış eskisi gibi — mevcut akış bozulmaz.
+Başak ölçüm tutabilir ama geçmiş başarı yüzdesi modelin görevdeki zekâsını
+yargılayıp sağlayıcı sırasını değiştiremez. Yalnız gerçek teknik cooldown
+sırayı geçici olarak değiştirebilir.
 """
 
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pytest
-
-from brain import secici
-from brain.stats import ModelIstatistik
+from brain import registry, secici
 
 MEVCUTLAR = ["nvidia", "glm", "groq", "kilo"]
 
 
-@pytest.fixture
-def istat(monkeypatch, tmp_path):
-    """Secicinin okudugu istatistigi izole DB'ye baglar."""
-    istat = ModelIstatistik(db_yolu=str(tmp_path / "karne.db"))
-    monkeypatch.setattr("brain.stats.model_stats_al", lambda: istat)
-    return istat
+def _beklenen():
+    return [a for a in registry.VARSAYILAN_SIRA if a in MEVCUTLAR]
 
 
-def _doldur(istat, model, basarili, basarisiz):
-    for _ in range(basarili):
-        istat.kaydet(model, 1.0, basarili=True)
-    for _ in range(basarisiz):
-        istat.kaydet(model, 1.0, basarili=False)
-
-
-class TestKarneKatmani:
-    def test_kapaliyken_davranis_eski_gibi(self, istat):
-        _doldur(istat, "nvidia", 0, 8)   # kotu karnesine ragmen
-        sirali, gerekce = secici.sec(gorev_tipi="kod",
-                                     mevcutlar=MEVCUTLAR)
-        assert sirali[0] == "glm"        # 2026-09-09: kilo-once kaldirildi, kodda glm onde
+class TestKarneSemantikDegil:
+    def test_karne_bayragi_sirayi_degistirmez(self):
+        kapali, _ = secici.sec(mevcutlar=MEVCUTLAR, karne_kullan=False)
+        acik, gerekce = secici.sec(mevcutlar=MEVCUTLAR, karne_kullan=True)
+        assert kapali == acik == _beklenen()
         assert "karne" not in gerekce
 
-    def test_zayif_saglayici_sona_alinir(self, istat):
-        _doldur(istat, "nvidia", 2, 6)   # %25 — esik alti
-        sirali, gerekce = secici.sec(gorev_tipi="kod",
-                                     mevcutlar=MEVCUTLAR,
-                                     karne_kullan=True)
-        # nvidia tercih listesindeydi ama karne onu sona atti
-        assert sirali[-1] == "nvidia"
-        assert sirali[0] == "glm"
-        assert "karne" in gerekce and "%25.0" in gerekce
+    def test_gorev_tipi_sirayi_degistirmez(self):
+        for tip in ("kod", "arastirma", "hiz", "genel"):
+            sirali, _ = secici.sec(
+                gorev_tipi=tip, mevcutlar=MEVCUTLAR, karne_kullan=True)
+            assert sirali == _beklenen()
 
-    def test_saglam_karne_sirayi_degistirmez(self, istat):
-        _doldur(istat, "nvidia", 7, 1)   # %87.5
-        sirali, gerekce = secici.sec(gorev_tipi="kod",
-                                     mevcutlar=MEVCUTLAR,
-                                     karne_kullan=True)
-        assert sirali[0] == "glm"        # glm once, nvidia yakininda
-        assert "karne" not in gerekce
+    def test_kullanici_metni_sirayi_degistirmez(self):
+        for metin in ("kod yaz", "müşteri araştır", "hızlı ol", "selam"):
+            sirali, _ = secici.sec(
+                text=metin, mevcutlar=MEVCUTLAR, karne_kullan=True)
+            assert sirali == _beklenen()
 
-    def test_az_ornekleme_sesi_cikarmaz(self, istat):
-        _doldur(istat, "nvidia", 0, 3)   # 3 cagri < 5 orneklem
-        sirali, gerekce = secici.sec(gorev_tipi="kod",
-                                     mevcutlar=MEVCUTLAR,
-                                     karne_kullan=True)
-        assert sirali[0] == "glm"
-        assert "karne" not in gerekce
-
-    def test_stats_hatasi_sessiz_gecer(self, monkeypatch, istat):
-        def patlak():
-            raise RuntimeError("db yok")
-        monkeypatch.setattr("brain.stats.model_stats_al", patlak)
-        sirali, gerekce = secici.sec(gorev_tipi="kod",
-                                     mevcutlar=MEVCUTLAR,
-                                     karne_kullan=True)
-        assert sirali[0] == "glm" and "karne" not in gerekce
-
-    def test_birden_fazla_zayif_sonunca_sira_korunur(self, istat):
-        _doldur(istat, "nvidia", 0, 8)
-        _doldur(istat, "groq", 0, 8)
-        sirali, gerekce = secici.sec(gorev_tipi="kod",
-                                     mevcutlar=MEVCUTLAR,
-                                     karne_kullan=True)
-        # zayiflar kendi gorev-turu sirasini koruyarak sona gider:
-        # nvidia once groq sonra
-        assert sirali[-2:] == ["nvidia", "groq"]
-        assert sirali[0] == "glm"
+    def test_cooldown_teknik_istisnadir(self):
+        sirali, gerekce = secici.sec(
+            mevcutlar=MEVCUTLAR,
+            cooldown={"glm": time.time() + 30},
+            karne_kullan=True,
+        )
+        assert sirali[-1] == "glm"
+        assert "cooldown" in gerekce

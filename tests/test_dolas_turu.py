@@ -1,10 +1,4 @@
-"""tests/test_dolas_turu.py — Prompt kalip degil ilke soyler.
-
-2026-09-10 (Casper karari): cumle-esleme kaliplari budandi. Eski
-test sabit klasor listesi kilitliyordu; yeni test ILKEYI kilitler:
-kesifde soru sorup beklemek yok, bakarak soylemek var. Klasor adi
-saymak promptun isi degil.
-"""
+"""tests/test_dolas_turu.py — modelin doğal araç seçimi sözleşmesi."""
 
 import os
 import sys
@@ -12,21 +6,24 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-class TestDolasTuru:
-    def test_kesif_ilkesi_promptta(self):
+class TestDogalAracSecimi:
+    def test_arac_dayatma_promptu_yok(self):
         from chat.prompts import TOOL_YONLENDIRME
-        assert "soru sorup bekleme" in TOOL_YONLENDIRME
+        assert TOOL_YONLENDIRME == ""
 
-    def test_bakarak_soyle_ilkesi(self):
-        from chat.prompts import TOOL_YONLENDIRME
-        assert "TAHMİN ETME, bakarak söyle" in TOOL_YONLENDIRME
+    def test_bicim_dayatma_promptu_yok(self):
+        from chat.prompts import BIKIMLONDIRME_YONLENDIRME
+        assert BIKIMLONDIRME_YONLENDIRME == ""
 
-    def test_cumle_esleme_kaliplari_yok(self):
-        from chat.prompts import TOOL_YONLENDIRME
-        assert "HEMEN ÇAĞIR" not in TOOL_YONLENDIRME
-        assert "ZORUNLU KURAL" not in TOOL_YONLENDIRME
-
-    def test_olcu_ilkesi_kisa_ve_durust(self):
+    def test_durustluk_ilkesi_korunur(self):
         from chat.prompts import OLCU_YONLENDIRME
-        assert "Bunu bilmiyorum" in OLCU_YONLENDIRME
-        assert "ZORUNLU AKIŞ" not in OLCU_YONLENDIRME
+        assert "uydurma" in OLCU_YONLENDIRME.lower()
+        assert "doğrula" in OLCU_YONLENDIRME.lower()
+
+    def test_arac_aciklamasi_gorevi_yasaklamaz(self):
+        from tools import TOOLS
+        web = next(
+            t["function"] for t in TOOLS
+            if t["function"]["name"] == "web_search")
+        assert "görev için kullanma" not in web["description"].lower()
+        assert "gorev icin kullanma" not in web["description"].lower()

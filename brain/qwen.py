@@ -1,13 +1,7 @@
-"""brain/qwen.py — Qwen bulut entegrasyonu (QwenCloud/DashScope).
+"""brain/qwen.py — QwenCloud/DashScope entegrasyonu.
 
-Besinci bulut saglayici. OpenAI-uyumlu uc (uluslararasi):
-https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-Anahtar: env DASHSCOPE_API_KEY veya ayarlar.json -> dashscope_key.
-
-Model adi platform tarafinda degisebildigi icin acilista /models'ten
-otomatik secilir (tercih sirasiyla).
-
-Arayuz groq.py / gemini.py ile birebir aynidir.
+OpenAI-uyumlu uluslararasi uç kullanılır. Başak modelin çıktı uzunluğunu
+1024 ile kesmez ve araç seçimini modelin doğal tool-calling davranışına bırakır.
 """
 
 import json
@@ -21,7 +15,6 @@ from brain.kullanim import kullanim_ekle
 
 BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
 
-# Tercih sirasi: hizli/ucuz → guclu. Ilk bulunan kullanilir.
 TERCIH_SIRASI = [
     "qwen3.7-plus",
     "qwen-plus",
@@ -32,8 +25,6 @@ TERCIH_SIRASI = [
 
 
 class QwenClient:
-    """QwenCloud (DashScope) API istemcisi."""
-
     def __init__(self, api_key: str, model: str = None):
         if not api_key or not api_key.strip():
             raise ValueError("Qwen API anahtarı boş olamaz")
@@ -46,17 +37,17 @@ class QwenClient:
         try:
             self.client = OpenAI(
                 api_key=self.api_key,
-                timeout=3.0,
+                timeout=60.0,
                 max_retries=0,
                 base_url=BASE_URL,
             )
-            self.model = self._model_bul()
+            if not self.model:
+                self.model = self._model_bul()
         except Exception as e:
             logger.warning("Qwen kurulamadı: %s", e)
             self.client = None
 
     def _model_bul(self) -> str:
-        """Hesapta acik olan ilk tercih edilen modeli bulur."""
         try:
             mevcutler = [m.id for m in self.client.models.list()]
         except Exception as e:
@@ -66,17 +57,12 @@ class QwenClient:
             for m in mevcutler:
                 if m == aday or m.startswith(aday):
                     return m
-        # Hicbiri yoksa listedeki ilki dondurulur (cagri zaten zincire dusmez)
         return mevcutler[0] if mevcutler else TERCIH_SIRASI[0]
 
     def musait(self) -> bool:
         return self.client is not None
 
     def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
-        """Qwen'e mesaj gönderir. Dönen şekil groq.py ile aynıdır.
-
-        yapi: sozlesme modu icin; bu saglayici su an yok sayar.
-        """
         if not self.client:
             raise RuntimeError("Qwen bağlı değil")
 
@@ -84,7 +70,6 @@ class QwenClient:
             "model": self.model,
             "messages": messages,
             "temperature": 0.5,
-            "max_tokens": 1024,
         }
         if tools:
             kwargs["tools"] = tools
@@ -107,6 +92,6 @@ class QwenClient:
                     }
                 })
             return kullanim_ekle({"content": msg.content or "",
-                          "tool_calls": tool_calls}, resp)
+                                  "tool_calls": tool_calls}, resp)
 
         return kullanim_ekle({"content": msg.content or ""}, resp)

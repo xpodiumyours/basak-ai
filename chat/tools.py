@@ -1,10 +1,9 @@
-"""chat/tools.py — Tool calling döngüsü modülü.
+"""chat/tools.py — doğal tool-calling döngüsü.
 
-Modelin tool_calls yanıtlarını işler, araçları çalıştırır ve sonuçları
- modele geri göndererek doğal dil özeti üretir.
-
-Bağımlılıklar: json, re, os (standart), tools.executor (proje içi)
-DI Container: ToolConfig (tool_labels, taninmis_toollar)
+Modelin istediği araçlar çalıştırılır, sonuçlar standart tool mesajları olarak
+modele geri verilir ve model isterse yeni araç çağırarak devam eder. Başak
+ara sonuçlardan sonra modele nasıl cevap vereceğini dayatmaz. Güvenlik ve
+yazma onayı uygulama katmanında kalır.
 """
 
 import json
@@ -13,9 +12,6 @@ import os
 import re
 
 logger = logging.getLogger(__name__)
-
-
-# ── Tanınmış tool isimleri ──────────────────────────────────────────
 
 TANINMIS_TOOLLAR = frozenset((
     "list_files", "read_file", "write_file_tool", "web_search",
@@ -45,12 +41,6 @@ TOOL_LABELS = {
 
 
 def _arac_detay(tool_name, args):
-    """Ekranda 'neye bakıyorum' diye gostermek icin kisa detay.
-
-    2026-09-09: kullanici 'okuduklari belli degil' dedi. Artik
-    durum satirinda hangi klasor/dosya/sorgu okundugu yazar.
-    Hassas icerik ASLA yazilmaz — yalniz isim/yol/sorgu.
-    """
     try:
         args = args or {}
         if tool_name == "list_files":
@@ -73,7 +63,6 @@ def _arac_detay(tool_name, args):
 
 
 def _durum_metni(tool_name, args):
-    """'Aranıyor... + sorgu' gibi ekrana giden durum metni."""
     etiket = TOOL_LABELS.get(tool_name, "İşleniyor...")
     detay = _arac_detay(tool_name, args)
     if detay:
@@ -85,7 +74,6 @@ def _durum_metni(tool_name, args):
 
 
 def _yazma_koku():
-    """Yazma karari icin kok dizin (executor ile ayni mantik)."""
     try:
         from tools.executor import ToolContext
         return ToolContext("", "").base_dir
@@ -94,7 +82,6 @@ def _yazma_koku():
 
 
 def _otomatik_yazma(args):
-    """Hedef knowledge/research-engine ise True (onaysiz)."""
     try:
         from tools import file_ops as _fops
         hedef = str((args or {}).get("path", "") or "")
@@ -109,10 +96,7 @@ def _otomatik_yazma(args):
 
 
 def _yazma_onayi(call, args, js_callback):
-    """Guvenli alan disina yazma onayi. Donus: True/False.
-
-    UI yoksa onay GELMEZ ve yazma yapilmaz — guvenli varsayilan REDDIR.
-    """
+    """Güvenli alan dışına yazmayı kullanıcı onaylamadan yapma."""
     try:
         from chat.approval import _system as _onay
         icerik = str((args or {}).get("content", "") or "")
@@ -129,21 +113,12 @@ def _yazma_onayi(call, args, js_callback):
         return False
 
 
-# ── Raw tool call parser ────────────────────────────────────────────
-
-_RAW_TOOL_CALL_RE = re.compile(
-    r'\[?(\w+)\]?\s*\(\s*([^)]*)\s*\)',
-)
+_RAW_TOOL_CALL_RE = re.compile(r'\[?(\w+)\]?\s*\(\s*([^)]*)\s*\)')
 _RAW_ARG_RE = re.compile(
-    r'''(\w+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^,)]+))''',
-)
+    r'''(\w+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^,)]+))''')
 
 
 def ham_tool_call_ayir(metin):
-    """Ham metindeki raw tool call desenlerini yakalar.
-
-    Dönüş: [(tool_name, {args}), ...]  — yakalama yoksa boş liste.
-    """
     if not metin or not isinstance(metin, str):
         return []
     sonuclar = []
@@ -151,8 +126,8 @@ def ham_tool_call_ayir(metin):
         ad = eslesme.group(1)
         if ad not in TANINMIS_TOOLLAR:
             continue
-        ham_args = eslesme.group(2).strip()
         args = {}
+        ham_args = eslesme.group(2).strip()
         if ham_args:
             for ae in _RAW_ARG_RE.finditer(ham_args):
                 deger = ae.group(2) or ae.group(3) or ae.group(4) or ""
@@ -162,171 +137,121 @@ def ham_tool_call_ayir(metin):
 
 
 def raw_tool_call_var_mi(metin):
-    """Metinde raw tool call deseni var mı? (hızlı bakış)"""
     return bool(ham_tool_call_ayir(metin))
 
 
-# ── Argüman düzeltme ────────────────────────────────────────────────
-
 def tool_argumani_duzelt(tool_name, args):
-    """Küçük modelin ürettiği hatalı tool argümanlarını düzelt."""
+    """Bariz bozuk dosya argümanlarını güvenli biçimde düzelt."""
     if not isinstance(args, dict):
         return args
-
-    # --- list_files düzeltmeleri ---
     if tool_name == "list_files":
         folder = args.get("folder", "")
         if folder:
-            folder_lower = folder.strip().lower()
-            yanlis_degerler = (
+            yanlis = (
                 "klasoru", "klasor", "klasör", "klasörü", "klasorde",
                 "klasörde", "dosyalari", "dosyaları", "dosyalar",
                 "listesi", "listele", "dosya",
             )
-            if folder_lower in yanlis_degerler:
+            if folder.strip().lower() in yanlis or len(folder.strip()) < 2:
                 args["folder"] = os.path.expanduser("~")
-            elif len(folder.strip()) < 2:
-                args["folder"] = os.path.expanduser("~")
-
-    # --- read_file düzeltmeleri ---
     if tool_name == "read_file":
         path = args.get("path", "")
-        if path:
-            path_lower = path.strip().lower()
-            yanlis_degerler = (
+        if path and path.strip().lower() in (
                 "dosya", "dosyasi", "dosyası", "dosyayi", "dosyayı",
-                "oku", "icerik", "içerik", "metin", "text",
-            )
-            if path_lower in yanlis_degerler:
-                args["path"] = ""
-
+                "oku", "icerik", "içerik", "metin", "text"):
+            args["path"] = ""
     return args
 
 
-# ── Argüman parsing ─────────────────────────────────────────────────
-
 def parse_args(args):
-    """Tool argümanlarını parse eder."""
     if isinstance(args, str):
         try:
             return json.loads(args)
         except (json.JSONDecodeError, TypeError):
             return {}
-    return args
+    return args if isinstance(args, dict) else {}
 
 
-# ── Tool calling döngüsü ────────────────────────────────────────────
+# Sonsuz döngüye karşı yalnız teknik güvenlik tavanı. Eski küçük-model 3 tur
+# kısıtı kaldırıldı; tüm modeller aynı çok-adımlı çalışma alanına sahip.
+TUR_SINIRI = 24
 
-TUR_SINIRI = 12  # 2026-08-25: 3'ten yukseltildi — cok adimli isler erken kesilmesin
-
-# 2026-09-09 (tam tespit — Groq kelime duvari): arac sonuclari modele
-# TAM boy gidiyordu (sayfa_oku 5000 harf, read_file sinirsiz). 12 tur
-# birikince tek istek 9000+ kelime olup Groq'un dakikada 8000 duvarina
-# carpiyordu (413 hatasi). Modele giden kopya kirpilir; tam sonuc
-# tum_sonuclar'da saklanir, ekrana/ozete tam gider.
-ARAC_SONUC_TAVAN = 1500
+# Araç sonuçlarının tek bir aşırı büyük dosyayla tüm bağlamı tüketmesini önleyen
+# teknik güvenlik sınırı. Eski 1500 karakter sınırı uzun görevleri kesiyordu.
+ARAC_SONUC_TAVAN = 12000
 
 
 def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
                         calistir, tools=None, tur_siniri=TUR_SINIRI,
                         knowledge_dir="", gorevler_file=""):
-    """Tool sonuçlarını modele geri göndererek anlamlı cevap üretir.
-
-    Cok adimli isler icin DONGU: model sonucu gordukten sonra yeni bir arac
-    isteyebilir. Son turda arac verilmez ki dongu kapansin.
-
-    YETKİ TAVANI: `tools` parametresi tavan setidir.
-
-    Dönüş: (cevap_metni, arac_ciktilari)
-    """
+    """Modelin doğal çok-adımlı araç döngüsünü çalıştır."""
     tum_sonuclar = []
-    tum_kaynaklar = []  # 2026-09-10: "nereden buldun" satiri icin adlar
+    tum_kaynaklar = []
     expanded = list(mesajlar)
 
-    # Kapasiteye gore taban: kucuk modelde tavan dusuk, guclu modelde TUR_SINIRI
-    from brain.kapasite import mod_kapasite
-    mevcut_kaynaklar = [ad for ad, _ in brain._bulut_zinciri()] if hasattr(brain, "_bulut_zinciri") else []
-    kap = mod_kapasite(kaynaklar=mevcut_kaynaklar)
-    tavan = 3 if kap.kucuk else tur_siniri
+    for _tur in range(max(1, int(tur_siniri))):
+        if not tool_calls:
+            break
 
-    for tur in range(tavan):
-        tur_sonuclari = []
-        for call in tool_calls:
+        expanded.append({
+            "role": "assistant",
+            "content": "",
+            "tool_calls": tool_calls,
+        })
+
+        for idx, call in enumerate(tool_calls):
             func = call.get("function", {})
             tool_name = func.get("name", "")
-            args = parse_args(func.get("arguments", "{}"))
-            args = tool_argumani_duzelt(tool_name, args)
-            # Bilinmeyen toollari sessizce atla (orn: terminal_calistir)
-            if tool_name not in TANINMIS_TOOLLAR:
-                logger.info("Bilinmeyen tool atlandi: %s", tool_name)
-                continue
-            # ONAY (2026-09-09, Casper karari): knowledge/ ve
-            # research-engine/ disina yazmadan once Casper'a sorulur.
-            # Ben de sormadan dokunmam — o da oyle yapar.
-            if tool_name == "write_file_tool" and not _otomatik_yazma(args):
-                if not _yazma_onayi(call, args, js_callback):
-                    tur_sonuclari.append(
-                        (tool_name, "Casper onaylamadı — yazılmadı."))
-                    continue
-            js_callback("BasakUI.toolStatus(" + json.dumps(
-                _durum_metni(tool_name, args),
-                ensure_ascii=False) + ")")
+            args = tool_argumani_duzelt(
+                tool_name, parse_args(func.get("arguments", "{}")))
+            call_id = call.get("id", "call_%d" % idx)
 
-            sonuc = calistir(tool_name, args, knowledge_dir, gorevler_file)
-            net = sonucu_donustur(tool_name, sonuc)
-            tur_sonuclari.append((tool_name, net))
-            if not net.startswith("Hata:"):
+            if tool_name not in TANINMIS_TOOLLAR:
+                net = "Hata: bilinmeyen araç: %s" % tool_name
+            elif (tool_name == "write_file_tool"
+                  and not _otomatik_yazma(args)
+                  and not _yazma_onayi(call, args, js_callback)):
+                net = "Kullanıcı onaylamadı — yazılmadı."
+            else:
+                js_callback("BasakUI.toolStatus(" + json.dumps(
+                    _durum_metni(tool_name, args), ensure_ascii=False) + ")")
+                try:
+                    sonuc = calistir(tool_name, args,
+                                     knowledge_dir, gorevler_file)
+                    net = sonucu_donustur(tool_name, sonuc)
+                except Exception as e:
+                    net = "Hata: %s" % str(e)
+
+            tum_sonuclar.append((tool_name, net))
+            if isinstance(net, str) and not net.startswith("Hata:"):
                 detay = _arac_detay(tool_name, args)
                 etiket = ("%s %s" % (tool_name, detay)).strip()
                 if etiket and etiket not in tum_kaynaklar:
                     tum_kaynaklar.append(etiket)
 
-        expanded = expanded + [
-            {"role": "assistant", "content": "", "tool_calls": tool_calls}]
-        for i, (_isim, sonuc) in enumerate(tur_sonuclari):
-            # Modele kirpilmis kopya gider (kelime duvari); tam sonuc
-            # tum_sonuclar'da durur.
-            kirpilmis = sonuc
-            if isinstance(sonuc, str) and len(sonuc) > ARAC_SONUC_TAVAN:
-                kirpilmis = (sonuc[:ARAC_SONUC_TAVAN].rstrip()
-                             + "... [devami kirpildi]")
+            modele = str(net)
+            if len(modele) > ARAC_SONUC_TAVAN:
+                modele = (modele[:ARAC_SONUC_TAVAN].rstrip()
+                          + "... [sonuç teknik sınırda kısaltıldı]")
             expanded.append({
                 "role": "tool",
-                "tool_call_id": tool_calls[i].get("id", "call_%d" % i),
-                "content": kirpilmis,
+                "tool_call_id": call_id,
+                "content": modele,
             })
-        tum_sonuclar.extend(tur_sonuclari)
 
-        # Son turda arac verilmez; kucuk modelde yalniz ilk turda arac verilir
-        sonraki_araclar = tools if (tur < tavan - 1 and kap.guclu) else None
-        tool_sonuclari_text = "\n".join(
-            "%s: %s" % (ad, net[:800]) for ad, net in tur_sonuclari)
-        expanded = expanded + [{
-            "role": "user",
-            "content": (
-                "Araç sonuçları:\n" + tool_sonuclari_text +
-                "\n\nŞimdi bu sonuçları DOĞAL TÜRKÇE ile, yeterince "
-                "DETAYLI özetle: liste uzun da olsa maddeleri atlama, "
-                "dosya/klasör adlarını tam yaz. "
-                "[Ö], badge::, kod, bash kullanma. "
-                "Kullanıcıya doğal dil ile anlat."
-            ),
-        }]
         try:
-            # _yapi_kwargi geri yuklenir (circular import onlemi: lazy import)
             from _chat_legacy import _yapi_kwargi
-            son_yanit, _ = brain.cevapla(expanded, model,
-                                         tools=sonraki_araclar,
-                                         **_yapi_kwargi(brain))
-        except Exception:
+            son_yanit, _ = brain.cevapla(
+                expanded, model, tools=tools, **_yapi_kwargi(brain))
+        except Exception as e:
+            logger.warning("Tool sonrasi model cagrisi kesildi: %s", e)
             break
 
-        yeni_cagrilar = son_yanit.get("tool_calls")
+        yeni_cagrilar = son_yanit.get("tool_calls") or []
         if yeni_cagrilar:
             tool_calls = yeni_cagrilar
             continue
 
-        # temizle cevap: gate modulundeki temizle'yi kullan
         from chat.gate import temizle as _temizle_fn
         son_cevap = _temizle_fn(son_yanit.get("content", ""))
         if son_cevap:
@@ -334,17 +259,12 @@ def tool_calling_multi(tool_calls, mesajlar, brain, model, js_callback,
                     tum_sonuclar)
         break
 
-    # FALLBACK: Model ozet uretmediyse ham tool ciktilari kaliyor.
-    return ("\n".join(
-        str(net) for _ad, net in tum_sonuclar if net), tum_sonuclar)
+    # Model final metin üretmediyse kullanıcının gerçek araç sonuçlarını kaybetme.
+    return ("\n".join(str(net) for _ad, net in tum_sonuclar if net),
+            tum_sonuclar)
 
 
 def _kaynak_satiri_ekle(cevap, kaynaklar):
-    """Arac kullanildiysa sonuna 'Kaynaklar: ...' satiri ekler.
-
-    2026-09-10 (Casper): 'sunu nereden buldun' belli olsun. Yalniz
-    isim/yol yazilir, icerik tekrarlanmaz. Arac yoksa metin aynen doner.
-    """
     if not kaynaklar:
         return cevap
     satir = "\n\nKaynaklar: " + "; ".join(kaynaklar[:5])
@@ -353,24 +273,19 @@ def _kaynak_satiri_ekle(cevap, kaynaklar):
     return (cevap or "").rstrip() + satir
 
 
-# ── Yardımcılar ─────────────────────────────────────────────────────
-
 def sonucu_donustur(tool_name, sonuc):
-    """Tool sonucunu metin formatına çevirir."""
+    if not isinstance(sonuc, dict):
+        return str(sonuc)
     if "error" in sonuc:
-        return "Hata: " + sonuc["error"]
-    return sonuc.get("result", "İşlem tamamlandı.")
+        return "Hata: " + str(sonuc["error"])
+    return str(sonuc.get("result", "İşlem tamamlandı."))
 
 
 def temizle_cevap(text):
-    """Model cevabını temizler (gate temizliğinden önce basit temizlik)."""
     if not text:
         return ""
     if not isinstance(text, str):
-        if isinstance(text, dict):
-            text = text.get("content", str(text))
-        else:
-            text = str(text)
+        text = text.get("content", str(text)) if isinstance(text, dict) else str(text)
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
     text = re.sub(r'badge::[OÖ]::', '', text)
     text = re.sub(r'badge::[^\n]*', '', text)

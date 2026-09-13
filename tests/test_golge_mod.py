@@ -1,8 +1,7 @@
-"""tests/test_golge_mod.py — Gölge mod testleri.
+"""tests/test_golge_mod.py — gölge model ana uygulamada devre dışıdır.
 
-İlke: gölge mod açıkken kullanıcıya dönen cevap ESKİ yoldan gelir;
-orkestra yolu sessizce koşar ve benzerlik data/orkestra_golge.log'a
-yazılır. Gölgede koşum geçmişe/hafızaya YAZMAZ.
+Eski yardımcı fonksiyonlar geriye uyumluluk için kalabilir; fakat normal Başak
+çalışması kullanıcı cevabından sonra ikinci model/orkestra çağrısı yapmaz.
 """
 
 import json
@@ -10,8 +9,6 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import pytest
 
 import chat as c
 
@@ -29,24 +26,17 @@ class TestBenzerlik:
 
 
 class TestAnahtar:
-    def test_golge_mod_anahtari(self, monkeypatch, tmp_path):
+    def test_golge_mod_ayarla_acilamaz(self, monkeypatch, tmp_path):
         ayarlar = tmp_path / "a.json"
         ayarlar.write_text('{"golge_mod": true}', encoding="utf-8")
         import _chat_legacy as _cl
         monkeypatch.setattr(_cl, "SETTINGS_FILE", str(ayarlar))
-        assert c.golge_mod_aktif_mi() is True
-
-        ayarlar.write_text("{}", encoding="utf-8")
-        assert c.golge_mod_aktif_mi() is False
-
-        ayarlar.unlink()
         assert c.golge_mod_aktif_mi() is False
 
 
 class TestSessizKosum:
-    def test_golgede_gecmise_ve_hafizaya_yazilmaz(self, monkeypatch,
-                                                  tmp_path):
-        """GÖLGE MOD'un temizliği: yan yana ölçüm kalıcı iz bırakmamalı."""
+    def test_legacy_orkestra_yazmasiz_cagrilabilse_de_ana_yola_bagli_degil(
+            self, monkeypatch, tmp_path):
         gecmis = tmp_path / "gecmis.json"
         monkeypatch.setattr(c, "HISTORY_FILE", str(gecmis))
         monkeypatch.setattr(c, "_hafiza", False)
@@ -71,13 +61,11 @@ class TestSessizKosum:
         c.mesaj_isle_orkestra("merhaba", SahteBrain(), "SYS", cb, None,
                               kaydet_acik=False)
         assert kutu["reply"] == ["gölge cevap"]
-        assert not gecmis.exists()   # geçmişe dokunulmadı
+        assert not gecmis.exists()
 
 
 class TestEntegrasyon:
-    def test_mesaj_sonrasi_golge_kosar(self, monkeypatch, tmp_path):
-        """mesaj_isle sonrası golge açıksa golge_kos BİR KEZ çağrılır ve
-        eski yolun cevabı ona taşınır."""
+    def test_normal_chat_golge_kosmaz(self, monkeypatch, tmp_path):
         import basak_app
 
         kosuldu = []
@@ -86,7 +74,7 @@ class TestEntegrasyon:
             with open(basak_app.HISTORY_FILE, "w", encoding="utf-8") as f:
                 json.dump([
                     {"role": "user", "content": text},
-                    {"role": "assistant", "content": "eski yol cevabi"},
+                    {"role": "assistant", "content": "normal cevap"},
                 ], f, ensure_ascii=False)
 
         monkeypatch.setattr(basak_app, "HISTORY_FILE",
@@ -94,27 +82,7 @@ class TestEntegrasyon:
         monkeypatch.setattr(basak_app, "mesaj_isle", sahte_mesaj_isle)
 
         import chat as cc
-        monkeypatch.setattr(cc, "golge_mod_aktif_mi", lambda: True)
-        monkeypatch.setattr(cc, "golge_kos",
-                            lambda text, brain, eski:
-                            kosuldu.append((text, eski)))
-
-        api = basak_app.Api()
-        api._chat("deneme mesaji")
-
-        assert len(kosuldu) == 1
-        assert kosuldu[0][0] == "deneme mesaji"
-        assert kosuldu[0][1] == "eski yol cevabi"
-
-    def test_kapaliyken_hicbir_sey_kosmaz(self, monkeypatch, tmp_path):
-        import basak_app
-
-        kosuldu = []
-        monkeypatch.setattr(basak_app, "HISTORY_FILE",
-                            str(tmp_path / "g.json"))
-
-        import chat as cc
-        monkeypatch.setattr(cc, "golge_mod_aktif_mi", lambda: False)
+        # Uygulama bu fonksiyonu çağırsa bile güncel sözleşme False döndürür.
         monkeypatch.setattr(cc, "golge_kos",
                             lambda *a, **kw: kosuldu.append(1))
 
