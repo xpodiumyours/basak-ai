@@ -25,9 +25,17 @@ FAZ 1 bitti ve birleşti (`a218f2b`). Başak'ta **sekiz** araç var, hepsi salt-
 
 ## 2. Yapılacak işler (sırayla, her biri ayrı commit)
 
+> ### Araçlar modele HER ZAMAN sunulur
+>
+> Kelime listesiyle araç açıp kapatan katman kaldırıldı (`sadelestirme@85107b8`). `chat/flow.py` içinde `_ARAC_ISARETLERI` ve `_arac_gerek()` **artık yok**; araçlar hem tam yola hem akışa her mesajda gidiyor, hangisini kullanacağına **model karar veriyor**.
+>
+> Bu planın önceki sürümü her iş için tetikleyici kelime eklemeyi istiyordu — **o madde yanlıştı, Claude yazmıştı, kaldırıldı.** ChatGPT onu sorgusuz uyguladı ve `arac-tam` üzerindeki İş 1-3 commitlerinde tetikleyici eklemeleri var; birleştirmeden önce çıkarılacak.
+>
+> **Yeni araç eklerken kelime/tetikleyici mantığı YAZILMAZ.** Araç şemasının açıklaması ne yaptığını, ne aldığını, ne döndürdüğünü ve sınırını söyler — model seçimini ondan yapar. Açıklamaya davranış koçluğu ("şunu kullanma", "şöyle cevapla") yazılmaz.
+
 ### İş 1 — Dosya yazma
 - `tools/file_ops.py` `write_file_ops(yol, icerik, base_dir)` **zaten yazılı**, yol güvenliği testli. Yeniden yazma.
-- `write_file_tool` şeması + `calistir()` dalı + `DURUM_METNI` etiketi + tetikleyiciler (`"yaz"`, `"kaydet"`, `"not al"`, `"dosya oluştur"`).
+- `write_file_tool` şeması + `calistir()` dalı + `DURUM_METNI` etiketi.
 - **Sınır:** yalnız `knowledge/` altına. `OTOMATIK_YAZMA_KOKLER` tablosunu değiştirme.
 - **Onay kutusu ekleme.**
 - `chat/prompts.py` `TOOL_YONLENDIRME`'deki "Yazma, silme ve uygulama açma yetkin YOK" cümlesini güncelle.
@@ -36,11 +44,10 @@ FAZ 1 bitti ve birleşti (`a218f2b`). Başak'ta **sekiz** araç var, hepsi salt-
 - `git checkout 27b03a9 -- tools/reminders.py tools/tasks.py`
 - `get_reminders`, `add_task`, `list_tasks`, `complete_task` şemaları + dalları.
 - `tasks.py`'deki `threading.Lock` + atomik `os.replace` korumasını bozma.
-- Tetikleyiciler: `"hatırlat"`, `"ajanda"`, `"bugün ne var"`, `"görev"`, `"yapılacak"`, `"tamamladım"`.
 
 ### İş 3 — Uygulama açma
 - `git checkout 27b03a9 -- tools/app_launcher.py`
-- `ac_uygulama` şeması + dalı + tetikleyiciler (`"aç"`, `"başlat"`, `"çalıştır"`).
+- `ac_uygulama` şeması + dalı.
 - Onay katmanı ekleme (2026-08-25 Casper kararı).
 
 ### İş 4 — İçerik arama (proje genelinde) — **yeni kod**
@@ -88,7 +95,6 @@ FAZ 1 bitti ve birleşti (`a218f2b`). Başak'ta **sekiz** araç var, hepsi salt-
 ### İş 7 — Canlı adres kontrolü
 - `tools/web_search.py` içindeki mevcut SSRF savunmasını (`_guvenli_adres`) **kullan**, yenisini yazma.
 - `adres_kontrol(url)` → HTTP durum kodu + yanıt süresi + son yönlendirme adresi. Gövde indirilmez (HEAD, olmazsa kısa GET).
-- Tetikleyiciler: `"ayakta mı"`, `"açık mı"`, `"çalışıyor mu"`, `"404"`, `"erişilebiliyor mu"`.
 
 ### İş 8 — Test koşturma ⚠️
 **Bu, kod ÇALIŞTIRAN tek araç.** Diğer on bir tanesi yalnız okuyor. Casper bilerek istedi.
@@ -102,7 +108,6 @@ FAZ 1 bitti ve birleşti (`a218f2b`). Başak'ta **sekiz** araç var, hepsi salt-
 
 - `shell=False`, sabit argv, `timeout=300`, çıktı son 2.000 karakterle sınırlı.
 - Çalışma dizini `PROJELER`'deki kök; başka dizinde koşmaz.
-- Tetikleyiciler: `"testleri koş"`, `"testler geçiyor mu"`, `"test çalıştır"`.
 
 ---
 
@@ -153,6 +158,6 @@ Bir commit kapıdan geçmezse **yalnız o commit** geri alınır, gerisi birleş
 - **Casper'ın klasöründe (`C:\Users\Casper\Projects\basak-ai`) doğrudan çalışma.** Orada Başak açık çalışıyor ve Claude ölçüm yapıyor. 13 Eylül gecesi aynı klasörde 294 dosya kaydedilmeden silindi. Kendi kopyanda çalış, dalı GitHub'a it.
 - **Bir adım = bir commit.** Commit mesajı hangi adım olduğunu yazsın.
 - Kodu yeniden yazma — geçmişte hazır olanı `git checkout 27b03a9 -- <dosya>` ile al. Yeniden yazılan güvenlik kodu kabul edilmez.
-- Her yeni araç için: şema (`definitions.py`) + dal (`tools/__init__.py`) + durum etiketi (`chat/tools.py` `DURUM_METNI`) + tetikleyici (`chat/flow.py` `_ARAC_ISARETLERI`). Dördü birden yapılmazsa araç sessizce ölü kalır.
+- Her yeni araç için üç yer: şema (`definitions.py`) + dal (`tools/__init__.py`) + durum etiketi (`chat/tools.py` `DURUM_METNI`). Üçü birden yapılmazsa araç sessizce ölü kalır.
 - `ayarlar.json` commit'e girmez.
 - Emin olmadığın yerde **dur ve sor**. Tahminle kod yazma, komut uydurma.
