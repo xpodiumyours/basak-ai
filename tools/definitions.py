@@ -1,14 +1,13 @@
 """tools/definitions.py — Modele sunulan araç şemaları.
 
 2026-09-13: 21 araçlık yığın söküldü, Casper'in seçtikleri geri geldi.
-Buradaki araçların HEPSİ salt-okunur. Yazma, uygulama açma, görev/not
-yönetimi yok — onlar araçtan çok bakım işi doğuruyordu ve etraflarına
-onay katmanı gerektiriyordu.
+Araçlar dar işlere ayrılır; yazma aracı yalnız knowledge/ altında çalışır.
 
-Sekiz araç, dört iş:
+Dokuz araç, beş iş:
   internet  → web_search, sayfa_oku
   bilgisayar→ read_file, list_files, git_durum
   belge     → belge_ara, dosya_bilgi
+  yazma     → write_file_tool (yalnız knowledge/)
   görme     → image_analyze
 """
 
@@ -135,6 +134,25 @@ DOSYA_BILGI = {
     },
 }
 
+DOSYA_YAZ = {
+    "type": "function",
+    "function": {
+        "name": "write_file_tool",
+        "description": ("Bir dosyayi yaz veya olustur. Yalnizca Basak "
+                        "projesindeki knowledge/ klasoru altina yazabilir."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string",
+                         "description": "knowledge/ ile baslayan hedef dosya yolu"},
+                "content": {"type": "string",
+                            "description": "Dosyaya yazilacak icerik"},
+            },
+            "required": ["path", "content"],
+        },
+    },
+}
+
 GORUNTU_OKU = {
     "type": "function",
     "function": {
@@ -155,7 +173,7 @@ GORUNTU_OKU = {
 }
 
 TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
-         BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU]
+         BELGE_ARA, DOSYA_BILGI, DOSYA_YAZ, GORUNTU_OKU]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

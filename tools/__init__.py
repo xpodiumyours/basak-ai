@@ -1,12 +1,9 @@
-"""tools — Başak'ın araçları. Sekiz tane, hepsi salt-okunur.
+"""tools — Başak'ın araçları.
 
 2026-09-13: 21 araçlık katman söküldü; Casper'in seçtikleri geri geldi.
-Bu paket diske ve dışarıya YALNIZ okur. Yazma aracı yok — dolayısıyla
-izin tablosu, onay kuyruğu, yetki tavanı da yok. Tek kural beyaz liste.
-
-Not: `file_ops.write_file_ops` dosyada duruyor (kanıtlanmış yol-güvenlik
-kodunun bir parçası ve testleri var) ama HİÇBİR araç şeması ona
-bağlanmıyor — model o fonksiyona ulaşamaz.
+Araç erişimi tek beyaz listeden gelir. Dosya yazma yalnız knowledge/
+altında bağlayıcı seviyesinde sınırlandırılır; file_ops güvenlik kodu
+aynen korunur.
 """
 
 import logging
@@ -17,6 +14,18 @@ from tools.definitions import TOOLS, TANINMIS_TOOLLAR  # noqa: F401
 logger = logging.getLogger(__name__)
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _knowledge_altinda_mi(yol):
+    """Hedef gerçekten BASE/knowledge altında mı?"""
+    try:
+        if not yol or os.path.isabs(yol):
+            return False
+        hedef = os.path.realpath(os.path.join(BASE, yol))
+        kok = os.path.realpath(os.path.join(BASE, "knowledge"))
+        return os.path.commonpath([hedef, kok]) == kok
+    except (OSError, ValueError):
+        return False
 
 
 def calistir(tool_name, args):
@@ -61,6 +70,14 @@ def calistir(tool_name, args):
             return olcum.dosya_bilgi(
                 str(args.get("proje", "")),
                 str(args.get("yol", "")))
+
+        if tool_name == "write_file_tool":
+            from tools import file_ops
+            yol = str(args.get("path", "")).strip()
+            if not _knowledge_altinda_mi(yol):
+                return {"error": "Yazma yalnız knowledge/ altına izinli."}
+            return file_ops.write_file_ops(
+                yol, str(args.get("content", "")), BASE)
 
         if tool_name == "image_analyze":
             from tools import image_analyzer

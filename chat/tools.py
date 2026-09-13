@@ -1,8 +1,4 @@
-"""chat/tools.py — Araç çağırma döngüsü (yalnız internet araçları).
-
-2026-09-13: 21 araçlık döngü söküldükten sonra sadeleştirilmiş hâliyle
-geri geldi. Fark: iki araç, yazma yok, onay kuyruğu yok, kapasite
-hesabı yok. Sabit dört tur yeter — ara, sayfayı aç, özetle.
+"""chat/tools.py — Araç çağırma döngüsü.
 
 Akış: model araç ister → kod çalıştırır → sonuç modele geri gider →
 model doğal Türkçe özet yazar. Modelin gördüğü sonuç kırpılır; tam
@@ -15,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 TUR_SINIRI = 4
-ARAC_SONUC_TAVAN = 4000   # modele giden kopyanin tavani
+ARAC_SONUC_TAVAN = 4000
 
 DURUM_METNI = {
     "web_search": "İnternette aranıyor",
@@ -25,10 +21,10 @@ DURUM_METNI = {
     "git_durum": "Proje durumu ölçülüyor",
     "belge_ara": "Belgelerde aranıyor",
     "dosya_bilgi": "Dosya bilgisi ölçülüyor",
+    "write_file_tool": "Dosya yazılıyor",
     "image_analyze": "Görüntü inceleniyor",
 }
 
-# Durum satırında gösterilecek argüman — araca göre değişir.
 DURUM_ALANI = ("query", "url", "path", "folder", "proje")
 
 
@@ -37,7 +33,6 @@ def _j(obj):
 
 
 def parse_args(ham):
-    """Model argümanı bozuk JSON gönderebilir — patlamadan çöz."""
     if isinstance(ham, dict):
         return ham
     try:
@@ -58,7 +53,6 @@ def _durum(tool_name, args):
 
 
 def sonucu_donustur(sonuc):
-    """Araç dönüşünü modele verilecek düz metne çevirir."""
     if isinstance(sonuc, dict):
         if sonuc.get("error"):
             return "Hata: %s" % sonuc["error"]
@@ -67,7 +61,6 @@ def sonucu_donustur(sonuc):
 
 
 def _kaynak_satiri(cevap, kaynaklar):
-    """'Nereden buldun' satiri — Casper'in istegi (2026-09-10)."""
     if not kaynaklar or not cevap:
         return cevap
     return cevap + "\n\nKaynaklar: " + "; ".join(kaynaklar[:5])
@@ -75,10 +68,6 @@ def _kaynak_satiri(cevap, kaynaklar):
 
 def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                  calistir, tools=None, tur_siniri=TUR_SINIRI):
-    """Araç sonuçlarını modele geri vererek cevap ürettirir.
-
-    Dönüş: (cevap_metni, calisan_arac_sayisi)
-    """
     from chat.gate import temizle
     from tools.definitions import TANINMIS_TOOLLAR
 
@@ -93,12 +82,9 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             func = call.get("function", {})
             ad = func.get("name", "")
             args = parse_args(func.get("arguments", "{}"))
-
-            # Model olmayan bir arac uydurursa sessizce atlanir.
             if ad not in TANINMIS_TOOLLAR:
                 logger.info("Bilinmeyen arac atlandi: %s", ad)
                 continue
-
             js_callback("BasakUI.toolStatus(" + _j(_durum(ad, args)) + ")")
             net = sonucu_donustur(calistir(ad, args))
             tur_sonuclari.append((ad, net))
@@ -127,7 +113,6 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
 
         ozet = "\n".join("%s: %s" % (ad, net[:800])
                          for ad, net in tur_sonuclari)
-        # Son turda arac verilmez ki dongu kapansin.
         sonraki = tools if tur < tur_siniri - 1 else None
         expanded = expanded + [{
             "role": "user",
@@ -139,7 +124,6 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 "olduğunu söyle."
             ),
         }]
-
         try:
             yanit, _kaynak = brain.cevapla(expanded, model, tools=sonraki)
         except Exception as e:
@@ -156,6 +140,5 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             return _kaynak_satiri(cevap, kaynaklar), kosan
         break
 
-    # Model özet üretmediyse ham sonuç kullanıcıya gitsin — boş ekran olmasın.
     ham = "\n".join(net for _ad, net in tur_sonuclari if net)
     return ham, kosan

@@ -1,7 +1,7 @@
 """chat/flow.py — Ana sohbet akışı.
 
 2026-09-13 (Casper kararı): ölçü kapısı, orkestra ve araçların etrafına
-sarılmış kural katmanları söküldü. Geriye sekiz salt-okunur araç kaldı.
+sarılmış kural katmanları söküldü. Araçlar yalnız gerektiğinde modele sunulur.
 
 İki yol var:
 
@@ -40,12 +40,7 @@ def _konusmaci_ayir(text):
 
 
 def _profil_isle(text, konusmaci):
-    """Kalıcı profili günceller. Dönüş: (profil_blogu, ogrenme_notu).
-
-    'benim adım X', 'hatırla: ...' gibi cümleler profile yazılır;
-    'unut: X' siler. Öğrenilen şey aynı turun bağlamına not düşülür ki
-    model "tamam, adını öğrendim" diyebilsin.
-    """
+    """Kalıcı profili günceller. Dönüş: (profil_blogu, ogrenme_notu)."""
     try:
         from memory.profil import ogren, unut, blok
         motor = ctx.hafiza_al()
@@ -72,9 +67,6 @@ def _profil_isle(text, konusmaci):
         return "", ""
 
 
-# Araç sunmak bedava değil: şema modele gider, küçük modeller şaşırır
-# ve akan cevap kapanır. Bu yüzden araçlar HER mesajda değil, işaret
-# varsa açılır. Sohbet hızlı kalsın, araştırma isterken eli çalışsın.
 _ARAC_ISARETLERI = (
     # internet
     "araştır", "arastir", "ara bakalım", "ara bakalim", "internetten",
@@ -89,6 +81,8 @@ _ARAC_ISARETLERI = (
     "diskimde", "bilgisayarımda", "bilgisayarimda",
     "planda", "belgede", "dokümanda", "dokumanda", "notlarda",
     "hangi dosyada",
+    # yazma
+    "yaz", "kaydet", "not al", "dosya oluştur", "dosya olustur",
     # proje durumu
     "vixrex", "numeramatch", "xses", "başak projesi", "basak projesi",
     "commit", "dal ", "branch", "ne durumda", "durumu ne", "ne oldu",
@@ -122,13 +116,6 @@ def _baglam_kur(text, system_prompt, konusmaci, araclar_acik=False):
         {"role": "system", "content": tam_prompt},
     ]
 
-    # Hafıza: soruyla ilgili anılar. knowledge/ notlarına erişim de bu
-    # yoldan olur — motor o klasörü indeksliyor.
-    #
-    # AMA ölçüm sorusunda hafıza KAPALI (2026-09-13, ölçülerek bulundu):
-    # "vixrex ne durumda" ikinci kez sorulduğunda model aracı koşturmak
-    # yerine dünkü cevabı hatırlayıp bugünmüş gibi veriyordu. Ölçülecek
-    # bir şey sorulduysa ölçülür; eski cevap dayanak değildir.
     anilar = [] if araclar_acik else ctx.ilgili_anilar(text)
     if anilar:
         blok = "\n".join("- %s" % a["text"][:300] for a in anilar[:5])
@@ -158,7 +145,6 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci):
 
     js_callback("BasakUI.bitir(" + _j(cevap) + ", " + _j(kaynak) + ")")
 
-    # Ekran güncellendikten SONRA anıyı yaz — cevabı bekletmesin.
     motor = ctx.hafiza_al()
     if motor and cevap:
         try:
@@ -177,8 +163,6 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
         js_callback("BasakUI.error(" + _j("Bos mesaj") + ")")
         return
 
-    # Yerel model YOKSA ve bulut da yoksa duracağız. Yalnız yerelin
-    # kapalı olması sohbeti kesmez — bulut zinciri ayakta olabilir.
     modeller = brain.yerel_modeller()
     if not modeller and not brain.bulut_musait():
         js_callback("BasakUI.error(" + _j(
@@ -191,7 +175,6 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
         if model not in modeller:
             model = modeller[0]
     else:
-        # Yerel model yok — ayarlardaki ad bulut zincirine taşınmasın.
         model = None
 
     gecmis = ctx.temizle_history(
@@ -201,23 +184,13 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
     arac_acik = bool(tools) and _arac_gerek(text)
     mesajlar = _baglam_kur(text, system_prompt, konusmaci, arac_acik)
 
-    # Ölçüm sorusunda geçmişteki ESKİ CEVAPLAR bağlama girmez
-    # (2026-09-13, ölçüldü): "vixrex ne durumda" ikinci kez sorulunca
-    # model aracı koşturmak yerine önceki cevabı kopyalıyordu — dünkü
-    # dal adı bugünmüş gibi dönüyordu. Kendi soruları kalır ki
-    # "peki ya numeramatch" gibi devam cümleleri anlaşılsın.
     pencere = ctx.gecmis_pencere(gecmis)
     if arac_acik:
         pencere = [m for m in pencere if m.get("role") == "user"][-3:]
     mesajlar += pencere + [{"role": "user", "content": text}]
 
-    # ── Akan cevap ──────────────────────────────────────────────────
-    # Cevap kelime kelime gelsin ("dondu mu?" hissi olmasın). Akış
-    # açılamazsa tek seferlik yola düşülür.
     from brain.yayin import AracIstegi, SonHata
 
-    # Araç gerekiyorsa akış atlanır: akıştan araç çağrısı çıkamaz, yarım
-    # metin ekrana düşer. Araçlı tur tek seferliktir, sonra özet gelir.
     yayin = None if arac_acik else getattr(brain, "cevapla_yayin", None)
     if yayin is not None:
         try:
@@ -226,7 +199,6 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
             for kaynak, parca in yayin(mesajlar, model):
                 parcalar.append(parca)
                 js_callback("BasakUI.parca(" + _j(parca) + ")")
-            # Bazi saglayicilar sayi/None parca dondurur — join patlamasin.
             tam = _temizle("".join(
                 p if isinstance(p, str) else str(p) if p is not None else ""
                 for p in parcalar))
@@ -240,9 +212,6 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
         except SonHata as e:
             logger.info("Akis acilamadi (%s) — tek seferlik yol", e.ozet)
 
-    # ── Tek seferlik yol ────────────────────────────────────────────
-    # Akış hiç açılamadıysa buraya düşülür. Akış açılamadığı için
-    # sağlayıcıdan başarılı çağrı gerçekleşmedi — kota yenmedi.
     try:
         yanit, kaynak = brain.cevapla(
             mesajlar, model, tools=(tools if arac_acik else None))
@@ -256,9 +225,6 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
                 "Beyin hatasi: " + hata[:150]) + ")")
         return
 
-    # ── Araç turu ───────────────────────────────────────────────────
-    # Model araç istediyse kod çalıştırır, sonucu modele geri verir,
-    # model özetler. Beyaz liste dışı ad buraya kadar gelse bile koşmaz.
     tool_calls = yanit.get("tool_calls") if isinstance(yanit, dict) else None
     if tool_calls and tools:
         from chat.tools import arac_dongusu
