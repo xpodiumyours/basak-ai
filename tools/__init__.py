@@ -195,6 +195,10 @@ def calistir(tool_name, args):
                 str(args.get("aciklama", "")),
                 genislik=args.get("genislik", 1024),
                 yukseklik=args.get("yukseklik", 1024))
+
+        if tool_name == "saglik_raporu":
+            from tools import saglik
+            return saglik.saglik_raporu()
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

@@ -279,6 +279,13 @@ GORSEL_URET = _arac(
     ["aciklama"],
 )
 
+SAGLIK_RAPORU = _arac(
+    "saglik_raporu",
+    "Hatlarin durumunu gosterir: deneme, basari, sure, kota. Ag yok.",
+    {},
+    [],
+)
+
 TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
          HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR,
@@ -286,7 +293,7 @@ TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          GIT_GECMIS, GIT_DEGISENLER, ADRES_KONTROL, TEST_KOS,
          MATRIS_AC, MATRIS_LISTE, SATIR_EKLE, KANIT_EKLE,
          SATIR_KAPAT, SATIR_AC, SATIR_SIL, SATIR_TASI,
-         MATRIS_DURUM, GORSEL_URET]
+         MATRIS_DURUM, GORSEL_URET, SAGLIK_RAPORU]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.
