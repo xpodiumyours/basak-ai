@@ -1,14 +1,4 @@
-"""chat/context.py — Bağlam, geçmiş ve hafıza.
-
-2026-09-13 sadeleştirmesi: araç katmanı söküldükten sonra bu modül
-`_chat_legacy.py`'ye bağlı kalmasın diye dosya yolları, JSON okuma/yazma
-ve hafıza bağlantısı buraya taşındı.
-
-Sorumluluğu:
-  - dosya yolları ve ayar okuma
-  - modele giden geçmiş penceresi (kilo limitli)
-  - kalıcı hafıza motoruna tek giriş noktası
-"""
+"""chat/context.py — Bağlam, geçmiş ve hafıza."""
 
 import json
 import logging
@@ -18,28 +8,17 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
-# ── Dosya yolları ───────────────────────────────────────────────────
-
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HISTORY_FILE = os.path.join(BASE, "gecmis.json")
 SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
 OBSIDIAN_DIR = os.path.join(BASE, "Basak")
 
-# Her açılışta bir oturum kimliği — kayıtlara işlenir.
 OTURUM_ID = uuid.uuid4().hex[:8]
-
-# ── Geçmiş penceresi ────────────────────────────────────────────────
-# Modele giden pencere sayıyla değil KİLOYLA sınırlı: uzun cevaplar
-# birikip isteği şişirmesin. Kesim hafızadan silmek değildir — her çift
-# zaten hafıza motoruna yazılır, eski kısımlar aramayla geri gelir.
-
-MAX_HISTORY = 20
-GECMIS_KILO_LIMITI = 4000
 
 
 def yukle(path, varsayilan):
-    """JSON dosyasını okur; hata olursa varsayılanı döndürür (BOM güvenli)."""
+    """JSON dosyasını okur; hata olursa varsayılanı döndürür."""
     try:
         with open(path, "r", encoding="utf-8-sig") as f:
             return json.load(f)
@@ -53,24 +32,13 @@ def kaydet(path, veri):
         json.dump(veri, f, ensure_ascii=False, indent=2)
 
 
-def gecmis_pencere(gecmis, limit=GECMIS_KILO_LIMITI, adet_siniri=MAX_HISTORY):
-    """Kilo limitli geçmiş penceresi.
+def gecmis_pencere(gecmis):
+    """Kaydedilmiş sohbet geçmişini ek bir karakter tavanı koymadan döndürür.
 
-    En YENİ mesajdan geriye doğru ekler; limit dolunca durur. Mesajlar
-    bütün halde alınır (ortasından kesilmez). Kronolojik sıra korunur.
+    `gecmis.json` zaten yazma tarafında son 40 mesajla sınırlıdır; burada
+    model bağlamını ikinci kez daraltan kelime/karakter filtresi uygulanmaz.
     """
-    secilen = []
-    toplam = 0
-    for m in reversed(gecmis or []):
-        uzunluk = len(m.get("content") or "")
-        if secilen and toplam + uzunluk > limit:
-            break
-        secilen.append(m)
-        toplam += uzunluk
-        if len(secilen) >= adet_siniri:
-            break
-    secilen.reverse()
-    return secilen
+    return list(gecmis or [])
 
 
 def temizle_history(gecmis):
@@ -82,29 +50,17 @@ def temizle_history(gecmis):
     return temiz
 
 
-# ── Önem puanı ──────────────────────────────────────────────────────
-# Puanı KOD verir, model tahmin etmez. Budama sırası önem → tarih
-# olduğu için açıkça "hatırla" denen bilgi gevezeliğin altında kalmaz.
-
-_ONEM_KELIMELERI = ("hatırla", "not al", "kaydet", "önemli", "unutma")
-
-
-def onem_puanla(text):
-    """Sohbet anısına başlangıç önem puanı: 3 (açık istek) veya 1."""
-    t = (text or "").lower()
-    if any(k in t for k in _ONEM_KELIMELERI):
-        return 3
+def onem_puanla(_text):
+    """Kelime tetiklemesi yapmadan nötr başlangıç önem puanı döndürür."""
     return 1
 
-
-# ── Hafıza ──────────────────────────────────────────────────────────
 
 _hafiza = None
 _hafiza_lock = threading.Lock()
 
 
 def hafiza_al():
-    """Motoru tek seferlik oluşturur; açılamazsa None (sohbet devam eder)."""
+    """Motoru tek seferlik oluşturur; açılamazsa None."""
     global _hafiza
     with _hafiza_lock:
         if _hafiza is None:
@@ -117,7 +73,7 @@ def hafiza_al():
     return _hafiza or None
 
 
-def ilgili_anilar(sorgu, limit=4):
+def ilgili_anilar(sorgu, limit=8):
     """Soruyla ilgili anıları döndürür; hata durumunda boş liste."""
     motor = hafiza_al()
     if not motor:
@@ -149,12 +105,7 @@ def _gecmisi_aktar(motor):
 
 
 def _hafiza_hazirla():
-    """Arka planda: eski geçmişi aktar, notları indeksle.
-
-    Araçlar söküldü; `knowledge/` klasörüne erişim artık YALNIZ hafıza
-    araması üzerinden. Bu yüzden indeksleme kritik — çalışmazsa notlar
-    görünmez olur.
-    """
+    """Arka planda eski geçmişi aktarır ve notları indeksler."""
     motor = hafiza_al()
     if not motor:
         return
