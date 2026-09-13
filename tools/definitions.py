@@ -1,5 +1,6 @@
 WEB_ARAMA={"type":"function","function":{"name":"web_search","description":"Internette guncel bilgi ara.","parameters":{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}}}
 SAYFA_OKU={"type":"function","function":{"name":"sayfa_oku","description":"Bir web sayfasinin icerigini oku.","parameters":{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}}}
+ADRES_KONTROL={"type":"function","function":{"name":"adres_kontrol","description":"Canli web adresinin HTTP durumunu, yanit suresini ve son adresini olc.","parameters":{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}}}
 DOSYA_OKU={"type":"function","function":{"name":"read_file","description":"Dosya icerigini oku.","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}}
 KLASOR_LISTELE={"type":"function","function":{"name":"list_files","description":"Klasordeki dosyalari listele.","parameters":{"type":"object","properties":{"folder":{"type":"string"}},"required":["folder"]}}}
 GIT_DURUM={"type":"function","function":{"name":"git_durum","description":"Projenin dal, son commit ve kirli dosyalarini olc.","parameters":{"type":"object","properties":{"proje":{"type":"string"}},"required":["proje"]}}}
@@ -16,5 +17,5 @@ GOREV_LISTELE={"type":"function","function":{"name":"list_tasks","description":"
 GOREV_TAMAMLA={"type":"function","function":{"name":"complete_task","description":"Gorevi tamamlandi isaretle.","parameters":{"type":"object","properties":{"task_id":{"type":"integer"}},"required":["task_id"]}}}
 UYGULAMA_AC={"type":"function","function":{"name":"ac_uygulama","description":"Beyaz listedeki uygulamayi ac.","parameters":{"type":"object","properties":{"uygulama":{"type":"string"},"parametre":{"type":"string"}},"required":["uygulama"]}}}
 GORUNTU_OKU={"type":"function","function":{"name":"image_analyze","description":"Goruntu veya ekran goruntusunu incele.","parameters":{"type":"object","properties":{"path":{"type":"string"},"soru":{"type":"string"}},"required":["path"]}}}
-TOOLS=[WEB_ARAMA,SAYFA_OKU,DOSYA_OKU,KLASOR_LISTELE,GIT_DURUM,GIT_GECMIS,GIT_DEGISENLER,BELGE_ARA,DOSYA_BILGI,ICERIK_ARA,GITHUB_DURUM,DOSYA_YAZ,HATIRLATMALAR,GOREV_EKLE,GOREV_LISTELE,GOREV_TAMAMLA,UYGULAMA_AC,GORUNTU_OKU]
+TOOLS=[WEB_ARAMA,SAYFA_OKU,ADRES_KONTROL,DOSYA_OKU,KLASOR_LISTELE,GIT_DURUM,GIT_GECMIS,GIT_DEGISENLER,BELGE_ARA,DOSYA_BILGI,ICERIK_ARA,GITHUB_DURUM,DOSYA_YAZ,HATIRLATMALAR,GOREV_EKLE,GOREV_LISTELE,GOREV_TAMAMLA,UYGULAMA_AC,GORUNTU_OKU]
 TANINMIS_TOOLLAR=frozenset(t["function"]["name"] for t in TOOLS)

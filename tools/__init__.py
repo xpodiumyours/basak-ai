@@ -18,6 +18,8 @@ def calistir(tool_name,args):
    from tools import web_search as ws;return ws.web_search(str(args.get("query","")))
   if tool_name=="sayfa_oku":
    from tools import web_search as ws;return ws.sayfa_oku(str(args.get("url","")))
+  if tool_name=="adres_kontrol":
+   from tools import address_check;return address_check.adres_kontrol(str(args.get("url","")))
   if tool_name=="read_file":
    from tools import file_ops;return file_ops.read_file(str(args.get("path","")),BASE)
   if tool_name=="list_files":
