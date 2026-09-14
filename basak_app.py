@@ -215,6 +215,81 @@ class Api:
         except OSError:
             return []
 
+    def fatura_yukle(self, b64_veri, ad):
+        """Fatura/belge fotoğrafını staging'e alır (UI dosya ekleme)."""
+        try:
+            from tools import katalog
+            return katalog.fatura_kaydet_b64(b64_veri or "", ad or "")
+        except Exception as e:
+            logger.warning("Fatura yukleme hatasi: %s", e)
+            return {"error": "Dosya alınamadı."}
+
+    def katalog_listele(self):
+        try:
+            from tools import katalog
+            return katalog.katalog_listele()
+        except Exception as e:
+            logger.warning("Katalog listesi hatasi: %s", e)
+            return {"error": "Liste alınamadı."}
+
+    def katalog_getir(self, is_id):
+        try:
+            from tools import katalog
+            return katalog.katalog_getir(is_id or "")
+        except Exception as e:
+            logger.warning("Katalog okuma hatasi: %s", e)
+            return {"error": "Katalog alınamadı."}
+
+    def katalog_fiyat(self, is_id, kart_id, satis_fiyat):
+        try:
+            from tools import katalog
+            return katalog.katalog_fiyat_guncelle(
+                is_id or "", kart_id or "", satis_fiyat or "")
+        except Exception as e:
+            logger.warning("Fiyat yazma hatasi: %s", e)
+            return {"error": "Fiyat yazılamadı."}
+
+    def katalog_onayla(self, is_id):
+        try:
+            from tools import katalog
+            return katalog.katalog_onayla(is_id or "")
+        except Exception as e:
+            logger.warning("Katalog onay hatasi: %s", e)
+            return {"error": "Çıktı üretilemedi."}
+
+    def yetki_yukle(self, is_id, b64_veri, ad, marka=""):
+        try:
+            from tools import katalog
+            return katalog.yetki_belgesi_ekle(
+                is_id or "", b64_veri or "", ad or "", marka or "")
+        except Exception as e:
+            logger.warning("Yetki yukleme hatasi: %s", e)
+            return {"error": "Belge alınamadı."}
+
+    def cikti_oku(self, is_id, dosya):
+        try:
+            from tools import katalog
+            return katalog.cikti_oku(is_id or "", dosya or "")
+        except Exception as e:
+            logger.warning("Cikti okuma hatasi: %s", e)
+            return {"error": "Çıktı okunamadı."}
+
+    def urun_eslestir(self, is_id, kart_id):
+        try:
+            from tools import katalog
+            return katalog.urun_eslestir(is_id or "", kart_id or "")
+        except Exception as e:
+            logger.warning("Eslesme hatasi: %s", e)
+            return {"error": "Eşleşme yapılamadı."}
+
+    def yayin_paketi(self, is_id, platform="vixrex"):
+        try:
+            from tools import katalog
+            return katalog.yayin_paketi(is_id or "", platform or "vixrex")
+        except Exception as e:
+            logger.warning("Yayin paketi hatasi: %s", e)
+            return {"error": "Paket denetlenemedi."}
+
     def oturumlar(self):
         """Eski sohbet listesi (2026-09-10): [{id, baslik, adet}]."""
         try:

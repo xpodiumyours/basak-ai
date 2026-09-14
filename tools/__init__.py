@@ -1,4 +1,4 @@
-"""tools — Başak'ın araçları. Yirmi dokuz tane.
+"""tools — Başak'ın araçları. Kırk dört tane.
 
 2026-09-13: 21 araçlık katman söküldü; Casper'in seçtikleri geri geldi.
 Okuyanlar serbesttir. Etkisi olanlar dardir: dosya yazma yalniz
@@ -217,6 +217,55 @@ def calistir(tool_name, args):
         if tool_name == "hafiza_ara":
             from tools import hafiza
             return hafiza.hafiza_ara(str(args.get("sorgu", "")))
+
+        if tool_name == "fatura_oku":
+            from tools import katalog
+            return katalog.fatura_oku(str(args.get("fatura_id", "")))
+
+        if tool_name == "katalog_kur":
+            from tools import katalog
+            return katalog.katalog_kur(
+                str(args.get("fatura_id", "")),
+                args.get("satirlar", []) or [])
+
+        if tool_name == "katalog_getir":
+            from tools import katalog
+            return katalog.katalog_getir(str(args.get("is_id", "")))
+
+        if tool_name == "katalog_liste":
+            from tools import katalog
+            return katalog.katalog_listele()
+
+        if tool_name == "katalog_fiyat_guncelle":
+            from tools import katalog
+            return katalog.katalog_fiyat_guncelle(
+                str(args.get("is_id", "")),
+                str(args.get("kart_id", "")),
+                args.get("satis_fiyat", ""))
+
+        if tool_name == "katalog_onayla":
+            from tools import katalog
+            return katalog.katalog_onayla(str(args.get("is_id", "")))
+
+        if tool_name == "yetki_belgesi_ekle":
+            from tools import katalog
+            return katalog.yetki_belgesi_ekle(
+                str(args.get("is_id", "") or ""),
+                str(args.get("b64", "") or ""),
+                str(args.get("ad", "") or ""),
+                str(args.get("marka", "") or ""))
+
+        if tool_name == "urun_eslestir":
+            from tools import katalog
+            return katalog.urun_eslestir(
+                str(args.get("is_id", "")),
+                str(args.get("kart_id", "")))
+
+        if tool_name == "yayin_paketi":
+            from tools import katalog
+            return katalog.yayin_paketi(
+                str(args.get("is_id", "")),
+                str(args.get("platform", "") or "vixrex"))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

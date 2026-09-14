@@ -626,6 +626,68 @@ textarea#input::placeholder { color: var(--text-dim); }
    Orb ve yazi katmani gosterilmez; JS calismaya devam eder. */
 .orb-container { display: none; }
 
+/* Katalog cekmecesi: oturum-panel deseninin sag aynasi */
+.katalog-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 340px; z-index: 900;
+  background: rgba(4, 6, 18, 0.97); border-left: 1px solid var(--border);
+  transform: translateX(102%); transition: transform 0.25s ease;
+  display: flex; flex-direction: column; padding: 14px 12px;
+}
+body.katalog-acik .katalog-panel { transform: none; }
+.katalog-bas {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--font-display); font-size: 12px; letter-spacing: 3px;
+  color: var(--text-dim); margin-bottom: 10px;
+}
+.katalog-kapat {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px;
+  color: var(--text-dim); background: transparent;
+  border: 1px solid var(--border); border-radius: 3px;
+  padding: 5px 10px; cursor: pointer;
+}
+.katalog-kapat:hover { color: var(--accent); border-color: var(--accent); }
+.katalog-liste { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.katalog-oge {
+  text-align: left; font-family: var(--font-mono); font-size: 11px;
+  color: var(--text); background: rgba(0,20,40,0.4);
+  border: 1px solid var(--border); border-radius: 3px;
+  padding: 8px 10px; cursor: pointer;
+}
+.katalog-oge:hover { border-color: var(--accent); color: var(--accent); }
+.katalog-detay { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.katalog-detay h3 { font-family: var(--font-display); font-size: 12px; color: var(--accent); letter-spacing: 1px; }
+.katalog-kart {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-card); padding: 10px 12px;
+}
+.katalog-kart h4 { font-size: 13px; color: var(--text-bright); margin-bottom: 6px; }
+.katalog-kart table { width: 100%; font-size: 11px; border-collapse: collapse; }
+.katalog-kart th { text-align: left; color: var(--text-dim); font-weight: normal; padding: 2px 6px 2px 0; white-space: nowrap; }
+.katalog-kart td { color: var(--text); padding: 2px 0; }
+.katalog-aciklama { font-size: 11px; color: var(--text-dim); margin-top: 6px; }
+.katalog-uyari { font-size: 11px; color: var(--amber); }
+.katalog-fiyat { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.katalog-fiyat label { font-size: 11px; color: var(--text-dim); }
+.katalog-fiyat input {
+  flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12px;
+  color: var(--text-bright); background: var(--bg-input);
+  border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px;
+}
+.katalog-fiyat input:focus { outline: none; border-color: var(--accent); }
+.katalog-fiyat button, .katalog-islemler button, .katalog-indirme button, .katalog-eslesme button {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--accent); background: var(--accent-dim);
+  border: 1px solid var(--accent); border-radius: 3px;
+  padding: 6px 10px; cursor: pointer; white-space: nowrap;
+}
+.katalog-fiyat button:hover, .katalog-islemler button:hover, .katalog-indirme button:hover, .katalog-eslesme button:hover {
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+.katalog-eslesme { margin-top: 8px; font-size: 11px; color: var(--text-dim); word-break: break-all; }
+.katalog-islemler { display: flex; gap: 8px; flex-wrap: wrap; }
+.katalog-yetki { cursor: pointer; display: inline-block; }
+.katalog-indirme { display: flex; flex-direction: column; gap: 6px; }
+
 /* Sohbet mesajları orb'ün üzerinde okunabilirlik için arka plan scrim */
 .msg-bubble {
   background: linear-gradient(180deg, rgba(5,15,30,0.94) 0%, rgba(5,15,30,0.90) 100%);

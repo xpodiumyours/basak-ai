@@ -57,3 +57,8 @@ tr_TR-dfki-medium.onnx.json
 # Kullanici verisi — asla commit edilmez (tablo + gorevler kisiye ozel)
 data/matris/
 data/uretilen/
+
+# Katalog yeteneği — fatura fotoğrafları, işler, çıktılar, izin belgeleri
+data/gelen/
+data/katalog/
+data/yetki/

@@ -317,6 +317,88 @@ SAGLIK_RAPORU = _arac(
     [],
 )
 
+FATURA_OKU = _arac(
+    "fatura_oku",
+    "Kayitli fatura fotografini okur; yazi ve aday satirlari JSON doner.",
+    {"fatura_id": {"type": "string",
+                   "description": "Yukleme kimligi"}},
+    ["fatura_id"],
+)
+
+KATALOG_KUR = _arac(
+    "katalog_kur",
+    "Fatura satirlarindan urun kartlari kurar; ayni kodun beden ve "
+    "renklerini tek kartta birlestirir. Is ozeti JSON doner.",
+    {"fatura_id": {"type": "string",
+                   "description": "Yukleme kimligi"},
+     "satirlar": {"type": "array",
+                  "description": "Satirlar: marka, kod, urun_adi, barkod, "
+                                 "beden, renk, varyant, adet, alis_fiyat, "
+                                 "kategori"}},
+    ["fatura_id", "satirlar"],
+)
+
+KATALOG_GETIR = _arac(
+    "katalog_getir",
+    "Katalog isinin tamamini JSON doner.",
+    {"is_id": {"type": "string", "description": "Is kimligi"}},
+    ["is_id"],
+)
+
+KATALOG_LISTELE = _arac(
+    "katalog_liste",
+    "Katalog islerini listeler: is kimligi, durum, kart sayisi.",
+    {},
+    [],
+)
+
+KATALOG_FIYAT = _arac(
+    "katalog_fiyat_guncelle",
+    "Kartin satis fiyatini yazar. Fiyat metin veya sayi olur.",
+    {"is_id": {"type": "string", "description": "Is kimligi"},
+     "kart_id": {"type": "string", "description": "Kart kimligi"},
+     "satis_fiyat": {"type": "string", "description": "Satis fiyati"}},
+    ["is_id", "kart_id", "satis_fiyat"],
+)
+
+KATALOG_ONAYLA = _arac(
+    "katalog_onayla",
+    "Katalogdan Vixrex CSV + batch JSON + tam katalog dosyasi uretir, "
+    "dosya adlarini doner.",
+    {"is_id": {"type": "string", "description": "Is kimligi"}},
+    ["is_id"],
+)
+
+YETKI_BELGESI = _arac(
+    "yetki_belgesi_ekle",
+    "Uretici kullanim izni belgesini markaya baglayarak saklar; ayni "
+    "markanin sonraki islerini kapsar.",
+    {"is_id": {"type": "string", "description": "Is kimligi (bossa baglanmaz)"},
+     "b64": {"type": "string", "description": "Belge verisi (base64)"},
+     "ad": {"type": "string", "description": "Dosya adi"},
+     "marka": {"type": "string",
+               "description": "Marka (bossa isten alinir)"}},
+    ["b64", "ad"],
+)
+
+URUN_ESLESTIR = _arac(
+    "urun_eslestir",
+    "Karti markanin resmi sitesinde arar; kaynak, guven ve gorselleri "
+    "karta isler. Kayit disi markada hata doner.",
+    {"is_id": {"type": "string", "description": "Is kimligi"},
+     "kart_id": {"type": "string", "description": "Kart kimligi"}},
+    ["is_id", "kart_id"],
+)
+
+YAYIN_PAKETI = _arac(
+    "yayin_paketi",
+    "Ciktiyi platformun yukleme kurallarina gore denetler; kabul "
+    "karari, dosya adlari ve izlenecek adimi doner. Yazma yok.",
+    {"is_id": {"type": "string", "description": "Is kimligi"},
+     "platform": {"type": "string", "description": "vixrex"}},
+    ["is_id"],
+)
+
 TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
          HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR,
@@ -325,7 +407,10 @@ TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          MATRIS_AC, MATRIS_LISTE, SATIR_EKLE, KANIT_EKLE,
          SATIR_KAPAT, SATIR_AC, SATIR_SIL, SATIR_TASI,
          MATRIS_DURUM, GORSEL_URET, SAGLIK_RAPORU, SATIR_DUZENLE,
-         SIMDI, HESAPLA, HAFIZA_ARA]
+         SIMDI, HESAPLA, HAFIZA_ARA,
+         FATURA_OKU, KATALOG_KUR, KATALOG_GETIR, KATALOG_LISTELE,
+         KATALOG_FIYAT, KATALOG_ONAYLA, YETKI_BELGESI, URUN_ESLESTIR,
+         YAYIN_PAKETI]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

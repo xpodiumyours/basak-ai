@@ -12,8 +12,10 @@ Kullanim:
 
 Notlar:
 - v1 yalniz YAZI alir/verir (sesli mesaj sonra).
+- Fotoğraf/belge gelirse fatura staging'e alınır, normal sohbet
+  hattından katalog taslağına çevrilir (v2).
 - Guvenli alan disi yazmalarda onay EKRANI olmadigi icin REDDEDILIR;
-  knowledge/notlar serbesttir.
+   knowledge/notlar serbesttir.
 - Uzun cevaplar 4000 harflik parcalara bolunur (Telegram siniri).
 """
 
@@ -78,6 +80,46 @@ async def _islet(brain, kisilik, metin, tools=None):
     return kayit.cevap or ("⚠ %s" % kayit.hata if kayit.hata else "...")
 
 
+async def _medya_karsila(update, context, beyin, kisilik, tools):
+    """Fotoğraf/belge: staging'e al, sohbet hattından işlet."""
+    from tools import katalog
+
+    mesaj = update.message
+    try:
+        if mesaj.photo:
+            dosya = await mesaj.photo[-1].get_file()
+            ad = "foto.jpg"
+        elif mesaj.document:
+            mime = (mesaj.document.mime_type or "")
+            if not (mime.startswith("image/") or mime == "application/pdf"):
+                await mesaj.reply_text(
+                    "Yalnız fotoğraf veya PDF alırım.")
+                return
+            dosya = await mesaj.document.get_file()
+            ad = mesaj.document.file_name or "belge"
+        else:
+            return
+        ham = bytes(await dosya.download_as_bytearray())
+    except Exception as e:
+        logger.warning("Telegram medya inemedi: %s", e)
+        await mesaj.reply_text("Dosya inemedi, tekrar gönder.")
+        return
+    sonuc = katalog._staging_kaydet(ham, ad)
+    if sonuc.get("error"):
+        await mesaj.reply_text(sonuc["error"])
+        return
+    import json as _json
+    fatura_id = _json.loads(sonuc["result"])["fatura_id"]
+    await context.bot.send_chat_action(
+        chat_id=update.effective_chat.id, action="typing")
+    cevap = await _islet(
+        beyin, kisilik,
+        "Aldığım fatura fotoğrafını katalog taslağına çevir: %s"
+        % fatura_id, tools)
+    for parca in _bol(cevap):
+        await mesaj.reply_text(parca)
+
+
 def main():
     from telegram import Update
     from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
@@ -111,6 +153,14 @@ def main():
 
     app = ApplicationBuilder().token(bilet).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _karsila))
+
+    async def _foto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if izinli and str(update.effective_chat.id) != izinli:
+            return
+        await _medya_karsila(update, context, beyin, KISILIK, TOOLS)
+
+    app.add_handler(MessageHandler(filters.PHOTO, _foto))
+    app.add_handler(MessageHandler(filters.Document.ALL, _foto))
     app.run_polling()
 
 

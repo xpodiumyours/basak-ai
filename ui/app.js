@@ -556,8 +556,312 @@ function tekrarGonder() {
   api().mesaj(sonGonderilen);
 }
 
+/* ---------------- Fatura yükleme + katalog paneli ---------------- */
+const DOSYA_UST_SINIR = 10 * 1024 * 1024;
+
+function dosyayiOku(file) {
+  return new Promise((resolve, reject) => {
+    const okuyucu = new FileReader();
+    okuyucu.onload = () => resolve(okuyucu.result);
+    okuyucu.onerror = () => reject(new Error("okunamadı"));
+    okuyucu.readAsDataURL(file);
+  });
+}
+
+async function faturaDosyalariYukle(files) {
+  for (const file of files || []) {
+    if (file.size > DOSYA_UST_SINIR) {
+      Chat.sistem("Dosya çok büyük (10MB sınırı): " + file.name);
+      continue;
+    }
+    let veri;
+    try {
+      veri = await dosyayiOku(file);
+    } catch (e) {
+      Chat.sistem("Dosya okunamadı: " + file.name);
+      continue;
+    }
+    let sonuc;
+    try {
+      sonuc = await api().fatura_yukle(veri, file.name);
+    } catch (e) {
+      Chat.sistem("Yükleme hatası: " + file.name);
+      continue;
+    }
+    if (!sonuc || sonuc.error) {
+      Chat.sistem("Yüklenemedi (" + file.name + "): "
+        + ((sonuc && sonuc.error) || "bilinmeyen hata"));
+      continue;
+    }
+    let faturaId = "";
+    try {
+      faturaId = JSON.parse(sonuc.result).fatura_id || "";
+    } catch (e) {}
+    if (!faturaId) {
+      Chat.sistem("Yükleme cevabı bozuk: " + file.name);
+      continue;
+    }
+    Chat.add("user", "Fatura yüklendi: " + file.name);
+    if (state.busy) {
+      Chat.sistem("Meşgulüm; hazır olunca bu kimliği gönder: " + faturaId);
+    } else {
+      api().mesaj("Yüklediğim faturayı katalog taslağına çevir: " + faturaId);
+    }
+  }
+}
+
+function sonucCoz(sonuc) {
+  if (!sonuc || sonuc.error) return { hata: (sonuc && sonuc.error) || "hata" };
+  try {
+    return { veri: JSON.parse(sonuc.result) };
+  } catch (e) {
+    return { hata: "cevap bozuk" };
+  }
+}
+
+function katalogPanelAcikMi() {
+  return document.body.classList.contains("katalog-acik");
+}
+
+async function kataloglariYukle() {
+  const kutu = $("katalogListe");
+  if (!kutu) return;
+  kutu.innerHTML = "";
+  let sonuc;
+  try {
+    sonuc = await api().katalog_listele();
+  } catch (e) {
+    kutu.textContent = "Liste alınamadı.";
+    return;
+  }
+  const coz = sonucCoz(sonuc);
+  if (coz.hata) {
+    kutu.textContent = coz.hata;
+    return;
+  }
+  if (!coz.veri.length) {
+    kutu.textContent = "Henüz katalog yok — faturayı ataçla gönder.";
+    return;
+  }
+  coz.veri.forEach((is) => {
+    const b = document.createElement("button");
+    b.className = "katalog-oge";
+    b.type = "button";
+    b.textContent = is.is_id + " · " + is.kart_sayisi + " kart · " + is.durum;
+    b.addEventListener("click", () => katalogAc(is.is_id));
+    kutu.appendChild(b);
+  });
+}
+
+function katalogSatir(tablo, baslik, deger) {
+  const tr = document.createElement("tr");
+  const th = document.createElement("th");
+  th.textContent = baslik;
+  const td = document.createElement("td");
+  td.textContent = deger;
+  tr.appendChild(th);
+  tr.appendChild(td);
+  tablo.appendChild(tr);
+}
+
+async function katalogAc(isId) {
+  const detay = $("katalogDetay");
+  detay.innerHTML = "";
+  const coz = sonucCoz(await api().katalog_getir(isId));
+  if (coz.hata) {
+    detay.textContent = coz.hata;
+    return;
+  }
+  const is = coz.veri;
+  const baslik = document.createElement("h3");
+  baslik.textContent = is.is_id + " (" + is.durum + ")";
+  detay.appendChild(baslik);
+  (is.uyarilar || []).forEach((u) => {
+    const p = document.createElement("p");
+    p.className = "katalog-uyari";
+    p.textContent = u;
+    detay.appendChild(p);
+  });
+  (is.kartlar || []).forEach((kart) => {
+    const kutu = document.createElement("div");
+    kutu.className = "katalog-kart";
+    const ad = document.createElement("h4");
+    ad.textContent = kart.ad;
+    kutu.appendChild(ad);
+    const tablo = document.createElement("table");
+    katalogSatir(tablo, "Kod", kart.kod);
+    katalogSatir(tablo, "Kategori", kart.kategori);
+    katalogSatir(tablo, "Stok", kart.stok_durumu + " (" + kart.toplam_adet + ")");
+    katalogSatir(tablo, "Varyant", kart.varyantlar.map(
+      (v) => [v.beden, v.renk, v.adet + " adet"].filter(Boolean).join(" ")).join(" · "));
+    kutu.appendChild(tablo);
+    const aciklama = document.createElement("p");
+    aciklama.className = "katalog-aciklama";
+    aciklama.textContent = kart.aciklama;
+    kutu.appendChild(aciklama);
+    const eslesSatir = document.createElement("div");
+    eslesSatir.className = "katalog-eslesme";
+    if (kart.eslesme && kart.eslesme.kaynak) {
+      const bilgi = document.createElement("span");
+      bilgi.textContent = "eşleşme (" + (kart.eslesme.guven || "?") + "): "
+        + kart.eslesme.kaynak + " · " + (kart.eslesme.gorseller || []).length + " görsel";
+      eslesSatir.appendChild(bilgi);
+    } else {
+      const dugme = document.createElement("button");
+      dugme.type = "button";
+      dugme.textContent = "webde eşleştir";
+      dugme.addEventListener("click", async () => {
+        dugme.textContent = "aranıyor...";
+        const r = sonucCoz(await api().urun_eslestir(is.is_id, kart.kart_id));
+        if (r.hata) {
+          dugme.textContent = "bulunamadı";
+          setTimeout(() => { dugme.textContent = "webde eşleştir"; }, 2000);
+        } else {
+          katalogAc(is.is_id);
+        }
+      });
+      eslesSatir.appendChild(dugme);
+    }
+    kutu.appendChild(eslesSatir);
+    const fiyatSatir = document.createElement("div");
+    fiyatSatir.className = "katalog-fiyat";
+    const etiket = document.createElement("label");
+    etiket.textContent = "Satış fiyatı";
+    const girdi = document.createElement("input");
+    girdi.type = "text";
+    girdi.inputMode = "decimal";
+    girdi.value = kart.satis_fiyat != null ? String(kart.satis_fiyat) : "";
+    girdi.placeholder = "ör. 299,90";
+    const dugme = document.createElement("button");
+    dugme.type = "button";
+    dugme.textContent = "kaydet";
+    dugme.addEventListener("click", async () => {
+      const r = sonucCoz(await api().katalog_fiyat(is.is_id, kart.kart_id, girdi.value));
+      dugme.textContent = r.hata ? "hata" : "kaydedildi";
+      setTimeout(() => { dugme.textContent = "kaydet"; }, 1400);
+    });
+    fiyatSatir.appendChild(etiket);
+    fiyatSatir.appendChild(girdi);
+    fiyatSatir.appendChild(dugme);
+    kutu.appendChild(fiyatSatir);
+    detay.appendChild(kutu);
+  });
+  const islemler = document.createElement("div");
+  islemler.className = "katalog-islemler";
+  const hazirla = document.createElement("button");
+  hazirla.type = "button";
+  hazirla.textContent = "Vixrex dosyalarını hazırla";
+  hazirla.addEventListener("click", () => katalogOnayla(is.is_id));
+  islemler.appendChild(hazirla);
+  const kapsama = is.marka_kapsama || {};
+  const aciklar = Object.keys(kapsama).filter((m) => !kapsama[m]);
+  if (!aciklar.length) {
+    const tamam = document.createElement("span");
+    tamam.className = "katalog-uyari";
+    tamam.textContent = "izinler tamam";
+    islemler.appendChild(tamam);
+  }
+  aciklar.forEach((marka) => {
+    const yetkiEtiket = document.createElement("label");
+    yetkiEtiket.className = "katalog-yetki";
+    yetkiEtiket.textContent = marka + " için izin belgesi ekle";
+    const yetkiGirdi = document.createElement("input");
+    yetkiGirdi.type = "file";
+    yetkiGirdi.accept = "image/*,.pdf";
+    yetkiGirdi.hidden = true;
+    yetkiGirdi.addEventListener("change", async () => {
+      if (!yetkiGirdi.files.length) return;
+      const f = yetkiGirdi.files[0];
+      const r = sonucCoz(await api().yetki_yukle(
+        is.is_id, await dosyayiOku(f), f.name, marka));
+      yetkiEtiket.textContent = r.hata ? "hata: " + r.hata : "izin eklendi";
+      if (!r.hata) katalogAc(is.is_id);
+    });
+    yetkiEtiket.appendChild(yetkiGirdi);
+    islemler.appendChild(yetkiEtiket);
+  });
+  detay.appendChild(islemler);
+  const indirme = document.createElement("div");
+  indirme.className = "katalog-indirme";
+  indirme.id = "katalogIndirme";
+  detay.appendChild(indirme);
+}
+
+async function katalogOnayla(isId) {
+  const coz = sonucCoz(await api().katalog_onayla(isId));
+  const kutu = $("katalogIndirme");
+  if (!kutu) return;
+  kutu.innerHTML = "";
+  if (coz.hata) {
+    kutu.textContent = coz.hata;
+    return;
+  }
+  [["vixrex_urunler.csv", "CSV indir"], ["vixrex_batch.json", "batch JSON indir"],
+   ["basak_katalog.json", "tam katalog indir"]].forEach(([dosya, etiket]) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = etiket;
+    b.addEventListener("click", () => ciktiIndir(isId, dosya));
+    kutu.appendChild(b);
+  });
+  (coz.veri.uyarilar || []).forEach((u) => {
+    const p = document.createElement("p");
+    p.className = "katalog-uyari";
+    p.textContent = u;
+    kutu.appendChild(p);
+  });
+  const paket = sonucCoz(await api().yayin_paketi(isId, "vixrex"));
+  const karar = document.createElement("p");
+  karar.className = "katalog-uyari";
+  if (paket.hata) {
+    karar.textContent = "Vixrex kontrolü yapılamadı: " + paket.hata;
+  } else if (paket.veri.hazir) {
+    karar.textContent = "Vixrex kontrolü: hazır (" + paket.veri.kart
+      + " ürün). " + paket.veri.sonraki_adim;
+  } else {
+    karar.textContent = "Vixrex kabul etmez: "
+      + (paket.veri.hatalar || []).join(" ");
+  }
+  kutu.appendChild(karar);
+  kataloglariYukle();
+}
+
+async function ciktiIndir(isId, dosya) {
+  let sonuc;
+  try {
+    sonuc = await api().cikti_oku(isId, dosya);
+  } catch (e) {
+    return;
+  }
+  if (!sonuc || sonuc.error) return;
+  const csv = dosya.endsWith(".csv");
+  const blob = new Blob([(csv ? "﻿" : "") + sonuc.result],
+    { type: csv ? "text/csv;charset=utf-8" : "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = isId + "_" + dosya;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+
 /* ---------------- Olaylar ---------------- */
 $("btnSend").addEventListener("click", send);
+$("btnAttach").addEventListener("click", () => {
+  if (!state.ready) return;
+  $("fileInput").click();
+});
+$("fileInput").addEventListener("change", (e) => {
+  faturaDosyalariYukle(e.target.files);
+  e.target.value = "";
+});
+$("btnKatalog").addEventListener("click", () => {
+  document.body.classList.toggle("katalog-acik");
+  if (katalogPanelAcikMi()) kataloglariYukle();
+});
+$("btnKatalogKapat").addEventListener("click", () => {
+  document.body.classList.remove("katalog-acik");
+});
 /* Hazir komut cipleri: soruyu kutuya yazip gonderir */
 document.querySelectorAll(".chip").forEach((c) => {
   c.addEventListener("click", () => {

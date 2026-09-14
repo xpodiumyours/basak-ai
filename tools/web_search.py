@@ -290,3 +290,76 @@ def adres_kontrol(url: str) -> dict:
     except Exception as e:
         logger.error("Adres kontrol hatasi: %s", e)
         return {"error": "Adres kontrol edilemedi: %s" % str(e)}
+
+
+_GORSEL_UZANTI = (".jpg", ".jpeg", ".png", ".webp", ".gif")
+_IMG_RE = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']',
+                     re.IGNORECASE)
+_OG_RE = re.compile(
+    r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+    re.IGNORECASE)
+
+
+def sayfa_gorseller(url: str, _acici=None) -> dict:
+    """Sayfadaki ürün görsellerini toplar (yalnızca GET, salt-okunur).
+
+    og:image önce, sonra <img> sırasıyla en fazla 10 adres döner.
+    SSRF savunması sayfa_oku ile aynı (_guvenli_adres +
+    _GuvenliYonlendirme); yeni savunma yazılmadı.
+
+    Dönüş: {"result": "[url, ...]"} veya {"error": ...}.
+    """
+    if not url or not str(url).strip():
+        return {"error": "URL bos olamaz"}
+    url = str(url).strip()
+
+    engel = _guvenli_adres(url)
+    if engel:
+        return {"error": engel}
+
+    try:
+        from urllib.parse import urljoin
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Basak/1.0",
+            "Accept": "text/html",
+            "Accept-Encoding": "identity",
+        })
+        if _acici is not None:
+            acilis = _acici(req, timeout=15)
+        else:
+            opener = urllib.request.build_opener(_GuvenliYonlendirme())
+            acilis = opener.open(req, timeout=15)
+        with acilis as resp:
+            icerik_turu = resp.headers.get("Content-Type", "")
+            if "text/html" not in icerik_turu:
+                return {"error": "Desteklenen icerik tipi degil: %s"
+                                 % icerik_turu}
+            ham = resp.read(_MAX_HAM).decode("utf-8", errors="replace")
+
+        adaylar = _OG_RE.findall(ham) + _IMG_RE.findall(ham)
+        gorseller = []
+        for aday in adaylar:
+            aday = (aday or "").strip()
+            if not aday or aday.startswith("data:"):
+                continue
+            mutlak = urljoin(url, aday).split("#")[0]
+            k = urlparse(mutlak)
+            if k.scheme not in ("http", "https") or not k.hostname:
+                continue
+            yol = k.path.lower().split("?")[0]
+            if not yol.endswith(_GORSEL_UZANTI):
+                continue
+            if mutlak not in gorseller:
+                gorseller.append(mutlak)
+            if len(gorseller) >= 10:
+                break
+        if not gorseller:
+            return {"error": "Sayfada urun gorseli bulunamadi"}
+        return {"result": json.dumps(gorseller, ensure_ascii=False)}
+    except urllib.error.HTTPError as e:
+        return {"error": "HTTP hatasi %d: %s" % (e.code, url)}
+    except urllib.error.URLError as e:
+        return {"error": "Baglanti hatasi: %s" % str(e.reason)}
+    except Exception as e:
+        logger.error("Gorsel toplama hatasi: %s", e)
+        return {"error": "Gorseller alinamadi: %s" % str(e)}

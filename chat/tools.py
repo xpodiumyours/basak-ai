@@ -51,6 +51,15 @@ DURUM_METNI = {
     "simdi": "Saat okunuyor",
     "hesapla": "Hesaplanıyor",
     "hafiza_ara": "Hafızada aranıyor",
+    "fatura_oku": "Fatura okunuyor",
+    "katalog_kur": "Ürün kartları kuruluyor",
+    "katalog_getir": "Katalog okunuyor",
+    "katalog_liste": "Kataloglar listeleniyor",
+    "katalog_fiyat_guncelle": "Satış fiyatı yazılıyor",
+    "katalog_onayla": "Vixrex dosyaları hazırlanıyor",
+    "yetki_belgesi_ekle": "İzin belgesi saklanıyor",
+    "urun_eslestir": "Ürün eşleştiriliyor",
+    "yayin_paketi": "Yayın paketi denetleniyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.
