@@ -101,6 +101,12 @@ class TestNorm:
         assert katalog.barkod_dogrula("abc")[0] is None
         assert katalog.barkod_dogrula("")[0] is None
 
+    def test_barkod_saglama_yakaliyor(self):
+        ok, uyari = katalog.barkod_dogrula("8681128321097")
+        assert ok == "8681128321097" and uyari is None
+        ok, uyari = katalog.barkod_dogrula("9681128321097")
+        assert ok == "9681128321097" and uyari
+
     def test_varyant_renk(self):
         assert katalog.varyant_renk("100 BEYAZ") == "Beyaz"
         assert katalog.varyant_renk("750 SIYAH") == "Siyah"
@@ -179,6 +185,25 @@ class TestFaturaOku:
             lambda yol, soru=None, model=None: {"error": "kota bitti"})
         r = katalog.fatura_oku("gln_c3")
         assert "error" in r and "kota" in r["error"]
+
+    def test_gecici_hatada_uc_deneme(self, tmp_path, monkeypatch):
+        import tools.image_analyzer as ga
+        monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
+        (tmp_path / "gln_c4.jpg").write_bytes(b"\xff\xd8sahte")
+        cagrilar = []
+
+        def dalgali(yol, soru=None, model=None):
+            cagrilar.append(yol)
+            if len(cagrilar) < 3:
+                return {"error": "Request timed out."}
+            return {"result": "TER0101 6 ad", "model": "sahte"}
+
+        monkeypatch.setattr(ga, "image_analyze", dalgali)
+        import time as _z
+        monkeypatch.setattr(_z, "sleep", lambda s: None)
+        r = katalog.fatura_oku("gln_c4")
+        assert "result" in r, r
+        assert len(cagrilar) == 3
 
 
 class TestKatalogHatti:
@@ -306,6 +331,13 @@ class TestKatalogHatti:
         assert "error" in katalog.cikti_oku(ozet["is_id"], "kotu.csv")
         assert "error" in katalog.cikti_oku("ktg_yok", "vixrex_urunler.csv")
 
+    def test_onay_idempotent(self, tmp_path, monkeypatch):
+        ozet = self._kur(tmp_path, monkeypatch)
+        ilk = _j(katalog.katalog_onayla(ozet["is_id"]))
+        ikinci = _j(katalog.katalog_onayla(ozet["is_id"]))
+        assert ilk["uyarilar"] == ikinci["uyarilar"]
+        assert len(ikinci["uyarilar"]) == len(set(ikinci["uyarilar"]))
+
     def test_csv_alinti(self, tmp_path, monkeypatch):
         monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path / "gelen"))
         monkeypatch.setattr(katalog, "KATALOG_KOK", str(tmp_path / "kat"))
@@ -418,6 +450,11 @@ class TestEslesme:
             "https://www.tutkuelit.com.tr/urun/ter0101-tut-erkek-atlet",
             "TER0101 Tutku erkek penye atlet beyaz")
         assert yuksek >= 5
+        kategori = katalog._eslesme_skor(
+            "TER0101", "Tutku",
+            "https://www.tutkuelit.com.tr/kategori/erkek-atletleri",
+            "TER0101 Tutku erkek penye atlet beyaz")
+        assert kategori < yuksek
         assert katalog._eslesme_skor("QZX", "WQW", "https://a.com/b",
                                      "alakasiz yazi") == 0
 

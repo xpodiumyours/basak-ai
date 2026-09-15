@@ -198,12 +198,22 @@ def renk_normla(renk):
     return _tr_duzelt(renk).strip().lower()
 
 
+def _ean_saglama(rakam):
+    """GTIN sağlama hanesi tutuyor mu? (8/12/13/14 hane)"""
+    agirlik = [3, 1] * 7 if len(rakam) % 2 == 0 else [1, 3] * 6 + [1]
+    toplam = sum(int(c) * a for c, a in zip(rakam, agirlik))
+    return toplam % 10 == 0
+
+
 def barkod_dogrula(barkod):
-    """EAN-8/12/13/14 biçimi mi? (None, uyari) da dönebilir."""
+    """EAN-8/12/13/14 biçimi mi? Sağlama hanesi tutmazsa uyarı verir."""
     if barkod is None or not str(barkod).strip():
         return None, None
     rakam = re.sub(r"\D", "", str(barkod))
     if len(rakam) in (8, 12, 13, 14):
+        if not _ean_saglama(rakam):
+            return rakam, ("barkod sağlaması tutmadı, rakamı fişten "
+                           "kontrol et: '%s'" % rakam)
         return rakam, None
     return None, "barkod biçimi tanınmadı: '%s'" % str(barkod)[:20]
 
@@ -299,12 +309,22 @@ def _aday_satirlar(yazi):
     return adaylar
 
 
+_GECICI_HATA = ("503", "429", "timed out", "timeout", "connection",
+                "overloaded", "try again", "rate")
+
+
+def _gecici_mi(hata):
+    h = str(hata or "").lower()
+    return any(k in h for k in _GECICI_HATA)
+
+
 def fatura_oku(fatura_id):
     """Kayıtlı fatura fotoğrafını okur; yazı + aday satırları JSON döner.
 
-    Görü: mevcut ücretsiz bulut zinciri (image_analyzer). Aday
-    çıkarımı kuraldır (barkod/fiyat/beden deseni); nihai satırları
-    model katalog_kur'a verir.
+    Görü: mevcut ücretsiz bulut zinciri (image_analyzer). Geçici
+    hatalarda (kota/zaman aşımı) 3 kez denenir. Aday çıkarımı
+    kuraldır (barkod/fiyat/beden deseni); nihai satırları model
+    katalog_kur'a verir.
     """
     yol = _fatura_yolu(fatura_id)
     if yol is None or not os.path.isfile(yol):
@@ -313,7 +333,14 @@ def fatura_oku(fatura_id):
         return {"error": ("PDF okuma bu sürümde yok; "
                           "faturanın fotoğrafını gönder.")}
     from tools import image_analyzer
-    sonuc = image_analyzer.image_analyze(yol, FATURA_SORUSU)
+    import time as _zaman
+    sonuc = None
+    for deneme in range(3):
+        sonuc = image_analyzer.image_analyze(yol, FATURA_SORUSU)
+        if not sonuc.get("error") or not _gecici_mi(sonuc["error"]):
+            break
+        if deneme < 2:
+            _zaman.sleep(10)
     if sonuc.get("error"):
         return {"error": "Görüntü okunamadı: %s" % sonuc["error"]}
     yazi = sonuc.get("result", "")
@@ -614,7 +641,10 @@ def katalog_onayla(is_id):
     kartlar = veri.get("kartlar", [])
     if not kartlar:
         return {"error": "Katalogda kart yok."}
-    uyarilar = list(veri.get("uyarilar", []))
+    # veri["uyarilar"] kurulum anının kaydıdır, değişmez; yayına
+    # özel uyarılar her onayda taze hesaplanır (onayla idempotent).
+    taban = list(veri.get("uyarilar", []))
+    uyarilar = list(taban)
     onaysiz = [k["kart_id"] for k in kartlar
                if k.get("satis_fiyat") is None]
     if onaysiz:
@@ -650,9 +680,9 @@ def katalog_onayla(is_id):
                       encoding="utf-8-sig", newline="") as f:
                 f.write(csv_metni)
             _atomik_yaz(os.path.join(klasor, DOSYA_BATCH), batch)
-            _atomik_yaz(os.path.join(klasor, DOSYA_KATALOG), veri)
+            _atomik_yaz(os.path.join(klasor, DOSYA_KATALOG),
+                        {**veri, "uyarilar": uyarilar})
             veri["durum"] = "hazir"
-            veri["uyarilar"] = uyarilar
             _atomik_yaz(os.path.join(KATALOG_KOK,
                                      veri["is_id"] + ".json"), veri)
     except OSError as e:
@@ -901,9 +931,11 @@ def _alnum(metin):
 
 
 def _eslesme_skor(kod, marka, adres, yazi):
-    """3 adres + 2 başlık/yazı + 1 marka; 5+ yüksek, 3+ orta."""
+    """3 adres + 2 başlık/yazı + 1 marka + 2 ürün sayfası - 1 kategori;
+    5+ yüksek, 3+ orta."""
     skor = 0
     kod_a = _alnum(kod)
+    yol_a = ""
     if kod_a:
         from urllib.parse import urlparse as _coz
         try:
@@ -916,6 +948,10 @@ def _eslesme_skor(kod, marka, adres, yazi):
             skor += 2
     if _alnum(marka) and _alnum(marka) in _alnum(yazi or ""):
         skor += 1
+    if "urun" in yol_a or "product" in yol_a:
+        skor += 2
+    if "kategori" in yol_a or "category" in yol_a:
+        skor -= 1
     return skor
 
 

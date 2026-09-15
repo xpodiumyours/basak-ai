@@ -103,7 +103,7 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
         if not soru:
             soru = "Bu görüntüyü açıkla."
 
-        client = OpenAI(api_key=nvidia_key, base_url="https://integrate.api.nvidia.com/v1", timeout=30.0)
+        client = OpenAI(api_key=nvidia_key, base_url="https://integrate.api.nvidia.com/v1", timeout=60.0, max_retries=0)
 
         t0 = time.time()
         resp = client.chat.completions.create(
@@ -160,7 +160,7 @@ def image_analyze_url(gorsel_url: str, soru: str = None,
         if not soru:
             soru = "Bu görüntüyü açıkla."
 
-        client = OpenAI(api_key=nvidia_key, base_url="https://integrate.api.nvidia.com/v1", timeout=30.0)
+        client = OpenAI(api_key=nvidia_key, base_url="https://integrate.api.nvidia.com/v1", timeout=60.0, max_retries=0)
 
         t0 = time.time()
         resp = client.chat.completions.create(
