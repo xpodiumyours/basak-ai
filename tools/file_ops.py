@@ -123,12 +123,9 @@ def _dis_rel_yol(yol, ad):
 
 
 def _klasor_cevir(klasor_adi):
-    """2026-09-13: kelime->klasor haritasi kaldirildi.
+    """KALDIRILDI (2026-09-13): kelime->klasor haritasi.
 
-    Eskiden "belgeler", "masaustu" gibi kelimeler sabit bir tabloyla
-    Windows yollarina cevriliyordu; dosyanin kendi yorumu bunu "model
-    kucukse dogru yol uretemez" diye aciklıyordu. Artik yol neyse o
-    kullanilir; model tam yolu kendisi verir (list_files tam yol doner).
+    Geriye uyumluluk icin durur, cagrilmaz. Yol neyse o kullanilir.
     """
     return klasor_adi, True
 
@@ -144,15 +141,6 @@ def _guvenli_yolu_coz(yol, base_dir):
     try:
         if not yol or not str(yol).strip():
             return False, "Dosya yolu boş olamaz", None
-
-        # AKILLI YOL ÇEVİRME: "belgeler", "masaüstü" gibi klasör isimlerini
-        # gerçek Windows yollarına çevir. Model küçükse doğru yol üretemez.
-        # 2026-09-10: YALNIZ goreLI yolda — mutlak yolda "desktop" kelimesi
-        # gectigi icin yol yutuluyordu (C:\...\Desktop\dosya -> Desktop).
-        if not os.path.isabs(str(yol).strip()):
-            cozulmus, orijinal = _klasor_cevir(yol)
-            if not orijinal:
-                yol = cozulmus
 
         # MUTLAK YOL — tum bilgisayar (2026-09-09, Casper karari):
         # Basak, Casper'in gordugu her yeri gorebilir: ev, C:\Projects,
@@ -182,10 +170,6 @@ def _guvenli_yolu_coz(yol, base_dir):
 
         dis_ad = _dis_proje_adi(yol)
         if dis_ad:
-            if not _canary_dis_izinli(dis_ad):
-                return False, ("Canary modu: '%s' dış projesi "
-                               "izinli_projeler listesinde yok."
-                               % dis_ad), None
             rel = _dis_rel_yol(yol, dis_ad)
             dis_kok = DIS_PROJELER[dis_ad]
             if rel is None:
@@ -243,7 +227,10 @@ def _dis_proje_adi(yol):
 
 
 def _canary_dis_izinli(ad):
-    """2026-09-13: CANARY izin katmani kaldirildi. Dis projeler acilir."""
+    """KALDIRILDI (2026-09-13): CANARY izin katmani.
+
+    Geriye uyumluluk icin durur, cagrilmaz. Dis projeler aciktir.
+    """
     return True
 
 
@@ -288,9 +275,6 @@ def read_file(yol: str, base_dir: str) -> dict:
 
         with open(mutlak_yol, "r", encoding="utf-8", errors="replace") as f:
             icerik = f.read()
-
-        if len(icerik) == 5000:
-            icerik += "\n... (ilk 5000 karakter)"
 
         return {"result": icerik}
 

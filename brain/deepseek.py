@@ -17,6 +17,8 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
+from brain.kullanim import kullanim_ekle
+
 BASE_URL = "https://api.deepseek.com/v1"
 MODELLER = {
     "hizli": "deepseek-chat",
@@ -50,8 +52,12 @@ class DeepSeekClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def cevapla(self, messages: list, tools: list = None) -> dict:
-        """DeepSeek'e mesaj gönderir. Dönen şekil groq.py ile aynıdır."""
+    def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
+        """DeepSeek'e mesaj gönderir. Dönen şekil groq.py ile aynıdır.
+
+        yapi: sozlesme modu icin accept-and-ignore (diger adaptorlerle
+        ayni sozlesme; brain.py **ekstra ile yapi gecebilir).
+        """
         if not self.client:
             raise RuntimeError("DeepSeek bağlı değil")
 
@@ -85,7 +91,9 @@ class DeepSeekClient:
                         "arguments": args,
                     }
                 })
-            return {"content": msg.content or "", "tool_calls": tool_calls,
-                    **muhakeme}
+            return kullanim_ekle({"content": msg.content or "",
+                                  "tool_calls": tool_calls,
+                                  **muhakeme}, resp)
 
-        return {"content": msg.content or "", **muhakeme}
+        return kullanim_ekle({"content": msg.content or "",
+                              **muhakeme}, resp)

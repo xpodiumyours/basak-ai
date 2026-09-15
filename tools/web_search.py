@@ -1,7 +1,9 @@
 ﻿"""tools/web_search.py — DuckDuckGo web araması ve sayfa okuma.
 
-Hava durumu sorguları için Open-Meteo API kullanılır (ücretsiz, API key gerektirmez).
-Diğer sorgular için DuckDuckGo kullanılır.
+Metin, haber, tarih filtreli, site-ici, gorsel ve kitap aramasi +
+sayfa okuma (standart + derin). Dis ag cikisi yalniz DuckDuckGo
+ucuna ve okunan sayfayadir; sayfa cekmede SSRF savunmasi aynen
+gecerlidir (_guvenli_adres + _GuvenliYonlendirme).
 """
 
 import ipaddress
@@ -15,25 +17,37 @@ from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
+# Arama sonucu adet sinirlari (girdi dogrulama; kota/baglam korumasi).
+_MIN_SONUC = 1
+_MAX_SONUC = 30
+_VARSAYILAN_SONUC = 20
 
-def web_search(query: str) -> dict:
+
+def _adet_sinirla(adet, varsayilan=_VARSAYILAN_SONUC):
+    """Sonuc adedini sayiya cevirip 1..30 araligina alir."""
+    try:
+        n = int(adet)
+    except (TypeError, ValueError):
+        return varsayilan
+    return max(_MIN_SONUC, min(_MAX_SONUC, n))
+
+
+def web_search(query: str, adet: int = _VARSAYILAN_SONUC) -> dict:
     """DuckDuckGo'da arama yapar. Hava durumu için özel API kullanır."""
     if not query or not query.strip():
         return {"error": "Arama sorgusu boş olamaz"}
 
     q = query.strip()
 
-    # Hava durumu sorgusu mu?
-
-    # Diğer sorgular için DuckDuckGo
-    return _duckduckgo_ara(q)
+    # Diger sorgular icin DuckDuckGo
+    return _duckduckgo_ara(q, adet=_adet_sinirla(adet))
 
 
 BICIM = chr(37) + "s" + chr(10) + chr(37) + "s" + chr(10) + chr(37) + "s"
 AYIRAC = chr(10) + chr(10)
 
 
-def _duckduckgo_ara(query):
+def _duckduckgo_ara(query, adet=_VARSAYILAN_SONUC):
     """DuckDuckGo'da arama yapar.
 
     2026-09-13: eskiden 3 sonuc alinip yalniz 2 snippet donuyordu ve
@@ -45,7 +59,8 @@ def _duckduckgo_ara(query):
         from ddgs import DDGS
 
         with DDGS() as ddgs:
-            results = list(ddgs.text(query, region="tr-tr", max_results=20))
+            results = list(ddgs.text(query, region="tr-tr",
+                                     max_results=_adet_sinirla(adet)))
 
         if not results:
             return {"result": "Sonuc bulunamadi"}
@@ -66,21 +81,148 @@ def _duckduckgo_ara(query):
         return {"error": "Arama yapilamadi: %s" % e}
 
 
-def _temizle(text):
-    """Sonuç metnini temizler."""
-    text = re.sub(r'https?://\S+', '', text)
-    text = re.sub(r'www\.\S+', '', text)
-    text = re.sub(r'Visit\s+\w+\s*', '', text)
-    text = re.sub(r'A travel experience.*?streets,?\s*', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'history is full of.*?new\s*', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'\s+', ' ', text).strip()
-    if text and not text.endswith('.') and not text.endswith('...'):
-        text += '.'
-    return text
+def haber_ara(query: str, adet: int = 10) -> dict:
+    """Haber arar; baslik + adres + tarih + metin doner.
+
+    Tarih yoksa "tarihsiz" yazar, uydurulmaz.
+    """
+    if not query or not str(query).strip():
+        return {"error": "Arama sorgusu boş olamaz"}
+    try:
+        from ddgs import DDGS
+
+        with DDGS() as ddgs:
+            results = list(ddgs.news(str(query).strip(), region="tr-tr",
+                                     max_results=_adet_sinirla(adet, 10)))
+        if not results:
+            return {"result": "Haber bulunamadi"}
+        parcalar = []
+        for r in results:
+            parcalar.append("%s\n%s\n%s | %s" % (
+                (r.get("title") or "").strip(),
+                (r.get("url") or r.get("href") or "").strip(),
+                (r.get("date") or "").strip() or "tarihsiz",
+                (r.get("body") or "").strip()))
+        return {"result": AYIRAC.join(parcalar)}
+    except ImportError:
+        return {"error": "ddgs paketi yuklu degil"}
+    except Exception as e:
+        logger.error("Haber arama hatasi: %s", e)
+        return {"error": "Haber aranamadi: %s" % e}
 
 
-# E-2: Sayfa okuma aracı — yalnizca GET, 5000 karakter siniri
+_ARALIK_HARITASI = {"gun": "d", "hafta": "w", "ay": "m"}
+
+
+def zamanli_ara(query: str, aralik: str = "hafta",
+                adet: int = 10) -> dict:
+    """Tarih filtreli arama yapar; yalniz verilen aralik doner.
+
+    aralik: gun | hafta | ay. Baska deger bicim hatasidir.
+    """
+    if not query or not str(query).strip():
+        return {"error": "Arama sorgusu boş olamaz"}
+    sinir = _ARALIK_HARITASI.get((aralik or "").strip().lower())
+    if sinir is None:
+        return {"error": "Aralik gun, hafta veya ay olmali."}
+    try:
+        from ddgs import DDGS
+
+        with DDGS() as ddgs:
+            results = list(ddgs.text(str(query).strip(), region="tr-tr",
+                                     timelimit=sinir,
+                                     max_results=_adet_sinirla(adet, 10)))
+        if not results:
+            return {"result": "Sonuc bulunamadi"}
+        parcalar = []
+        for r in results:
+            parcalar.append(BICIM % (
+                (r.get("title") or "").strip(),
+                (r.get("href") or "").strip(),
+                (r.get("body") or "").strip()))
+        return {"result": AYIRAC.join(parcalar)}
+    except ImportError:
+        return {"error": "ddgs paketi yuklu degil"}
+    except Exception as e:
+        logger.error("Zamanli arama hatasi: %s", e)
+        return {"error": "Arama yapilamadi: %s" % e}
+
+
+def site_ara(site: str, sorgu: str, adet: int = 10) -> dict:
+    """Yalniz verilen sitede arar. site: adres biciminde olmali."""
+    if not sorgu or not str(sorgu).strip():
+        return {"error": "Arama sorgusu boş olamaz"}
+    adres = (site or "").strip().lower()
+    if not adres or " " in adres or "." not in adres:
+        return {"error": "Site adres biciminde olmali (orn. ornek.com)."}
+    return _duckduckgo_ara("site:%s %s" % (adres, str(sorgu).strip()),
+                           adet=_adet_sinirla(adet, 10))
+
+
+def gorsel_ara(query: str, adet: int = 10) -> dict:
+    """Gorsel arar; resim adreslerini JSON liste doner."""
+    if not query or not str(query).strip():
+        return {"error": "Arama sorgusu boş olamaz"}
+    try:
+        from ddgs import DDGS
+
+        with DDGS() as ddgs:
+            results = list(ddgs.images(str(query).strip(), region="tr-tr",
+                                       max_results=_adet_sinirla(adet, 10)))
+        adresler = []
+        for r in results:
+            aday = (r.get("image") or "").strip()
+            if aday and aday not in adresler:
+                adresler.append(aday)
+        if not adresler:
+            return {"error": "Gorsel bulunamadi"}
+        return {"result": json.dumps(adresler, ensure_ascii=False)}
+    except ImportError:
+        return {"error": "ddgs paketi yuklu degil"}
+    except Exception as e:
+        logger.error("Gorsel arama hatasi: %s", e)
+        return {"error": "Gorsel aranamadi: %s" % e}
+
+
+def kitap_ara(query: str, adet: int = 10) -> dict:
+    """Kitap/katalog/brosur arar; baslik + adres + metin doner."""
+    if not query or not str(query).strip():
+        return {"error": "Arama sorgusu boş olamaz"}
+    try:
+        from ddgs import DDGS
+
+        with DDGS() as ddgs:
+            results = list(ddgs.books(str(query).strip(),
+                                      max_results=_adet_sinirla(adet, 10)))
+        if not results:
+            return {"result": "Kitap bulunamadi"}
+        parcalar = []
+        for r in results:
+            parcalar.append(BICIM % (
+                (r.get("title") or "").strip(),
+                (r.get("url") or r.get("href") or "").strip(),
+                (r.get("body") or r.get("publisher") or "").strip()))
+        return {"result": AYIRAC.join(parcalar)}
+    except ImportError:
+        return {"error": "ddgs paketi yuklu degil"}
+    except Exception as e:
+        logger.error("Kitap arama hatasi: %s", e)
+        return {"error": "Kitap aranamadi: %s" % e}
+
+
+def derin_oku(url: str) -> dict:
+    """Uzun sayfalar icin sayfa okuma (en fazla 500000 karakter).
+
+    sayfa_oku ile ayni guvenli cekme hatti (_guvenli_adres +
+    _GuvenliYonlendirme); yalniz tavan buyuktur. SSRF kurali aynidir.
+    """
+    return _sayfa_oku_genis(url, _MAX_DERIN)
+
+
+# E-2: Sayfa okuma araci — yalnizca GET, 200000 karakter siniri
 _MAX_SAYFA = 200000
+# Derin okuma tavani (derin_oku): uzun sayfa/katalog metinleri icin.
+_MAX_DERIN = 500000
 _MAX_HAM = 50 * 1024 * 1024  # Ham HTML ust siniri (50 MB)
 
 # SSRF korumasi (2026-08-24, Casper'in bulgusu): string tabanli "localhost"
@@ -151,6 +293,16 @@ def sayfa_oku(url: str) -> dict:
 
     Returns:
         {"result": str} veya {"error": str}.
+    """
+    return _sayfa_oku_genis(url, _MAX_SAYFA)
+
+
+def _sayfa_oku_genis(url: str, tavan: int) -> dict:
+    """Guvenli cekme hattinin tavan parametreli govdesi.
+
+    sayfa_oku ve derin_oku buradan gecer; SSRF denetimi, yonlendirme
+    korumasi ve icerik turu kurali ikisinde aynidir, yalniz cikti
+    tavani degisir.
     """
     if not url or not url.strip():
         return {"error": "URL bos olamaz"}
@@ -227,8 +379,8 @@ def sayfa_oku(url: str) -> dict:
         # Bosluklari temizle
         temiz = re.sub(r'\s+', ' ', temiz).strip()
 
-        if len(temiz) > _MAX_SAYFA:
-            temiz = temiz[:_MAX_SAYFA] + "\n...(ilk %d karakter)" % _MAX_SAYFA
+        if len(temiz) > tavan:
+            temiz = temiz[:tavan] + "\n...(ilk %d karakter)" % tavan
 
         if not temiz:
             return {"error": "Sayfa icerigi bos"}

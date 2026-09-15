@@ -91,9 +91,9 @@ async def _medya_karsila(update, context, beyin, kisilik, tools):
             ad = "foto.jpg"
         elif mesaj.document:
             mime = (mesaj.document.mime_type or "")
-            if not (mime.startswith("image/") or mime == "application/pdf"):
+            if not mime.startswith("image/"):
                 await mesaj.reply_text(
-                    "Yalnız fotoğraf veya PDF alırım.")
+                    "Yalnız fatura fotoğrafı alırım (PDF okuma yok).")
                 return
             dosya = await mesaj.document.get_file()
             ad = mesaj.document.file_name or "belge"

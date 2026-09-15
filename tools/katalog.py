@@ -37,9 +37,11 @@ YETKI_KOK = os.path.join(BASE, "data", "yetki")
 
 _KILIT = threading.Lock()
 
-# Fatura fotoğrafı sınırları (image_analyzer ile aynı: 10MB)
+# Fatura fotoğrafı sınırları (image_analyzer ile aynı: 10MB).
+# PDF staging'e KABUL EDILMEZ (fail-fast): fatura_oku PDF okuyamaz;
+# dosya staging'de bekleyip hatta bir adim sonra patlamasin.
 DESTEK_UZANTI = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp",
-                 ".tiff", ".pdf")
+                 ".tiff")
 MAX_BOYUT = 10 * 1024 * 1024
 
 # Belge uzantıları
@@ -243,8 +245,11 @@ def _staging_kaydet(ham, ad):
         return {"error": "Dosya çok büyük (en fazla 10MB)."}
     uzanti = os.path.splitext(str(ad or ""))[1].lower()
     if uzanti not in DESTEK_UZANTI:
+        if uzanti == ".pdf":
+            return {"error": ("PDF okuma bu sürümde yok; "
+                              "faturanın fotoğrafını gönder.")}
         return {"error": ("Desteklenmeyen dosya: '%s'. " % uzanti
-                          + "Fotoğraf (jpg/png/webp) veya PDF gönder.")}
+                          + "Fotoğraf (jpg/png/webp) gönder.")}
     _kok_hazirla(GELEN_KOK)
     fatura_id = _id("gln")
     dosya = fatura_id + uzanti
@@ -293,7 +298,11 @@ def _fatura_yolu(fatura_id):
 # ── F2: fatura okuma (bulut görü + aday çıkarım) ──────────────────
 
 def _aday_satirlar(yazi):
-    """OCR metninden kaba adaylar: barkod/fiyat/beden geçen satırlar."""
+    """OCR metninden kaba adaylar: barkod/fiyat/beden geçen satırlar.
+
+    Satir TAM verilir (kesme yok); 200 karakteri asan modelin
+    göreceği `kesildi` bayrağı taşınır.
+    """
     adaylar = []
     for satir in (yazi or "").splitlines():
         s = satir.strip()
@@ -304,7 +313,8 @@ def _aday_satirlar(yazi):
                     for m in _FIYAT_RE.finditer(s)]
         bedenler = _BEDEN_RE.findall(s.upper())
         if barkodlar or fiyatlar or bedenler:
-            adaylar.append({"satir": s[:200], "barkodlar": barkodlar,
+            adaylar.append({"satir": s, "kesildi": len(s) > 200,
+                            "barkodlar": barkodlar,
                             "fiyatlar": fiyatlar, "bedenler": bedenler})
     return adaylar
 
@@ -454,8 +464,8 @@ def katalog_kur(fatura_id, satirlar):
         if temiz:
             temizler.append(temiz)
     if not temizler:
-        return {"error": ("Hiç geçerli satır yok. " +
-                          " ".join(uyarilar)[:300])}
+        return {"error": ("Hiç geçerli satır yok (%d uyarı). " % len(uyarilar) +
+                          " ".join(uyarilar[:3]))}
     gruplar = {}
     for satir in temizler:
         anahtar = (satir["marka_norm"], satir["kod_norm"])
@@ -811,14 +821,38 @@ def yayin_paketi(is_id, platform="vixrex"):
         hatalar.append("Başlıkta ürün adı sütunu yok.")
     for i, satir in enumerate(satirlar[1:], 2):
         hatalar.extend(_vixrex_satir_denetle(basliklar, satir, i))
+    # Is uyarilari (onayla aninin): sekil karari (hazir) ayri, is karari
+    # ayri tasinir — izinsiz/fiyatsiz is "hazir" CSV ile karismasin.
+    kartlar = veri.get("kartlar", [])
+    onaysiz = [k.get("kart_id", "?") for k in kartlar
+               if k.get("satis_fiyat") is None]
+    izinsiz = sorted(ad for norm, ad in _is_markalari(veri).items()
+                     if marka_kapsama(norm) is None)
+    dusuk = [k.get("kart_id", "?") for k in kartlar
+             if (k.get("eslesme") or {}).get("guven") == "dusuk"]
+    is_uyarilari = []
+    if onaysiz:
+        is_uyarilari.append("Satış fiyatı girilmemiş kartlar alış "
+                            "fiyatıyla çıktı: %s." % ", ".join(onaysiz))
+    if izinsiz:
+        is_uyarilari.append("Kullanım izni belgesi yok: %s."
+                            % ", ".join(izinsiz))
+    if dusuk:
+        is_uyarilari.append("Düşük güvenli eşleşme, yayından önce karta "
+                            "bak: %s." % ", ".join(dusuk))
+    adim = ("Vixrex paneli → Ürünler → Toplu yükle → "
+            + DOSYA_CSV + " dosyasını seç.")
+    if izinsiz or onaysiz:
+        adim += (" Önce eksikleri kapat: " +
+                 "; ".join(is_uyarilari))
     return {"result": _j({
         "hazir": not hatalar,
         "platform": "vixrex",
         "kart": len(satirlar) - 1,
         "hatalar": hatalar,
+        "is_uyarilari": is_uyarilari,
         "dosyalar": [DOSYA_CSV, DOSYA_BATCH, DOSYA_KATALOG],
-        "sonraki_adim": ("Vixrex paneli → Ürünler → Toplu yükle → "
-                         + DOSYA_CSV + " dosyasını seç."),
+        "sonraki_adim": adim,
     })}
 
 
@@ -906,6 +940,10 @@ def yetki_belgesi_ekle(is_id, b64_veri, ad, marka=""):
                            1 for k in veri.get("kartlar", [])
                            if kodu_normla(k.get("marka", "")) == n))
             secili = markalar[norm]
+    if not secili:
+        # Isimsiz belge saklanmaz: kapsama bos norma hic eslesmez,
+        # basari donmek oksuz kayit uretir.
+        return {"error": "Marka ver (isimsiz belge saklanmaz)."}
     _kok_hazirla(YETKI_KOK)
     yetki_id = _id("yzk")
     try:
@@ -1008,9 +1046,12 @@ def urun_eslestir(is_id, kart_id):
         return {"error": ("Resmi sitede eşleşme bulunamadı: %s."
                           % kart.get("kod", ""))}
     en_iyi, en_skor, en_yazi = None, 0, ""
+    eksikler = []
     for adres in adaylar[:5]:
         okuma = ws.sayfa_oku(adres)
         yazi = "" if okuma.get("error") else okuma.get("result", "")
+        if okuma.get("error") and "sayfa_oku" not in eksikler:
+            eksikler.append("sayfa_oku")
         skor = _eslesme_skor(kart.get("kod", ""), kart.get("marka", ""),
                              adres, yazi)
         if skor > en_skor:
@@ -1026,7 +1067,9 @@ def urun_eslestir(is_id, kart_id):
             if isinstance(bulunan, list):
                 gorseller = [g for g in bulunan if isinstance(g, str)][:10]
         except ValueError:
-            pass
+            eksikler.append("gorsel_cozumleme")
+    else:
+        eksikler.append("gorsel")
     guven = "yuksek" if en_skor >= 5 else "orta" if en_skor >= 3 \
         else "dusuk"
     kart["eslesme"] = {
@@ -1034,6 +1077,7 @@ def urun_eslestir(is_id, kart_id):
         "baslik": (en_yazi or "")[:120],
         "guven": guven,
         "gorseller": gorseller,
+        "eksik": sorted(set(eksikler)),
         "tarih": _simdi(),
     }
     try:

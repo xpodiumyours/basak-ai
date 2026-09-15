@@ -1,4 +1,4 @@
-"""tools — Başak'ın araçları. Kırk dört tane.
+"""tools — Başak'ın araçları. Elli bir tane.
 
 2026-09-13: 21 araçlık katman söküldü; Casper'in seçtikleri geri geldi.
 Okuyanlar serbesttir. Etkisi olanlar dardir: dosya yazma yalniz
@@ -33,7 +33,39 @@ def calistir(tool_name, args):
     try:
         if tool_name == "web_search":
             from tools import web_search as ws
-            return ws.web_search(str(args.get("query", "")))
+            return ws.web_search(str(args.get("query", "")),
+                                 adet=args.get("adet", 20))
+
+        if tool_name == "haber_ara":
+            from tools import web_search as ws
+            return ws.haber_ara(str(args.get("query", "")),
+                                adet=args.get("adet", 10))
+
+        if tool_name == "zamanli_ara":
+            from tools import web_search as ws
+            return ws.zamanli_ara(str(args.get("query", "")),
+                                  str(args.get("aralik", "") or ""),
+                                  adet=args.get("adet", 10))
+
+        if tool_name == "site_ara":
+            from tools import web_search as ws
+            return ws.site_ara(str(args.get("site", "")),
+                               str(args.get("sorgu", "")),
+                               adet=args.get("adet", 10))
+
+        if tool_name == "gorsel_ara":
+            from tools import web_search as ws
+            return ws.gorsel_ara(str(args.get("query", "")),
+                                 adet=args.get("adet", 10))
+
+        if tool_name == "kitap_ara":
+            from tools import web_search as ws
+            return ws.kitap_ara(str(args.get("query", "")),
+                                adet=args.get("adet", 10))
+
+        if tool_name == "derin_oku":
+            from tools import web_search as ws
+            return ws.derin_oku(str(args.get("url", "")))
 
         if tool_name == "sayfa_oku":
             from tools import web_search as ws
@@ -267,6 +299,12 @@ def calistir(tool_name, args):
             return katalog.yayin_paketi(
                 str(args.get("is_id", "")),
                 str(args.get("platform", "") or "vixrex"))
+
+        if tool_name == "cikti_oku":
+            from tools import katalog
+            return katalog.cikti_oku(
+                str(args.get("is_id", "")),
+                str(args.get("dosya", "")))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

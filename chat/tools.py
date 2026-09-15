@@ -17,6 +17,12 @@ logger = logging.getLogger(__name__)
 
 DURUM_METNI = {
     "web_search": "İnternette aranıyor",
+    "haber_ara": "Haberlerde aranıyor",
+    "zamanli_ara": "Tarihli aranıyor",
+    "site_ara": "Sitede aranıyor",
+    "gorsel_ara": "Görsel aranıyor",
+    "kitap_ara": "Kitaplarda aranıyor",
+    "derin_oku": "Derin okunuyor",
     "sayfa_oku": "Sayfa okunuyor",
     "read_file": "Dosya okunuyor",
     "list_files": "Klasör listeleniyor",
@@ -60,6 +66,7 @@ DURUM_METNI = {
     "yetki_belgesi_ekle": "İzin belgesi saklanıyor",
     "urun_eslestir": "Ürün eşleştiriliyor",
     "yayin_paketi": "Yayın paketi denetleniyor",
+    "cikti_oku": "Çıktı okunuyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.

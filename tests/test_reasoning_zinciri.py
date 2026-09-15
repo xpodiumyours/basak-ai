@@ -298,3 +298,24 @@ class TestGorevTarihi:
         assert _tasks._yukle(dosya)[0]["date"] == "2026-09-20"
         kotu = _tasks.add_task("sut al", dosya, date="20/09/2026")
         assert "error" in kotu
+
+
+class TestEpisodikMaske:
+    def test_sifre_episodige_aynen_girmez(self, tmp_path):
+        from memory.engine import HafizaMotoru
+        m = HafizaMotoru(db_yolu=str(tmp_path / "m.db"),
+                         embed_fn=lambda t: None)
+        assert m.episodik_kaydet("sifrem: gizli123", "tamam") is True
+        metin = m.conn.execute(
+            "SELECT text FROM memories").fetchone()[0]
+        assert "gizli123" not in metin
+        assert "***" in metin
+
+    def test_normal_sohbet_maskelenmez(self, tmp_path):
+        from memory.engine import HafizaMotoru
+        m = HafizaMotoru(db_yolu=str(tmp_path / "m.db"),
+                         embed_fn=lambda t: None)
+        m.episodik_kaydet("bugun hava guzel", "evet guzel")
+        metin = m.conn.execute(
+            "SELECT text FROM memories").fetchone()[0]
+        assert "bugun hava guzel" in metin

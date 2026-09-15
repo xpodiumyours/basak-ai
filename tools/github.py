@@ -45,11 +45,17 @@ def _kos(argv, runner=None):
     except Exception as e:
         return {"error": "gh calismadi: %s" % e}
     if r.returncode != 0:
-        return {"error": "gh hatasi: %s" % ((r.stderr or "").strip()[:300])}
+        _hata = (r.stderr or "").strip()
+        if len(_hata) > 300:
+            _hata = _hata[:300] + "...(kisaltildi)"
+        return {"error": "gh hatasi: %s" % _hata}
     try:
         return {"result": json.loads(r.stdout or "[]")}
     except ValueError:
-        return {"result": (r.stdout or "").strip()[:2000]}
+        _ham = (r.stdout or "").strip()
+        if len(_ham) > 2000:
+            _ham = _ham[:2000] + "\n...(kisaltildi)"
+        return {"result": _ham}
 
 
 def pr_liste(proje, durum="open", runner=None):

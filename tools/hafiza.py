@@ -33,5 +33,11 @@ def hafiza_ara(sorgu):
     satirlar = []
     for s in sonuclar:
         metin = (s.get("text") or "").strip()
-        satirlar.append("- %s" % metin)
+        kaynak = (s.get("source") or "").strip()
+        tur = (s.get("kind") or "").strip()
+        etiket = "/".join([x for x in (kaynak, tur) if x])
+        if etiket:
+            satirlar.append("- [%s] %s" % (etiket, metin))
+        else:
+            satirlar.append("- %s" % metin)
     return {"result": "\n".join(satirlar)}

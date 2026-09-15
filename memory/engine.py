@@ -14,6 +14,7 @@ AI davranisini yoneten ek kural degil, sessiz yedektir.
 import json
 import logging
 import os
+import re
 import sqlite3
 import threading
 
@@ -33,7 +34,43 @@ VEKTOR_KAPALI = "vektor_kapali"
 # "hafiza temizlendi" gercekte temizlemiyordu; ayrica DB sinirsiz buyuyordu).
 # En eskiler otomatik budanir — dosyalardan turetilen semantic kayitlar
 # (knowledge/defter/obsidian) bu sinira girmez.
-EPISODIK_LIMIT = 100000000
+# 2026-09-15: 100000000 degeri test kilidini acmak icindi (testler _budu'ya
+# acik limit verir); uretimde sinirsiz buyume demek. 5000 guvenli tavan.
+EPISODIK_LIMIT = 5000
+
+
+# Hassas veri episodik'e aynen YAZILMAZ (2026-09-15 checkup):
+# "sifrem X" cumlesi DB'ye + FTS + vektore girip her system dump'ina
+# tasiniyordu; profil yolundaki _HASSAS burayi kapatmiyordu. Deger
+# maskelenir, cumle yasi kalir (model baglami kaybetmez, sirri goremez).
+_HASSAS_KOKU = re.compile(
+    r"(sifre|şifre|parola|tc\b|kimlik\s*no|kart\s*no|kredi\s*kart|"
+    r"telefon|gsm|cep\s*no|iban|hesap\s*no|cvv|cvc|pin\s*kod)",
+    re.IGNORECASE,
+)
+_DEGER_MASKESI = re.compile(
+    r"(?i)\b(api[_-]?key|token|parola|password|sifre|secret|anahtar)"
+    r"(\s*[=:]\s*)(?:\"[^\"]*\"|'[^']*'|\S+)")
+
+
+def _hassas_maskele(metin):
+    """Hassas degerleri *** yapar; kokulu cumleyi oldugu gibi birakmaz."""
+    metin = _DEGER_MASKESI.sub(r"\1\2***", metin or "")
+    if _HASSAS_KOKU.search(metin):
+        metin = re.sub(r"(?i)(bearer\s+)\S+", r"\1***", metin)
+        metin = re.sub(r"\beyJ[A-Za-z0-9_-]{10,}", "eyJ***", metin)
+        metin = re.sub(r"\b(sk-[A-Za-z0-9_-]{8,}|sk-or-v1-[A-Za-z0-9]{8,}"
+                       r"|gsk_[A-Za-z0-9]{10,}|hf_[A-Za-z0-9]{10,}"
+                       r"|nvapi-[A-Za-z0-9_-]{10,})", "***", metin)
+        # Kokulu satirdaki "anahtar: deger" kalibi (ek almis kokuler
+        # dahil: sifrem, parolan...): degeri maskele, cumle yasar.
+        satirlar = []
+        for satir in metin.splitlines():
+            if _HASSAS_KOKU.search(satir):
+                satir = re.sub(r"([=:]\s*)\S+", r"\1***", satir)
+            satirlar.append(satir)
+        metin = "\n".join(satirlar)
+    return metin
 
 
 def _vec_yukle(conn):
@@ -244,7 +281,8 @@ class HafizaMotoru:
         konusmaci = speaker or "Kullanıcı"
         metin = (
             "%s (%s): %s\nBaşak: %s"
-            % (konusmaci, tarih, (soru or "").strip(), (cevap or "").strip())
+            % (konusmaci, tarih, _hassas_maskele((soru or "").strip()),
+               _hassas_maskele((cevap or "").strip()))
         )
         var_mi = self.conn.execute(
             "SELECT 1 FROM memories WHERE kind='episodic' AND text=? LIMIT 1",

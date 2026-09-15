@@ -62,7 +62,9 @@ def _tarih_ayikla(dosya_adi: str, icerik: str) -> list:
             continue
 
         # Tarihi içeren satırın kendisi en iyi açıklamadır
-        konu = re.sub(r"\*\*", "", satir_temiz)[:80]
+        # (80 karakteri asan kirpilir; kesme isaretlidir, sessiz degil).
+        _konu = re.sub(r"\*\*", "", satir_temiz)
+        konu = _konu[:80] + ("…" if len(_konu) > 80 else "")
 
         bulunanlar.append({
             "tarih": tarih,
@@ -163,7 +165,11 @@ def bugunku_hatirlatmalar(knowledge_dir: str, gorevler_file: str) -> dict:
                 for g in bugunku[:5]:
                     on = "[SAATI GECTI] " if _saati_gecti_mi(
                         g.get("text", ""), bugun) else ""
-                    etiketli.append(on + g["text"][:30])
+                    _t = g.get("text", "")
+                    etiketli.append(on + _t[:30] +
+                                    ("…" if len(_t) > 30 else ""))
+                if sayi > 5:
+                    etiketli.append("(+%d gizli)" % (sayi - 5))
                 hatirlatmalar.append(
                     f"BUGUN ICIN {sayi} GOREV: " + ", ".join(etiketli)
                 )
@@ -176,8 +182,10 @@ def bugunku_hatirlatmalar(knowledge_dir: str, gorevler_file: str) -> dict:
                     g_tarih = datetime.strptime(g["date"], "%Y-%m-%d")
                     kalan = (g_tarih - bugun).days
                     if 1 <= kalan <= 3:
+                        _t = g.get("text", "")
                         hatirlatmalar.append(
-                            f"{kalan} gun sonra: {g['text'][:40]}"
+                            f"{kalan} gun sonra: {_t[:40]}"
+                            + ("…" if len(_t) > 40 else "")
                         )
                 except (ValueError, KeyError):
                     continue

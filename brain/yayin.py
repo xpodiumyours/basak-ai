@@ -73,7 +73,8 @@ def akit(openai_client, model, messages, tools=None):
             continue
         # Reasoning delta varsa biriktir (GLM/DeepSeek tarzi).
         for _alan in ("reasoning_content", "reasoning",
-                      "reasoning_details", "reasoning_text"):
+                      "reasoning_details", "reasoning_text",
+                      "thinking"):
             _rd = getattr(delta, _alan, None)
             if _rd:
                 _muhakeme_parcalar.append((_alan, str(_rd)))

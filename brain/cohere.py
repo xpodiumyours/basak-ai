@@ -77,6 +77,13 @@ class CohereClient:
             elif role == "assistant":
                 _asistan = {"role": "assistant",
                             "content": content or ""}
+                # Reasoning zinciri (P0): onceki turun muhakemesi
+                # native assistant mesajiyla birlikte korunur.
+                for _alan in ("reasoning_content", "reasoning",
+                              "reasoning_details", "thinking",
+                              "reasoning_text"):
+                    if _alan in m:
+                        _asistan[_alan] = m[_alan]
                 _tc = m.get("tool_calls")
                 if _tc:
                     # OpenAI formati -> Cohere V2 ToolCallV2 formati.

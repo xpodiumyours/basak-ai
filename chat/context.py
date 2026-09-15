@@ -29,6 +29,9 @@ OBSIDIAN_DIR = os.path.join(BASE, "Basak")
 # Her açılışta bir oturum kimliği — kayıtlara işlenir.
 OTURUM_ID = uuid.uuid4().hex[:8]
 
+# Gecmis yazma kilidi (tek surec ici; bkz. kaydet).
+_kayit_kilidi = threading.Lock()
+
 # ── Geçmiş penceresi ────────────────────────────────────────────────
 # Ozgu-ajan (2026-09-13 Faz 1, AGENTS.md S0-5): kilo/adet kirpmasi YOK.
 # Gecmis tam verilir; karari model + saglayici baglami verir.
@@ -48,9 +51,17 @@ def yukle(path, varsayilan):
 
 
 def kaydet(path, veri):
-    """JSON dosyasına yazar."""
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(veri, f, ensure_ascii=False, indent=2)
+    """JSON dosyasına yazar (kilitli + atomik).
+
+    2026-09-15 checkup: Api.mesaj her mesaji ayri thread'de kosturur;
+    kilitsiz oku-degistir-yaz cift mesajda gecmisi kaybediyordu.
+    Once .tmp'e yazip os.replace ile degistirir.
+    """
+    with _kayit_kilidi:
+        gecici = path + ".tmp"
+        with open(gecici, "w", encoding="utf-8") as f:
+            json.dump(veri, f, ensure_ascii=False, indent=2)
+        os.replace(gecici, path)
 
 
 def gecmis_pencere(gecmis, limit=GECMIS_KILO_LIMITI, adet_siniri=MAX_HISTORY):

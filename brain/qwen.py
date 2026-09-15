@@ -51,7 +51,10 @@ class QwenClient:
                 max_retries=0,
                 base_url=BASE_URL,
             )
-            self.model = self._model_bul()
+            # Acik model verildiyse katalog tarama yapilmaz (kilit yok,
+            # ezme de yok).
+            if not self.model:
+                self.model = self._model_bul()
         except Exception as e:
             logger.warning("Qwen kurulamadı: %s", e)
             self.client = None

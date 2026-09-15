@@ -38,7 +38,7 @@ _ATLANACAK_KLASORLER = frozenset((
 ))
 _MAX_DOSYA_BOYUT = 1_000_000      # dosya basi 1 MB
 _MAX_ICERIK_ESLESME = 8           # en fazla 8 eslesme
-_ICERIK_CIKTI_TAVAN = 1500        # cikti 1500 karakter
+_ICERIK_CIKTI_TAVAN = 8000        # cikti 8000 karakter (8 eslesme sigar)
 
 
 def _kirmala(metin):
@@ -130,7 +130,9 @@ def git_durum(proje):
             satirlar.append("Commit edilmemis dosya: 0 (temiz)")
         else:
             satirlar.append("Commit edilmemis dosya: %d" % len(kirliler))
-            satirlar.extend(kirliler)
+            satirlar.extend(kirliler[:10])
+            if len(kirliler) > 10:
+                satirlar.append("...(+%d gizli)" % (len(kirliler) - 10))
     return {"result": "\n".join(satirlar)}
 
 

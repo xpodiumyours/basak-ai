@@ -45,7 +45,7 @@ class TestUcYer:
         for ad in ("fatura_oku", "katalog_kur", "katalog_getir",
                    "katalog_liste", "katalog_fiyat_guncelle",
                    "katalog_onayla", "yetki_belgesi_ekle",
-                   "urun_eslestir", "yayin_paketi"):
+                   "urun_eslestir", "yayin_paketi", "cikti_oku"):
             assert ad in TANINMIS_TOOLLAR, ad
             assert ad in DURUM_METNI, ad
 
@@ -501,6 +501,23 @@ class TestYayinPaketi:
         assert sonuc["kart"] == 1
         assert "Toplu yükle" in sonuc["sonraki_adim"]
 
+    def test_is_uyarilari_tasinir(self, tmp_path, monkeypatch):
+        # Sekil hazir olsa da is uyarilari (fiyat/izinsiz) pakette
+        # gorunur — sahte-hazir yok.
+        monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path / "gelen"))
+        monkeypatch.setattr(katalog, "KATALOG_KOK", str(tmp_path / "kat"))
+        monkeypatch.setattr(katalog, "YETKI_KOK", str(tmp_path / "yzk"))
+        os.makedirs(tmp_path / "gelen", exist_ok=True)
+        (tmp_path / "gelen" / "gln_u.jpg").write_bytes(b"\xff\xd8x")
+        is_id = _j(katalog.katalog_kur("gln_u", [
+            {"marka": "Berrak", "kod": "BR-9", "adet": 1}]))["is_id"]
+        katalog.katalog_onayla(is_id)
+        sonuc = _j(katalog.yayin_paketi(is_id, "vixrex"))
+        assert sonuc["hazir"] is True  # sekil gecer
+        assert any("Berrak" in u for u in sonuc["is_uyarilari"])
+        assert "eksik" in sonuc["sonraki_adim"].lower() or \
+            "Önce" in sonuc["sonraki_adim"]
+
     def test_hazir_degil_ve_platform(self, tmp_path, monkeypatch):
         monkeypatch.setattr(katalog, "KATALOG_KOK", str(tmp_path / "kat"))
         assert "error" in katalog.yayin_paketi("ktg_yok", "vixrex")
@@ -662,3 +679,43 @@ class TestUrunEslestir:
                     if k["kod"] == "TER0101")
         r = katalog.urun_eslestir(is_id, kart)
         assert "error" in r and "bulunamadı" in r["error"]
+
+
+class TestCheckupTemizlik:
+    """2026-09-15 checkup kilitleri: fail-fast PDF, oksuz yetki red,
+    cikti_oku arac baglantisi."""
+
+    def _koklar(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path / "gelen"))
+        monkeypatch.setattr(katalog, "KATALOG_KOK", str(tmp_path / "kat"))
+        monkeypatch.setattr(katalog, "YETKI_KOK", str(tmp_path / "yzk"))
+        os.makedirs(tmp_path / "gelen", exist_ok=True)
+
+    def test_staging_pdf_fail_fast(self, tmp_path, monkeypatch):
+        self._koklar(tmp_path, monkeypatch)
+        import base64 as _b64
+        b64 = _b64.b64encode(b"%PDF-sahte").decode("ascii")
+        r = katalog.fatura_kaydet_b64(b64, "fatura.pdf")
+        assert "error" in r and "PDF" in r["error"]
+        assert list((tmp_path / "gelen").glob("*.pdf")) == []
+
+    def test_yetki_oksuz_reddi(self, tmp_path, monkeypatch):
+        self._koklar(tmp_path, monkeypatch)
+        import base64 as _b64
+        b64 = _b64.b64encode(b"belge").decode("ascii")
+        r = katalog.yetki_belgesi_ekle("", b64, "izin.pdf", "")
+        assert "error" in r
+
+    def test_cikti_oku_arac_bagli(self, tmp_path, monkeypatch):
+        self._koklar(tmp_path, monkeypatch)
+        (tmp_path / "gelen" / "gln_c.jpg").write_bytes(b"\xff\xd8x")
+        is_id = _j(katalog.katalog_kur("gln_c", [
+            {"marka": "Tutku", "kod": "T1", "adet": 1}]))["is_id"]
+        katalog.katalog_onayla(is_id)
+        r = calistir("cikti_oku", {"is_id": is_id,
+                                   "dosya": "vixrex_urunler.csv"})
+        assert "result" in r and "Ürün Adı" in r["result"]
+        assert "error" in calistir(
+            "cikti_oku", {"is_id": is_id, "dosya": "kotu.csv"})
+        assert "error" in calistir(
+            "cikti_oku", {"is_id": "ktg_yok", "dosya": "vixrex_urunler.csv"})

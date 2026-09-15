@@ -38,11 +38,14 @@ TERCIH_SIRASI = [
     "moonshotai/kimi-k3",                    # yavas ama canli (27.9s)
     # --- Katalogda ama 10.09.2026 chat zamanasimli (yedek) ---
     "nvidia/nemotron-3.5-lightning-30b-a3b",
-    "nvidia/nemotron-3-super-120b-a12b",
     # --- Yeni adaylar (katalogda, olculmedi — en sonda denenir) ---
     "nvidia/nemotron-nano-3-30b-a3b",
     "nvidia/nemotron-4-340b-instruct",
 ]
+# Model-ici geri donus adedi: secili + listedeki ilk adaylar denenir.
+# 4 degeri 2026-09 gozleminden (ilk 4 CANLI + yedek kapsar); buyutme
+# her basarisizlikta kota/zaman yer.
+_ICI_YEDEK_SAYISI = 4
 # OLU (10.09.2026): katalog disi veya chat 410 Gone —
 # meta/muse-glimmer-30b (katalogda gorunup 410 veriyor),
 # nvidia-nemotron-nano-9b-v2, step-3.7-flash, inkling,
@@ -185,7 +188,7 @@ class NvidiaClient:
         sirali += TERCIH_SIRASI
 
         son_hata = None
-        for model_adi in sirali[:4]:
+        for model_adi in sirali[:_ICI_YEDEK_SAYISI]:
             try:
                 return self._cagri_ata(model_adi, messages, tools)
             except Exception as e:

@@ -8,6 +8,7 @@ model karar verir.
 
 Dokuz + dort + bes + dokuz arac: okuyanlar serbest, etkisi olanlar
 dar tablolarda (dosya/gorev/tablo yazma, sabit komut, beyaz liste).
+(2026-09-15: toplam 51; ara-toplam formulu bayat oldugu icin kaldirildi.)
 """
 
 
@@ -31,9 +32,69 @@ _PROJE = {"type": "string",
 
 WEB_ARAMA = _arac(
     "web_search",
-    "Internette arar; baslik+kisa metin listesi doner.",
-    {"query": {"type": "string", "description": "Sorgu"}},
+    "Internette arar; baslik+adres+metin listesi doner (varsayilan 20, "
+    "en fazla 30 sonuc).",
+    {"query": {"type": "string", "description": "Sorgu"},
+     "adet": {"type": "integer",
+              "description": "Sonuc sayisi (1-30, bossa 20)"}},
     ["query"],
+)
+
+HABER_ARA = _arac(
+    "haber_ara",
+    "Haber arar; baslik+adres+tarih+metin doner (en fazla 10). Tarih "
+    "yoksa tarihsiz yazar.",
+    {"query": {"type": "string", "description": "Sorgu"},
+     "adet": {"type": "integer",
+              "description": "Sonuc sayisi (1-30, bossa 10)"}},
+    ["query"],
+)
+
+ZAMANLI_ARA = _arac(
+    "zamanli_ara",
+    "Tarih filtreli arar; yalniz verilen aralik doner (en fazla 10).",
+    {"query": {"type": "string", "description": "Sorgu"},
+     "aralik": {"type": "string",
+                "description": "gun | hafta | ay"},
+     "adet": {"type": "integer",
+              "description": "Sonuc sayisi (1-30, bossa 10)"}},
+    ["query", "aralik"],
+)
+
+SITE_ARA = _arac(
+    "site_ara",
+    "Yalniz verilen sitede arar; baslik+adres+metin doner (en fazla 10).",
+    {"site": {"type": "string", "description": "Orn. ornek.com"},
+     "sorgu": {"type": "string", "description": "Sorgu"},
+     "adet": {"type": "integer",
+              "description": "Sonuc sayisi (1-30, bossa 10)"}},
+    ["site", "sorgu"],
+)
+
+GORSEL_ARA = _arac(
+    "gorsel_ara",
+    "Gorsel arar; resim adreslerini JSON liste doner (en fazla 10).",
+    {"query": {"type": "string", "description": "Sorgu"},
+     "adet": {"type": "integer",
+              "description": "Sonuc sayisi (1-30, bossa 10)"}},
+    ["query"],
+)
+
+KITAP_ARA = _arac(
+    "kitap_ara",
+    "Kitap/katalog/brosur arar; baslik+adres+metin doner (en fazla 10).",
+    {"query": {"type": "string", "description": "Sorgu"},
+     "adet": {"type": "integer",
+              "description": "Sonuc sayisi (1-30, bossa 10)"}},
+    ["query"],
+)
+
+DERIN_OKU = _arac(
+    "derin_oku",
+    "Uzun sayfalar icin sayfa okuma; duz metnini doner (en fazla "
+    "500000 karakter). Yalniz http/https 80/443; ic ag yasak.",
+    {"url": {"type": "string", "description": "Adres"}},
+    ["url"],
 )
 
 SAYFA_OKU = _arac(
@@ -69,7 +130,8 @@ GIT_DURUM = _arac(
 
 BELGE_ARA = _arac(
     "belge_ara",
-    "Proje kokundeki .md'lerde arar (alta inmez). Dosya:satir doner.",
+    "Proje kokundeki .md'lerde arar (alta inmez). Dosya:satir:icerik "
+    "doner (en fazla 200).",
     {"proje": _PROJE,
      "sorgu": {"type": "string", "description": "Metin"}},
     ["proje", "sorgu"],
@@ -141,8 +203,9 @@ UYGULAMA_AC = _arac(
 
 ICERIK_ARA = _arac(
     "icerik_ara",
-    "Projenin her yerinde arar; dosya:satir doner (en fazla 8). Sifre "
-    "dosyalari acilmaz, anahtarlar maskelenir.",
+    "Projenin her yerinde arar; dosya:satir doner (en fazla 8 eslesme, "
+    "toplam 8000 karakter). Sifre dosyalari acilmaz, anahtarlar "
+    "maskelenir.",
     {"proje": _PROJE,
      "sorgu": {"type": "string", "description": "Metin"},
      "uzanti": {"type": "string", "description": "Orn. .py"}},
@@ -189,7 +252,8 @@ ADRES_KONTROL = _arac(
 
 TEST_KOS = _arac(
     "testleri_kos",
-    "Proje testlerini kosturur, ozet doner. Komut sabit; vixrex yok.",
+    "Proje testlerini kosturur, ozet doner (son 2000 karakter). Komut "
+    "sabit; vixrex yok.",
     {"proje": {"type": "string",
                "description": "basak | numeramatch | xses"}},
     ["proje"],
@@ -292,7 +356,8 @@ HESAPLA = _arac(
 
 HAFIZA_ARA = _arac(
     "hafiza_ara",
-    "Hafizada derin arama yapar. Doner: en ilgili kayitlarin tamami.",
+    "Hafizada derin arama yapar. Doner: en ilgili en fazla 5 kayit "
+    "(kaynak/tur etiketli).",
     {"sorgu": {"type": "string", "description": "Aranacak konu"}},
     ["sorgu"],
 )
@@ -322,7 +387,8 @@ SAGLIK_RAPORU = _arac(
 
 FATURA_OKU = _arac(
     "fatura_oku",
-    "Kayitli fatura fotografini okur; yazi ve aday satirlari JSON doner.",
+    "Kayitli fatura fotografini okur; yazi ve aday satirlari JSON doner. "
+    "Once yerel goz dener, yoksa bulut; kaynak alanda yazar. PDF yok.",
     {"fatura_id": {"type": "string",
                    "description": "Yukleme kimligi"}},
     ["fatura_id"],
@@ -330,8 +396,9 @@ FATURA_OKU = _arac(
 
 KATALOG_KUR = _arac(
     "katalog_kur",
-    "Fatura satirlarindan urun kartlari kurar; ayni kodun beden ve "
-    "renklerini tek kartta birlestirir. Is ozeti JSON doner.",
+    "Fatura satirlarindan urun kartlari kurar (en fazla 500 satir); ayni "
+    "marka+kod tek kart olur, kategori cogunlukla secilir, stok 3 ve "
+    "alti az gosterir. Is ozeti JSON doner.",
     {"fatura_id": {"type": "string",
                    "description": "Yukleme kimligi"},
      "satirlar": {"type": "array",
@@ -357,7 +424,8 @@ KATALOG_LISTELE = _arac(
 
 KATALOG_FIYAT = _arac(
     "katalog_fiyat_guncelle",
-    "Kartin satis fiyatini yazar. Fiyat metin veya sayi olur.",
+    "Kartin satis fiyatini yazar. Fiyat metin veya sayi olur; tam sayi "
+    "duz, diger iki ondalik yazilir.",
     {"is_id": {"type": "string", "description": "Is kimligi"},
      "kart_id": {"type": "string", "description": "Kart kimligi"},
      "satis_fiyat": {"type": "string", "description": "Satis fiyati"}},
@@ -386,8 +454,9 @@ YETKI_BELGESI = _arac(
 
 URUN_ESLESTIR = _arac(
     "urun_eslestir",
-    "Karti markanin resmi sitesinde arar; kaynak, guven ve gorselleri "
-    "karta isler. Kayit disi markada hata doner.",
+    "Karti kayitli tedarikcinin resmi sitesinde arar (su an yalniz "
+    "Tutku); kaynak, guven ve gorselleri karta isler. Kayit disi "
+    "markada hata doner.",
     {"is_id": {"type": "string", "description": "Is kimligi"},
      "kart_id": {"type": "string", "description": "Kart kimligi"}},
     ["is_id", "kart_id"],
@@ -396,13 +465,28 @@ URUN_ESLESTIR = _arac(
 YAYIN_PAKETI = _arac(
     "yayin_paketi",
     "Ciktiyi platformun yukleme kurallarina gore denetler; kabul "
-    "karari, dosya adlari ve izlenecek adimi doner. Yazma yok.",
+    "karari, is uyarilari (fiyatsiz/izinsiz/dusuk guven), dosya adlari "
+    "ve izlenecek adimi doner. Yazma yok.",
     {"is_id": {"type": "string", "description": "Is kimligi"},
      "platform": {"type": "string", "description": "vixrex"}},
     ["is_id"],
 )
 
-TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
+# Model araci DEGIL, giris notu: fatura dosyasi UI/Telegram ile yuklenir
+# (fatura_kaydet_b64 semasizdir); model hatta fatura_oku ile baslar.
+CIKTI_OKU = _arac(
+    "cikti_oku",
+    "Onay ciktisinin icerigini metin doner: vixrex_urunler.csv, "
+    "vixrex_batch.json veya basak_katalog.json.",
+    {"is_id": {"type": "string", "description": "Is kimligi"},
+     "dosya": {"type": "string",
+               "description": "vixrex_urunler.csv | vixrex_batch.json | "
+                              "basak_katalog.json"}},
+    ["is_id", "dosya"],
+)
+
+TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
+          KITAP_ARA, DERIN_OKU, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
          HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR,
          UYGULAMA_AC, ICERIK_ARA, GITHUB_DURUM,
@@ -413,7 +497,7 @@ TOOLS = [WEB_ARAMA, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          SIMDI, HESAPLA, HAFIZA_ARA,
          FATURA_OKU, KATALOG_KUR, KATALOG_GETIR, KATALOG_LISTELE,
          KATALOG_FIYAT, KATALOG_ONAYLA, YETKI_BELGESI, URUN_ESLESTIR,
-         YAYIN_PAKETI]
+         YAYIN_PAKETI, CIKTI_OKU]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

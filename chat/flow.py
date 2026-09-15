@@ -45,11 +45,11 @@ def _konusmaci_ayir(text):
 
 
 def _profil_isle(text, konusmaci):
-    """Kalıcı profili günceller. Dönüş: (profil_blogu, ogrenme_notu).
+    """Kalıcı profili okur. Dönüş: (profil_blogu, ogrenme_notu).
 
-    'benim adım X', 'hatırla: ...' gibi cümleler profile yazılır;
-    'unut: X' siler. Öğrenilen şey aynı turun bağlamına not düşülür ki
-    model "tamam, adını öğrendim" diyebilsin.
+    2026-09-13 sonrasi: ogrenme kapisi stub'dur (memory.profil.ogren
+    hep [], unut hep 0) — cumle profili buyutmez/kucultmez; yalniz
+    kayitli blok baglama tasinir. ogrenme_notu pratikte bostur.
     """
     try:
         from memory.profil import ogren, unut, blok
@@ -125,7 +125,11 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci):
         {"role": "user", "content": text, "oturum": ctx.OTURUM_ID},
         {"role": "assistant", "content": cevap, "oturum": ctx.OTURUM_ID},
     ]
-    ctx.kaydet(ctx.HISTORY_FILE, gecmis)
+    try:
+        ctx.kaydet(ctx.HISTORY_FILE, gecmis)
+    except OSError as e:
+        # Gecmis yazilamasa da ekran bitmeli (2026-09-15 checkup).
+        logger.warning("Gecmis yazilamadi (ekran etkilenmez): %s", e)
 
     try:
         from chat import oturum
