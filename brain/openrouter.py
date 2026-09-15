@@ -13,6 +13,7 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 from brain.kullanim import kullanim_ekle
+from brain.message_utils import reasoning_ayikla
 
 BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -117,6 +118,9 @@ class OpenRouterClient:
 
         resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
+        # Reasoning zinciri (P0): OpenRouter reasoning / reasoning_details
+        # alanlari korunur; arac turunda modele geri verilir.
+        muhakeme = reasoning_ayikla(msg)
 
         if msg.tool_calls:
             tool_calls = []
@@ -133,6 +137,6 @@ class OpenRouterClient:
                     }
                 })
             return kullanim_ekle({"content": msg.content or "",
-                          "tool_calls": tool_calls}, resp)
+                          "tool_calls": tool_calls, **muhakeme}, resp)
 
-        return kullanim_ekle({"content": msg.content or ""}, resp)
+        return kullanim_ekle({"content": msg.content or "", **muhakeme}, resp)

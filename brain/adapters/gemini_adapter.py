@@ -16,8 +16,10 @@ class _GeminiAdapter:
         key = os.environ.get("GEMINI_API_KEY") or ayar.get("gemini_key") or ""
         if not key:
             return None
+        model = (os.environ.get("GEMINI_MODEL")
+                 or (ayar or {}).get("gemini_model") or None)
         try:
-            return GeminiClient(key)
+            return GeminiClient(key, model=model) if model else GeminiClient(key)
         except ValueError as e:
             logger.warning("Gemini başlatılamadı: %s", e)
             return None

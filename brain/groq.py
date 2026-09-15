@@ -13,14 +13,17 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 from brain.kullanim import kullanim_ekle
+from brain.message_utils import reasoning_ayikla
 
 # Tool calling destekleyen modeller (sadece bunlar kullanılabilir)
 MODELLER = {
     "hizli": "openai/gpt-oss-20b",
     "guclu": "openai/gpt-oss-120b",
-    "varsayilan": "openai/gpt-oss-20b",  # hizli varsayilan (Casper karari):
-    # 120b dakika kotasi (8000) alet dongulerinde tikaniyor; 20b hizli ve
-    # tutumlu. Agir is gerekirse model adiyla guclu cagrilabilir.
+    # Varsayilan guclu (2026-09 guncellemesi): 20b/120b ikisi de
+    # 250K TPM + 1K RPM + 131K baglam + tool calling destekler.
+    # Eski "120b kota tikanir" varsayimi bayat (2026-08 8K TPM gozlemi);
+    # hiz gerekirse ayarlar.json -> groq_model ile 20b secilir.
+    "varsayilan": "openai/gpt-oss-120b",
 }
 
 
@@ -89,6 +92,7 @@ class GroqClient:
             kwargs["messages"] = list(messages)
             resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
+        muhakeme = reasoning_ayikla(msg)
 
         if msg.tool_calls:
             tool_calls = []
@@ -105,9 +109,9 @@ class GroqClient:
                     }
                 })
             return kullanim_ekle({"content": msg.content or "",
-                          "tool_calls": tool_calls}, resp)
+                          "tool_calls": tool_calls, **muhakeme}, resp)
 
-        return kullanim_ekle({"content": msg.content or ""}, resp)
+        return kullanim_ekle({"content": msg.content or "", **muhakeme}, resp)
 
     @staticmethod
     def _tool_choice_hatasi_mi(hata) -> bool:

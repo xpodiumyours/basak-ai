@@ -17,19 +17,19 @@ SAGLAYICILAR = {
         "ucretsiz": True,
         "tools": True,
         "gucleri": ["hiz", "genel"],
-        # B3 (2026-08-24): gercek butce token. 200000 sayisi 2026-08-22
-        # 429 mesajindan ("Used 197.355 / Limit 200.000"). Eski
-        # gunluk_istek=80 TAHMINIYDI — kota artik gercek tokeni sorar.
+        # 2026-09 guncellemesi: 20b/120b ikisi de 250K TPM + 1K RPM +
+        # 131K baglam + 65K max output (Groq docs). Eski 200K/gun gozlemi
+        # + "120b tikanir" varsayimi bayat; varsayilan guclu (120b).
         "gunluk_token": 200000,
-        "not": "Ucretsiz ve cok hizli; token/gun limiti dar.",
+        "not": "Ucretsiz ve cok hizli; 20b hizli, 120b guclu.",
     },
     "gemini": {
         "ad": "Gemini",
         "ucretsiz": True,
         "tools": True,
         "gucleri": ["arastirma", "uzun-baglam"],
-        "gunluk_istek": 20,   # ucretsiz katman gozlemlenen limit
-        "not": "Ucretsiz katmanda gunluk 20 istek; arastirmaya saklanir.",
+        "gunluk_istek": 1500,   # 3 Flash free: 10 RPM / 250K TPM / 1500 RPD
+        "not": "Ucretsiz katmanda 3 Flash onerilir (1M baglam).",
     },
     "glm": {
         "ad": "GLM",
@@ -37,7 +37,7 @@ SAGLAYICILAR = {
         "tools": True,
         "gucleri": ["kod", "genel"],
         "gunluk_istek": None,
-        "not": "Z.ai ucretsiz kontingent; limit bilinmedigi icin sayac takip eder.",
+        "not": "Z.ai ucretsiz: 4.7-flash (~200K, kod+ajan) + 4.5-flash.",
     },
     "cloudflare": {
         "ad": "Cloudflare",

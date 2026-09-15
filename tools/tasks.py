@@ -14,9 +14,8 @@ thread'de koşturur; oku-değiştir-yaz döngüsü kilitsizse iki işlem aynı I
 import json
 import logging
 import os
-import re
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +49,13 @@ def _atomik_yaz(gorevler_file, gorevler):
     os.replace(gecici, gorevler_file)
 
 
-def add_task(text: str, gorevler_file: str) -> dict:
+def add_task(text: str, gorevler_file: str, date: str = None) -> dict:
     """Yeni bir görev ekler.
 
-    Tarih tespiti yapar: "yarın" → yarının tarihi, "bu hafta" → 7 gün sonra.
+    P2 (2026-09-15): kullanici cumlesinden Python keyword/regex ile tarih
+    cikarma KALDIRILDI ("yarin"/"bu hafta" kurallari). Tarihi AI cikarir
+    ve acik `date` alaniyla verir (YYYY-MM-DD). Kod yalniz bicimi dogrular
+    (guvenlik/format); niyeti tahmin etmez. `date` bossa bugun yazilir.
     """
     if not text or not text.strip():
         return {"error": "Görev açıklaması boş olamaz"}
@@ -61,15 +63,18 @@ def add_task(text: str, gorevler_file: str) -> dict:
         return {"error": "Görev dosyası yolu boş olamaz"}
 
     try:
-        # Tarih tespiti (kilitsiz — sadece metin isleme)
+        # Tarih: yalniz acik `date` alani kullanilir (YYYY-MM-DD bicim
+        # dogrulamasi). Cumle ici keyword tahmini YOK.
         bugun = datetime.now()
-        tarih = bugun.strftime("%Y-%m-%d")
-        text_lower = text.lower()
-        if "yarın" in text_lower or "yarin" in text_lower:
-            tarih = (bugun + timedelta(days=1)).strftime("%Y-%m-%d")
-            text = re.sub(r"yar[ıi]n\s*", "", text, flags=re.IGNORECASE).strip()
-        elif "bu hafta" in text_lower:
-            tarih = (bugun + timedelta(days=7)).strftime("%Y-%m-%d")
+        varsayilan = bugun.strftime("%Y-%m-%d")
+        tarih = varsayilan
+        if date and str(date).strip():
+            _d = str(date).strip()[:10]
+            try:
+                _t = datetime.strptime(_d, "%Y-%m-%d")
+                tarih = _t.strftime("%Y-%m-%d")
+            except ValueError:
+                return {"error": "Tarih YYYY-MM-DD olmali."}
 
         with _KILIT:
             gorevler = _yukle(gorevler_file)

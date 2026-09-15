@@ -38,7 +38,7 @@ WEB_ARAMA = _arac(
 
 SAYFA_OKU = _arac(
     "sayfa_oku",
-    "Sayfayi acar, duz metnini doner (en fazla 5000 karakter). Yalniz "
+    "Sayfayi acar, duz metnini doner (en fazla 200000 karakter). Yalniz "
     "http/https 80/443; ic ag yasak.",
     {"url": {"type": "string", "description": "Adres"}},
     ["url"],
@@ -108,8 +108,11 @@ HATIRLATMA_OZET = _arac(
 
 GOREV_EKLE = _arac(
     "add_task",
-    "Listeye gorev ekler; no+metin doner.",
-    {"text": {"type": "string", "description": "Gorev"}},
+    "Listeye gorev ekler; no+metin doner. Tarih gerekiyorsa YYYY-MM-DD "
+    "olarak date alaniyla verilir.",
+    {"text": {"type": "string", "description": "Gorev"},
+     "date": {"type": "string",
+              "description": "Tarih (YYYY-MM-DD, bossa bugun)"}},
     ["text"],
 )
 

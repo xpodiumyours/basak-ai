@@ -1,4 +1,4 @@
-"""tools/web_search.py — DuckDuckGo web araması ve sayfa okuma.
+﻿"""tools/web_search.py — DuckDuckGo web araması ve sayfa okuma.
 
 Hava durumu sorguları için Open-Meteo API kullanılır (ücretsiz, API key gerektirmez).
 Diğer sorgular için DuckDuckGo kullanılır.
@@ -144,7 +144,7 @@ def sayfa_oku(url: str) -> dict:
     """E-2: Bir URL'den sayfa icerigini okur (yalnizca GET).
 
     HTML icerikten etiketler soyulur, duz metin olarak dondurulur.
-    Max 5000 karakter okunur.
+    En fazla 200000 karakter doner (sema ile ayni).
 
     Args:
         url: Okunacak URL (http:// veya https://).

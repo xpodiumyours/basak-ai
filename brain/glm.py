@@ -15,12 +15,16 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 from brain.kullanim import kullanim_ekle
+from brain.message_utils import reasoning_ayikla
 
 BASE_URL = "https://api.z.ai/api/paas/v4/"
 MODELLER = {
-    # ucretsiz katmanda bakiyesiz calisan model (2026-08 dogrulandi)
-    "hizli": "glm-4.5-flash",
-    "varsayilan": "glm-4.5-flash",
+    # Ucretsiz katmanda bakiyesiz calisan modeller (2026-09 dogrulandi):
+    # glm-4.7-flash ~200K baglam, kod+ajan islerinde guclu; glm-4.5-flash
+    # hafif genel isler icin yedek. Eski tek-model kilidi kaldirildi.
+    "hizli": "glm-4.7-flash",
+    "varsayilan": "glm-4.7-flash",
+    "hafif": "glm-4.5-flash",
 }
 
 
@@ -70,6 +74,9 @@ class GLMClient:
 
         resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
+        # Reasoning zinciri (P0): thinking acikken gelen muhakeme
+        # tur boyunca korunur; arac turunda modele geri verilir.
+        muhakeme = reasoning_ayikla(msg)
 
         if msg.tool_calls:
             tool_calls = []
@@ -86,6 +93,6 @@ class GLMClient:
                     }
                 })
             return kullanim_ekle({"content": msg.content or "",
-                          "tool_calls": tool_calls}, resp)
+                          "tool_calls": tool_calls, **muhakeme}, resp)
 
-        return kullanim_ekle({"content": msg.content or ""}, resp)
+        return kullanim_ekle({"content": msg.content or "", **muhakeme}, resp)

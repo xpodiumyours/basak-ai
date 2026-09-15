@@ -64,6 +64,11 @@ class KimiClient:
             kwargs["tools"] = tools
         resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
+        try:
+            from brain.message_utils import reasoning_ayikla as _r
+            muhakeme = _r(msg)
+        except Exception:
+            muhakeme = {}
         if msg.tool_calls:
             tool_calls = []
             for tc in msg.tool_calls:
@@ -79,5 +84,5 @@ class KimiClient:
                     },
                 })
             return kullanim_ekle({"content": msg.content or "",
-                                  "tool_calls": tool_calls}, resp)
-        return kullanim_ekle({"content": msg.content or ""}, resp)
+                                  "tool_calls": tool_calls, **muhakeme}, resp)
+        return kullanim_ekle({"content": msg.content or "", **muhakeme}, resp)

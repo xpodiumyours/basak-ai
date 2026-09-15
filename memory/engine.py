@@ -3,10 +3,12 @@
 Üç katman tek SQLite dosyasında (data/memory/basak.db):
 - memories: ana tablo (metin, tür, kaynak, zaman)
 - memories_fts: FTS5/BM25 anahtar kelime indeksi
-- memories_vec: sqlite-vec anlam araması (nomic-embed-text, 768 boyut)
+- memories_vec: sqlite-vec anlam araması (Gemini embedding-001, 768 boyut)
 
-Bozulma kuralı: Ollama kapalıysa veya sqlite-vec yüklenemezse motor
-sadece BM25 ile çalışmaya devam eder — asla çökmez.
+Bozulma kuralı: anlam servisi yoksa motor sadece BM25 ile çalışmaya
+devam eder — asla çökmez. P1 (2026-09-15): eski Ollama nomic-embed
+kalintisi kaldirildi; vektor yuvasi Gemini'dir, yoksa BM25-only.
+AI davranisini yoneten ek kural degil, sessiz yedektir.
 """
 
 import json
@@ -16,15 +18,12 @@ import sqlite3
 import threading
 
 import numpy as np
-import requests
 
 logger = logging.getLogger(__name__)
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_YOLU = os.path.join(BASE, "data", "memory", "basak.db")
 
-OLLAMA_URL = "http://127.0.0.1:11434"
-EMBED_MODEL = "nomic-embed-text:latest"
 EMBED_DIM = 768
 
 PARCA_BOYUTU = 4000
@@ -153,7 +152,7 @@ class HafizaMotoru:
         metin = (metin or "").strip()
         if not metin:
             return False
-        vektor = self._embed(metin)
+        vektor = self._embed(metin, "RETRIEVAL_DOCUMENT")
         zaman = zaman if zaman is not None else _simdi()
 
         with self._lock:
@@ -359,7 +358,7 @@ class HafizaMotoru:
         """Anlam aramasi; vektor yoksa bos liste doner."""
         if not self.vektor_var:
             return []
-        vektor = self._embed(sorgu)
+        vektor = self._embed(sorgu, "RETRIEVAL_QUERY")
         if not vektor:
             return []
         try:
@@ -376,26 +375,25 @@ class HafizaMotoru:
         return [dict(zip(("id", "kind", "text", "source", "created_at"), r))
                 for r in rows]
 
-    def _embed(self, metin):
-        """Ollama'dan embedding alir; hata olursa None doner."""
-        if self._embed_fn is not None:
-            try:
-                return self._embed_fn(metin)
-            except Exception:
-                return None
-        try:
-            r = requests.post(
-                f"{OLLAMA_URL}/api/embeddings",
-                json={"model": EMBED_MODEL, "prompt": metin},
-                timeout=(5, 30),
-            )
-            r.raise_for_status()
-            vektor = r.json().get("embedding")
-            if vektor and len(vektor) == EMBED_DIM:
-                return vektor
+    def _embed(self, metin, gorev="RETRIEVAL_DOCUMENT"):
+        """Anlam vektorunu alir; yoksa/hata olursa None (BM25-only).
+
+        gorev: RETRIEVAL_DOCUMENT (yazma) veya RETRIEVAL_QUERY (arama).
+        Eski tek-argumanli _embed_fn'lerle uyumlu: iki argumani
+        desteklemeyen fn tek argumanla cagrilir.
+        """
+        if self._embed_fn is None:
             return None
-        except requests.RequestException as e:
-            logger.warning("Embedding alinamadi (BM25-only mod): %s", e)
+        try:
+            import inspect as _inspect
+            try:
+                _params = _inspect.signature(self._embed_fn).parameters
+                if len(_params) >= 2:
+                    return self._embed_fn(metin, gorev)
+            except (TypeError, ValueError):
+                pass
+            return self._embed_fn(metin)
+        except Exception:
             return None
 
     def kapat(self):

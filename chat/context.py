@@ -105,7 +105,9 @@ def _anlam_fn():
 # Vektor uzayi damgasi: saglayici/boyut degisince eski vektorler
 # cop olur (iki farkli olcum ayni tabloda karsilastirilamaz).
 # Damga tutmazsa vektorler silinip metinler yeniden islenir.
-VEKTOR_UZAYI = "gemini-embedding-001@768"
+# 2026-09-15: taskType (DOCUMENT/QUERY) + L2 normalizasyonu eklendi —
+# eski normsuz vektorlerle karsilastirilamaz, damga yukseltildi.
+VEKTOR_UZAYI = "gemini-embedding-001@768-norm-tasktype"
 _VEKTOR_DAMGA = "embed_uzay"
 _GERI_DOLDURMA_TAVAN = 500
 

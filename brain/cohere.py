@@ -47,31 +47,74 @@ class CohereClient:
     def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
         """Cohere'a mesaj gonderir.
 
-        Cohere v2 API: chat metodu, tool parsing.
+        Cohere V2 native tool-use protokolu (P1): assistant tool-call
+        mesaji ve tool_call_id korunur; role=tool -> user cevrilmez.
+        Cok turlu arac zinciri boylece native devam eder.
         yapi: sozlesme modu icin; bu saglayici su an yok sayar.
         """
         if not self.client:
             raise RuntimeError("Cohere bagli degil")
 
-        # Mesajlari Cohere formatina cevir
+        # Mesajlari Cohere V2 formatina cevir (native tool destegi).
         cohere_messages = []
         for m in messages:
             role = m.get("role", "user")
             content = m.get("content", "")
-            if not content:
-                continue
+            if content is None:
+                content = ""
+            if not isinstance(content, str):
+                content = str(content)
             if role == "system":
-                cohere_messages.append({"role": "system", "content": content})
+                if not content.strip():
+                    continue
+                cohere_messages.append({"role": "system",
+                                        "content": content})
             elif role == "user":
-                cohere_messages.append({"role": "user", "content": content})
+                if not content.strip() and "tool_calls" not in m:
+                    continue
+                cohere_messages.append({"role": "user",
+                                        "content": content or ""})
             elif role == "assistant":
-                cohere_messages.append({"role": "assistant", "content": content})
+                _asistan = {"role": "assistant",
+                            "content": content or ""}
+                _tc = m.get("tool_calls")
+                if _tc:
+                    # OpenAI formati -> Cohere V2 ToolCallV2 formati.
+                    _ct = []
+                    for _c in (_tc or []):
+                        try:
+                            _f = (_c.get("function") or {})
+                            _args = _f.get("arguments", "{}")
+                            if not isinstance(_args, str):
+                                _args = json.dumps(_args or {})
+                            _ct.append({
+                                "id": _c.get("id") or "",
+                                "type": "function",
+                                "function": {
+                                    "name": _f.get("name", ""),
+                                    "arguments": _args,
+                                },
+                            })
+                        except Exception:
+                            continue
+                    if _ct:
+                        _asistan["tool_calls"] = _ct
+                cohere_messages.append(_asistan)
             elif role == "tool":
-                # Tool sonuclarini user mesaji olarak ekle
+                # Native tool sonucu: tool_call_id korunur.
+                _tid = m.get("tool_call_id") or ""
+                if not _tid:
+                    continue
                 cohere_messages.append({
-                    "role": "user",
-                    "content": "Araç sonucu: %s" % content,
+                    "role": "tool",
+                    "tool_call_id": _tid,
+                    "content": content or "",
                 })
+            else:
+                if not content.strip():
+                    continue
+                cohere_messages.append({"role": "user",
+                                        "content": content})
 
         if not cohere_messages:
             raise RuntimeError("Gecerli mesaj yok")
@@ -106,6 +149,13 @@ class CohereClient:
         if not resp.message:
             return {"content": ""}
 
+        # Reasoning zinciri (P0): varsa korunur.
+        try:
+            from brain.message_utils import reasoning_ayikla as _r
+            muhakeme = _r(resp.message)
+        except Exception:
+            muhakeme = {}
+
         # Tool call var mi kontrol et
         if resp.message.tool_calls:
             tool_calls = []
@@ -125,7 +175,7 @@ class CohereClient:
                     },
                 })
             return kullanim_ekle({"content": resp.message.content or "",
-                          "tool_calls": tool_calls}, resp)
+                          "tool_calls": tool_calls, **muhakeme}, resp)
 
         # Icerik (2026-09-10: blok "text" her zaman string DEGILDIR —
         # sayi/None karisik blok join'i patlatiyordu; message_utils.py
@@ -142,4 +192,4 @@ class CohereClient:
             else:
                 icerik = str(resp.message.content)
 
-        return kullanim_ekle({"content": icerik}, resp)
+        return kullanim_ekle({"content": icerik, **muhakeme}, resp)

@@ -92,11 +92,24 @@ def _baglam_kur(text, system_prompt, konusmaci, araclar_acik=False):
 
     # Hafıza: soruyla ilgili anılar. knowledge/ notlarına erişim de bu
     # yoldan olur — motor o klasörü indeksliyor.
-    #
+    # P1 provenance (2026-09-15): her aninin kaynagi/turu modele tasinir.
+    # Kullanici sozu ile Basak'in eski cevabi ayni metinde karismaz;
+    # kayit "sohbet gecmisi" olarak etiketlenir, kanit olarak degil.
+    # Davranis talimati eklenmez — yalniz olgu etiketi.
     anilar = ctx.ilgili_anilar(text)
     if anilar:
-        blok = "\n".join("- %s" % a["text"] for a in anilar)
-        mesajlar.append({"role": "system", "content": "Hafızadan:\n" + blok})
+        satirlar = []
+        for a in anilar:
+            _kaynak = (a.get("source") or "").strip()
+            _tur = (a.get("kind") or "").strip()
+            _etiket = "/".join([x for x in (_kaynak, _tur) if x])
+            _metin = (a.get("text") or "").strip()
+            if _etiket:
+                satirlar.append("- [%s] %s" % (_etiket, _metin))
+            else:
+                satirlar.append("- %s" % _metin)
+        mesajlar.append({"role": "system",
+                         "content": "Hafızadan:\n" + "\n".join(satirlar)})
 
     if profil_blogu:
         mesajlar.append({"role": "system", "content": profil_blogu})
@@ -192,7 +205,36 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
                         konusmaci)
                 return
             logger.info("Akis bos dondu, tek seferlik yola dusuluyor")
-        except AracIstegi:
+        except AracIstegi as istek:
+            # P0: streaming sirasinda modelin sectigi arac ve argumanlar
+            # korunur; ayni soru ikinci kez modele dusundurulmez.
+            # Dogrudan calistir, sonucu ayni zincirden devam ettir.
+            _tc = getattr(istek, "tool_calls", None) or []
+            _muh = getattr(istek, "muhakeme", None) or {}
+            if _tc and tools:
+                from chat.tools import arac_dongusu
+                from tools import calistir
+                logger.info("Model akista arac istedi — dogrudan calisiyor")
+                try:
+                    cevap, kosan = arac_dongusu(
+                        _tc, mesajlar, brain, model, js_callback,
+                        calistir, tools=tools,
+                        yanit={"tool_calls": _tc, **_muh})
+                except Exception as e:
+                    logger.warning("Akis-arac turu basarisiz: %s", e)
+                    cevap, kosan = "", 0
+                cevap = _temizle(cevap)
+                if cevap:
+                    _kaydet(text, cevap, kaynak or "bulut", gecmis,
+                            js_callback, konusmaci)
+                    return
+                logger.info("Akis-arac turu bos dondu (%d arac kostu)",
+                            kosan)
+                # Bos donduyse tek seferlik yola dusme: ayni soruyu
+                # yeniden dusundurmek kota yer. Hata goster, cik.
+                js_callback("BasakUI.error(" + _j(
+                    "Model bos cevap dondu") + ")")
+                return
             logger.info("Model arac istedi — tam yola dusuluyor")
         except SonHata as e:
             logger.info("Akis acilamadi (%s) — tek seferlik yol", e.ozet)
@@ -222,7 +264,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
         from tools import calistir
         cevap, kosan = arac_dongusu(
             tool_calls, mesajlar, brain, model, js_callback, calistir,
-            tools=tools)
+            tools=tools, yanit=yanit)
         cevap = _temizle(cevap)
         if cevap:
             _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci)

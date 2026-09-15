@@ -16,12 +16,15 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 from brain.kullanim import kullanim_ekle
+from brain.message_utils import reasoning_ayikla
 
-# Ucretsiz modeller (tool calling destekli)
+# Ucretsiz modeller (2026-09 guncellemesi — Workers AI katalog + free plan):
+# glm-4.7-flash ve gemma-4 free planda acik; llama-4-scout katalogda durur.
+# Eski llama-3.x satirlari Mayis 2026'da emekli edildi, listeden cikti.
 MODELLER = {
-    "hizli": "@cf/meta/llama-3.2-3b-instruct",
+    "hizli": "@cf/google/gemma-4-26b-a4b-it",
     "guclu": "@cf/meta/llama-4-scout-17b-16e-instruct",
-    "varsayilan": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "varsayilan": "@cf/zai-org/glm-4.7-flash",
 }
 
 
@@ -81,6 +84,12 @@ class CloudflareClient:
 
         resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
+        # Reasoning zinciri (P0): varsa korunur.
+        try:
+            from brain.message_utils import reasoning_ayikla as _r
+            muhakeme = _r(msg)
+        except Exception:
+            muhakeme = {}
 
         if msg.tool_calls:
             tool_calls = []
@@ -97,6 +106,6 @@ class CloudflareClient:
                     },
                 })
             return kullanim_ekle({"content": msg.content or "",
-                          "tool_calls": tool_calls}, resp)
+                          "tool_calls": tool_calls, **muhakeme}, resp)
 
-        return kullanim_ekle({"content": msg.content or ""}, resp)
+        return kullanim_ekle({"content": msg.content or "", **muhakeme}, resp)

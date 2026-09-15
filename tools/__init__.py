@@ -84,7 +84,8 @@ def calistir(tool_name, args):
         if tool_name == "add_task":
             from tools import tasks
             return tasks.add_task(
-                str(args.get("text", "")), GOREVLER_FILE)
+                str(args.get("text", "")), GOREVLER_FILE,
+                date=args.get("date"))
 
         if tool_name == "list_tasks":
             from tools import tasks

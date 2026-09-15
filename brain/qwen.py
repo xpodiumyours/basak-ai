@@ -18,6 +18,7 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 from brain.kullanim import kullanim_ekle
+from brain.message_utils import reasoning_ayikla
 
 BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
 
@@ -90,6 +91,7 @@ class QwenClient:
 
         resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
+        muhakeme = reasoning_ayikla(msg)
 
         if msg.tool_calls:
             tool_calls = []
@@ -106,6 +108,6 @@ class QwenClient:
                     }
                 })
             return kullanim_ekle({"content": msg.content or "",
-                          "tool_calls": tool_calls}, resp)
+                          "tool_calls": tool_calls, **muhakeme}, resp)
 
-        return kullanim_ekle({"content": msg.content or ""}, resp)
+        return kullanim_ekle({"content": msg.content or "", **muhakeme}, resp)

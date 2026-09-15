@@ -89,12 +89,15 @@ class TestBosCevap:
 
 
 class TestDusunmeMetni:
-    def test_reasoning_disari_sizmaz(self):
+    def test_reasoning_zincirde_korunur_kullaniciya_sizmaz(self):
+        # P0 (2026-09-15): reasoning zincirde KORUNUR (arac turuna geri
+        # verilir); UI yalniz content gosterir. Eski "tamamen at" davranisi
+        # muhakeme kaybıydı.
         c, _ = _istemci(_yanit(_mesaj(
             content="Merhaba.", reasoning="Once sunu dusunmeliyim...")))
         sonuc = c.cevapla([{"role": "user", "content": "selam"}])
-        assert sonuc == {"content": "Merhaba."}
-        assert "reasoning" not in sonuc
+        assert sonuc["content"] == "Merhaba."
+        assert sonuc.get("reasoning") == "Once sunu dusunmeliyim..."
 
     def test_jeton_butcesi_genis(self):
         # Butce daraltilirsa bos cevap tuzagi geri gelir.

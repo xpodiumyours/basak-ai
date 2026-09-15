@@ -20,6 +20,7 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 from brain.kullanim import kullanim_ekle
+from brain.message_utils import reasoning_ayikla
 
 BASE_URL = "https://api.kilo.ai/api/gateway/v1"
 
@@ -73,8 +74,8 @@ class KiloClient:
     def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
         """Kilo'ya mesaj gönderir. Dönen şekil groq.py ile aynıdır.
 
-        `reasoning` / `reasoning_details` alanları bilerek dışarı
-        verilmez — kullanıcı düşünme metnini görmemeli.
+        Reasoning alanlari KULLANICIYA gosterilmez ama zincirde KORUNUR
+        (P0): arac turunda ayni muhakemeyle devam edilir.
         yapi: sozlesme modu icin; bu saglayici su an yok sayar.
         """
         if not self.client:
@@ -91,6 +92,7 @@ class KiloClient:
         resp = self.client.chat.completions.create(**kwargs)
         secim = resp.choices[0]
         msg = secim.message
+        muhakeme = reasoning_ayikla(msg)
 
         if msg.tool_calls:
             tool_calls = []
@@ -107,7 +109,7 @@ class KiloClient:
                     }
                 })
             return kullanim_ekle({"content": msg.content or "",
-                          "tool_calls": tool_calls}, resp)
+                          "tool_calls": tool_calls, **muhakeme}, resp)
 
         icerik = msg.content or ""
         if not icerik.strip():
@@ -118,4 +120,4 @@ class KiloClient:
                 "Kilo bos cevap dondu (finish_reason=%s) — dusunme metni "
                 "jeton butcesini bitirmis olabilir" % neden)
 
-        return kullanim_ekle({"content": icerik}, resp)
+        return kullanim_ekle({"content": icerik, **muhakeme}, resp)

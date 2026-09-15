@@ -19,7 +19,11 @@ class _CloudflareAdapter:
                or ayar.get("cloudflare_api_token") or "")
         if not account or not key:
             return None
+        model = (os.environ.get("CLOUDFLARE_MODEL")
+                 or (ayar or {}).get("cloudflare_model") or None)
         try:
+            if model:
+                return CloudflareClient(account, key, model=model)
             return CloudflareClient(account, key)
         except ValueError as e:
             logger.warning("Cloudflare başlatılamadı: %s", e)

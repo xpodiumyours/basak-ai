@@ -141,7 +141,8 @@ class TestBrainYapiTasima:
     def _brain(self, monkeypatch, zincir, tmp_path):
         from brain.brain import Brain
         b = Brain.__new__(Brain)  # __init__ anahtar/ag istemez
-        monkeypatch.setattr(b, "_bulut_zinciri", lambda: zincir)
+        monkeypatch.setattr(b, "_bulut_zinciri",
+                            lambda tools=False: zincir)
         return b
 
     def test_brain_yapi_ilk_saglayiciya_tasinir(self, monkeypatch, tmp_path):

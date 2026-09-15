@@ -102,11 +102,14 @@ def sonucu_donustur(sonuc):
 
 
 def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
-                 calistir, tools=None, tur_siniri=None):
+                 calistir, tools=None, tur_siniri=None, yanit=None):
     """Araç sonuçlarını modele geri vererek cevap ürettirir.
 
     Ozgu-ajan: tur_siniri parametresi uyumluluk icin durur, kullanilmaz.
     Dongu model cevap yazana kadar surer; tam sonuc tasinir.
+    Reasoning zinciri (P0): ilk turun muhakemesi assistant mesajiyla
+    birlikte geri verilir; yeni elle-bos assistant mesaji kurulmaz.
+    yanit: ilk model yanitinin tamami (reasoning alanlari icin).
     Dönüş: (cevap_metni, calisan_arac_sayisi)
     """
     from chat.gate import temizle
@@ -115,6 +118,24 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     expanded = list(mesajlar)
     kosan = 0
     tur_sonuclari = []
+    # Ilk turun reasoning alanlari (varsa) assistant mesajinda korunur.
+    # Once acik yanit dict'ine bakilir, yoksa son mesajdaki alanlara.
+    ilk_muhakeme = {}
+    try:
+        _kaynaklar = []
+        if isinstance(yanit, dict):
+            _kaynaklar.append(yanit)
+        _son = mesajlar[-1] if mesajlar else {}
+        if isinstance(_son, dict):
+            _kaynaklar.append(_son)
+        for _k in _kaynaklar:
+            for _a in ("reasoning_content", "reasoning",
+                       "reasoning_details", "thinking",
+                       "reasoning_text"):
+                if _a in _k and _a not in ilk_muhakeme:
+                    ilk_muhakeme[_a] = _k[_a]
+    except Exception:
+        ilk_muhakeme = {}
 
     while tool_calls:
         tur_sonuclari = []
@@ -148,8 +169,12 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
         # ister. Araya "şimdi şunu özetle" gibi sahte kullanıcı mesajı
         # KONULMAZ — belgeler ek talimat gerekmediğini söylüyor ve o
         # mesaj sonucu ikinci kez göndererek bağlamı da şişiriyordu.
-        expanded = expanded + [
-            {"role": "assistant", "content": "", "tool_calls": tool_calls}]
+        # P0: ilk turun reasoning alanlari korunur; bos assistant mesaji
+        # muhakemeyi silmez.
+        _asistan = {"role": "assistant", "content": "",
+                    "tool_calls": tool_calls}
+        _asistan.update(ilk_muhakeme)
+        expanded = expanded + [_asistan]
         for ad, sonuc, cagri_id in tur_sonuclari:
             expanded.append({
                 "role": "tool",
@@ -164,9 +189,17 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             logger.warning("Arac turu sonrasi cevap alinamadi: %s", e)
             break
 
-        yeni = yanit.get("tool_calls")
+        yeni = yanit.get("tool_calls") if isinstance(yanit, dict) else None
         if yeni:
             tool_calls = yeni
+            # Son turun muhakemesi bir sonraki assistant mesajinda korunur.
+            ilk_muhakeme = {}
+            if isinstance(yanit, dict):
+                for _a in ("reasoning_content", "reasoning",
+                           "reasoning_details", "thinking",
+                           "reasoning_text"):
+                    if _a in yanit:
+                        ilk_muhakeme[_a] = yanit[_a]
             continue
 
         cevap = temizle(yanit.get("content", ""))

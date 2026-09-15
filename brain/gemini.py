@@ -15,12 +15,16 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 from brain.kullanim import kullanim_ekle
+from brain.message_utils import reasoning_ayikla
 
 # OpenAI uyumlu Gemini ucu + ucretsiz modeller
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 MODELLER = {
-    "hizli": "gemini-2.5-flash",
-    "varsayilan": "gemini-2.5-flash",
+    # 2026-09 guncellemesi: 3 Flash onerilen ucretsiz model (1M baglam,
+    # 10 RPM / 250K TPM / 1500 RPD). 2.5 Flash yedek durur.
+    "hizli": "gemini-3-flash-preview",
+    "varsayilan": "gemini-3-flash-preview",
+    "yedek": "gemini-2.5-flash",
 }
 
 
@@ -68,6 +72,7 @@ class GeminiClient:
 
         resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
+        muhakeme = reasoning_ayikla(msg)
 
         if msg.tool_calls:
             tool_calls = []
@@ -84,6 +89,6 @@ class GeminiClient:
                     }
                 })
             return kullanim_ekle({"content": msg.content or "",
-                          "tool_calls": tool_calls}, resp)
+                          "tool_calls": tool_calls, **muhakeme}, resp)
 
-        return kullanim_ekle({"content": msg.content or ""}, resp)
+        return kullanim_ekle({"content": msg.content or "", **muhakeme}, resp)

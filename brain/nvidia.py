@@ -22,6 +22,7 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 from brain.kullanim import kullanim_ekle
+from brain.message_utils import reasoning_ayikla
 
 BASE_URL = "https://integrate.api.nvidia.com/v1"
 
@@ -147,6 +148,7 @@ class NvidiaClient:
 
         resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
+        muhakeme = reasoning_ayikla(msg)
 
         if msg.tool_calls:
             tool_calls = []
@@ -163,9 +165,9 @@ class NvidiaClient:
                     }
                 })
             return kullanim_ekle({"content": msg.content or "",
-                          "tool_calls": tool_calls}, resp)
+                          "tool_calls": tool_calls, **muhakeme}, resp)
 
-        return kullanim_ekle({"content": msg.content or ""}, resp)
+        return kullanim_ekle({"content": msg.content or "", **muhakeme}, resp)
 
     def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
         """NVIDIA NIM'e mesaj gönderir.

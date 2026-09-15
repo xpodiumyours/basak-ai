@@ -65,6 +65,11 @@ class DeepSeekClient:
 
         resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
+        try:
+            from brain.message_utils import reasoning_ayikla as _r
+            muhakeme = _r(msg)
+        except Exception:
+            muhakeme = {}
 
         if msg.tool_calls:
             tool_calls = []
@@ -80,6 +85,7 @@ class DeepSeekClient:
                         "arguments": args,
                     }
                 })
-            return {"content": msg.content or "", "tool_calls": tool_calls}
+            return {"content": msg.content or "", "tool_calls": tool_calls,
+                    **muhakeme}
 
-        return {"content": msg.content or ""}
+        return {"content": msg.content or "", **muhakeme}

@@ -152,32 +152,51 @@ class Brain:
         # yoksa None'dir — bedava kurulum etkilenmez.
         self._genel = self._providers.get("genel")
 
-    def _bulut_zinciri(self) -> list:
+    def _bulut_zinciri(self, tools: bool = False) -> list:
         """Musait bulut istemcilerini toplar: [(ad, istemci)].
 
         DIKKAT: Bu listenin sirasi ONCELIK SIRASI DEGILDIR. Gercek
         sirayi secici.sec() belirler (registry.VARSAYILAN_SIRA temel).
         Buradaki sira yalnizca secici'ye mevcut havuzu vermek ve
         'tercih'siz eski cagrilarda yedek siralamak icindir.
+
+        Teknik filtreler (P0 — yeni router degil):
+        - musaitlik (istemci kurulu + anahtar var)
+        - tool destegi (aracli cagrida registry karti tools=False ise girmez)
+        Ucretli ozel saglayici EN SONDA durur.
         """
+        _tool_istiyor = bool(tools)
+        def _uygun(ad, istemci) -> bool:
+            try:
+                if istemci is None or not istemci.musait():
+                    return False
+            except Exception:
+                return False
+            if _tool_istiyor:
+                try:
+                    if not registry.tool_destegi_var_mi(ad):
+                        return False
+                except Exception:
+                    pass
+            return True
         zincir = []
-        if self._groq is not None and self._groq.musait():
+        if _uygun("groq", self._groq):
             zincir.append(("groq", self._groq))
-        if self._glm is not None and self._glm.musait():
+        if _uygun("glm", self._glm):
             zincir.append(("glm", self._glm))
-        if self._cloudflare is not None and self._cloudflare.musait():
+        if _uygun("cloudflare", self._cloudflare):
             zincir.append(("cloudflare", self._cloudflare))
-        if self._cohere is not None and self._cohere.musait():
+        if _uygun("cohere", self._cohere):
             zincir.append(("cohere", self._cohere))
-        if self._nvidia is not None and self._nvidia.musait():
+        if _uygun("nvidia", self._nvidia):
             zincir.append(("nvidia", self._nvidia))
-        if self._kilo is not None and self._kilo.musait():
+        if _uygun("kilo", self._kilo):
             zincir.append(("kilo", self._kilo))
-        if self._openrouter is not None and self._openrouter.musait():
+        if _uygun("openrouter", self._openrouter):
             zincir.append(("openrouter", self._openrouter))
-        if self._qwen is not None and self._qwen.musait():
+        if _uygun("qwen", self._qwen):
             zincir.append(("qwen", self._qwen))
-        if self._gemini is not None and self._gemini.musait():
+        if _uygun("gemini", self._gemini):
             zincir.append(("gemini", self._gemini))
         # 2026-09-10: ozel saglayici EN SONDA — bedavalar once denenir,
         # parali anahtar takilinca davranis degismez, yedek cogalir.
@@ -255,7 +274,7 @@ class Brain:
         tasınır, 400/invalid_request_error ile reddedilirse ayni saglayici
         yapi'siz bir kez daha denenir (_YAPI_DENEME self-healing onbellegi).
         """
-        zincir = self._bulut_zinciri()
+        zincir = self._bulut_zinciri(tools=bool(tools))
         mevcutlar = [ad for ad, _ in zincir]
 
         if tercih:
@@ -267,14 +286,11 @@ class Brain:
             sirali = one_alinan + kalanlar
             gerekce = "acik tercihle siralandi"
         else:
-            soru = ""
-            for m in reversed(messages):
-                if m.get("role") == "user":
-                    soru = m.get("content", "") or ""
-                    break
-            sirali, gerekce = secici.sec(
-                text=soru, gorev_tipi=gorev_tipi,
-                tools=bool(tools), mevcutlar=mevcutlar)
+            # P0 (2026-09-15): gorev_tipi / karne / siniflandirici ana AI
+            # yolundan cikti. Secim yalniz teknik gerceklerle sinirli:
+            # musaitlik (_bulut_zinciri), ucretsiz olma + tool destegi
+            # (registry), rate-limit atlama (cooldown). Yeni router YOK.
+            sirali, gerekce = secici.sec(mevcutlar=mevcutlar)
 
         istemciler = dict(zincir)
         hatalar = []
@@ -363,7 +379,7 @@ class Brain:
         from brain.yayin import AracIstegi as _Arac, SonHata, akit
         from brain import secici as _secici
 
-        zincir = self._bulut_zinciri()
+        zincir = self._bulut_zinciri(tools=bool(tools))
         mevcutlar = [ad for ad, _ in zincir]
         if tercih:
             one_alinan = sorted(
@@ -373,14 +389,8 @@ class Brain:
             sirali = one_alinan + [a for a in mevcutlar if a not in tercih]
             gerekce = "acik tercihle siralandi"
         else:
-            soru = ""
-            for m in reversed(messages):
-                if m.get("role") == "user":
-                    soru = m.get("content", "") or ""
-                    break
-            sirali, gerekce = _secici.sec(
-                text=soru, gorev_tipi=gorev_tipi,
-                tools=bool(tools), mevcutlar=mevcutlar)
+            # P0: gorev_tipi ana yoldan cikti; yalniz teknik sira.
+            sirali, gerekce = _secici.sec(mevcutlar=mevcutlar)
 
         istemciler = dict(zincir)
         hatalar = []

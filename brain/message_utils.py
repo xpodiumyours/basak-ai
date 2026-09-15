@@ -11,6 +11,29 @@ defensive sanitizasyon her zaman güvenlidir.
 import json
 
 
+_REASONING_ALANLARI = ("reasoning_content", "reasoning",
+                       "reasoning_details", "thinking",
+                       "reasoning_text")
+
+
+def reasoning_ayikla(msg) -> dict:
+    """Saglayici yanitindaki reasoning alanlarini dict olarak dondurur.
+
+    OpenAI-uyumlu yanitlarda reasoning baska adlarda gelebilir:
+    reasoning_content (GLM/DeepSeek), reasoning_details (OpenRouter),
+    reasoning (genel). Varsa aynen tasinir, yoksa bos dict.
+    """
+    out = {}
+    for alan in _REASONING_ALANLARI:
+        try:
+            deger = getattr(msg, alan, None)
+        except Exception:
+            deger = None
+        if deger not in (None, "", [], {}):
+            out[alan] = deger
+    return out
+
+
 def mesajlari_temizle(messages: list) -> list:
     """Mesaj listesini API-uyumlu formata dönüştürür.
 
@@ -60,6 +83,16 @@ def mesajlari_temizle(messages: list) -> list:
             kopya["tool_call_id"] = m["tool_call_id"]
         if "name" in m:
             kopya["name"] = m["name"]
+
+        # Reasoning zinciri korunur (P0): modelin ilk muhakemesi arac
+        # turundan sonra kaybolmamali. Destekleyen saglayici alanlari
+        # aynen tasinir; desteklemeyen yok sayar. Guvenlik disiplini
+        # degil, model verisi tasimadir.
+        for alan in ("reasoning_content", "reasoning",
+                     "reasoning_details", "thinking",
+                     "reasoning_text"):
+            if alan in m and alan not in kopya:
+                kopya[alan] = m[alan]
 
         temiz.append(kopya)
     return temiz
