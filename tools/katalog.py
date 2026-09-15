@@ -321,9 +321,10 @@ def _gecici_mi(hata):
 def fatura_oku(fatura_id):
     """Kayıtlı fatura fotoğrafını okur; yazı + aday satırları JSON döner.
 
-    Görü: mevcut ücretsiz bulut zinciri (image_analyzer). Geçici
-    hatalarda (kota/zaman aşımı) 3 kez denenir. Aday çıkarımı
-    kuraldır (barkod/fiyat/beden deseni); nihai satırları model
+    Önce Başak'ın kendi gözü (yerel VLM) denenir; yoksa/kapalıysa ya
+    da boş dönerse mevcut bulut zinciri (image_analyzer) devralır.
+    Geçici bulut hatalarında 3 kez denenir. Aday çıkarımı kuraldır
+    (barkod/fiyat/beden deseni); nihai satırları model
     katalog_kur'a verir.
     """
     yol = _fatura_yolu(fatura_id)
@@ -332,15 +333,28 @@ def fatura_oku(fatura_id):
     if os.path.splitext(yol)[1].lower() == ".pdf":
         return {"error": ("PDF okuma bu sürümde yok; "
                           "faturanın fotoğrafını gönder.")}
-    from tools import image_analyzer
-    import time as _zaman
-    sonuc = None
-    for deneme in range(3):
-        sonuc = image_analyzer.image_analyze(yol, FATURA_SORUSU)
-        if not sonuc.get("error") or not _gecici_mi(sonuc["error"]):
-            break
-        if deneme < 2:
-            _zaman.sleep(10)
+    from tools import yerel_goru
+    kaynak = ""
+    if yerel_goru.musait():
+        sonuc = yerel_goru.oku(yol, FATURA_SORUSU)
+        if not sonuc.get("error"):
+            kaynak = "yerel"
+        else:
+            logger.info("Yerel goz devretti: %s", sonuc["error"])
+            sonuc = None
+    else:
+        sonuc = None
+    if sonuc is None:
+        from tools import image_analyzer
+        import time as _zaman
+        for deneme in range(3):
+            sonuc = image_analyzer.image_analyze(yol, FATURA_SORUSU)
+            if not sonuc.get("error") or not _gecici_mi(sonuc["error"]):
+                break
+            if deneme < 2:
+                _zaman.sleep(10)
+        if not kaynak:
+            kaynak = "bulut"
     if sonuc.get("error"):
         return {"error": "Görüntü okunamadı: %s" % sonuc["error"]}
     yazi = sonuc.get("result", "")
@@ -348,6 +362,7 @@ def fatura_oku(fatura_id):
         return {"error": "Fotoğrafta yazı bulunamadı."}
     return {"result": _j({"fatura_id": fatura_id, "yazi": yazi,
                           "aday_satirlar": _aday_satirlar(yazi),
+                          "kaynak": kaynak,
                           "model": sonuc.get("model", "")})}
 
 

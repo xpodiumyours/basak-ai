@@ -1,8 +1,9 @@
 """tests/test_katalog.py — Fatura → Vixrex katalog yeteneği güvencesi.
 
-Sözleşme: yedi araç üç yerde bağlı; boş girdi yan etkisiz hata döner
+Sözleşme: aletler üç yerde bağlı; boş girdi yan etkisiz hata döner
 (ağ/dosya açılmaz); Vixrex CSV başlığı birebir; barkod JSON'da korunur;
-yol kaçışı kapalı; yazma atomik.
+yol kaçışı kapalı; yazma atomik. Yerel göz kapalıyken bulut yolu tek
+başına çalışır (Faz 2 bağımsızlığı).
 """
 
 import base64
@@ -11,6 +12,8 @@ import io
 import json
 import os
 import sys
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -149,6 +152,12 @@ class TestStaging:
 
 
 class TestFaturaOku:
+    @pytest.fixture(autouse=True)
+    def _yerel_kapali(self, monkeypatch):
+        # Bulut yolu testleri gerçek yerel göze değmesin.
+        from tools import yerel_goru
+        monkeypatch.setattr(yerel_goru, "musait", lambda: False)
+
     def test_yoksa_hata(self, tmp_path, monkeypatch):
         monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
         assert "error" in katalog.fatura_oku("gln_yok123")
@@ -204,6 +213,75 @@ class TestFaturaOku:
         r = katalog.fatura_oku("gln_c4")
         assert "result" in r, r
         assert len(cagrilar) == 3
+
+
+class TestYerelGoru:
+    def test_kapaliysa_bulut(self, tmp_path, monkeypatch):
+        from tools import yerel_goru
+        monkeypatch.setattr(yerel_goru, "musait", lambda: False)
+        import tools.image_analyzer as ga
+        monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
+        (tmp_path / "gln_y1.jpg").write_bytes(b"\xff\xd8sahte")
+        monkeypatch.setattr(
+            ga, "image_analyze",
+            lambda yol, soru=None, model=None: {"result": "bulut yazı",
+                                                "model": "sahte"})
+        veri = json.loads(katalog.fatura_oku("gln_y1")["result"])
+        assert veri["kaynak"] == "bulut"
+        assert veri["yazi"] == "bulut yazı"
+
+    def test_yerel_once_buluta_değmez(self, tmp_path, monkeypatch):
+        from tools import yerel_goru
+        monkeypatch.setattr(yerel_goru, "musait", lambda: True)
+        dokunuldu = []
+        monkeypatch.setattr(
+            yerel_goru, "oku",
+            lambda yol, soru: {"result": "yerel yazı",
+                               "model": "sahte-goz"})
+        import tools.image_analyzer as ga
+        monkeypatch.setattr(
+            ga, "image_analyze",
+            lambda *a, **k: dokunuldu.append(1) or {"error": "asla"})
+        monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
+        (tmp_path / "gln_y2.jpg").write_bytes(b"\xff\xd8sahte")
+        veri = json.loads(katalog.fatura_oku("gln_y2")["result"])
+        assert veri["kaynak"] == "yerel"
+        assert veri["yazi"] == "yerel yazı"
+        assert dokunuldu == []
+
+    def test_yerel_cokerse_bulut(self, tmp_path, monkeypatch):
+        from tools import yerel_goru
+        monkeypatch.setattr(yerel_goru, "musait", lambda: True)
+        monkeypatch.setattr(
+            yerel_goru, "oku", lambda yol, soru: {"error": "göz kapalı"})
+        import tools.image_analyzer as ga
+        monkeypatch.setattr(
+            ga, "image_analyze",
+            lambda yol, soru=None, model=None: {"result": "bulut yazı",
+                                                "model": "sahte"})
+        monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
+        (tmp_path / "gln_y3.jpg").write_bytes(b"\xff\xd8sahte")
+        veri = json.loads(katalog.fatura_oku("gln_y3")["result"])
+        assert veri["kaynak"] == "bulut"
+
+    def test_kapama_anahtari(self, monkeypatch):
+        from tools import yerel_goru
+        monkeypatch.setenv("BASAK_YEREL_GORU", "0")
+        assert yerel_goru.acik_mi() is False
+        assert yerel_goru.musait() is False
+
+    def test_kucultme_siniri(self, tmp_path):
+        from PIL import Image
+        from tools import yerel_goru
+        yol = str(tmp_path / "buyuk.jpg")
+        Image.new("RGB", (2000, 1128), "white").save(yol)
+        ham = yerel_goru._kucult(yol)
+        yeniden = Image.open(io.BytesIO(ham))
+        assert max(yeniden.size) <= yerel_goru.AZAMI_KENAR
+
+    def test_oku_dosya_yok(self):
+        from tools import yerel_goru
+        assert "error" in yerel_goru.oku("", "soru")
 
 
 class TestKatalogHatti:
