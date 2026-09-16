@@ -62,18 +62,20 @@ DOSYA_CSV = "vixrex_urunler.csv"
 DOSYA_BATCH = "vixrex_batch.json"
 DOSYA_KATALOG = "basak_katalog.json"
 
-# Görüntüye sorulacak soru (fatura odaklı; boşsa genel açıklama).
-# Tutku satış teklif formu sütunları birebir tarif edilir: Model, Stok
-# (ürün adı), Barkod, Varyant (renk kodu + adı), Beden, Miktar (adet),
-# Miktar (dz = düzine adedi, fiyata karışmaz), Fiyat, Tutar.
-FATURA_SORUSU = (
-    "Bu fatura veya satış teklif formu fotoğrafındaki ürün tablosunu "
-    "satır satır yaz. Sütunlar: Model (ürün kodu), Stok (ürün adı, "
-    "örn. ELİT ERK PENYE ATLET), Barkod, Varyant (renk kodu ve adı, "
-    "örn. 100 BEYAZ, 750 SİYAH, 975 KOMBİN), Beden (harf veya sayı), "
-    "Miktar (adet), Fiyat, Tutar. Miktar (dz) sütunu düzine adedidir, "
-    "fiyatla birleştirme. Fiş No ve Fiş Tarihini ayrı yaz. "
-    "Okuyamadığın yeri uydurma, boş bırak."
+# Görüntüye sorulacak soru (nötr; türü model belirler).
+# Bu bir fatura/satış formu fotoğrafı olabilir, genel bir belge,
+# ürün fotoğrafı veya başka bir görsel. Model içeriği okur,
+# satırların üzerinde durur ve okuyamadığı yeri uydurma, boş bırakır.
+GORUNTU_SORUSU = (
+    "Bu fotoğraf/iş dosyasını dikkatle oku. "
+    "Yazı, rakamlar, tablolar, ürün kodları, barkodlar, "
+    "fiyatlar, bedenler, renkler, adet bilgileri varsa "
+    "satır satır/net olarak yaz. "
+    "Okuyamadığın yeri uydurma, boş bırak. "
+    "Bir ürün/fatura/satış formu tablosu gibi görünüyorsa "
+    "Model, Stok (ürün adı), Barkod, Varyant, Beden, Miktar (adet), "
+    "Fiyat gibi sütunları da yazar — ama bu zorunlu değil, "
+    "içerik belirleyici."
 )
 
 _BARKOD_RE = re.compile(r"\d{8,14}")
@@ -346,7 +348,7 @@ def fatura_oku(fatura_id):
     from tools import yerel_goru
     kaynak = ""
     if yerel_goru.musait():
-        sonuc = yerel_goru.oku(yol, FATURA_SORUSU)
+        sonuc = yerel_goru.oku(yol, GORUNTU_SORUSU)
         if not sonuc.get("error"):
             kaynak = "yerel"
         else:
@@ -358,7 +360,7 @@ def fatura_oku(fatura_id):
         from tools import image_analyzer
         import time as _zaman
         for deneme in range(3):
-            sonuc = image_analyzer.image_analyze(yol, FATURA_SORUSU)
+            sonuc = image_analyzer.image_analyze(yol, GORUNTU_SORUSU)
             if not sonuc.get("error") or not _gecici_mi(sonuc["error"]):
                 break
             if deneme < 2:

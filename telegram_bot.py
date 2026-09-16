@@ -112,10 +112,18 @@ async def _medya_karsila(update, context, beyin, kisilik, tools):
     fatura_id = _json.loads(sonuc["result"])["fatura_id"]
     await context.bot.send_chat_action(
         chat_id=update.effective_chat.id, action="typing")
+    # Dosyayı modelin türünü kendi belirlemesi için general bir bağlamla
+    # sun. "Bu faturayı katalog yap" gibi yönlendirmeyle chatbot
+    # mantığına sürüklenmektense, model fotoğrafı görüp uygun aracı
+    # seçer (fatura_oku / katalog_kur / image_analyze / vb.).
     cevap = await _islet(
         beyin, kisilik,
-        "Aldığım fatura fotoğrafını katalog taslağına çevir: %s"
-        % fatura_id, tools)
+        "Yeni bir dosya yüklendi: %s. Boyut uygun, "
+        "fatura/satış formu fotoğrafı gibi görünüyor. "
+        "İçeriğini inceleyip istenirse katalog taslağına "
+        "dönüştürebilirim. İş kimliği: %s"
+        % (ad, fatura_id),
+        tools)
     for parca in _bol(cevap):
         await mesaj.reply_text(parca)
 
