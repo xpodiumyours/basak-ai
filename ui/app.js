@@ -601,11 +601,13 @@ async function faturaDosyalariYukle(files) {
       Chat.sistem("Yükleme cevabı bozuk: " + file.name);
       continue;
     }
-    Chat.add("user", "Fatura yüklendi: " + file.name);
+    const yuklemeMesaji = "Fatura yüklendi: " + file.name +
+      " (yükleme kimliği: " + faturaId + ")";
+    Chat.add("user", yuklemeMesaji);
     if (state.busy) {
-      Chat.sistem("Meşgulüm; hazır olunca bu kimliği gönder: " + faturaId);
+      Chat.sistem("Meşgulüm; hazır olunca şunu gönder: " + yuklemeMesaji);
     } else {
-      api().mesaj("Yüklediğim faturayı katalog taslağına çevir: " + faturaId);
+      api().mesaj(yuklemeMesaji);
     }
   }
 }
