@@ -29,18 +29,21 @@ BASE_URL = "https://integrate.api.nvidia.com/v1"
 # Tercih sirasi: NIM katalog + chat kanitiyla tutulur.
 # 2026-09-10 (FAZ4-3, canli): 80 modelli katalog cekildi; chat'te 410
 # veren ve katalogdan dusenler cikarildi. Zamanasimi yiyenler yedekte.
+# 2026-09-16 (Casper karari): HIZLI HAT once. Etkilesimli kullanimda
+# cevap 90 sn'de ekrana dusmeli; ultra-550b fatura akisinin 4. turunda
+# dakikalardir dusunup ekrani zamanasina soktu. Dusunen devler yedekte.
 TERCIH_SIRASI = [
-    # CANLI — katalogda + chat kanitli
-    "nvidia/nemotron-3-ultra-550b-a55b",     # 550b, 1M baglam
-    "nvidia/nemotron-3-super-120b-a12b",     # 120b
-    "openai/gpt-oss-20b",                    # hizli yedek
+    # HIZLI HAT — ilk 4, _ICI_YEDEK_SAYISI kapsar
+    "openai/gpt-oss-20b",                    # hizli
+    "nvidia/nemotron-3.5-lightning-30b-a3b",  # hizli
     "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",  # TURKCE + multimodal
+    "nvidia/nemotron-3-super-120b-a12b",     # 120b
+    # --- Yavas yedekler: hizli hat duserse denenir ---
     "moonshotai/kimi-k3",                    # yavas ama canli (27.9s)
-    # --- Katalogda ama 10.09.2026 chat zamanasimli (yedek) ---
-    "nvidia/nemotron-3.5-lightning-30b-a3b",
     # --- Yeni adaylar (katalogda, olculmedi — en sonda denenir) ---
     "nvidia/nemotron-nano-3-30b-a3b",
     "nvidia/nemotron-4-340b-instruct",
+    "nvidia/nemotron-3-ultra-550b-a55b",     # 550b dev, en son yedek
 ]
 # Model-ici geri donus adedi: secili + listedeki ilk adaylar denenir.
 # 4 degeri 2026-09 gozleminden (ilk 4 CANLI + yedek kapsar); buyutme
@@ -70,7 +73,9 @@ MODELLER = {
 # Buyuk modeller: dusunerek cevap verdikleri icin normalden yavastir;
 # model-odakli istisna: dusunen hatta jeton/zaman genis tutulur
 # (ARAC-PLANI S5 cizgisi normal hat icin 4096/20.0).
-_THINKING_TIMEOUT = 600.0
+# 2026-09-16 (Casper karari): 600 sn ekrani kilitliyordu (UI 90 sn'de
+# pes eder); yedek dev hatta tek hak 180 sn.
+_THINKING_TIMEOUT = 180.0
 _NORMAL_TIMEOUT = 20.0
 
 
