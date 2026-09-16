@@ -1,7 +1,9 @@
 """tools/file_ops.py — Dosya okuma/yazma araçları.
 
-Sadece izin verilen klasörlerde çalışır (whitelist).
-Varsayılan olarak sadece knowledge/ klasörüne izin verilir.
+Okuma politikasi (2026-09-09, Casper karari): kara liste DISINDAKI
+her yer okunur — ev, C:\\Projects, knowledge/, research-engine/ ve
+tum suruculer TAM YOLLA. Goreceli ad yalniz knowledge/ ve
+research-engine/ altina acilir. Yazma ayridir (_yazma_izni_var_mi).
 E-1: dış projeler (vixrex, numeramatch, xses) salt-okunur olarak eklendi.
 Her işlem loglanır.
 
@@ -202,8 +204,18 @@ def _guvenli_yolu_coz(yol, base_dir):
         if birinci_klasor in IZINLI_KLASORLER:
             return True, birinci_klasor, mutlak
 
-        return False, (f"'{birinci_klasor}' klasörüne izin yok. "
-                       f"İzinli: {', '.join(IZINLI_KLASORLER)}"), None
+        # Goreceli ad proje kokune gore cozulur; kokte olmayan ad
+        # REDDEGILDIR ama yanlis anlasilmasin diye acik soyler:
+        # goreceli yol yalniz knowledge/ ve research-engine/ altina
+        # acilir, bu bilgisayar icin TAM YOL gerekir.
+        # 2026-09-16: eski metin ("Izinli: knowledge, research-engine")
+        # modeli yaniltiyordu — Desktop gibi gercek klasorler TAM YOLLA
+        # aciktir, model "erisimim yok" saniyordu (canli kanit).
+        return False, (f"'{os.path.relpath(mutlak, kok).split(os.sep)[0]}' "
+                       "proje kokunde yok. Goreceli "
+                       "ad yalniz knowledge/ ve research-engine/ altina "
+                       "acilir; bu bilgisayar icin TAM YOL ver (ornek: "
+                       "C:\\Users\\Casper\\Desktop)."), None
 
     except (ValueError, OSError) as e:
         return False, f"Yol kontrolü hatası: {e}", None
