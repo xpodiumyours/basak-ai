@@ -107,15 +107,16 @@ SAYFA_OKU = _arac(
 
 DOSYA_OKU = _arac(
     "read_file",
-    "Dosya icerigini doner. Sifre (.env/.pem/.key/ayarlar.json) ve "
-    "sistem klasorleri yasak.",
+    "Bu bilgisayardaki gercek dosyanin icerigini doner. Sifre "
+    "(.env/.pem/.key/ayarlar.json) ve sistem klasorleri yasak.",
     {"path": {"type": "string", "description": "Dosya yolu"}},
     ["path"],
 )
 
 KLASOR_LISTELE = _arac(
     "list_files",
-    "Klasordekileri doner: ad+boyut. Ad veya tam yol verilir.",
+    "Bu bilgisayardaki gercek klasorun icindekileri doner: ad+boyut. "
+    "Ad veya tam yol verilir.",
     {"folder": {"type": "string", "description": "Klasor"}},
     ["folder"],
 )

@@ -27,6 +27,25 @@ MODELLER = {
 }
 
 
+# Groq'un reddettigi muhakeme alanlari (2026-09-16, canli 400):
+# "for 'role:assistant' ... 'reasoning_content' is unsupported".
+# Arac dongusu muhakemeyi assistant mesajinda korur (P0); Groq'a
+# giden KOPYADAN cikarilir. Zincir bozulmaz — Cohere cevirisiyle
+# ayni kategori: saglayici uyumlulugu, ciktiya dokunulmaz.
+_GROQ_DESTEKLEMEZ = ("reasoning_content", "reasoning",
+                     "reasoning_details", "reasoning_text", "thinking")
+
+
+def _groq_mesajlari(messages):
+    """Groq'a gidecek kopyadaki desteklenmeyen alanlari atar."""
+    temiz = []
+    for m in messages or []:
+        if isinstance(m, dict) and any(a in m for a in _GROQ_DESTEKLEMEZ):
+            m = {k: v for k, v in m.items() if k not in _GROQ_DESTEKLEMEZ}
+        temiz.append(m)
+    return temiz
+
+
 class GroqClient:
     """Groq API istemcisi."""
 
@@ -72,7 +91,7 @@ class GroqClient:
 
         kwargs = {
             "model": model or self.model,
-            "messages": messages,
+            "messages": _groq_mesajlari(messages),
             "max_tokens": 4096,
         }
         if tools:
@@ -89,7 +108,7 @@ class GroqClient:
                 "groq aracsız turda tool_call üretti (%s) — "
                 "metin-nudge ile tek tekrar", str(e))
             kwargs = dict(kwargs)
-            kwargs["messages"] = list(messages)
+            kwargs["messages"] = _groq_mesajlari(messages)
             resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
         muhakeme = reasoning_ayikla(msg)
