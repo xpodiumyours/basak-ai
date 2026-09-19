@@ -156,7 +156,8 @@ class Brain:
         # yoksa None'dir — bedava kurulum etkilenmez.
         self._genel = self._providers.get("genel")
 
-    def _bulut_zinciri(self, tools: bool = False) -> list:
+    def _bulut_zinciri(self, tools: bool = False,
+                       tool_required: bool = False) -> list:
         """Musait bulut istemcilerini toplar: [(ad, istemci)].
 
         DIKKAT: Bu listenin sirasi ONCELIK SIRASI DEGILDIR. Gercek
@@ -179,6 +180,9 @@ class Brain:
             if _tool_istiyor:
                 try:
                     if not registry.tool_destegi_var_mi(ad):
+                        return False
+                    if (tool_required
+                            and not registry.zorunlu_tool_destegi_var_mi(ad)):
                         return False
                 except Exception:
                     pass
@@ -214,6 +218,11 @@ class Brain:
         # Herhangi bir bulut saglayici hazirsa True.
         return bool(self._bulut_zinciri())
 
+    def ajan_musait(self) -> bool:
+        """Zorunlu function-call protokolu dogrulanmis beyin var mi?"""
+        return bool(self._bulut_zinciri(
+            tools=True, tool_required=True))
+
     def anahtar_ayarla(self, key: str):
         self.groq_key = key.strip()
         ayar = _ayar_yukle()
@@ -242,7 +251,7 @@ class Brain:
                 self._groq = None
 
     def _tek_cagri(self, istemci, ad, messages, tools, override_model,
-                   yapi_deger):
+                   yapi_deger, tool_choice=None):
         """Tek saglayiciya cagri kurar; yapi_deger None ise eski davranis.
 
         FAZ 1.1: yapi_deger verildiginde adaptore yapi sozlesmesi tasınır.
@@ -251,6 +260,8 @@ class Brain:
         from brain.message_utils import mesajlari_temizle
         messages = mesajlari_temizle(messages)
         ekstra = {"yapi": yapi_deger} if yapi_deger else {}
+        if tool_choice is not None:
+            ekstra["tool_choice"] = tool_choice
         # override_model: GroqClient icin model degistirme (retry icin)
         if override_model and ad == "groq" and hasattr(istemci, 'cevapla'):
             import inspect
@@ -263,7 +274,8 @@ class Brain:
         return istemci.cevapla(messages, **ekstra)
 
     def cevapla(self, messages, yerel_model=None, tools=None,
-                tercih=None, gorev_tipi=None, override_model=None, yapi=None):
+                tercih=None, gorev_tipi=None, override_model=None, yapi=None,
+                tool_choice=None):
         """Mesajlara cevap verir — Router v2 (bulut zinciri).
 
         Akis: secici motoru sirayi belirler → deneme; hata verirse siradaki
@@ -278,7 +290,8 @@ class Brain:
         tasınır, 400/invalid_request_error ile reddedilirse ayni saglayici
         yapi'siz bir kez daha denenir (_YAPI_DENEME self-healing onbellegi).
         """
-        zincir = self._bulut_zinciri(tools=bool(tools))
+        zincir = self._bulut_zinciri(
+            tools=bool(tools), tool_required=(tool_choice == "required"))
         mevcutlar = [ad for ad, _ in zincir]
 
         if tercih:
@@ -316,7 +329,8 @@ class Brain:
             try:
                 try:
                     yanit = self._tek_cagri(
-                        istemci, ad, messages, tools, override_model, yapi_bu)
+                        istemci, ad, messages, tools, override_model, yapi_bu,
+                        tool_choice)
                 except Exception as e:
                     # Saglayici yapi'yi bad-request ile reddetti → isaretle,
                     # ayni saglayiciyi yapısız HEMEN tekrar dene; hata zinciri
@@ -327,7 +341,8 @@ class Brain:
                             "%s yapi'yi kabul etmedi (%s) — yapısız tek deneme",
                             ad, str(e))
                         yanit = self._tek_cagri(
-                            istemci, ad, messages, tools, override_model, None)
+                            istemci, ad, messages, tools, override_model, None,
+                            tool_choice)
                     else:
                         raise
                 sure = time.time() - t0

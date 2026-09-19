@@ -110,7 +110,8 @@ def sonucu_donustur(sonuc):
 
 
 def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
-                 calistir, tools=None, tur_siniri=None, yanit=None):
+                 calistir, tools=None, tur_siniri=None, yanit=None,
+                 tool_choice=None):
     """Araç sonuçlarını modele geri vererek cevap ürettirir.
 
     Ozgu-ajan: tur_siniri parametresi uyumluluk icin durur, kullanilmaz.
@@ -121,6 +122,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     Dönüş: (cevap_metni, calisan_arac_sayisi)
     """
     from chat.gate import temizle
+    from chat.agent_protocol import SON_CEVAP_ADI
     from tools.definitions import TANINMIS_TOOLLAR
 
     expanded = list(mesajlar)
@@ -147,10 +149,35 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
 
     while tool_calls:
         tur_sonuclari = []
+
+        # son_cevap gercek dunya araci degildir; modelin ajan turunu
+        # bitirdigini yapisal olarak bildiren kontrol cagrisi.
+        _adlar = [
+            ((c.get("function") or {}).get("name", ""))
+            for c in tool_calls if isinstance(c, dict)
+        ]
+        if _adlar and all(ad == SON_CEVAP_ADI for ad in _adlar):
+            for call in tool_calls:
+                args = parse_args(
+                    (call.get("function") or {}).get("arguments", "{}"))
+                metin = args.get("metin")
+                if isinstance(metin, str) and metin.strip():
+                    return temizle(metin), kosan
+            return "", kosan
+
         for call in tool_calls:
             func = call.get("function", {})
             ad = func.get("name", "")
             args = parse_args(func.get("arguments", "{}"))
+
+            if ad == SON_CEVAP_ADI:
+                tur_sonuclari.append((
+                    ad,
+                    "Hata: son_cevap gercek araclarla ayni turda "
+                    "kullanilamaz; once arac sonuclarini degerlendir.",
+                    call.get("id") or "call_%d" % len(tur_sonuclari),
+                ))
+                continue
 
             # Model olmayan bir arac uydurursa sessizce atlanir.
             if ad not in TANINMIS_TOOLLAR:
@@ -192,7 +219,18 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             })
 
         try:
-            yanit, _kaynak = brain.cevapla(expanded, model, tools=tools)
+            _kw = {"tools": tools}
+            # Uretim Brain'i tool_choice destekler. Eski test doubles ve
+            # harici basit istemciler icin imza denetlenir.
+            if tool_choice is not None:
+                import inspect
+                _p = inspect.signature(brain.cevapla).parameters
+                _kwargs_var = any(
+                    x.kind == inspect.Parameter.VAR_KEYWORD
+                    for x in _p.values())
+                if "tool_choice" in _p or _kwargs_var:
+                    _kw["tool_choice"] = tool_choice
+            yanit, _kaynak = brain.cevapla(expanded, model, **_kw)
         except Exception as e:
             logger.warning("Arac turu sonrasi cevap alinamadi: %s", e)
             break
@@ -210,11 +248,20 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                         ilk_muhakeme[_a] = yanit[_a]
             continue
 
+        if tool_choice == "required":
+            logger.warning(
+                "Zorunlu ajan turu tool call olmadan duz metin dondurdu")
+            break
+
         cevap = temizle(yanit.get("content", ""))
         if cevap:
             return cevap, kosan
         break
 
-    # Model özet üretmediyse ham sonuç kullanıcıya gitsin — boş ekran olmasın.
+    if tool_choice == "required":
+        return "", kosan
+
+    # Eski/ajan-disi yolda model ozet uretmediyse ham sonuc bos ekrani
+    # engellemek icin korunur.
     ham = "\n".join(net for _ad, net, _id in tur_sonuclari if net)
     return ham, kosan

@@ -16,6 +16,8 @@ SAGLAYICILAR = {
         "ad": "Groq",
         "ucretsiz": True,
         "tools": True,
+        # Resmi Groq API: tool_choice="required" desteklenir.
+        "tool_required": True,
         "gucleri": ["hiz", "genel"],
         # 2026-09 guncellemesi: 20b/120b ikisi de 250K TPM + 1K RPM +
         # 131K baglam + 65K max output (Groq docs). Eski 200K/gun gozlemi
@@ -51,6 +53,8 @@ SAGLAYICILAR = {
         "ad": "Cohere",
         "ucretsiz": True,
         "tools": True,
+        # Cohere V2: tool_choice="REQUIRED" desteklenir.
+        "tool_required": True,
         "gucleri": ["genel", "arastirma"],
         "gunluk_istek": None,
         # Resmi belge (docs.cohere.com/docs/rate-limits): deneme bileti
@@ -165,3 +169,9 @@ def ucretli_mi(ad):
 
 def tool_destegi_var_mi(ad):
     return bool(kart(ad)["tools"])
+
+
+
+def zorunlu_tool_destegi_var_mi(ad):
+    """Saglayici zorunlu tool-call modunu resmi protokolunde destekliyor mu?"""
+    return bool(kart(ad).get("tool_required", False))
