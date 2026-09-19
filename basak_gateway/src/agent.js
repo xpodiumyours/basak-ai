@@ -358,6 +358,7 @@ export async function agentChat(messages, env, turnFn = agentTurn) {
   let tools = CONTROL_TOOLS;
   let openedArea = null;
   const trace = [];
+  const failedCalls = new Set();
   let lastProvider = "";
   let lastModel = "";
 
@@ -410,7 +411,15 @@ export async function agentChat(messages, env, turnFn = agentTurn) {
       } else if (!offered.has(name)) {
         result = { error: "bu arac su an acik degil; once yetenek_ac kullan" };
       } else {
-        result = await executeWebTool(name, args);
+        const signature = name + ":" + JSON.stringify(args || {});
+        if (failedCalls.has(signature)) {
+          result = {
+            error: "Ayni basarisiz arac ve argumanlar tekrar denenmedi; baska uygun yol sec."
+          };
+        } else {
+          result = await executeWebTool(name, args);
+          if (result.error) failedCalls.add(signature);
+        }
         trace.push({
           kind: "tool",
           name,
