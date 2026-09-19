@@ -13,9 +13,27 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pytest
 
 from brain import secici
+from brain import registry
 from brain.stats import ModelIstatistik
 
 MEVCUTLAR = ["nvidia", "glm", "groq", "kilo"]
+
+
+def _beklenen(mevcutlar=None):
+    """Registry sirasina gore beklenen siralama (bilinmeyen adlar sona).
+
+    Bu testler eskiden `sirali[0] == "glm"` diye SABIT yaziyordu.
+    Saglayici sirasi 2026-09-19'da olcumle degisince (groq one alindi:
+    glm her istekte zaman asimina ugruyordu) yedi test birden kirildi —
+    oysa katmanlarin davranisi degismemisti. Beklenti artik registry'den
+    TURETILIR: olculen sey "kim onde" degil, "katman sirayi BOZMUYOR"
+    olgusudur. Boylece niyet korunur, sira guncellendiginde test
+    kirilmaz — ve beklenmedik bir yeniden siralama yine yakalanir.
+    """
+    mevcutlar = list(MEVCUTLAR if mevcutlar is None else mevcutlar)
+    temel = [a for a in registry.VARSAYILAN_SIRA if a in mevcutlar]
+    ekstra = [a for a in mevcutlar if a not in registry.VARSAYILAN_SIRA]
+    return temel + ekstra
 
 
 @pytest.fixture
@@ -38,7 +56,7 @@ class TestKarneKatmani:
         _doldur(istat, "nvidia", 0, 8)   # kotu karneye ragmen sira degismez
         sirali, gerekce = secici.sec(gorev_tipi="kod",
                                      mevcutlar=MEVCUTLAR)
-        assert sirali[0] == "glm"        # registry sirasi korunur
+        assert sirali == _beklenen()     # registry sirasi korunur
         assert "karne" not in gerekce
 
     def test_zayif_saglayici_sona_alinmaz(self, istat):
@@ -47,7 +65,7 @@ class TestKarneKatmani:
         sirali, gerekce = secici.sec(gorev_tipi="kod",
                                      mevcutlar=MEVCUTLAR,
                                      karne_kullan=True)
-        assert sirali == ["glm", "groq", "nvidia", "kilo"]
+        assert sirali == _beklenen()
         assert "karne" not in gerekce
 
     def test_saglam_karne_sirayi_degistirmez(self, istat):
@@ -55,7 +73,7 @@ class TestKarneKatmani:
         sirali, gerekce = secici.sec(gorev_tipi="kod",
                                      mevcutlar=MEVCUTLAR,
                                      karne_kullan=True)
-        assert sirali[0] == "glm"        # glm once, nvidia yakininda
+        assert sirali == _beklenen()     # nvidia karneye ragmen yerinde
         assert "karne" not in gerekce
 
     def test_az_ornekleme_sesi_cikarmaz(self, istat):
@@ -63,7 +81,7 @@ class TestKarneKatmani:
         sirali, gerekce = secici.sec(gorev_tipi="kod",
                                      mevcutlar=MEVCUTLAR,
                                      karne_kullan=True)
-        assert sirali[0] == "glm"
+        assert sirali == _beklenen()
         assert "karne" not in gerekce
 
     def test_stats_hatasi_sessiz_gecer(self, monkeypatch, istat):
@@ -73,7 +91,7 @@ class TestKarneKatmani:
         sirali, gerekce = secici.sec(gorev_tipi="kod",
                                      mevcutlar=MEVCUTLAR,
                                      karne_kullan=True)
-        assert sirali[0] == "glm" and "karne" not in gerekce
+        assert sirali == _beklenen() and "karne" not in gerekce
 
     def test_birden_fazla_zayif_sonunca_sira_korunur(self, istat):
         _doldur(istat, "nvidia", 0, 8)
@@ -82,10 +100,10 @@ class TestKarneKatmani:
                                      mevcutlar=MEVCUTLAR,
                                      karne_kullan=True)
         # Faz 1: zayiflar da sona gitmez, registry sirasi korunur
-        assert sirali[0] == "glm"
+        assert sirali == _beklenen()
         assert "karne" not in gerekce
 
     def test_tools_ve_cooldown_sirayi_degistirmez(self, istat):
         sirali, _ = secici.sec(gorev_tipi="kod", mevcutlar=MEVCUTLAR,
                                tools=True, cooldown={"glm": 9999999999})
-        assert sirali[0] == "glm"
+        assert sirali == _beklenen()

@@ -62,9 +62,13 @@ import time as _time_mod
 _COOLDOWN = {}  # {ad: bitis_zamani}
 _COOLDOWN_SURE = 20
 
-# Zaman asimi cooldown'u (2026-09-11): 429 kadar agir degil; saglayici
-# bir sonraki istekte geri gelebilir. 60 sn yeter.
-_ZAMAN_ASIMI_COOLDOWN = 10
+# Zaman asimi cooldown'u (2026-09-11, 2026-09-19'da uzatildi):
+# 429 kadar agir degil ama tekrar tekrar denenirse her mesaja ayni
+# bekleme cezasi biner. Olcum (hiz_olcum.py): GLM her istekte 20.62 sn'de
+# zaman asimina ugruyordu; 10 sn'lik cooldown bir sonraki mesajda doldugu
+# icin ceza HER mesajda yeniden odeniyordu. 300 sn: olu saglayici 5 dakika
+# atlanir, zincir kalanlarla aninda cevap verir.
+_ZAMAN_ASIMI_COOLDOWN = 300
 
 def _cooldown_kaldi(ad):
     bitis = _COOLDOWN.get(ad, 0)

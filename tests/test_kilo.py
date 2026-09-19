@@ -135,7 +135,11 @@ class TestRegistryKarti:
     def test_varsayilan_zincirde_yeri(self):
         sira = registry.VARSAYILAN_SIRA
         assert "kilo" in sira
-        # 2026-09-09 (tam tespit): kilo yedek, one alinmaz.
-        # Olcumu guvenilir olanlar (glm, cloudflare, groq) ondeler.
-        assert sira.index("glm") < sira.index("kilo")
-        assert sira.index("kilo") < sira.index("openrouter")
+        # 2026-09-19 OLCUM (hiz_olcum.py): kilo 16.17 sn — yedek, one
+        # alinmaz. Olculen hizli saglayicilar (groq 0.42 · gemini 1.31 ·
+        # openrouter 1.49) kilo'nun onunde durur.
+        # (Eski iddia "glm onde" idi; glm 20.62 sn zaman asimiyla curudu.)
+        assert sira.index("groq") < sira.index("kilo")
+        assert sira.index("gemini") < sira.index("kilo")
+        assert sira.index("openrouter") < sira.index("kilo")
+        assert sira.index("kilo") < sira.index("nvidia")

@@ -43,7 +43,12 @@ class GLMClient:
         try:
             self.client = OpenAI(
                 api_key=self.api_key,
-                timeout=20.0,
+                # 2026-09-19: 20.0 -> 8.0. Olcum (hiz_olcum.py): bu uc
+                # kisa soruya 20.62 sn'de "Request timed out" dondu —
+                # yani 20 sn tavani hep bosa harcaniyordu. 8 sn, cevap
+                # veren bir uc icin fazlasiyla comert; vermeyeni de
+                # zinciri 12 sn bekletmeden eler.
+                timeout=8.0,
                 max_retries=0,
                 base_url=BASE_URL,
             )
