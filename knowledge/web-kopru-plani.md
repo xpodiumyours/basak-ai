@@ -60,7 +60,37 @@ e) Test/kullanici ayni ekran: sohbet ekrani herkese aynidir; olcum
 3. Tunel ile internet; token disi erisimde kapali kalma testi.
 4. Kullaniciya acilis: Casper kademeyi acar, her kademe kanitla.
 
-## 4. BILINEN SINIRLAR
+## 4. ARSIV AKTARIMI (2026-09-19, arsiv/feature-basak-web-gate-2-20260919 etiketinden)
+
+### Tasinacaklar (emin emek, dogrudan kullanilir)
+- public/styles.css (3.3 KB, oldugu gibi): Inter tabanli temiz sistem —
+  shell/topbar/pill/card/chat/bubble/composer/banner siniflari + mobil
+  duyarlilik. Yeni yer: web/styles.css. Palet YENIDEN ICAT EDILMEZ.
+- public/app/index.html: sohbet ekrani iskeleti (topbar + chat +
+  composer + saglik pigili). Faz-5 kabul kutusu CIKARILIR; gerisi aynen.
+- public/app.js: balon/gonderme davranisi kalir; iki degisiklikle:
+  (1) /api/chat POST yerine /api/sohbet SSE akisi, (2) acceptanceSession
+  mantigi tamamen cikar (sahte kabul donemi kalintisi).
+- public/lab ekrani + lab.js: 416 matris goruntuleyicisine donusur —
+  faz/stage akisi yerine data/kabul-matrisi.json okur (salt-okunur).
+- common.js: aynen.
+
+### Alinmayacaklar (nedeniyle)
+- src/index.js + wrangler.jsonc Worker'i (basak-gate): `ai` binding +
+  LabState Durable Object ikinci-beyin altyapisi kategorisidir; canliya
+  ALINMAZ. Arsiv etiketinde kalir.
+- Uretimde statik vitrin Worker'i da kurulmaz: ekran, localhost
+  Python koprusunden (http.server) servis edilir — tek origin, SSE
+  dogal calisir, token tek yerde. Cloudflare arayuzundeki emek
+  TUNEL tarafiyla yasar: Zero Trust > Tunnels > DNS (bu kurulum
+  zaten Casper'in arayuzunden yapilmisti; aynen kullanilir).
+
+### Ekran dosyalarinin yeni yeri
+repo koku > web/ (index.html, app.js, styles.css, common.js, lab.html,
+lab.js) — basak_web.py ayni klasorden servis eder; ui/ masaustune
+aittir, karismaz.
+
+## 5. BILINEN SINIRLAR
 
 - SSE proxy arkasinda tamponlama yapabilir → tunel secimi buna gore
   (cloudflared SSE'yi dogrudan destekler).
