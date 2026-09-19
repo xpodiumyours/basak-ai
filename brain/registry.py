@@ -17,7 +17,7 @@ SAGLAYICILAR = {
         "ucretsiz": True,
         "tools": True,
         # Resmi Groq API: tool_choice="required" desteklenir.
-        "tool_required": True,
+        "ajan_tool_mode": "required",
         "gucleri": ["hiz", "genel"],
         # 2026-09 guncellemesi: 20b/120b ikisi de 250K TPM + 1K RPM +
         # 131K baglam + 65K max output (Groq docs). Eski 200K/gun gozlemi
@@ -29,6 +29,10 @@ SAGLAYICILAR = {
         "ad": "Gemini",
         "ucretsiz": True,
         "tools": True,
+        # OpenAI-uyumlu Gemini ucunda auto resmen belgeli; Basak
+        # ajan turunda duz metni basari saymayip tool-call zorunlulugunu
+        # uygulama katmaninda uygular.
+        "ajan_tool_mode": "auto_enforced",
         "gucleri": ["arastirma", "uzun-baglam"],
         "gunluk_istek": 1500,   # 3 Flash free: 10 RPM / 250K TPM / 1500 RPD
         "not": "Ucretsiz katmanda 3 Flash onerilir (1M baglam).",
@@ -37,6 +41,9 @@ SAGLAYICILAR = {
         "ad": "GLM",
         "ucretsiz": True,
         "tools": True,
+        # Z.ai chat/completions arac protokolunde auto resmen belgeli.
+        # Basak duz metni ajan turunda reddederek tool-call'i uygular.
+        "ajan_tool_mode": "auto_enforced",
         "gucleri": ["kod", "genel"],
         "gunluk_istek": None,
         "not": "Z.ai ucretsiz: 4.7-flash (~200K, kod+ajan) + 4.5-flash.",
@@ -47,7 +54,7 @@ SAGLAYICILAR = {
         "tools": True,
         # Resmi Workers AI model semasi: none/auto/required.
         # Varsayilan glm-4.7-flash Free planda tool calling destekli.
-        "tool_required": True,
+        "ajan_tool_mode": "required",
         "gucleri": ["genel", "hiz"],
         "gunluk_istek": None,
         "not": "Workers AI ucretsiz Llama/Mistral; GPU kaynaklanma sinirli.",
@@ -57,7 +64,7 @@ SAGLAYICILAR = {
         "ucretsiz": True,
         "tools": True,
         # Cohere V2: tool_choice="REQUIRED" desteklenir.
-        "tool_required": True,
+        "ajan_tool_mode": "required",
         "gucleri": ["genel", "arastirma"],
         "gunluk_istek": None,
         # Resmi belge (docs.cohere.com/docs/rate-limits): deneme bileti
@@ -77,6 +84,10 @@ SAGLAYICILAR = {
         "ad": "Ozel Saglayici",
         "ucretsiz": False,
         "tools": True,
+        # OpenRouter'da tool_choice/tools model bazinda desteklenir.
+        # Secilen :free model katalogda bu iki parametreyi tasimali;
+        # aksi halde Basak ajan zincirine kabul etmez.
+        "ajan_tool_mode": "auto_enforced",
         "gucleri": ["genel"],
         "gunluk_istek": None,
         "not": "Casper'in kendi bileti (ucretli/ozel). Anahtar yoksa zincire "
@@ -86,6 +97,8 @@ SAGLAYICILAR = {
         "ad": "Kimi (Moonshot)",
         "ucretsiz": False,
         "tools": True,
+        # Kilo Gateway API ToolChoice semasi required destekli.
+        "ajan_tool_mode": "required",
         "gucleri": ["genel", "kod"],
         "gunluk_istek": None,
         "not": "UCRETLI + KARTSIZ KAPALI — veri karti + kimi_acik olmadan zincire girmez.",
@@ -106,6 +119,9 @@ SAGLAYICILAR = {
         "ad": "NVIDIA NIM",
         "ucretsiz": True,
         "tools": True,
+        # NVIDIA NIM guncel dokumani required degerini desteklemiyor;
+        # auto + Basak uygulama-katmani zorunlulugu kullanilir.
+        "ajan_tool_mode": "auto_enforced",
         "gucleri": ["kod", "goruntu", "video"],
         "gunluk_istek": None,
         "not": "GPT-OSS-20b + Gemma-4 + Nemotron + Omni + Kozmos; kod/goruntu/video.",
@@ -185,6 +201,25 @@ def tool_destegi_var_mi(ad):
 
 
 
+def ajan_tool_modu(ad):
+    """Saglayicinin Basak ajan turunda kullanacagi resmi arac modu.
+
+    required: saglayici API'si en az bir tool-call'i zorlayabilir.
+    auto_enforced: resmi API auto tool-calling destekler; Basak ajan
+    turunda duz metni basari saymaz ve sonraki saglayiciya gecer.
+    """
+    return kart(ad).get("ajan_tool_mode")
+
+
+def ajan_destegi_var_mi(ad):
+    return ajan_tool_modu(ad) in ("required", "auto_enforced")
+
+
+def ajan_tool_choice(ad):
+    """Saglayiciya gonderilecek gercek tool_choice degeri."""
+    return "required" if ajan_tool_modu(ad) == "required" else "auto"
+
+
 def zorunlu_tool_destegi_var_mi(ad):
-    """Saglayici zorunlu tool-call modunu resmi protokolunde destekliyor mu?"""
-    return bool(kart(ad).get("tool_required", False))
+    """Geriye uyumluluk: Basak'in kati ajan protokolune uygun mu?"""
+    return ajan_destegi_var_mi(ad)
