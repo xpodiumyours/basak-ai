@@ -91,3 +91,64 @@ E. MATRIS — cloudflare + cohere anahtari yok: o 2x52=104 hucre
 Yasak yine gecerli: metinden tool_call uretimi, bos hucreye varsayim,
 raporu kisaltmak. Her blok kendi birim testiyle kapanir; canli kanit
 matristen okunur.
+
+## TEST DUZEYLERI VE KAPSAM (2026-09-19, plan modu; Casper: kapsam kucultulmez)
+
+KAPSAM SOZLESMESI: kapsam kucultme YASAK; "minimum isle maksimum
+verim" tarzi iddia YASAK. Sirasi sabit: 8 protokol -> 52 arac yapis ->
+416 canli hucre -> ikinci tur -> gercEK sohbet -> TEK kabul raporu.
+Her duzey ancak bir onceki duzey yesilken kabul sayilir.
+
+DUZEY 0 — Sozlesme (birim) testleri. Cevrimdisi, kota harcamaz.
+Ne test eder: KODUN bilinen kablo sozlesmesine uyumu.
+- Her 8 saglayici adaptoru icin KAYITLI GERCEK yanit kalibi (fixture)
+  ile: tool_choice degeri resmi protokole uygun mu, tool_calls dogru
+  cozumleniyor mu, reasoning/imza (gemini extra_content) tur-2
+  tasimada dusuyor mu. Fixture'lar Duzey 1 kosulurken GERCEK
+  yanitlardan kaydedilir — uydurma sekil yok; saglayici formatini
+  degistirirse birim test kirilir, erken uyari olur.
+- 52 arac 3 yerde birebir: sema (definitions) <-> calistirma dali
+  (<-> ekran etiketi (DURUM_METNI) + yetenek katalogu 52/52.
+  Mevcut testler korunur, zayiflatilmaz.
+- Ajan dongusu sahte beyinle: yetenek_ac -> gercEK arac -> tool-result
+  -> son_cevap; mukerrer cagri, uydurma arac adi, beyaz liste disi
+  arac yollarinin engellendigi.
+- Kosucunun kendisi: hucre kayit bicimi, kesilince kaldigi yerden
+  devam, anahtarsiz hucreye SKIP yazdigi (tahmin doldurmaz).
+Siniri: birim test GERCEK ag davranisini KANITLAMAZ — o kanit
+Duzey 1-3'te uretilir.
+
+DUZEY 1 — 8/8 NATIVE PROTOKOL KAPISI (canli, ucuz).
+8 saglayicinin TAMAMI (groq, gemini, openrouter, glm, cloudflare,
+cohere, kilo, nvidia — yalniz kilo+gemini degil). Her saglayici icin
+gercek tek tur: zorunlu arac cagrisi -> gercEK tool_call -> gercEK
+sonuc -> tur-2 devami. Gecme olcutu: yanit GERCEK tool_call icermeli
+(metin-icinde-JSON sayilmaz) ve tur-2 tamamlanmali. Gecen saglayicinin
+gercek yanitlari Duzey 0 fixture'ina yazilir. Basarisiz olan blok
+ismini alir ve duzeltilir; atlanMAZ.
+
+DUZEY 2 — 416 HUCRE (canli, tam). 8 x 52; her hucreye yazilir:
+saglayici, arac, tur-1 native mi, tur-2 devam mi, sure, model, hata.
+Bicim: data/kabul-matrisi.json; kota-dostu pace; kesilince devam.
+Anahtarsiz saglayicinin hucresi SKIP yazar — uydurma doldurma yok.
+
+DUZEY 3 — GERCEK SOHBET KABULU. Dogal dil senaryolari MESAJ_ISLE
+uzerinden, AYNI senaryolar iki yuzde: masaustu (olay yakalama) + web
+(kopru). Olculen: dogru araci kendi secti mi, arac gercEKten kostu mu,
+ayni isi tekrar aradi mi, basarisizligi uydurdu mu, cevap verimli mi.
+
+DUZEY 4 — TEK KABUL RAPORU. Matris + sohbet kayitlarindan OTOMATIK
+uretilir; el yazisi "gecildi" yazilamaz.
+
+ESIT GOZLEMLENEBILIRLIK ("web ve yerel ayni sekilde bilsin") — MUMKUN,
+sebebi TEK YOL:
+- Her yuz (masaustu/web/telegram/test) ayni mesaj_isle + ayni calistir
+  yolundan gecer. Arac kullanim olayi TEK yerde uretilir: canli
+  toolStatus olayi (ekrana) + calistir kaydi (deftere). Yuz etiketi
+  (masaustu/web/telegram/test) kayda eklenince "hangi arac nerede
+  kullanildi" sorusunun cevabi her yerden AYNI formatta okunur:
+  ekranda canli, lab goruntuleyicide ve raporda ayni kaydin okumasi.
+- Ek sarmalayici katman YOK — mevcut olay akisinin ve mevcut kaydin
+  yuz etiketiyle zenginlestirilmesi; baska hicbir sey degismez.
+- Sonuc: web ekraninda gordugun arac hareketi ile masaustunde gordugun
+  AYNI olay kaynagindan akar; esitlik mimariden gelir, kabullenmeye degil.
