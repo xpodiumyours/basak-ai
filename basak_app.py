@@ -8,19 +8,26 @@ import json
 import logging
 import os
 import threading
+from logging.handlers import RotatingFileHandler
 
 logger = logging.getLogger(__name__)
 
 # 2026-09-10: hatalar dosyaya da yazilir (hata.log) — ekrandaki kisa
 # mesaj yetmezse kok sebep buradan okunur. Dosya git'e girmez.
+# 2026-09-19: FileHandler -> RotatingFileHandler. Onceki duzen dosyayi
+# sonsuz buyutuyordu (19.09 itibariyla 68 KB, hic sifirlanmiyordu);
+# teshis icin gereken son kayitlar donerek tutulur, ustu atilir.
+# Sinir: 5 MB x 3 yedek = en fazla 15 MB.
 try:
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
         handlers=[
-            logging.FileHandler(
+            RotatingFileHandler(
                 os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              "hata.log"),
+                maxBytes=5 * 1024 * 1024,
+                backupCount=3,
                 encoding="utf-8"),
             logging.StreamHandler(),
         ],

@@ -22,6 +22,11 @@ arac.log
 data/audit/
 data/orkestra_golge.log
 
+# Olcum ciktilari (2026-09-19): hiz_olcum.py "once/sonra" kayitlari
+hiz_before.txt
+hiz_after.txt
+hiz_*.err
+
 # Probe/arsiv kosesi (denetim 2026-08-24): gecici deneme ve log dosyalari
 # buraya tasinir; kok dizin temiz kalir. Takip edilmez.
 probe/

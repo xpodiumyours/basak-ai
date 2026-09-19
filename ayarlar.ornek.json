@@ -1,0 +1,16 @@
+{
+  "_aciklama": "Basak anahtar sablonu. Bu dosyayi 'ayarlar.json' adiyla kopyalayip kendi anahtarlarini yaz. ayarlar.json git'e GIRMEZ (.gitignore).",
+  "_hangi_anahtar_gerekli": "En az bir tanesi yeterli. Bos birakilan saglayici zincire girmez (bos yuva sayilir), hata vermez.",
+  "groq_key": "",
+  "gemini_key": "",
+  "openrouter_key": "",
+  "zai_key": "",
+  "nvidia_key": "",
+  "_opsiyonel": {
+    "glm_model": "glm-4.7-flash",
+    "groq_model": "openai/gpt-oss-120b",
+    "tts_on": false,
+    "yerel_goru_kapali": true,
+    "_yerel_goru_notu": "true = fatura/goruntu okumasi yerel CPU modelini HIC denemez, dogrudan buluta gider. GPU'su olmayan makinede onerilir (olculen: yerel deneme 300 sn suruyordu)."
+  }
+}
