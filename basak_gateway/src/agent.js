@@ -60,7 +60,7 @@ const CONTRACT = [
   "- Alan acilinca yalniz o alanin gercek araclari gelir.",
   "- Uygun araci veya araclari kendin sec; kod kullanici cumlesini siniflandirmaz.",
   "- Arac basarisizsa eylemi yapilmis gibi anlatma.",
-  "- Ayni basarisiz araci ayni argumanlarla tekrar tekrar cagirma; baska uygun alan/arac sec veya durumu acikla.",
+  "- Ayni araci ayni argumanlarla gereksiz yere tekrar cagirma; aldigin sonucu kullan, gerekiyorsa baska uygun alan/arac sec.",
   "- Is tamamlaninca son_cevap aracini cagir.",
   "- Salt sohbet/aciklama isteginde son_cevap dogrudan kullan."
 ].join("\n");
@@ -360,6 +360,7 @@ export async function agentChat(messages, env, turnFn = agentTurn) {
   let openedArea = null;
   const trace = [];
   const failedCalls = new Set();
+  const toolCache = new Map();
   let lastProvider = "";
   let lastModel = "";
 
@@ -413,19 +414,25 @@ export async function agentChat(messages, env, turnFn = agentTurn) {
         result = { error: "bu arac su an acik degil; once yetenek_ac kullan" };
       } else {
         const signature = name + ":" + JSON.stringify(args || {});
-        if (failedCalls.has(signature)) {
+        let cached = false;
+        if (toolCache.has(signature)) {
+          result = toolCache.get(signature);
+          cached = true;
+        } else if (failedCalls.has(signature)) {
           result = {
             error: "Ayni basarisiz arac ve argumanlar tekrar denenmedi; baska uygun yol sec."
           };
         } else {
           result = await executeWebTool(name, args);
           if (result.error) failedCalls.add(signature);
+          else toolCache.set(signature, result);
         }
         trace.push({
           kind: "tool",
           name,
           area: openedArea,
           ok: !result.error,
+          cached,
           bridgeRequired: Boolean(result.bridge_required)
         });
       }
