@@ -54,4 +54,6 @@ jobs:
           # Gercek ag/kota kullanan testler tests/live/ altindadir ve
           # asagida haric tutulur (--live kapisi gerekir).
           PYTHONWARNINGS: ignore
-        run: python -m pytest tests -q --ignore=tests/live
+        run: |
+          python -m py_compile tests/live/github_full_acceptance.py
+          python -m pytest tests -q --ignore=tests/live
