@@ -18,9 +18,11 @@ def test_beyin_acilisi_ve_zincir(rapor):
     from brain import Brain
     b = Brain()
     bulutlar = [ad for ad, _ in b._bulut_zinciri()]
-    rapor("acilis", {"bulut": bulutlar})
-    # Ortam sağlıklıysa en az bir bulut kaynagi olmalı (yerel yok — Faz 2)
-    assert bulutlar, "Bulut zinciri ayakta degil"
+    ajanlar = [ad for ad, _ in b._bulut_zinciri(
+        tools=True, tool_required=True)]
+    rapor("acilis", {"bulut": bulutlar, "ajan": ajanlar})
+    assert bulutlar, "Ucretsiz bulut zinciri ayakta degil"
+    assert ajanlar, "Gercek ajan protokolu destekli ucretsiz beyin yok"
 
 
 def test_api_boot_sozlugu(rapor):
@@ -32,9 +34,9 @@ def test_api_boot_sozlugu(rapor):
                             else str(v)[:60])
                        for k, v in durum.items()})
     assert isinstance(durum, dict)
-    assert "ok" in durum and "models" in durum and "cloud" in durum
-    if durum["models"] or durum["cloud"]:
-        assert durum["ok"] is True
+    assert ("ok" in durum and "models" in durum
+            and "cloud" in durum and "agent" in durum)
+    assert durum["ok"] is bool(durum["agent"])
 
 
 def test_hafiza_db_ac_kapan_yeniden_ac(tmp_path, rapor):
