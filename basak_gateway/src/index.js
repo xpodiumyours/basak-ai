@@ -1,7 +1,7 @@
 import catalog from "./tool_catalog.json" with { type: "json" };
 import schemas from "./tool_schemas.json" with { type: "json" };
 import { LabState } from "./lab_state.js";
-import { PROVIDERS, providerStatus, runProtocol, chat, runToolFirst, runToolSecond } from "./providers.js";
+import { PROVIDERS, providerStatus, runProtocol, runToolFirst, runToolSecond } from "./providers.js";
 
 export { LabState };
 
@@ -93,19 +93,15 @@ function toolByName(name) {
 }
 
 function publicReport(status) {
-  const accepted = status.phase1Passed === 8
-    && status.phase2Accepted
-    && status.phase3Passed === 416
-    && status.phase4Passed === 416
-    && status.phase5Accepted;
+  const accepted = false;
   return {
     accepted,
     phase1: { passed: status.phase1Passed, total: 8 },
     phase2: { accepted: status.phase2Accepted, totalTools: 52 },
     phase3: { passed: status.phase3Passed, total: 416 },
     phase4: { passed: status.phase4Passed, total: 416 },
-    phase5: { accepted: status.phase5Accepted, chatTurns: status.chatTurns },
-    phase6: { reportReady: accepted }
+    phase5: { accepted: false, reason: "Gercek Basak cekirdegi web koprusune baglanmadi" },
+    phase6: { reportReady: false }
   };
 }
 
@@ -120,7 +116,6 @@ export default {
         mode: "free-only",
         providerReady: providerStatus(env),
         providers: PROVIDERS,
-        workersAiBinding: Boolean(env.AI),
         stages: ["8 protokol","52 arac yapisi","416 canli hucre","ikinci tur","gercek sohbet","tek kabul raporu"]
       });
     }
@@ -194,47 +189,12 @@ export default {
       }
     }
 
-    if (request.method === "POST" && url.pathname === "/api/lab/phase5") {
-      const body = await request.json().catch(() => ({}));
-      const session = sessionFrom(url, body);
-      try {
-        const status = await stateStatus(env, session);
-        if (status.phase4Passed !== 416 || status.chatTurns < 2) {
-          return json({ ok: false, error: "Faz 4 tam degil veya en az 2 basarili sohbet turu yok" }, 409);
-        }
-        const value = { accepted: true, acceptedAt: new Date().toISOString() };
-        await statePut(env, session, "phase5", value);
-        return json({ ok: true, ...value });
-      } catch (error) {
-        return json({ ok: false, error: String(error?.message || error) }, 400);
-      }
-    }
-
     if (request.method === "GET" && url.pathname === "/api/lab/report") {
       try {
         const status = await stateStatus(env, sessionFrom(url));
         return json({ product: "Basak Gate", generatedAt: new Date().toISOString(), ...publicReport(status) });
       } catch (error) {
         return json({ error: String(error?.message || error) }, 400);
-      }
-    }
-
-    if (request.method === "POST" && url.pathname === "/api/chat") {
-      try {
-        const body = await request.json();
-        const result = await chat(body?.messages, env);
-        if (validSession(body?.acceptanceSession)) {
-          const current = Number(await stateGet(env, body.acceptanceSession, "chat_turns") || 0);
-          await statePut(env, body.acceptanceSession, "chat_turns", current + 1);
-        }
-        return json({
-          ok: true,
-          ...result,
-          acceptance: false,
-          note: "Normal web sohbeti kabul kaniti degildir; Faz 5 oturumunda kullanici onayi gerekir."
-        });
-      } catch (error) {
-        return json({ ok: false, error: String(error?.message || error).slice(0, 1400) }, 503);
       }
     }
 
