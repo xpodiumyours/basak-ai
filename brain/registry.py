@@ -84,10 +84,6 @@ SAGLAYICILAR = {
         "ad": "Ozel Saglayici",
         "ucretsiz": False,
         "tools": True,
-        # OpenRouter'da tool_choice/tools model bazinda desteklenir.
-        # Secilen :free model katalogda bu iki parametreyi tasimali;
-        # aksi halde Basak ajan zincirine kabul etmez.
-        "ajan_tool_mode": "auto_enforced",
         "gucleri": ["genel"],
         "gunluk_istek": None,
         "not": "Casper'in kendi bileti (ucretli/ozel). Anahtar yoksa zincire "
@@ -97,8 +93,6 @@ SAGLAYICILAR = {
         "ad": "Kimi (Moonshot)",
         "ucretsiz": False,
         "tools": True,
-        # Kilo Gateway API ToolChoice semasi required destekli.
-        "ajan_tool_mode": "required",
         "gucleri": ["genel", "kod"],
         "gunluk_istek": None,
         "not": "UCRETLI + KARTSIZ KAPALI — veri karti + kimi_acik olmadan zincire girmez.",
@@ -130,6 +124,8 @@ SAGLAYICILAR = {
         "ad": "Kilo Gateway",
         "ucretsiz": True,
         "tools": True,
+        # Kilo Gateway API ToolChoice semasi required destekli.
+        "ajan_tool_mode": "required",
         "gucleri": ["genel", "kod"],
         "gunluk_istek": None,   # sinir saatlik (200 istek/saat/IP), gunluk degil
         # Resmi davranis: saatte 200 soru/IP. Gunluk karta islenmez.
@@ -143,6 +139,10 @@ SAGLAYICILAR = {
         "ad": "OpenRouter",
         "ucretsiz": True,
         "tools": True,
+        # OpenRouter'da tools/tool_choice model bazinda desteklenir.
+        # Basak yalniz katalogda ikisini de destekleyen :free modeli
+        # ajan icin kabul eder; duz metni ajan turunda basari saymaz.
+        "ajan_tool_mode": "auto_enforced",
         "gucleri": ["genel"],
         "gunluk_istek": 50,   # :free modeller tipik ucretsiz katman limiti
         "not": "Sadece :free modeller; son care bulut.",
