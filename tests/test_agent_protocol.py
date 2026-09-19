@@ -1,6 +1,9 @@
 """Gercek ajan protokolu icin kotasiz birim testler."""
 
+import inspect
 import types
+
+import pytest
 
 
 def _call(ad, args="{}", cid="c1"):
@@ -152,15 +155,94 @@ def test_required_ajan_duz_metni_final_saymaz():
     assert cevap == ""
 
 
-def test_registry_required_yalniz_dogrulanmis_saglayicilar():
+AJAN_SAGLAYICILARI = (
+    "groq", "gemini", "openrouter", "glm",
+    "cloudflare", "cohere", "kilo", "nvidia",
+)
+
+
+def test_registry_8_ucretsiz_saglayicinin_tamamini_ajan_olarak_tanimlar():
     from brain import registry
 
-    assert registry.zorunlu_tool_destegi_var_mi("groq") is True
-    assert registry.zorunlu_tool_destegi_var_mi("cohere") is True
-    assert registry.zorunlu_tool_destegi_var_mi("cloudflare") is True
-    for ad in ("gemini", "openrouter", "glm",
-               "kilo", "nvidia", "qwen"):
-        assert registry.zorunlu_tool_destegi_var_mi(ad) is False
+    assert tuple(registry.VARSAYILAN_SIRA) == AJAN_SAGLAYICILARI
+    for ad in AJAN_SAGLAYICILARI:
+        assert registry.otomatik_ucretsiz_mi(ad) is True
+        assert registry.tool_destegi_var_mi(ad) is True
+        assert registry.ajan_destegi_var_mi(ad) is True
+
+    assert registry.ajan_destegi_var_mi("qwen") is False
+    assert registry.ajan_destegi_var_mi("genel") is False
+    assert registry.ajan_destegi_var_mi("deepseek") is False
+    assert registry.ajan_destegi_var_mi("kimi") is False
+
+
+def test_8_saglayici_resmi_tool_choice_haritasi():
+    from brain import registry
+
+    beklenen = {
+        "groq": "required",
+        "gemini": "auto",
+        "openrouter": "auto",
+        "glm": "auto",
+        "cloudflare": "required",
+        "cohere": "required",
+        "kilo": "required",
+        "nvidia": "auto",
+    }
+    assert {ad: registry.ajan_tool_choice(ad)
+            for ad in AJAN_SAGLAYICILARI} == beklenen
+
+
+def test_8_istemcinin_tamami_tool_choice_parametresini_kabul_ediyor():
+    from brain.groq import GroqClient
+    from brain.gemini import GeminiClient
+    from brain.openrouter import OpenRouterClient
+    from brain.glm import GLMClient
+    from brain.cloudflare import CloudflareClient
+    from brain.cohere import CohereClient
+    from brain.kilo import KiloClient
+    from brain.nvidia import NvidiaClient
+
+    siniflar = (
+        GroqClient, GeminiClient, OpenRouterClient, GLMClient,
+        CloudflareClient, CohereClient, KiloClient, NvidiaClient,
+    )
+    for cls in siniflar:
+        assert "tool_choice" in inspect.signature(cls.cevapla).parameters, cls
+
+
+@pytest.mark.parametrize(
+    "provider,beklenen",
+    [
+        ("groq", "required"),
+        ("gemini", "auto"),
+        ("openrouter", "auto"),
+        ("glm", "auto"),
+        ("cloudflare", "required"),
+        ("cohere", "required"),
+        ("kilo", "required"),
+        ("nvidia", "auto"),
+    ],
+)
+def test_brain_required_sozlesmesini_saglayici_protokolune_cevirir(
+        provider, beklenen):
+    from brain.brain import Brain
+
+    gorulen = {}
+
+    class Istemci:
+        def cevapla(self, messages, tools=None, yapi=None, tool_choice=None):
+            gorulen["tool_choice"] = tool_choice
+            return {"tool_calls": [_call("x")]}
+
+    b = Brain.__new__(Brain)
+    b._tek_cagri(
+        Istemci(), provider,
+        [{"role": "user", "content": "x"}],
+        [{"type": "function", "function": {"name": "x"}}],
+        None, None, tool_choice="required",
+    )
+    assert gorulen["tool_choice"] == beklenen
 
 
 def test_groq_required_apiye_tasinir():
@@ -273,7 +355,7 @@ def test_otomatik_bulut_zinciri_ucretli_ve_qwen_sokmaz():
     assert "groq" in adlar
 
 
-def test_ajan_zinciri_yalniz_required_dogrulanmis_ucretsizler():
+def test_ajan_zinciri_8_ucretsiz_saglayicinin_tamamini_kapsar():
     from brain.brain import Brain
 
     class Saglayici:
@@ -287,4 +369,63 @@ def test_ajan_zinciri_yalniz_required_dogrulanmis_ucretsizler():
 
     adlar = [ad for ad, _ in b._bulut_zinciri(
         tools=True, tool_required=True)]
-    assert set(adlar) == {"groq", "cloudflare", "cohere"}
+    assert set(adlar) == set(AJAN_SAGLAYICILARI)
+    assert len(adlar) == 8
+
+
+def test_52_arac_dort_yuz_on_alti_saglayici_arac_yolunda_erisebilir():
+    """8 saglayici x 52 arac = 416 ajan yolu; kota kullanmaz."""
+    from chat.agent_protocol import (
+        YETENEK_AC_ADI, SON_CEVAP_ADI, YETENEK_ALANLARI,
+        baslangic_araclari,
+    )
+    from chat.tools import arac_dongusu
+    from tools.definitions import TOOLS
+
+    araclar = [t["function"]["name"] for t in TOOLS]
+    ters = {
+        arac: alan
+        for alan, alan_araclari in YETENEK_ALANLARI.items()
+        for arac in alan_araclari
+    }
+    sayac = 0
+
+    for provider in AJAN_SAGLAYICILARI:
+        for hedef in araclar:
+            alan = ters[hedef]
+            turlar = {"n": 0}
+
+            class Beyin:
+                def cevapla(self, mesajlar, model, tools=None,
+                            tool_choice=None):
+                    assert tool_choice == "required"
+                    adlar = [x["function"]["name"] for x in tools]
+                    turlar["n"] += 1
+                    if turlar["n"] == 1:
+                        assert hedef in adlar, (provider, hedef, alan)
+                        return {"tool_calls": [
+                            _call(hedef, "{}", "gercek")
+                        ]}, provider
+                    return {"tool_calls": [
+                        _call(SON_CEVAP_ADI,
+                              '{"metin":"tamam"}', "final")
+                    ]}, provider
+
+            kosulan = []
+            cevap, kosan = arac_dongusu(
+                [_call(YETENEK_AC_ADI,
+                       '{"alan":"%s"}' % alan, "alan")],
+                [{"role": "user", "content": "dogrulama"}],
+                Beyin(), None, lambda kod: None,
+                lambda ad, args: (
+                    kosulan.append(ad) or {"result": "ok"}),
+                tools=baslangic_araclari(),
+                tool_choice="required",
+                tum_tools=TOOLS,
+            )
+            assert kosulan == [hedef], (provider, hedef)
+            assert kosan == 1
+            assert cevap == "tamam"
+            sayac += 1
+
+    assert sayac == 8 * 52
