@@ -1,0 +1,92 @@
+name: Basak Kilo tool-model probe
+
+on:
+  push:
+    branches:
+      - basak-gate-deploy
+    paths:
+      - ".github/workflows/kilo-tool-model-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ucretsiz Kilo tool-capable modellerini canli dene
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, urllib.request, urllib.error
+
+          url="https://api.kilo.ai/api/gateway/chat/completions"
+          candidates=[
+              "poolside/laguna-s-2.1:free",
+              "nvidia/nemotron-3-ultra-550b-a55b:free",
+              "nex-agi/nex-n2.5-pro:free",
+              "inclusionai/ling-3.0-flash-vl:free",
+          ]
+          tool={
+              "type":"function",
+              "function":{
+                  "name":"protokol_probe",
+                  "description":"Call exactly once and set echo to BASAK_PROTOCOL_OK.",
+                  "parameters":{
+                      "type":"object",
+                      "properties":{"echo":{"type":"string"}},
+                      "required":["echo"],
+                      "additionalProperties":False
+                  }
+              }
+          }
+          prompt="Call protokol_probe exactly once with echo BASAK_PROTOCOL_OK. Do not answer before the tool call."
+
+          def post(payload):
+              req=urllib.request.Request(
+                  url,
+                  data=json.dumps(payload).encode(),
+                  headers={"content-type":"application/json"},
+                  method="POST",
+              )
+              try:
+                  with urllib.request.urlopen(req,timeout=45) as r:
+                      return r.status,json.load(r)
+              except urllib.error.HTTPError as e:
+                  raw=e.read().decode("utf-8","replace")
+                  try: body=json.loads(raw)
+                  except: body={"raw":raw[:400]}
+                  return e.code,body
+
+          for model in candidates:
+              code,data=post({
+                  "model":model,
+                  "messages":[{"role":"user","content":prompt}],
+                  "tools":[tool],
+                  "tool_choice":"required",
+                  "max_tokens":1024,
+              })
+              msg=((data.get("choices") or [{}])[0].get("message") or {}) if isinstance(data,dict) else {}
+              calls=msg.get("tool_calls") or []
+              ok=(code==200 and len(calls)==1 and calls[0].get("function",{}).get("name")=="protokol_probe")
+              err=None if ok else (data.get("error") if isinstance(data,dict) else None)
+              print(json.dumps({"model":model,"http":code,"tool_call":bool(calls),"ok":ok,"error":err},ensure_ascii=False))
+              if not ok:
+                  continue
+              call=calls[0]
+              second_messages=[
+                  {"role":"user","content":prompt},
+                  {"role":"assistant","content":msg.get("content"),"tool_calls":calls},
+                  {"role":"tool","tool_call_id":call.get("id"),"content":json.dumps({"result":"BASAK_PROTOCOL_OK"})},
+              ]
+              code2,data2=post({"model":model,"messages":second_messages,"max_tokens":512})
+              text=str((((data2.get("choices") or [{}])[0].get("message") or {}).get("content") or "")).strip() if isinstance(data2,dict) else ""
+              print(json.dumps({"selected_model":model,"second_http":code2,"second_text":bool(text),"preview":text[:120]},ensure_ascii=False))
+              if code2==200 and text:
+                  print("KILO_PROTOCOL_MODEL="+model)
+                  raise SystemExit(0)
+
+          raise SystemExit("No anonymous free tool-capable Kilo model passed full protocol loop")
+          PY
