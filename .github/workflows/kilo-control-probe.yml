@@ -1,0 +1,82 @@
+name: Kilo control-tools probe
+
+on:
+  push:
+    branches:
+      - basak-gate-deploy
+    paths:
+      - ".github/workflows/kilo-control-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Iki kontrol araciyla required davranisini olc
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, urllib.request, urllib.error
+          url="https://api.kilo.ai/api/gateway/chat/completions"
+          model="nvidia/nemotron-3-ultra-550b-a55b:free"
+          tools=[
+            {
+              "type":"function",
+              "function":{
+                "name":"yetenek_ac",
+                "description":"Gercek arac gerekiyorsa tek alan ac.",
+                "parameters":{
+                  "type":"object",
+                  "properties":{"alan":{"type":"string","enum":["internet","dosyalar","projeler","gorevler","hafiza","gorsel","katalog","matris","masaustu","hesap"]}},
+                  "required":["alan"]
+                }
+              }
+            },
+            {
+              "type":"function",
+              "function":{
+                "name":"son_cevap",
+                "description":"Salt sohbet veya tamamlanan is icin final cevabi ver.",
+                "parameters":{
+                  "type":"object",
+                  "properties":{"metin":{"type":"string"}},
+                  "required":["metin"]
+                }
+              }
+            }
+          ]
+          prompts=[
+            "Merhaba Basak. Nasılsın? Kısa cevap ver.",
+            "Su an Istanbul'da saat kac? Tahmin etme, gerekli araci kullan."
+          ]
+          for prompt in prompts:
+            payload={
+              "model":model,
+              "messages":[
+                {"role":"system","content":"Gercek veri gerekiyorsa yetenek_ac; salt sohbette son_cevap kullan. Duz metin yazma."},
+                {"role":"user","content":prompt}
+              ],
+              "tools":tools,
+              "tool_choice":"required",
+              "max_tokens":1024
+            }
+            req=urllib.request.Request(url,data=json.dumps(payload).encode(),headers={"content-type":"application/json"},method="POST")
+            try:
+              with urllib.request.urlopen(req,timeout=45) as r:
+                d=json.load(r); code=r.status
+            except urllib.error.HTTPError as e:
+              code=e.code
+              try:d=json.loads(e.read())
+              except:d={}
+            msg=((d.get("choices") or [{}])[0].get("message") or {})
+            print(json.dumps({
+              "prompt":prompt,
+              "http":code,
+              "content":msg.get("content"),
+              "tool_calls":msg.get("tool_calls")
+            },ensure_ascii=False))
+          PY
