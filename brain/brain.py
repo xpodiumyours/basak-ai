@@ -262,7 +262,11 @@ class Brain:
         Tum mesajlar API-uyumlu formata temizlenir (content string garanti).
         """
         from brain.message_utils import mesajlari_temizle
-        messages = mesajlari_temizle(messages)
+        # Cohere V2 assistant tool mesajinda provider-ozel tool_plan
+        # bilgisini bekler. Generic OpenAI temizleyicisi bunu bilerek
+        # tasimaz; Cohere kendi native donusumunu yapar.
+        if ad != "cohere":
+            messages = mesajlari_temizle(messages)
         ekstra = {"yapi": yapi_deger} if yapi_deger else {}
         if tool_choice is not None:
             # Basak disarida tek "required" ajan sozlesmesi kullanir;
