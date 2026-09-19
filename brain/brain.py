@@ -184,8 +184,12 @@ class Brain:
                     if not registry.tool_destegi_var_mi(ad):
                         return False
                     if (tool_required
-                            and not registry.zorunlu_tool_destegi_var_mi(ad)):
+                            and not registry.ajan_destegi_var_mi(ad)):
                         return False
+                    if tool_required:
+                        denetle = getattr(istemci, "ajan_musait", None)
+                        if callable(denetle) and not denetle():
+                            return False
                 except Exception:
                     pass
             return True
@@ -261,7 +265,12 @@ class Brain:
         messages = mesajlari_temizle(messages)
         ekstra = {"yapi": yapi_deger} if yapi_deger else {}
         if tool_choice is not None:
-            ekstra["tool_choice"] = tool_choice
+            # Basak disarida tek "required" ajan sozlesmesi kullanir;
+            # saglayiciya ise kendi resmi protokolune uygun deger gider.
+            ekstra["tool_choice"] = (
+                registry.ajan_tool_choice(ad)
+                if tool_choice == "required" else tool_choice
+            )
         # override_model: GroqClient icin model degistirme (retry icin)
         if override_model and ad == "groq" and hasattr(istemci, 'cevapla'):
             import inspect
@@ -350,6 +359,16 @@ class Brain:
                             tool_choice)
                     else:
                         raise
+                # Ajan turunda saglayici "auto" kullanmak zorundaysa bile
+                # duz metin Basak icin basari sayilmaz. Model gercek bir
+                # tool-call dondurmezse ayni istek siradaki uygun saglayiciya
+                # devredilir. Boylece model secimi korunur, chatbot kacagi yok.
+                if tool_choice == "required":
+                    araclar = (yanit.get("tool_calls")
+                               if isinstance(yanit, dict) else None)
+                    if not araclar:
+                        raise RuntimeError(
+                            "ajan protokolu: saglayici tool-call dondurmedi")
                 sure = time.time() - t0
                 _audit("OK kaynak=%s | %.1f sn | tools=%s | %s" %
                        (ad, sure, bool(tools), gerekce))
