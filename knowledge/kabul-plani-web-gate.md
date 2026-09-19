@@ -1,0 +1,93 @@
+# WEB GATE KABUL PLANI (TEK DOĞRU KAYNAK)
+
+Tarih: 2026-09-19 | Yazan: Buffy (Codebuff) | Onay: Casper
+Amaç: Bu plan deftere yazilmadigi icin iki ayri oturum ayni sapmayi yapti.
+Bu dosya o boslugu kapatir. Plana sapma oldugunda once bu dosya guncellenir.
+
+## TEK KURAL (her ajana, istisnasiz)
+
+Beyin yalniz Python cekirdeginde yasar (basak_app.py + brain/ + chat/ + tools/).
+Web Gate = yalnizca KULLANICI ARAYUZU + BASAK'A KOPRU + OLCUM EKRANI.
+Web tarafinda ayri ajan dongusu, ayri saglayici zinciri, ayri arac calistirici
+YAZILMAZ. "basak_gateway/src/agent.js" tarzi ikinci beyin dosyalari bu plana
+aykiri kalintidir; goruldugunde silinir, gelistirilmez.
+
+## KABUL CIZGISI (sirayla, atlanamaz)
+
+1. 8 saglayicinin NATIVE arac protokolu (8/8) — sahte/normalize edilmis
+   tool_call KABUL SAYILMAZ. Model resmi tool_call uretmedigince o hucre
+   kirmizidir. Metin icindeki JSON'u koda cevirme hilesi olcumu yumusatir; yasak.
+2. 52 gercEK arac dogrulamasi — web'den 6 araclik alt kume yetmez.
+   "bridge_required" donen her arac kirmizidir.
+3. 416 hucre = 8 saglayici x 52 arac, gercEK canli cagri matrisi.
+4. 416 ikinci tur = her cagrinin tool-result devaminin native akista donmesi.
+5. Normal sohbet testi — dogal dil + gercEK arac kullanimi. Olculen:
+   dogru araci kendi secmis mi, arac gercEKten kosmus mu, ayni isi tekrar
+   aramis mi, basarisizligi uydurmus mu, cevap verimli mi.
+6. Tek kabul raporu — yukaridakiler tamamlanmadan rapor yazilmaz.
+
+## 2026-09-19 SAPMA VE TEMIZLIK KAYDI
+
+Sapma (gerceklesen): Web gate yapilirken ikinci Basak yazilmaya baslandi
+(basak_gateway/src/agent.js 443 satir, providers.js 1009 satir, 6 arac
+baglandi, 46 arac "bridge_required"; Kilo icin metin-icindeki JSON'u
+tool_call gibi ceviren ffc29f8 hilesi; gate dalinda agir testler devre disi).
+Sapma ANA DALDA HIC GORUNMEDI (sadelestirme = 1c22eed temiz).
+
+Temizlik (2026-09-19, Casper onayli):
+- 5 kalinti dal GitHub'dan silindi: feature/basak-web-gate,
+  work/basak-web-agent, fix/basak-gate-single-core, fix/basak-gate-clean-room,
+  basak-gate-deploy. Her biri once arsiv etiketiyle kazindi:
+  arsiv/*-20260919 (5 etiket, git gecmisinde kalici).
+- Yerel Temp worktree (basak-ci-test) silindi; icindeki commitlenmemis
+  web_search.py degisikligi zaten 665cbba commitinde oldugu icin is kaybi yok.
+- Yerel sadelestirme kopyasi origin'e esitlendi (bfe3fcc -> 1c22eed).
+
+## DURUM TABLOSU
+
+| Adim | Durum |
+|---|---|
+| 1. 8/8 native protokol | Kirmizi — 2026-09-19 22:24 canli olcum: groq (tool_choice 400, model arac cagirmadi), gemini (thought_signature eksik 400), openrouter+kilo (tool-call dondurmedi), glm 429, nvidia ic hata |
+| 2. 52 gercEK arac | Kirmizi (web'de 6) |
+| 3. 416 hucre | Kirmizi (altyapi vardi, calistirilmadi) |
+| 4. 416 ikinci tur | Kirmizi |
+| 5. Normal sohbet testi | Kirmizi (github_durum senaryosu zaman asimi, mukerrer cagri) |
+| 6. Tek rapor | Kirmizi |
+
+Kirmizi adim uzerine YENI OZELLIK ekleme yapilmaz; sadece o adimi yesile
+goturen is yapilir. Test agir paketi push'larda devre disi birakilamaz
+(Casper kurali: test kucultulmez).
+
+## ADIM 1 KARARI (2026-09-19, Buffy karari — Casper "sen karar ver" dedi)
+
+ZAMAN (uc dilim):
+1. Bugun aksam: kotadan bagimsiz kod duzeltmeleri + birim testler.
+2. 20.09 sabah (kota tazelendi): pilot 64 hucre = 8 saglayici x 8 arac
+   (2 kontrol + 6 temsilci gercek arac).
+3. 20-22.09: tam 416 hucre, devam-edilebilir kosucuyla (kota dostu,
+   hucre sonuclari data/ altina yazilir, kesilirse kaldigi yerden surer).
+   Rapor: matris tamamlaninca TEK kabul raporu.
+
+NASIL (bes blok, sirayla):
+A. GROQ — gpt-oss-120b tool_choice=required altinda metin yazip 400
+   veriyor. Cozum: resmi hatayi ("Tool choice is required, but model did
+   not call a tool") ayni istekle TEK yeniden ornekleme (resample) takip
+   eder. Metin tool_call'a cevrilmez — native protokol korunur.
+B. GEMINI — thought_signature geri tasimada dusuyor. Cozum: imzanin
+   OpenAI-uyumlu katmandaki gercek yerini olc (tool_call.extra_content
+   yeterli mi, message duzeyinde mi), tasima hattini o olcume gore
+   tamamt ve birim testle sabitle.
+C. OPENROUTER — tools isteglerinde provider routing nesnesine
+   require_parameters=true ekle (resmi docs); ucretsiz+tools destekli
+   model secimi zaten vardi.
+D. KILO — kilo-auto/free yonlendiricisi tool_call uretmeyen modele
+   dusuyor. Cozum: aday :free modelleri kisa canli prob ile olc, ajan
+   hatti modelini olcume gore sabitle (sira olcumle dizilir kurali).
+E. MATRIS — cloudflare + cohere anahtari yok: o 2x52=104 hucre
+   anahtar gelene kadar SKIP yazilir, tahmin DOLDURULMAZ. Kosucu
+   data/kabul-matrisi.json'a yazar; her hucre: saglayici, arac,
+   tur-1 native mi, tur-2 tool-result devami, sure, hata.
+
+Yasak yine gecerli: metinden tool_call uretimi, bos hucreye varsayim,
+raporu kisaltmak. Her blok kendi birim testiyle kapanir; canli kanit
+matristen okunur.
