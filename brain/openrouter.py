@@ -151,7 +151,16 @@ class OpenRouterClient:
                 kwargs["tool_choice"] = tool_choice
 
         resp = self.client.chat.completions.create(**kwargs)
-        msg = resp.choices[0].message
+        secimler = getattr(resp, "choices", None) or []
+        if not secimler:
+            # Bazi free yonlendiriciler 200 ile bos choices dondurebiliyor
+            # (olcum 2026-09-20: sayfa_oku hucresi 'NoneType' cokmesi).
+            # Cokme degil anlasilir hata: zincirin zarif hata yolu devreye
+            # girsin (AGENTS.md §5: hata yollarini es gecme).
+            raise RuntimeError(
+                "OpenRouter bos yanit dondu (choices yok), model=%s"
+                % self.model)
+        msg = secimler[0].message
         # Reasoning zinciri (P0): OpenRouter reasoning / reasoning_details
         # alanlari korunur; arac turunda modele geri verilir.
         muhakeme = reasoning_ayikla(msg)

@@ -339,6 +339,36 @@ def test_plan_dosyasi_kapsam_sozlesmesi_tasiyor():
         assert sart in icerik, sart
 
 
+def test_openrouter_bos_choices_cokmez_anlasilir_hata_verir(monkeypatch):
+    """2026-09-20 olcumu: free yonlendirici 200 + bos choices donduğunde
+    adaptor 'NoneType' ile cokuyordu. Artik RuntimeError — zincirin
+    zarif hata yolu devreye girer."""
+    import types
+    import brain.openrouter as or_mod
+    from brain.openrouter import OpenRouterClient
+
+    bos = types.SimpleNamespace(choices=[])   # 200 + bos secimler
+
+    class _SahteCompletions:
+        def create(self, **kwargs):
+            return bos
+
+    class _SahteChat:
+        completions = _SahteCompletions()
+
+    class _SahteSDK:
+        def __init__(self, **kwargs):
+            self.chat = _SahteChat()
+
+    monkeypatch.setattr(or_mod, "OpenAI", _SahteSDK)
+    monkeypatch.setattr(or_mod.OpenRouterClient, "_model_bul",
+                        lambda self: "test/free")
+
+    c = OpenRouterClient("test-anahtar")
+    with pytest.raises(RuntimeError, match="bos yanit"):
+        c.cevapla([{"role": "user", "content": "saat"}])
+
+
 # ── BOLUM 5: duzey 2 matris kosucusu sozlesmesi ─────────────────────
 
 def test_matris_kosucu_simulasyon_yasaklarini_tasiyor():
@@ -405,6 +435,47 @@ def test_matris_kosucu_hucre_kaydi_yapisi(tmp_path, monkeypatch):
     assert kayit["model"] == "sahte-model"
     kayitli = matris_kosucu._yukle()
     assert kayitli["duzey2"]["groq"]["simdi"]["durum"] == "YESIL"
+
+
+def test_matris_kosucu_arac_hatasi_tur2_ile_olculur(tmp_path, monkeypatch):
+    """Pilot politikasi: arac error'u gercek sonuctur; tur-1 native +
+    tur-2 tamamsa hucre YESIL'dir ve hata kayitta kanit olarak durur."""
+    from tests.live import kosucu, matris_kosucu
+
+    monkeypatch.setattr(matris_kosucu, "MATRIS", tmp_path / "m.json")
+
+    class _Sahte:
+        model = "sahte"
+
+        def __init__(self):
+            self.n = 0
+
+        def cevapla(self, mesajlar, tools=None, yapi=None,
+                    tool_choice=None):
+            self.n += 1
+            if self.n == 1:
+                return {"content": "", "tool_calls": [{
+                    "id": "c1", "type": "function",
+                    "function": {"name": "hesapla",
+                                 "arguments": "{\"ifade\":\"1/0\"}"}}]}
+            return {"content": "Araç hata verdi, soyledim."}
+
+    c = _Sahte()
+    kayit = matris_kosucu._hucre_kos("groq", "hesapla",
+                                     kosucu.SEMALAR["hesapla"], c)
+    assert kayit["durum"] == "YESIL", kayit
+    assert "arac_hatasi" in kayit, "hata kanitsiz kalmasin"
+
+
+def test_matris_kosucu_sorularda_deger_var():
+    """Pilot bulgusu: arguman isteyen araclarin sorusunda deger OLMALI —
+    modelin 'hangi deger?' sorusu kirmizi sayilmaz."""
+    from tests.live import matris_kosucu
+
+    for arac in ("sayfa_oku", "hesapla", "git_durum", "list_files"):
+        soru = matris_kosucu._soru_yaz(arac)
+        assert "Degerler:" in soru, "%s sorusunda deger yok" % arac
+    assert "Degerler:" not in matris_kosucu._soru_yaz("simdi")
 
 
 def test_matris_kosucu_yesil_hucreyi_tekrar_kosmaz(tmp_path, monkeypatch):

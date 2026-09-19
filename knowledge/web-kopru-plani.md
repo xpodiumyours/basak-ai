@@ -29,6 +29,23 @@ KARAR (Casper onayi, 2026-09-20): DASH'TAN KOMPLE SILINIR.
   yonlendirici kalir. Silme sonrasi dogrulama: deep-baroness-ee7
   404/DNS donmeli.
 
+### SILME TAMAMLANDI (2026-09-20 02:10, komutla — Casper izniyle)
+- Yontem: wrangler eski hesaba (Deep Baroness, ee78549a) OAuth ile
+  baglandi (Casper hesap seciciyle "Derin Baroness"i yetkilendirdi);
+  `CLOUDFLARE_ACCOUNT_ID=... wrangler delete --name basak-gate-preview`
+  -> "Successfully deleted".
+- KANIT: deep-baroness-ee7 adresi HTTP 404 + "error code: 1042"
+  (worker silinmis). Ikinci beyin (sahte kabul vitrini + lab +
+  LabState verisi) internetten KALDI.
+- Tek kalici kapı: basak-gate-preview.xpodiumyours.workers.dev
+  (302 -> tunel, kanitli). Tünel + köprü 200.
+- Oturum yedekten yeni hesaba (Xpodiumyours) geri yuklendi; sonraki
+  deploy'lar etkilenmez. Yedek dosyalari silindi.
+- Ders (tekrarlanmasin): ikinci-beyin kalintisi repoda degil, bulut
+  hesabinda da yasarabilir — temizlik kontrol listesine "bulut
+  hesabi taramasi" eklendi (AGENTS.md §9 kapsam genisletmesi degil,
+  ayni kuralin bulut ayagi).
+
 ### Kalici adres — TAMAMLANDI (2026-09-20, resmi yolla)
 - Worker kaynak kodu REPOYA alindi: basak-kapisi/ (wrangler.jsonc +
   src/index.js — 8 satir, beyin YOK). Dash'ta kod durmaz; her degisiklik

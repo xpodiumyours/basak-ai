@@ -43,6 +43,33 @@ PILOT_ARACLAR = ("simdi", "hesapla", "git_durum", "sayfa_oku",
 # yalniz DUZEY2-Pilot: onekli satirlara dokunur).
 _TEMIZLENECEKLER = {"add_task": ("DUZEY2-Pilot:",)}
 
+# Soru degerleri: arguman isteyen araclara GERCEK ve guvenli degerler.
+# Modelin dogru sorusu kirmizi degil — kosucunun eksik sorusudur (pilot
+# 2026-09-20 bulgusu). Gerekli alanlar semadaki 'required'dan gelir.
+SORU_DEGERLERI = {
+    "simdi": "",
+    "hesapla": "ifade=(120*18)/100",
+    "git_durum": "proje=basak",
+    "git_gecmis": "proje=basak",
+    "git_degisenler": "proje=basak&taban=origin/master",
+    "dosya_bilgi": "proje=basak&yol=README.md",
+    "belge_ara": "proje=basak&sorgu=kabul",
+    "list_files": "folder=knowledge",
+    "read_file": "path=README.md",
+    "sayfa_oku": "url=https://example.com",
+    "derin_oku": "url=https://example.com",
+    "adres_kontrol": "url=https://example.com",
+    "github_durum": "islem=calisma_liste&proje=basak",
+    "add_task": "text=DUZEY2-Pilot: otomatik test satiri",
+}
+
+
+def _soru_yaz(arac):
+    deger = SORU_DEGERLERI.get(arac, "")
+    taban = ("%s aracini simdi kullanmalisin. Sonucu degerlendir ve tek "
+             "cumle soyle.")
+    return taban % arac + (" Degerler: %s." % deger if deger else "")
+
 # Beyaz liste kurali kosucunun kendi icinde de gecerli (§9).
 _KILIT = threading.Lock()
 
@@ -109,11 +136,10 @@ def _hucre_kos(saglayici, arac, sema, istemci):
              "zaman": time.strftime("%Y-%m-%d %H:%M:%S")}
     try:
         zorlama = kosucu.ZORLAMA[saglayici]
+        soru = _soru_yaz(arac)
         t0 = time.time()
         yanit1 = istemci.cevapla(
-            [{"role": "user", "content":
-              "%s aracini simdi kullanmalisin. Sonucu degerlendir ve tek "
-              "cumle soyle." % arac}],
+            [{"role": "user", "content": soru}],
             tools=[sema], tool_choice=zorlama)
         kayit["sure_t1"] = round(time.time() - t0, 2)
         if not yanit1.get("tool_calls"):
@@ -129,13 +155,12 @@ def _hucre_kos(saglayici, arac, sema, istemci):
         t1 = time.time()
         sonuc = _guvenli_calistir(arac, args)
         kayit["sure_arac"] = round(time.time() - t1, 2)
-        if not isinstance(sonuc, dict) or "error" in sonuc:
-            raise RuntimeError("arac hatasi: %s" % str(sonuc)[:150])
-
+        arac_hatasi = (not isinstance(sonuc, dict)) or "error" in sonuc
+        # ARAC-HATA POLITIKASI (pilot 2026-09-20 karari): arac error'u
+        # gercek bir sonuctur — modelin cagrisi dogru uretildiyse hucre
+        # tur-2 ile olculur; tur-2 tamamlanirsa YESIL.
         icerik = json.dumps(sonuc, ensure_ascii=False)
-        tur2 = [{"role": "user", "content":
-                 "%s aracini simdi kullanmalisin. Sonucu degerlendir ve "
-                 "tek cumle soyle." % arac},
+        tur2 = [{"role": "user", "content": soru},
                 {"role": "assistant", "content": yanit1.get("content") or "",
                  "tool_calls": yanit1["tool_calls"]},
                 {"role": "tool", "tool_call_id": cagri["id"], "name": arac,
@@ -155,6 +180,8 @@ def _hucre_kos(saglayici, arac, sema, istemci):
         kayit["durum"] = "YESIL"
         kayit["tur1"] = "native"
         kayit["tur2"] = "tamam"
+        if arac_hatasi:
+            kayit["arac_hatasi"] = str(sonuc)[:150]   # kanitli, kirmizi degil
         kayit["sure"] = round(time.time() - basla, 2)
     except Exception as e:
         kayit["durum"] = "KIRMIZI"
