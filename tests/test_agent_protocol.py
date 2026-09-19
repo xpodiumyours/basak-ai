@@ -157,7 +157,8 @@ def test_registry_required_yalniz_dogrulanmis_saglayicilar():
 
     assert registry.zorunlu_tool_destegi_var_mi("groq") is True
     assert registry.zorunlu_tool_destegi_var_mi("cohere") is True
-    for ad in ("gemini", "openrouter", "glm", "cloudflare",
+    assert registry.zorunlu_tool_destegi_var_mi("cloudflare") is True
+    for ad in ("gemini", "openrouter", "glm",
                "kilo", "nvidia", "qwen"):
         assert registry.zorunlu_tool_destegi_var_mi(ad) is False
 
@@ -209,3 +210,28 @@ def test_cohere_required_native_apiye_tasinir():
         tool_choice="required",
     )
     assert yakalanan["tool_choice"] == "REQUIRED"
+
+
+
+def test_cloudflare_required_apiye_tasinir():
+    from brain.cloudflare import CloudflareClient
+    yakalanan = {}
+
+    class Comp:
+        def create(self, **kwargs):
+            yakalanan.update(kwargs)
+            msg = types.SimpleNamespace(content="x", tool_calls=None)
+            return types.SimpleNamespace(
+                choices=[types.SimpleNamespace(message=msg)], usage=None)
+
+    istemci = CloudflareClient.__new__(CloudflareClient)
+    istemci.client = types.SimpleNamespace(
+        chat=types.SimpleNamespace(completions=Comp()))
+    istemci.model = "@cf/zai-org/glm-4.7-flash"
+
+    istemci.cevapla(
+        [{"role": "user", "content": "s"}],
+        tools=[{"type": "function", "function": {"name": "x"}}],
+        tool_choice="required",
+    )
+    assert yakalanan["tool_choice"] == "required"

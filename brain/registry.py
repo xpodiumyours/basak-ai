@@ -45,6 +45,9 @@ SAGLAYICILAR = {
         "ad": "Cloudflare",
         "ucretsiz": True,
         "tools": True,
+        # Resmi Workers AI model semasi: none/auto/required.
+        # Varsayilan glm-4.7-flash Free planda tool calling destekli.
+        "tool_required": True,
         "gucleri": ["genel", "hiz"],
         "gunluk_istek": None,
         "not": "Workers AI ucretsiz Llama/Mistral; GPU kaynaklanma sinirli.",
