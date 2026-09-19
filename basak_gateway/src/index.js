@@ -1,7 +1,8 @@
 import catalog from "./tool_catalog.json" with { type: "json" };
 import schemas from "./tool_schemas.json" with { type: "json" };
 import { LabState } from "./lab_state.js";
-import { PROVIDERS, providerStatus, runProtocol, chat, runToolFirst, runToolSecond } from "./providers.js";
+import { PROVIDERS, providerStatus, runProtocol, runToolFirst, runToolSecond } from "./providers.js";
+import { agentChat } from "./agent.js";
 
 export { LabState };
 
@@ -222,7 +223,7 @@ export default {
     if (request.method === "POST" && url.pathname === "/api/chat") {
       try {
         const body = await request.json();
-        const result = await chat(body?.messages, env);
+        const result = await agentChat(body?.messages, env);
         if (validSession(body?.acceptanceSession)) {
           const current = Number(await stateGet(env, body.acceptanceSession, "chat_turns") || 0);
           await statePut(env, body.acceptanceSession, "chat_turns", current + 1);
@@ -231,7 +232,7 @@ export default {
           ok: true,
           ...result,
           acceptance: false,
-          note: "Normal web sohbeti kabul kaniti degildir; Faz 5 oturumunda kullanici onayi gerekir."
+          note: "Normal web sohbeti gercek ajan dongusunu kullanir; Faz 5 resmi kabulu laboratuvar oturumunda ayrica verilir."
         });
       } catch (error) {
         return json({ ok: false, error: String(error?.message || error).slice(0, 1400) }, 503);
