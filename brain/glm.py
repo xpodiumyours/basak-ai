@@ -59,7 +59,7 @@ class GLMClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
+    def cevapla(self, messages: list, tools: list = None, yapi=None,\n                tool_choice=None) -> dict:
         """GLM'e mesaj gönderir. Dönen şekil groq.py ile aynıdır.
 
         Not: dusunme (thinking) modu ACIK — modelin kendi muhakemesi kesilmez.
