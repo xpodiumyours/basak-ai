@@ -170,8 +170,8 @@ class Api:
         bulut = beyin.bulut_musait()
         ajan = beyin.ajan_musait()
         return {
-            # Sohbet ekrani TOOLS ile calisir; "hazir" demek gercek
-            # required-tool ajan protokolunun ayakta olmasidir.
+            # Sohbet ekrani TOOLS ile calisir; "hazir" demek en az bir
+            # ucretsiz saglayicinin dogrulanmis ajan protokolunun ayakta olmasidir.
             "ok": bool(ajan),
             "models": [], "model": None,
             "cloud": bulut,
