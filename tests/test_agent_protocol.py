@@ -11,16 +11,36 @@ def _call(ad, args="{}", cid="c1"):
     }
 
 
-def test_52_gercek_arac_korunur_final_kontrol_araci_ayridir():
+def test_52_aracin_tamami_tek_yetenek_alaninda():
     from tools.definitions import TOOLS, TANINMIS_TOOLLAR
-    from chat.agent_protocol import ajan_araclari, SON_CEVAP_ADI
+    from chat.agent_protocol import YETENEK_ALANLARI
 
-    assert len(TOOLS) == 52
+    gercek = [t["function"]["name"] for t in TOOLS]
+    katalog = [ad for grup in YETENEK_ALANLARI.values() for ad in grup]
+    assert len(gercek) == 52
     assert len(TANINMIS_TOOLLAR) == 52
-    ajan = ajan_araclari(TOOLS)
-    assert len(ajan) == 53
-    assert ajan[-1]["function"]["name"] == SON_CEVAP_ADI
-    assert SON_CEVAP_ADI not in TANINMIS_TOOLLAR
+    assert len(katalog) == 52
+    assert len(set(katalog)) == 52
+    assert set(katalog) == set(gercek)
+
+
+def test_ilk_turda_52_arac_modele_yigilmaz():
+    from chat.agent_protocol import (
+        baslangic_araclari, YETENEK_AC_ADI, SON_CEVAP_ADI,
+    )
+
+    adlar = [x["function"]["name"] for x in baslangic_araclari()]
+    assert adlar == [YETENEK_AC_ADI, SON_CEVAP_ADI]
+
+
+def test_tek_alan_en_faz_12_sema_tasir():
+    from tools.definitions import TOOLS
+    from chat.agent_protocol import YETENEK_ALANLARI, alan_araclari
+
+    for alan in YETENEK_ALANLARI:
+        secilen = alan_araclari(TOOLS, alan)
+        # En buyuk alan 10 gercek arac + 2 kontrol araci.
+        assert len(secilen) <= 12, (alan, len(secilen))
 
 
 def test_ajan_sozlesmesi_kelime_routeri_degildir():
@@ -28,7 +48,7 @@ def test_ajan_sozlesmesi_kelime_routeri_degildir():
 
     for ad in ("web_search", "fatura_oku", "github_durum", "list_tasks"):
         assert ad not in AJAN_SOZLESMESI
-    assert "Kelime eslestirmesi" in AJAN_SOZLESMESI
+    assert "kelime eslestirmesi" in AJAN_SOZLESMESI.lower()
 
 
 def test_son_cevap_gercek_arac_calistirmadan_donguyu_bitirir():
@@ -50,6 +70,65 @@ def test_son_cevap_gercek_arac_calistirmadan_donguyu_bitirir():
     )
     assert cevap == "Tamamlandi."
     assert kosan == 0
+
+
+def test_model_yetenegi_acar_sonra_gercek_araci_kendi_secer():
+    from chat.tools import arac_dongusu
+    from tools.definitions import TOOLS
+    from chat.agent_protocol import (
+        YETENEK_AC_ADI, SON_CEVAP_ADI, baslangic_araclari,
+    )
+
+    gorulen = []
+    class Beyin:
+        def cevapla(self, mesajlar, model, tools=None, tool_choice=None):
+            assert tool_choice == "required"
+            adlar = [t["function"]["name"] for t in tools]
+            gorulen.append(adlar)
+            if len(gorulen) == 1:
+                assert "list_tasks" in adlar
+                assert "web_search" not in adlar
+                return {"tool_calls": [_call("list_tasks", "{}", "c2")]}, "groq"
+            assert len(gorulen) == 2
+            return {"tool_calls": [
+                _call(SON_CEVAP_ADI, '{"metin":"1 gorev var."}', "c3")
+            ]}, "groq"
+
+    kosulan = []
+    cevap, kosan = arac_dongusu(
+        [_call(YETENEK_AC_ADI, '{"alan":"gorevler"}')],
+        [{"role": "user", "content": "gorevlerime bak"}],
+        Beyin(), None, lambda kod: None,
+        lambda ad, args: kosulan.append(ad) or {"result": "1: sut al"},
+        tools=baslangic_araclari(), tool_choice="required", tum_tools=TOOLS,
+    )
+    assert kosulan == ["list_tasks"]
+    assert kosan == 1
+    assert cevap == "1 gorev var."
+
+
+def test_acilmamis_gercek_arac_calistirilmaz():
+    from chat.tools import arac_dongusu
+    from tools.definitions import TOOLS
+    from chat.agent_protocol import baslangic_araclari
+
+    class Beyin:
+        def cevapla(self, mesajlar, model, tools=None, tool_choice=None):
+            # Hata sonucu modele geri donunce final yerine yine duz metin
+            # donerse required kapi bunu kabul etmez.
+            return {"content": "olmaz"}, "groq"
+
+    kosulan = []
+    cevap, kosan = arac_dongusu(
+        [_call("list_tasks")],
+        [{"role": "user", "content": "gorevler"}],
+        Beyin(), None, lambda kod: None,
+        lambda ad, args: kosulan.append(ad) or {"result": "x"},
+        tools=baslangic_araclari(), tool_choice="required", tum_tools=TOOLS,
+    )
+    assert kosulan == []
+    assert kosan == 0
+    assert cevap == ""
 
 
 def test_required_ajan_duz_metni_final_saymaz():

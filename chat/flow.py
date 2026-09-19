@@ -25,7 +25,7 @@ import logging
 import re
 
 from chat.prompts import KIMLIK_BLOGU
-from chat.agent_protocol import AJAN_SOZLESMESI, ajan_araclari
+from chat.agent_protocol import AJAN_SOZLESMESI, baslangic_araclari
 from chat import context as ctx
 from chat.gate import temizle as _temizle
 
@@ -207,7 +207,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
                 "bir beyin bagli degil") + ")")
             return
 
-        ajan_tools = ajan_araclari(tools)
+        ajan_tools = baslangic_araclari()
         try:
             yanit, kaynak = brain.cevapla(
                 mesajlar, model, tools=ajan_tools, tool_choice="required")
@@ -235,7 +235,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
         from tools import calistir
         cevap, kosan = arac_dongusu(
             tool_calls, mesajlar, brain, model, js_callback, calistir,
-            tools=ajan_tools, yanit=yanit, tool_choice="required")
+            tools=ajan_tools, yanit=yanit, tool_choice="required",
+            tum_tools=tools)
         cevap = _temizle(cevap)
         if cevap:
             _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci)

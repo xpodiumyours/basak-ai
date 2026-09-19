@@ -111,51 +111,57 @@ def sonucu_donustur(sonuc):
 
 def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                  calistir, tools=None, tur_siniri=None, yanit=None,
-                 tool_choice=None):
-    """Araç sonuçlarını modele geri vererek cevap ürettirir.
+                 tool_choice=None, tum_tools=None):
+    """Arac sonuclarini modele geri vererek ajan turunu surdurur.
 
-    Ozgu-ajan: tur_siniri parametresi uyumluluk icin durur, kullanilmaz.
-    Dongu model cevap yazana kadar surer; tam sonuc tasinir.
-    Reasoning zinciri (P0): ilk turun muhakemesi assistant mesajiyla
-    birlikte geri verilir; yeni elle-bos assistant mesaji kurulmaz.
-    yanit: ilk model yanitinin tamami (reasoning alanlari icin).
-    Dönüş: (cevap_metni, calisan_arac_sayisi)
+    Gercek arac secimini MODEL yapar. `yetenek_ac` yalniz modelin sectigi
+    alandaki semalari acan katalog kapisidir; kullanici metnine bakmaz.
     """
     from chat.gate import temizle
-    from chat.agent_protocol import SON_CEVAP_ADI
+    from chat.agent_protocol import (
+        SON_CEVAP_ADI, YETENEK_AC_ADI, YETENEK_ALANLARI, alan_araclari,
+    )
     from tools.definitions import TANINMIS_TOOLLAR
 
     expanded = list(mesajlar)
     kosan = 0
     tur_sonuclari = []
-    # Ilk turun reasoning alanlari (varsa) assistant mesajinda korunur.
-    # Once acik yanit dict'ine bakilir, yoksa son mesajdaki alanlara.
-    ilk_muhakeme = {}
-    try:
-        _kaynaklar = []
-        if isinstance(yanit, dict):
-            _kaynaklar.append(yanit)
-        _son = mesajlar[-1] if mesajlar else {}
-        if isinstance(_son, dict):
-            _kaynaklar.append(_son)
-        for _k in _kaynaklar:
-            for _a in ("reasoning_content", "reasoning",
-                       "reasoning_details", "thinking",
-                       "reasoning_text"):
-                if _a in _k and _a not in ilk_muhakeme:
-                    ilk_muhakeme[_a] = _k[_a]
-    except Exception:
-        ilk_muhakeme = {}
+
+    def _muhakeme_al(obj):
+        out = {}
+        if isinstance(obj, dict):
+            for alan in ("reasoning_content", "reasoning",
+                         "reasoning_details", "thinking",
+                         "reasoning_text"):
+                if alan in obj:
+                    out[alan] = obj[alan]
+        return out
+
+    def _beyin_devam(acik_tools):
+        _kw = {"tools": acik_tools}
+        if tool_choice is not None:
+            import inspect
+            _p = inspect.signature(brain.cevapla).parameters
+            _kwargs_var = any(
+                x.kind == inspect.Parameter.VAR_KEYWORD
+                for x in _p.values())
+            if "tool_choice" in _p or _kwargs_var:
+                _kw["tool_choice"] = tool_choice
+        return brain.cevapla(expanded, model, **_kw)
+
+    ilk_muhakeme = _muhakeme_al(yanit)
+    if not ilk_muhakeme and mesajlar:
+        ilk_muhakeme = _muhakeme_al(mesajlar[-1])
 
     while tool_calls:
         tur_sonuclari = []
 
-        # son_cevap gercek dunya araci degildir; modelin ajan turunu
-        # bitirdigini yapisal olarak bildiren kontrol cagrisi.
         _adlar = [
             ((c.get("function") or {}).get("name", ""))
             for c in tool_calls if isinstance(c, dict)
         ]
+
+        # Nihai cevap yalniz basina geldiyse ajan turu bitmistir.
         if _adlar and all(ad == SON_CEVAP_ADI for ad in _adlar):
             for call in tool_calls:
                 args = parse_args(
@@ -165,47 +171,78 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                     return temizle(metin), kosan
             return "", kosan
 
+        # Bu turda modele GERCEKTEN sunulmus araclar. Model eski bir arac
+        # adini hafizadan uydurursa, alani acmadan calistirilmaz.
+        sunulan_adlar = {
+            (t.get("function") or {}).get("name")
+            for t in (tools or []) if isinstance(t, dict)
+        }
+
         for call in tool_calls:
             func = call.get("function", {})
             ad = func.get("name", "")
             args = parse_args(func.get("arguments", "{}"))
+            cagri_id = call.get("id") or "call_%d" % len(tur_sonuclari)
+
+            if ad == YETENEK_AC_ADI:
+                alan = args.get("alan")
+                if ad not in sunulan_adlar:
+                    net = "Hata: yetenek_ac bu turda sunulmadi."
+                elif alan not in YETENEK_ALANLARI:
+                    net = "Hata: bilinmeyen yetenek alani."
+                elif tum_tools is None:
+                    net = "Hata: gercek arac katalogu bu akista yok."
+                else:
+                    tools = alan_araclari(tum_tools, alan)
+                    gercek_adlar = [
+                        (t.get("function") or {}).get("name")
+                        for t in tools
+                        if (t.get("function") or {}).get("name")
+                        not in (YETENEK_AC_ADI, SON_CEVAP_ADI)
+                    ]
+                    net = json.dumps({
+                        "acilan_alan": alan,
+                        "kullanilabilir_araclar": gercek_adlar,
+                    }, ensure_ascii=False)
+                    js_callback("BasakUI.toolStatus(" + _j(
+                        "Yetenek acildi: " + str(alan)) + ")")
+                tur_sonuclari.append((ad, net, cagri_id))
+                continue
 
             if ad == SON_CEVAP_ADI:
                 tur_sonuclari.append((
                     ad,
                     "Hata: son_cevap gercek araclarla ayni turda "
                     "kullanilamaz; once arac sonuclarini degerlendir.",
-                    call.get("id") or "call_%d" % len(tur_sonuclari),
+                    cagri_id,
                 ))
                 continue
 
-            # Model olmayan bir arac uydurursa sessizce atlanir.
             if ad not in TANINMIS_TOOLLAR:
-                logger.info("Bilinmeyen arac atlandi: %s", ad)
+                tur_sonuclari.append((
+                    ad, "Hata: bilinmeyen arac.", cagri_id))
+                continue
+
+            if ad not in sunulan_adlar:
+                tur_sonuclari.append((
+                    ad,
+                    "Hata: bu arac su an acik degil; once yetenek_ac ile "
+                    "ilgili alani ac.",
+                    cagri_id,
+                ))
                 continue
 
             js_callback("BasakUI.toolStatus(" + _j(_durum(ad, args)) + ")")
             net = sonucu_donustur(calistir(ad, args))
-            # Çağrı kimliği sonuçla BİRLİKTE taşınır. Eskiden sonuçlar
-            # sırayla eşleştiriliyordu (tool_calls[i]); model tanımadığı
-            # bir araç isteyip o atlanınca dizi kayıyor ve sonuç YANLIŞ
-            # çağrıya bağlanıyordu.
-            tur_sonuclari.append(
-                (ad, net, call.get("id") or "call_%d" % len(tur_sonuclari)))
+            tur_sonuclari.append((ad, net, cagri_id))
             if not net.startswith("Hata:"):
                 kosan += 1
 
         if not tur_sonuclari:
             break
 
-        # Standart sıra (Groq/OpenAI belgeleri): kullanıcı → tool_calls
-        # taşıyan assistant → her çağrı için bir `tool` mesajı. Model
-        # sonucu görüp KENDİ karar verir: ya cevabı yazar ya yeni araç
-        # ister. Araya "şimdi şunu özetle" gibi sahte kullanıcı mesajı
-        # KONULMAZ — belgeler ek talimat gerekmediğini söylüyor ve o
-        # mesaj sonucu ikinci kez göndererek bağlamı da şişiriyordu.
-        # P0: ilk turun reasoning alanlari korunur; bos assistant mesaji
-        # muhakemeyi silmez.
+        # Standart tool-call sirasini koru: assistant tool_calls -> her
+        # cagri icin tool sonucu -> modelin bir sonraki karari.
         _asistan = {"role": "assistant", "content": "",
                     "tool_calls": tool_calls}
         _asistan.update(ilk_muhakeme)
@@ -214,23 +251,12 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             expanded.append({
                 "role": "tool",
                 "tool_call_id": cagri_id,
-                "name": ad,          # Groq belgesi: name zorunlu
+                "name": ad,
                 "content": sonuc,
             })
 
         try:
-            _kw = {"tools": tools}
-            # Uretim Brain'i tool_choice destekler. Eski test doubles ve
-            # harici basit istemciler icin imza denetlenir.
-            if tool_choice is not None:
-                import inspect
-                _p = inspect.signature(brain.cevapla).parameters
-                _kwargs_var = any(
-                    x.kind == inspect.Parameter.VAR_KEYWORD
-                    for x in _p.values())
-                if "tool_choice" in _p or _kwargs_var:
-                    _kw["tool_choice"] = tool_choice
-            yanit, _kaynak = brain.cevapla(expanded, model, **_kw)
+            yanit, _kaynak = _beyin_devam(tools)
         except Exception as e:
             logger.warning("Arac turu sonrasi cevap alinamadi: %s", e)
             break
@@ -238,14 +264,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
         yeni = yanit.get("tool_calls") if isinstance(yanit, dict) else None
         if yeni:
             tool_calls = yeni
-            # Son turun muhakemesi bir sonraki assistant mesajinda korunur.
-            ilk_muhakeme = {}
-            if isinstance(yanit, dict):
-                for _a in ("reasoning_content", "reasoning",
-                           "reasoning_details", "thinking",
-                           "reasoning_text"):
-                    if _a in yanit:
-                        ilk_muhakeme[_a] = yanit[_a]
+            ilk_muhakeme = _muhakeme_al(yanit)
             continue
 
         if tool_choice == "required":
@@ -261,7 +280,5 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     if tool_choice == "required":
         return "", kosan
 
-    # Eski/ajan-disi yolda model ozet uretmediyse ham sonuc bos ekrani
-    # engellemek icin korunur.
     ham = "\n".join(net for _ad, net, _id in tur_sonuclari if net)
     return ham, kosan
