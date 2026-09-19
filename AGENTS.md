@@ -6,21 +6,22 @@ Bu dosyayı kod yazan her ajan (Claude Code, Kilo Code, OpenCode) işe başlamad
 
 **Bu kural diğer her şeyin üstündedir. Çiğneyen iş reddedilir.**
 
-Araçlar modele **her mesajda** sunulur. Hangisini kullanacağına **model karar verir**.
+Araç seçimini **model yapar**. İlk ajan turunda modele yalnız `yetenek_ac` ve `son_cevap` sunulur; model ihtiyacı olan yetenek alanını seçince sadece o alanın gerçek araç şemaları açılır. **Kod kullanıcı cümlesine bakıp alan veya araç seçmez.**
 
 **Yeni kelime/tetikleyici mantığı YAZILMAZ.** "Şu kelime geçerse şu aracı aç", "şu cümlede şu çağrı" türü hiçbir eşleştirme kurulmaz. Böyle bir liste büyüdükçe sistem akıllanmaz — kural ezberleyen bir chatbot'a döner.
 
-**Araç eklemek üç yerdir, dördüncüsü yoktur:**
+**Araç eklemek dört yerdir, beşincisi yoktur:**
 
 | # | Nereye | Ne |
 |---|---|---|
 | 1 | `tools/definitions.py` | Araç şeması |
 | 2 | `tools/__init__.py` → `calistir()` | Dispatcher dalı |
-| 3 | `chat/tools.py` → `DURUM_METNI` | Ekranda görünen durum etiketi |
+| 3 | `chat/agent_protocol.py` → `YETENEK_ALANLARI` | Modelin keşfedebileceği yetenek alanı |
+| 4 | `chat/tools.py` durum metni | Ekranda görünen çalışma durumu |
 
 **Araç açıklamasına davranış koçluğu yazılmaz.** Açıklama yalnız olguyu söyler: ne yapar, hangi parametreyi alır, **ne döndürür**, sınırı nedir. "Şunu kullanma", "şöyle cevapla", "önce ara sonra konuş" gibi cümleler açıklamaya da prompt'a da girmez.
 
-**Modele talimat bloğu eklenmez.** `chat/prompts.py` içinde yalnız kimlik bloğu vardır. Araç yönlendirmesi, dürüstlük ilkesi, cevap biçimi blokları 2026-09-13'te bilerek silindi; geri getirilmez.
+**Göreve özel/kelimeye bağlı talimat bloğu eklenmez.** `chat/prompts.py` içinde yalnız kimlik bloğu vardır. İstisna: `chat/agent_protocol.py` içindeki `AJAN_SOZLESMESI`, belirli bir kullanıcı niyetini veya aracı seçmez; yalnız resmî tool-calling döngüsünü tanımlar: model alanı/aracı seçer, araç sonucu geri gelir, model yeniden karar verir ve işi `son_cevap` ile bitirir.
 
 ### GERİ GETİRİLMESİ KESİNLİKLE YASAK
 
@@ -41,8 +42,8 @@ Aşağıdakiler 2026-09-13'te tek tek ölçülerek söküldü. **Hiçbiri, hiçb
 - Boş satır kısaltma
 - Cevaba "Kaynaklar:" gibi ek satır yapıştırma
 
-**3. Modele davranış dayatan metin**
-- Araç yönlendirme prompt bloğu
+**3. Modele görev/cevap dayatan metin**
+- Belirli kelime/niyeti belirli araca bağlayan yönlendirme promptu
 - "Bilmiyorsan bakayım mı de", "tahmin etme sor", "emoji yok" türü talimat listeleri
 - Araç şemasının açıklamasına yazılan "şunu kullanma / şöyle cevapla" koçluğu
 - Araç sonucundan sonra modele gönderilen sahte kullanıcı mesajı ("şimdi özetle")
@@ -61,8 +62,9 @@ Aşağıdakiler 2026-09-13'te tek tek ölçülerek söküldü. **Hiçbiri, hiçb
 - Sağlayıcının kendi yeteneğini kapatmak (GLM `thinking=disabled` gibi)
 - Arama sonucundan URL'leri silmek
 
-**6. Sağlayıcıyı elle kapatan bayraklar**
-- `_QWEN_BEKLEMEDE` gibi hard-coded engeller
+**6. Sağlayıcıyı keyfî kapatan bayraklar**
+- Model adını veya kişisel tercihi gerekçe gösteren `_QWEN_BEKLEMEDE` benzeri hard-coded engeller
+- İstisna: resmî maliyet/kota veya required-tool protokolü doğrulanmamış sağlayıcı otomatik sıfır-maliyet ajan zincirine alınmaz. Bu görev yönlendirmesi değil, teknik/maliyet uygunluk kapısıdır.
 
 **Dokunulmaz istisna:** yol kara listesi (`.env`, `.pem`, `.key`, `ayarlar.json`, Windows sistem klasörleri) ve SSRF savunması. Bunlar modeli daraltmaz, sırrı korur.
 
@@ -70,7 +72,7 @@ Aşağıdakiler 2026-09-13'te tek tek ölçülerek söküldü. **Hiçbiri, hiçb
 
 ## 1. Proje
 
-Başak — ücretsiz bulutla çalışan, Türkçe konuşan kişisel Jarvis. Beyin: ücretsiz bulut zinciri (sırayla GLM > Cloudflare > Groq > NVIDIA > Cohere > Kilo > Gemini > OpenRouter > Qwen; limit biten düşer, sıradaki devralır). Yerel model YOK (Faz 2'de kaldirildi). Ses: Piper TTS + faster-whisper STT (ikisi de yerel). Arayüz: `ui/` altında saf HTML/CSS/JS + Three.js orb, pywebview masaüstü penceresinde açılıyor. `ARASTIRMA.md` teknoloji seçim gerekçelerini tutar.
+Başak — ücretsiz bulutla çalışan, Türkçe konuşan kişisel Jarvis. Beyin: otomatik sıfır-maliyet bulut zinciri; ajan modunda yalnız required-tool protokolü doğrulanmış ücretsiz sağlayıcılar kullanılır. Qwen entegrasyonu korunur fakat süreli kota kalıcı sıfır maliyet kanıtı olmadığı için otomatik zincirde değildir. Yerel model YOK (Faz 2'de kaldirildi). Ses: Piper TTS + faster-whisper STT (ikisi de yerel). Arayüz: `ui/` altında saf HTML/CSS/JS + Three.js orb, pywebview masaüstü penceresinde açılıyor. `ARASTIRMA.md` teknoloji seçim gerekçelerini tutar.
 
 **19 Ağustos 2026'da başladı, tek günlük iş.** `git` bugün kuruldu — öncesinde hiç versiyon geçmişi yoktu, ilk commit'ten öncesi kurtarılamaz.
 
