@@ -694,3 +694,72 @@ def test_cohere_v2_tool_sonucu_document_bloguna_cevrilir():
         "type": "document",
         "document": {"data": '{"result":"ok"}'},
     }]
+
+
+
+def test_cohere_v2_tool_plan_cok_turlu_akista_korunur():
+    """Cohere resmi state: assistant tool_plan + tool_calls geri donmeli."""
+    from brain.cohere import CohereClient
+
+    kayitlar = []
+
+    class Client:
+        def chat(self, **kwargs):
+            kayitlar.append(kwargs)
+            if len(kayitlar) == 1:
+                tc = types.SimpleNamespace(
+                    id="c1",
+                    function=types.SimpleNamespace(name="x", arguments="{}"),
+                )
+                msg = types.SimpleNamespace(
+                    content=[],
+                    tool_calls=[tc],
+                    tool_plan="Once x aracini kullanacagim.",
+                )
+            else:
+                msg = types.SimpleNamespace(
+                    content=[types.SimpleNamespace(text="tamam")],
+                    tool_calls=None,
+                    tool_plan=None,
+                )
+            return types.SimpleNamespace(message=msg, usage=None)
+
+    istemci = CohereClient.__new__(CohereClient)
+    istemci.client = Client()
+    istemci.model = "command-a-03-2025"
+    arac = [{
+        "type": "function",
+        "function": {
+            "name": "x",
+            "description": "x",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    }]
+
+    ilk = istemci.cevapla(
+        [{"role": "user", "content": "s"}],
+        tools=arac, tool_choice="required")
+    assert ilk["tool_plan"] == "Once x aracini kullanacagim."
+
+    istemci.cevapla(
+        [
+            {"role": "user", "content": "s"},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_plan": ilk["tool_plan"],
+                "tool_calls": ilk["tool_calls"],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "c1",
+                "name": "x",
+                "content": '{"result":"ok"}',
+            },
+        ],
+        tools=arac, tool_choice="required")
+
+    assistant = next(
+        m for m in kayitlar[1]["messages"] if m["role"] == "assistant")
+    assert assistant["tool_plan"] == "Once x aracini kullanacagim."
+    assert assistant["tool_calls"][0]["id"] == "c1"
