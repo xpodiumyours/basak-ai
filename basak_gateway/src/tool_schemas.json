@@ -1,0 +1,1248 @@
+{
+  "generated_from": "tools.definitions.TOOLS",
+  "total": 52,
+  "areas": {
+    "internet": [
+      "web_search",
+      "haber_ara",
+      "zamanli_ara",
+      "site_ara",
+      "gorsel_ara",
+      "kitap_ara",
+      "derin_oku",
+      "sayfa_oku",
+      "adres_kontrol",
+      "sirket_ara"
+    ],
+    "dosyalar": [
+      "read_file",
+      "list_files",
+      "belge_ara",
+      "dosya_bilgi",
+      "icerik_ara",
+      "write_file_tool"
+    ],
+    "projeler": [
+      "git_durum",
+      "github_durum",
+      "git_gecmis",
+      "git_degisenler",
+      "testleri_kos",
+      "saglik_raporu"
+    ],
+    "gorevler": [
+      "get_reminders",
+      "add_task",
+      "list_tasks",
+      "complete_task",
+      "simdi"
+    ],
+    "hafiza": [
+      "hafiza_ara"
+    ],
+    "gorsel": [
+      "image_analyze",
+      "gorsel_uret"
+    ],
+    "katalog": [
+      "fatura_oku",
+      "katalog_kur",
+      "katalog_getir",
+      "katalog_liste",
+      "katalog_fiyat_guncelle",
+      "katalog_onayla",
+      "yetki_belgesi_ekle",
+      "urun_eslestir",
+      "yayin_paketi",
+      "cikti_oku"
+    ],
+    "matris": [
+      "matris_ac",
+      "matris_liste",
+      "satir_ekle",
+      "kanit_ekle",
+      "satir_kapat",
+      "satir_ac",
+      "satir_sil",
+      "satir_tasi",
+      "matris_durum",
+      "satir_duzenle"
+    ],
+    "masaustu": [
+      "ac_uygulama"
+    ],
+    "hesap": [
+      "hesapla"
+    ]
+  },
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Internette arar; baslik+adres+metin listesi doner (varsayilan 20, en fazla 30 sonuc).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Sorgu"
+            },
+            "adet": {
+              "type": "integer",
+              "description": "Sonuc sayisi (1-30, bossa 20)"
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "haber_ara",
+        "description": "Haber arar; baslik+adres+tarih+metin doner (en fazla 10). Tarih yoksa tarihsiz yazar.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Sorgu"
+            },
+            "adet": {
+              "type": "integer",
+              "description": "Sonuc sayisi (1-30, bossa 10)"
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "zamanli_ara",
+        "description": "Tarih filtreli arar; yalniz verilen aralik doner (en fazla 10).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Sorgu"
+            },
+            "aralik": {
+              "type": "string",
+              "description": "gun | hafta | ay"
+            },
+            "adet": {
+              "type": "integer",
+              "description": "Sonuc sayisi (1-30, bossa 10)"
+            }
+          },
+          "required": [
+            "query",
+            "aralik"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "site_ara",
+        "description": "Yalniz verilen sitede arar; baslik+adres+metin doner (en fazla 10).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "site": {
+              "type": "string",
+              "description": "Orn. ornek.com"
+            },
+            "sorgu": {
+              "type": "string",
+              "description": "Sorgu"
+            },
+            "adet": {
+              "type": "integer",
+              "description": "Sonuc sayisi (1-30, bossa 10)"
+            }
+          },
+          "required": [
+            "site",
+            "sorgu"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "gorsel_ara",
+        "description": "Gorsel arar; resim adreslerini JSON liste doner (en fazla 10).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Sorgu"
+            },
+            "adet": {
+              "type": "integer",
+              "description": "Sonuc sayisi (1-30, bossa 10)"
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "kitap_ara",
+        "description": "Kitap/katalog/brosur arar; baslik+adres+metin doner (en fazla 10).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Sorgu"
+            },
+            "adet": {
+              "type": "integer",
+              "description": "Sonuc sayisi (1-30, bossa 10)"
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "derin_oku",
+        "description": "Uzun sayfalar icin sayfa okuma; duz metnini doner (en fazla 500000 karakter). Yalniz http/https 80/443; ic ag yasak.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "Adres"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "sayfa_oku",
+        "description": "Sayfayi acar, duz metnini doner (en fazla 200000 karakter). Yalniz http/https 80/443; ic ag yasak.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "Adres"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Bu bilgisayardaki gercek dosyanin icerigini doner. Sifre (.env/.pem/.key/ayarlar.json) ve sistem klasorleri yasak.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Dosya yolu"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "list_files",
+        "description": "Bu bilgisayardaki gercek klasorun icindekileri doner: ad+boyut. Ad veya tam yol verilir.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "folder": {
+              "type": "string",
+              "description": "Klasor"
+            }
+          },
+          "required": [
+            "folder"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "git_durum",
+        "description": "Projenin anlik durumu: dal, son commit, kirli dosya sayisi + ilk 10 ad.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "proje": {
+              "type": "string",
+              "description": "basak | vixrex | numeramatch | xses"
+            }
+          },
+          "required": [
+            "proje"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "belge_ara",
+        "description": "Proje kokundeki .md'lerde arar (alta inmez). Dosya:satir:icerik doner (en fazla 200).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "proje": {
+              "type": "string",
+              "description": "basak | vixrex | numeramatch | xses"
+            },
+            "sorgu": {
+              "type": "string",
+              "description": "Metin"
+            }
+          },
+          "required": [
+            "proje",
+            "sorgu"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "dosya_bilgi",
+        "description": "Dosya/klasor var mi, boyut, son degisim. Icerigi okumaz.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "proje": {
+              "type": "string",
+              "description": "basak | vixrex | numeramatch | xses"
+            },
+            "yol": {
+              "type": "string",
+              "description": "Koke gore yol"
+            }
+          },
+          "required": [
+            "proje",
+            "yol"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "image_analyze",
+        "description": "Goruntuyu aciklar; soru verilirse ona odaklanir.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Goruntu yolu"
+            },
+            "soru": {
+              "type": "string",
+              "description": "Soru"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "write_file_tool",
+        "description": "knowledge/ altina yazar, yolu doner. Disi reddedilir.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "knowledge/ alti yol"
+            },
+            "content": {
+              "type": "string",
+              "description": "Icerik"
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_reminders",
+        "description": "Bugunun hatirlatma+gorev ozeti.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "add_task",
+        "description": "Listeye gorev ekler; no+metin doner. Tarih gerekiyorsa YYYY-MM-DD olarak date alaniyla verilir.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "Gorev"
+            },
+            "date": {
+              "type": "string",
+              "description": "Tarih (YYYY-MM-DD, bossa bugun)"
+            }
+          },
+          "required": [
+            "text"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "list_tasks",
+        "description": "Gorevler: no, metin, durum, tarih.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "complete_task",
+        "description": "Nodaki gorevi kapatir.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "task_id": {
+              "type": "integer",
+              "description": "Gorev no"
+            }
+          },
+          "required": [
+            "task_id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "ac_uygulama",
+        "description": "Beyaz listedekini acar: tarayici, notepad, calculator, file_manager, vscode. Disi reddedilir.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "uygulama": {
+              "type": "string",
+              "description": "Ad"
+            },
+            "parametre": {
+              "type": "string",
+              "description": "Adres/yol"
+            }
+          },
+          "required": [
+            "uygulama"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "icerik_ara",
+        "description": "Projenin her yerinde arar; dosya:satir doner (en fazla 8 eslesme, toplam 8000 karakter). Sifre dosyalari acilmaz, anahtarlar maskelenir.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "proje": {
+              "type": "string",
+              "description": "basak | vixrex | numeramatch | xses"
+            },
+            "sorgu": {
+              "type": "string",
+              "description": "Metin"
+            },
+            "uzanti": {
+              "type": "string",
+              "description": "Orn. .py"
+            }
+          },
+          "required": [
+            "proje",
+            "sorgu"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "github_durum",
+        "description": "PR/CI okur (salt-okunur): liste, detay veya son 5 kosu. Yazan komut yok.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "islem": {
+              "type": "string",
+              "description": "pr_liste | pr_goruntule | calisma_liste"
+            },
+            "proje": {
+              "type": "string",
+              "description": "basak | vixrex | numeramatch | xses"
+            },
+            "no": {
+              "type": "integer",
+              "description": "PR no"
+            },
+            "durum": {
+              "type": "string",
+              "description": "open, closed, merged, all"
+            }
+          },
+          "required": [
+            "islem",
+            "proje"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "git_gecmis",
+        "description": "Son commitler (en fazla 30).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "proje": {
+              "type": "string",
+              "description": "basak | vixrex | numeramatch | xses"
+            },
+            "dosya": {
+              "type": "string",
+              "description": "Tek dosya suzgeci"
+            },
+            "adet": {
+              "type": "integer",
+              "description": "Kac commit"
+            }
+          },
+          "required": [
+            "proje"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "git_degisenler",
+        "description": "Taban ile HEAD arasi ozet (diff --stat).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "proje": {
+              "type": "string",
+              "description": "basak | vixrex | numeramatch | xses"
+            },
+            "taban": {
+              "type": "string",
+              "description": "Orn. origin/master"
+            }
+          },
+          "required": [
+            "proje"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "adres_kontrol",
+        "description": "Adres canli mi: durum kodu, sure, son adres. Govde inmez; ic ag yasak.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "Adres"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "testleri_kos",
+        "description": "Proje testlerini kosturur, ozet doner (son 2000 karakter). Komut sabit; vixrex yok.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "proje": {
+              "type": "string",
+              "description": "basak | numeramatch | xses"
+            }
+          },
+          "required": [
+            "proje"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "matris_ac",
+        "description": "Fikir tablosu acar, numarasini doner. Agac canlidir.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "baslik": {
+              "type": "string",
+              "description": "Baslik"
+            },
+            "fikir": {
+              "type": "string",
+              "description": "Fikir ozeti"
+            }
+          },
+          "required": [
+            "baslik"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "matris_liste",
+        "description": "Tablolar + skorlari.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "satir_ekle",
+        "description": "Satira ekler, numarasini doner. ust bos=kok. bagli: once bitecekler.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "matris": {
+              "type": "integer",
+              "description": "Tablo no"
+            },
+            "tur": {
+              "type": "string",
+              "description": "arastirma | katman | adim | detay"
+            },
+            "metin": {
+              "type": "string",
+              "description": "Satir"
+            },
+            "ust": {
+              "type": "integer",
+              "description": "Ust no (bos=kok)"
+            },
+            "neden": {
+              "type": "string",
+              "description": "Ne ise yaradigi"
+            },
+            "bagli": {
+              "type": "array",
+              "description": "Once bitecek no'lar"
+            }
+          },
+          "required": [
+            "matris",
+            "tur",
+            "metin"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "kanit_ekle",
+        "description": "Satira kanit yazar. Kanitsiz kapanmaz.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "matris": {
+              "type": "integer",
+              "description": "Tablo no"
+            },
+            "satir": {
+              "type": "integer",
+              "description": "Satir no"
+            },
+            "kanit": {
+              "type": "string",
+              "description": "Kanit"
+            }
+          },
+          "required": [
+            "matris",
+            "satir",
+            "kanit"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "satir_kapat",
+        "description": "Kanitli kapatir. Kanitsiz veya baglisi bitmemisse red.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "matris": {
+              "type": "integer",
+              "description": "Tablo no"
+            },
+            "satir": {
+              "type": "integer",
+              "description": "Satir no"
+            }
+          },
+          "required": [
+            "matris",
+            "satir"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "satir_ac",
+        "description": "Kapanani yeniden acar.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "matris": {
+              "type": "integer",
+              "description": "Tablo no"
+            },
+            "satir": {
+              "type": "integer",
+              "description": "Satir no"
+            }
+          },
+          "required": [
+            "matris",
+            "satir"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "satir_sil",
+        "description": "Arsive kaldirir (skor disi). Altlar bir uste baglanir.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "matris": {
+              "type": "integer",
+              "description": "Tablo no"
+            },
+            "satir": {
+              "type": "integer",
+              "description": "Satir no"
+            }
+          },
+          "required": [
+            "matris",
+            "satir"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "satir_tasi",
+        "description": "Dali tasir. Dongu red.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "matris": {
+              "type": "integer",
+              "description": "Tablo no"
+            },
+            "satir": {
+              "type": "integer",
+              "description": "Satir no"
+            },
+            "yeni_ust": {
+              "type": "integer",
+              "description": "Yeni ust (bos=kok)"
+            }
+          },
+          "required": [
+            "matris",
+            "satir"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "matris_durum",
+        "description": "Agac + skor, tamami.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "matris": {
+              "type": "integer",
+              "description": "Tablo no"
+            }
+          },
+          "required": [
+            "matris"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "gorsel_uret",
+        "description": "Aciklamadan gorsel uretir, dosyaya kaydeder. Doner: yol.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "aciklama": {
+              "type": "string",
+              "description": "Ne cizilsin"
+            },
+            "genislik": {
+              "type": "integer",
+              "description": "En (256-2048)"
+            },
+            "yukseklik": {
+              "type": "integer",
+              "description": "Boy (256-2048)"
+            }
+          },
+          "required": [
+            "aciklama"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "saglik_raporu",
+        "description": "Hatlarin durumunu gosterir: deneme, basari, sure, kota. Ag yok.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "satir_duzenle",
+        "description": "Satir yazisini duzeltir. Durum, kanit, baglanti degismez.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "matris": {
+              "type": "integer",
+              "description": "Tablo no"
+            },
+            "satir": {
+              "type": "integer",
+              "description": "Satir no"
+            },
+            "metin": {
+              "type": "string",
+              "description": "Yeni yazi"
+            },
+            "neden": {
+              "type": "string",
+              "description": "Yeni neden"
+            }
+          },
+          "required": [
+            "matris",
+            "satir"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "simdi",
+        "description": "Su anki tarih ve saati doner: gun, ay, yil, haftanin gunu, saat.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "hesapla",
+        "description": "Dort islem yapar: + - * / % ** ve parantez. Doner: sonuc.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "ifade": {
+              "type": "string",
+              "description": "Orn. (120*18)/100"
+            }
+          },
+          "required": [
+            "ifade"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "hafiza_ara",
+        "description": "Hafizada derin arama yapar. Doner: en ilgili en fazla 5 kayit (kaynak/tur etiketli).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sorgu": {
+              "type": "string",
+              "description": "Aranacak konu"
+            }
+          },
+          "required": [
+            "sorgu"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "sirket_ara",
+        "description": "Markanın resmi sitesini ve iletişim/vergi bilgilerini arar; JSON doner: marka, site, telefonlar, eposta, adresler, vergi_no, kaynak, eksik. Bulunamayan alan eksik listesinde yazar; uydurma yok. Salt-okunur: disk yazimi yok.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "marka": {
+              "type": "string",
+              "description": "Marka adı (örn. Tutku)"
+            }
+          },
+          "required": [
+            "marka"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fatura_oku",
+        "description": "Kayitli fatura fotografini okur; yazi ve aday satirlari JSON doner. Once yerel goz dener, yoksa bulut; kaynak alanda yazar. PDF yok.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "fatura_id": {
+              "type": "string",
+              "description": "Yukleme kimligi"
+            }
+          },
+          "required": [
+            "fatura_id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "katalog_kur",
+        "description": "Fatura satirlarindan urun kartlari kurar (en fazla 500 satir); ayni marka+kod tek kart olur, kategori cogunlukla secilir, stok 3 ve alti az gosterir. Donen JSON sorulacaklar listesi ve is ozeti icerir. ustbilgi parametresi fatura_oku ustbilgi alanindan gelir; is verisine yazilir. Is ozeti JSON doner.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "fatura_id": {
+              "type": "string",
+              "description": "Yukleme kimligi"
+            },
+            "satirlar": {
+              "type": "array",
+              "description": "Satirlar: marka, kod, urun_adi, barkod, beden, renk, varyant, adet, alis_fiyat, kategori"
+            },
+            "ustbilgi": {
+              "type": "object",
+              "description": "fatura_oku ustbilgi alani (fis no, tarih, firma, toplam, kdv_oran)"
+            }
+          },
+          "required": [
+            "fatura_id",
+            "satirlar"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "katalog_getir",
+        "description": "Katalog isinin tamamini JSON doner.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "is_id": {
+              "type": "string",
+              "description": "Is kimligi"
+            }
+          },
+          "required": [
+            "is_id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "katalog_liste",
+        "description": "Katalog islerini listeler: is kimligi, durum, kart sayisi.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "katalog_fiyat_guncelle",
+        "description": "Kartin satis fiyatini yazar. Fiyat metin veya sayi olur; tam sayi duz, diger iki ondalik yazilir.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "is_id": {
+              "type": "string",
+              "description": "Is kimligi"
+            },
+            "kart_id": {
+              "type": "string",
+              "description": "Kart kimligi"
+            },
+            "satis_fiyat": {
+              "type": "string",
+              "description": "Satis fiyati"
+            }
+          },
+          "required": [
+            "is_id",
+            "kart_id",
+            "satis_fiyat"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "katalog_onayla",
+        "description": "Katalogdan Vixrex CSV + batch JSON + tam katalog dosyasi uretir, dosya adlarini doner.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "is_id": {
+              "type": "string",
+              "description": "Is kimligi"
+            }
+          },
+          "required": [
+            "is_id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "yetki_belgesi_ekle",
+        "description": "Uretici kullanim izni belgesini markaya baglayarak saklar; ayni markanin sonraki islerini kapsar.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "is_id": {
+              "type": "string",
+              "description": "Is kimligi (bossa baglanmaz)"
+            },
+            "b64": {
+              "type": "string",
+              "description": "Belge verisi (base64)"
+            },
+            "ad": {
+              "type": "string",
+              "description": "Dosya adi"
+            },
+            "marka": {
+              "type": "string",
+              "description": "Marka (bossa isten alinir)"
+            }
+          },
+          "required": [
+            "b64",
+            "ad"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "urun_eslestir",
+        "description": "Karti kayitli tedarikcinin resmi sitesinde arar (su an yalniz Tutku); kaynak, guven ve gorselleri karta isler. Kayit disi markada hata doner.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "is_id": {
+              "type": "string",
+              "description": "Is kimligi"
+            },
+            "kart_id": {
+              "type": "string",
+              "description": "Kart kimligi"
+            }
+          },
+          "required": [
+            "is_id",
+            "kart_id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "yayin_paketi",
+        "description": "Ciktiyi platformun yukleme kurallarina gore denetler; kabul karari, is uyarilari (fiyatsiz/izinsiz/dusuk guven), dosya adlari ve izlenecek adimi doner. Yazma yok.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "is_id": {
+              "type": "string",
+              "description": "Is kimligi"
+            },
+            "platform": {
+              "type": "string",
+              "description": "vixrex"
+            }
+          },
+          "required": [
+            "is_id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "cikti_oku",
+        "description": "Onay ciktisinin icerigini metin doner: vixrex_urunler.csv, vixrex_batch.json veya basak_katalog.json.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "is_id": {
+              "type": "string",
+              "description": "Is kimligi"
+            },
+            "dosya": {
+              "type": "string",
+              "description": "vixrex_urunler.csv | vixrex_batch.json | basak_katalog.json"
+            }
+          },
+          "required": [
+            "is_id",
+            "dosya"
+          ]
+        }
+      }
+    }
+  ]
+}
