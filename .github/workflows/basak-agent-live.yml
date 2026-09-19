@@ -1,0 +1,30 @@
+name: Basak normal chat agent live
+
+on:
+  push:
+    branches:
+      - feature/basak-web-gate
+    paths:
+      - "basak_gateway/src/agent.js"
+      - "basak_gateway/src/providers.js"
+      - "basak_gateway/scripts/live_agent_test.mjs"
+      - ".github/workflows/basak-agent-live.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  agent-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Normal sohbetten dogal dil + gercek arac testi
+        working-directory: basak_gateway
+        run: node scripts/live_agent_test.mjs
