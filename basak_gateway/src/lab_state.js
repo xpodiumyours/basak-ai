@@ -29,13 +29,11 @@ export class LabState extends DurableObject {
       return json({ found: value !== undefined, value: value ?? null });
     }
     if (request.method === "GET" && url.pathname === "/status") {
-      const [r1, r3, r4, phase2, phase5, chatTurns] = await Promise.all([
+      const [r1, r3, r4, phase2] = await Promise.all([
         this.ctx.storage.list({ prefix: "r1:" }),
         this.ctx.storage.list({ prefix: "r3:" }),
         this.ctx.storage.list({ prefix: "r4:" }),
-        this.ctx.storage.get("phase2"),
-        this.ctx.storage.get("phase5"),
-        this.ctx.storage.get("chat_turns")
+        this.ctx.storage.get("phase2")
       ]);
       const okKeys = (map) => [...map.entries()].filter(([,v]) => v?.ok).map(([k]) => k);
       return json({
@@ -45,9 +43,7 @@ export class LabState extends DurableObject {
         phase3Passed: okKeys(r3).length,
         phase3PassedKeys: okKeys(r3),
         phase4Passed: okKeys(r4).length,
-        phase4PassedKeys: okKeys(r4),
-        chatTurns: Number(chatTurns || 0),
-        phase5Accepted: Boolean(phase5?.accepted)
+        phase4PassedKeys: okKeys(r4)
       });
     }
     if (request.method === "POST" && url.pathname === "/clear") {
