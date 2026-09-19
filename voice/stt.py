@@ -141,3 +141,23 @@ class STT:
         with self._lock:
             segs, _ = self.model.transcribe(path, language="tr", vad_filter=True)
             return " ".join(s.text for s in segs).strip()
+
+
+# ---- DIS SES KOLU (yan kol, varsayilan kapali) ----
+# Yerli Whisper STT aynen kalir; bu kol yalniz acikca cagrilinca calisir.
+_DIS_SES_ACIK = False
+
+
+def dis_ses_acik_mi():
+    """Dis ses kolu acik mi? Varsayilan False."""
+    return bool(_DIS_SES_ACIK)
+
+
+def dis_ses_dinle():
+    """Dis ses kolu: henuz bagli dis servis yok, is yapmaz.
+
+    Kol olarak durur; yerli STT'ye dokunmaz.
+    """
+    if not _DIS_SES_ACIK:
+        return {"ok": False, "neden": "dis ses kolu kapali"}
+    return {"ok": False, "neden": "dis servis bagli degil"}

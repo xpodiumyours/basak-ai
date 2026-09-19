@@ -81,3 +81,28 @@ class TTS:
                 self.on_level(0.0)
             except Exception:
                 pass
+
+
+# ---- DIS SES KOLU (yan kol, varsayilan kapali) ----
+# Yerli Piper TTS aynen kalir; bu kol yalniz acikca cagrilinca calisir.
+# Varsayilan kapali oldugu icin mevcut akis hic degismez.
+_DIS_SES_ACIK = False
+
+
+def dis_ses_acik_mi():
+    """Dis ses kolu acik mi? Varsayilan False."""
+    return bool(_DIS_SES_ACIK)
+
+
+def dis_ses_oku(metin):
+    """Dis ses kolu: henuz bagli dis servis yok, is yapmaz.
+
+    Kol olarak durur; yerli TTS'e dokunmaz. Acikca acilmadikca
+    hata vermeden bos doner.
+    """
+    if not _DIS_SES_ACIK:
+        return {"ok": False, "neden": "dis ses kolu kapali"}
+    metin = (metin or "").strip()
+    if not metin:
+        return {"ok": False, "neden": "bos metin"}
+    return {"ok": False, "neden": "dis servis bagli degil"}

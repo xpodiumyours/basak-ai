@@ -1055,3 +1055,29 @@ window.addEventListener("pywebviewready", boot);
 setTimeout(() => { if (!booted && window.pywebview) boot(); }, 800);
 setTimeout(() => { if (!booted) boot(); }, 2000);
 
+/* ---- DIS SES KOLU (yan kol, varsayilan kapali) ----
+   parca/bitir/reply, orb, yerli TTS/STT aynen kalir.
+   Bu kol ana akisa girmez; yalniz acikca cagrilinca calisir. */
+window.BasakDisSes = (function () {
+  var acik = false;
+  function acikMi() { return acik; }
+  async function acKapa(on) {
+    acik = !!on;
+    try { await api().set_dis_ses(acik); } catch (e) {}
+    var b = $("btnDisSes");
+    if (b) b.disabled = true; // kol gizli kalir, gorunum degismez
+    return acik;
+  }
+  async function oku(metin) {
+    if (!acik) return { ok: false, neden: "dis ses kolu kapali" };
+    try { return await api().dis_ses_oku(metin); }
+    catch (e) { return { ok: false, neden: String(e).slice(0, 200) }; }
+  }
+  async function dinle() {
+    if (!acik) return { ok: false, neden: "dis ses kolu kapali" };
+    try { return await api().dis_ses_dinle(); }
+    catch (e) { return { ok: false, neden: String(e).slice(0, 200) }; }
+  }
+  return { acikMi, acKapa, oku, dinle };
+})();
+

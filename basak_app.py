@@ -66,6 +66,9 @@ class Api:
         self.tts = None
         self.stt = None
         self.tts_on = bool(yukle(SETTINGS_FILE, {}).get("tts_on", False))
+        # DIS SES KOLU: varsayilan kapali yan kol. Yerli TTS/STT akisina
+        # dokunmaz; yalniz acikca cagrilinca calisir.
+        self.dis_ses_on = False
 
     def _beyin_al(self):
         """Beyni ilk kullanimda kurar (thread-safe, bir kez)."""
@@ -189,6 +192,31 @@ class Api:
         self.tts_on = bool(on)
         kaydet(SETTINGS_FILE, {**yukle(SETTINGS_FILE, {}), "tts_on": self.tts_on})
         return {"ok": True, "tts_on": self.tts_on}
+
+    def set_dis_ses(self, on):
+        """Dis ses kolu anahtari. Varsayilan kapali; yerli akisa dokunmaz."""
+        self.dis_ses_on = bool(on)
+        return {"ok": True, "dis_ses_on": self.dis_ses_on}
+
+    def dis_ses_oku(self, metin):
+        """Dis ses kolu: kapaliysa is yapmaz, yerli TTS aynen calisir."""
+        if not self.dis_ses_on:
+            return {"ok": False, "neden": "dis ses kolu kapali"}
+        try:
+            from voice.tts import dis_ses_oku as _dis_oku
+            return _dis_oku(metin)
+        except Exception as e:
+            return {"ok": False, "neden": str(e)[:200]}
+
+    def dis_ses_dinle(self):
+        """Dis ses kolu: kapaliysa is yapmaz, yerli STT aynen calisir."""
+        if not self.dis_ses_on:
+            return {"ok": False, "neden": "dis ses kolu kapali"}
+        try:
+            from voice.stt import dis_ses_dinle as _dis_dinle
+            return _dis_dinle()
+        except Exception as e:
+            return {"ok": False, "neden": str(e)[:200]}
 
     def clear(self):
         """Sohbet hafizasini temizler (2026-08-24 duzeltme).
