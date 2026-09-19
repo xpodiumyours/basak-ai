@@ -1,0 +1,89 @@
+name: Basak FULL TEST
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  full-acceptance:
+    if: >-
+      github.event.issue.number == 4 &&
+      github.event.comment.user.login == 'xpodiumyours' &&
+      github.event.comment.body == 'FULL TEST'
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Basak kodunu al
+        uses: actions/checkout@v4
+        with:
+          ref: sadelestirme
+
+      - name: Python 3.12 kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Tum bagimliliklari kur
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Tum kotasiz test paketini kos
+        id: pytest
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          python -m pytest tests -q --ignore=tests/live 2>&1 | Tee-Object -FilePath full-pytest.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: 8 saglayiciyi gercek ajan hattinda sina
+        id: providers
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          KILO_API_KEY: ${{ secrets.KILO_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: python tests/live/github_full_acceptance.py
+
+      - name: FULL TEST raporunu issue'ya yaz
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '### Başak FULL TEST\n\n❌ Rapor üretilemedi.';
+            if (fs.existsSync('github-full-acceptance.md')) {
+              body = fs.readFileSync('github-full-acceptance.md', 'utf8');
+            } else if (fs.existsSync('full-pytest.txt')) {
+              const lines = fs.readFileSync('full-pytest.txt', 'utf8').trim().split(/\r?\n/);
+              body += '\n\n**Pytest:** ' + (lines[lines.length - 1] || 'doğrulanamadı');
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 4,
+              body
+            });
+
+      - name: Kabul kapisini uygula
+        if: always()
+        shell: pwsh
+        run: |
+          if ("${{ steps.pytest.outcome }}" -ne "success" -or
+              "${{ steps.providers.outcome }}" -ne "success") {
+            Write-Error "FULL TEST tamamlanmadi."
+            exit 1
+          }
