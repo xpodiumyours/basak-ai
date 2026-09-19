@@ -535,3 +535,67 @@ def test_openrouter_ajan_yetenegi_model_katalogundan_dogrulanir():
     assert istemci.ajan_musait() is True
     istemci.model = "eksik:free"
     assert istemci.ajan_musait() is False
+
+
+
+def test_52_aracin_semasi_eksiksiz_ve_tutarlı():
+    from tools.definitions import TOOLS
+
+    adlar = []
+    for arac in TOOLS:
+        assert arac.get("type") == "function"
+        fn = arac.get("function") or {}
+        ad = fn.get("name")
+        assert isinstance(ad, str) and ad
+        adlar.append(ad)
+        assert isinstance(fn.get("description"), str) and fn["description"]
+        p = fn.get("parameters") or {}
+        assert p.get("type") == "object", ad
+        props = p.get("properties") or {}
+        required = p.get("required") or []
+        assert set(required).issubset(set(props)), (ad, required, props)
+
+    assert len(adlar) == 52
+    assert len(set(adlar)) == 52
+
+
+def test_52_aracin_dispatcher_dali_birebir_var():
+    """Her arac semasi tools.calistir icinde gercek bir dispatch dalina sahip."""
+    import ast
+    import textwrap
+
+    import tools
+    from tools.definitions import TANINMIS_TOOLLAR
+
+    agac = ast.parse(textwrap.dedent(inspect.getsource(tools.calistir)))
+    dallar = set()
+
+    for dugum in ast.walk(agac):
+        if not isinstance(dugum, ast.Compare):
+            continue
+        if len(dugum.ops) != 1 or not isinstance(dugum.ops[0], ast.Eq):
+            continue
+        sol = dugum.left
+        sag = dugum.comparators[0]
+        if (isinstance(sol, ast.Name) and sol.id == "tool_name"
+                and isinstance(sag, ast.Constant)
+                and isinstance(sag.value, str)):
+            dallar.add(sag.value)
+        elif (isinstance(sag, ast.Name) and sag.id == "tool_name"
+              and isinstance(sol, ast.Constant)
+              and isinstance(sol.value, str)):
+            dallar.add(sol.value)
+
+    assert dallar == set(TANINMIS_TOOLLAR)
+    assert len(dallar) == 52
+
+
+def test_10_yetenek_alani_52_araci_eksiksiz_tasir():
+    from chat.agent_protocol import YETENEK_ALANLARI
+    from tools.definitions import TANINMIS_TOOLLAR
+
+    assert len(YETENEK_ALANLARI) == 10
+    duz = [ad for araclar in YETENEK_ALANLARI.values() for ad in araclar]
+    assert len(duz) == 52
+    assert len(set(duz)) == 52
+    assert set(duz) == set(TANINMIS_TOOLLAR)
