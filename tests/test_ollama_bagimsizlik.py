@@ -104,11 +104,14 @@ class TestBoot:
         class Sahte:
             def bulut_musait(self):
                 return True
+            def ajan_musait(self):
+                return True
 
         api.brain = Sahte()
         api.tts_on = False
         r = api.boot()
-        assert r["ok"] is True and r["cloud"] is True and r["models"] == []
+        assert (r["ok"] is True and r["cloud"] is True
+                and r["agent"] is True and r["models"] == [])
 
     def test_boot_ok_hicbiri_yoksa_false(self, monkeypatch):
         import basak_app
@@ -117,6 +120,8 @@ class TestBoot:
 
         class Sahte:
             def bulut_musait(self):
+                return False
+            def ajan_musait(self):
                 return False
 
         api.brain = Sahte()
