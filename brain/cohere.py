@@ -85,6 +85,9 @@ class CohereClient:
                               "reasoning_text"):
                     if _alan in m:
                         _asistan[_alan] = m[_alan]
+                _plan = m.get("tool_plan")
+                if _plan not in (None, ""):
+                    _asistan["tool_plan"] = _plan
                 _tc = m.get("tool_calls")
                 if _tc:
                     # OpenAI formati -> Cohere V2 ToolCallV2 formati.
@@ -192,8 +195,12 @@ class CohereClient:
                         "arguments": args,
                     },
                 })
-            return kullanim_ekle({"content": resp.message.content or "",
-                          "tool_calls": tool_calls, **muhakeme}, resp)
+            _tool_plan = getattr(resp.message, "tool_plan", None)
+            _yanit = {"content": resp.message.content or "",
+                      "tool_calls": tool_calls, **muhakeme}
+            if _tool_plan not in (None, ""):
+                _yanit["tool_plan"] = _tool_plan
+            return kullanim_ekle(_yanit, resp)
 
         # Icerik (2026-09-10: blok "text" her zaman string DEGILDIR —
         # sayi/None karisik blok join'i patlatiyordu; message_utils.py
