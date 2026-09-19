@@ -43,6 +43,40 @@ class TestUcYer:
             # Dal yoksa dusulen sentinel — artik hicbir alette olmamali
             assert r != {"error": "'%s' calistirilamadi." % ad}, ad
 
+
+
+    def test_52_arac_semasi_tam_ve_tutarlı(self):
+        """Her araç JSON function şeması olarak eksiksiz ve tekil olmalı."""
+        adlar = []
+        for alet in TOOLS:
+            assert alet.get("type") == "function", alet
+            fn = alet.get("function") or {}
+            ad = fn.get("name")
+            assert isinstance(ad, str) and ad.strip(), alet
+            adlar.append(ad)
+
+            aciklama = fn.get("description")
+            assert isinstance(aciklama, str) and aciklama.strip(), ad
+
+            params = fn.get("parameters") or {}
+            assert params.get("type") == "object", ad
+            props = params.get("properties")
+            assert isinstance(props, dict), ad
+            required = params.get("required")
+            assert isinstance(required, list), ad
+            assert set(required).issubset(set(props)), (ad, required, props)
+
+            for alan, sema in props.items():
+                assert isinstance(alan, str) and alan, (ad, alan)
+                assert isinstance(sema, dict), (ad, alan)
+                assert sema.get("type") in (
+                    "string", "integer", "number", "boolean",
+                    "array", "object"
+                ), (ad, alan, sema)
+
+        assert len(adlar) == 52
+        assert len(set(adlar)) == 52
+
     def test_bilinmeyen_reddedilir(self):
         r = calistir("yok-boyle-alet", {})
         assert "error" in r
