@@ -817,6 +817,60 @@ function openAICompatibleMessages(messages) {
   });
 }
 
+function recoverKiloTextToolCalls(message) {
+  if (!message || (Array.isArray(message.tool_calls) && message.tool_calls.length)) return message;
+  const text = typeof message.content === "string" ? message.content.trim() : "";
+  if (!text || !text.includes("\"name\"") || !text.includes("\"parameters\"")) return message;
+
+  const objects = [];
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        const raw = text.slice(start, i + 1);
+        try {
+          const value = JSON.parse(raw);
+          if (value?.name && value?.parameters && typeof value.parameters === "object") {
+            objects.push(value);
+          }
+        } catch {}
+        start = -1;
+      }
+    }
+  }
+
+  if (!objects.length) return message;
+
+  return {
+    ...message,
+    content: "",
+    tool_calls: objects.map((x, i) => ({
+      id: "kilo_text_" + Date.now() + "_" + i,
+      type: "function",
+      function: {
+        name: String(x.name),
+        arguments: JSON.stringify(x.parameters || {})
+      }
+    }))
+  };
+}
+
 async function openAIAgentTurn(provider, messages, tools, env) {
   let config;
   if (provider === "openrouter") {
@@ -851,7 +905,8 @@ async function openAIAgentTurn(provider, messages, tools, env) {
     })
   }, config.secrets);
 
-  const message = data?.choices?.[0]?.message;
+  let message = data?.choices?.[0]?.message;
+  if (provider === "kilo") message = recoverKiloTextToolCalls(message);
   if (!message || !Array.isArray(message.tool_calls) || !message.tool_calls.length) {
     throw new Error("ajan turunda tool_call gelmedi");
   }
