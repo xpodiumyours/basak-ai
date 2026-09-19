@@ -35,6 +35,7 @@ jobs:
 
       - name: Gercek Basak sohbet hattini calistir
         env:
+          PYTHONPATH: ${{ github.workspace }}
           BASAK_CHAT_MESSAGE: ${{ github.event.comment.body }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
