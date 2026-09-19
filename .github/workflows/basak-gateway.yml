@@ -32,6 +32,11 @@ jobs:
           npm --prefix basak_gateway run check
           npm --prefix basak_gateway test
 
+      - name: Kilo tool modeli birim testi
+        run: |
+          python -m pip install --quiet pytest openai==2.20.0 httpx
+          python -m pytest tests/test_kilo.py -q
+
       - name: 52 arac katalogu ve tam semalari gercek Basak kaynagiyla karsilastir
         run: python basak_gateway/scripts/check_catalog.py
 
