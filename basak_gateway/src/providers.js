@@ -156,7 +156,8 @@ async function chooseKiloToolModel() {
   }
   throw new Error("Kilo: tools + tool_choice destekli ucretsiz model yok");
 }
-\nasync function chooseOpenRouterModel(apiKey) {
+
+async function chooseOpenRouterModel(apiKey) {
   const data = await fetchJson(
     "https://openrouter.ai/api/v1/models",
     { headers: { Authorization: "Bearer " + apiKey } },
