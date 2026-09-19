@@ -235,3 +235,56 @@ def test_cloudflare_required_apiye_tasinir():
         tool_choice="required",
     )
     assert yakalanan["tool_choice"] == "required"
+
+
+
+def test_bilinmeyen_saglayici_fail_closed():
+    from brain import registry
+
+    k = registry.kart("gelecekteki_bilinmeyen")
+    assert k["ucretsiz"] is False
+    assert k["tools"] is False
+    assert registry.otomatik_ucretsiz_mi("gelecekteki_bilinmeyen") is False
+
+
+def test_qwen_sureli_kota_otomatik_zincirde_degil():
+    from brain import registry
+
+    assert registry.kart("qwen")["ucretsiz"] is True
+    assert registry.otomatik_ucretsiz_mi("qwen") is False
+    assert "qwen" not in registry.VARSAYILAN_SIRA
+
+
+def test_otomatik_bulut_zinciri_ucretli_ve_qwen_sokmaz():
+    from brain.brain import Brain
+
+    class Saglayici:
+        def musait(self):
+            return True
+
+    b = Brain.__new__(Brain)
+    for ad in ("groq", "gemini", "glm", "nvidia", "kilo", "openrouter",
+               "cloudflare", "cohere", "qwen", "genel"):
+        setattr(b, "_" + ad, Saglayici())
+
+    adlar = [ad for ad, _ in b._bulut_zinciri()]
+    assert "genel" not in adlar
+    assert "qwen" not in adlar
+    assert "groq" in adlar
+
+
+def test_ajan_zinciri_yalniz_required_dogrulanmis_ucretsizler():
+    from brain.brain import Brain
+
+    class Saglayici:
+        def musait(self):
+            return True
+
+    b = Brain.__new__(Brain)
+    for ad in ("groq", "gemini", "glm", "nvidia", "kilo", "openrouter",
+               "cloudflare", "cohere", "qwen", "genel"):
+        setattr(b, "_" + ad, Saglayici())
+
+    adlar = [ad for ad, _ in b._bulut_zinciri(
+        tools=True, tool_required=True)]
+    assert set(adlar) == {"groq", "cloudflare", "cohere"}
