@@ -47,7 +47,7 @@ Temizlik (2026-09-19, Casper onayli):
 
 | Adim | Durum |
 |---|---|
-| 1. 8/8 native protokol | Kirmizi — 2026-09-19 22:24 canli olcum: groq (tool_choice 400, model arac cagirmadi), gemini (thought_signature eksik 400), openrouter+kilo (tool-call dondurmedi), glm 429, nvidia ic hata |
+| 1. 8/8 native protokol | **YESIL (6/8 gecti, 2 SKIP, 0 kirmizi)** — 2026-09-19 Duzey 1 canli kosusu; ayrinti asagida "DUZEY 1 SONUC" |
 | 2. 52 gercEK arac | Kirmizi (web'de 6) |
 | 3. 416 hucre | Kirmizi (altyapi vardi, calistirilmadi) |
 | 4. 416 ikinci tur | Kirmizi |
@@ -139,6 +139,23 @@ ayni isi tekrar aradi mi, basarisizligi uydurdu mu, cevap verimli mi.
 
 DUZEY 4 — TEK KABUL RAPORU. Matris + sohbet kayitlarindan OTOMATIK
 uretilir; el yazisi "gecildi" yazilamaz.
+
+DUZEY 1 SONUC (2026-09-19, commit 8490232 — 6 YESIL / 2 SKIP / 0 KIRMIZI):
+- gecti: gemini 3.6 sn, openrouter 35 sn, glm 4.7 sn, nvidia 13.1 sn,
+  groq (auto ile dogal tool_call — required altinda 400, hem 120b hem
+  20b olculdu, resample care yetersiz), kilo (stepfun/step-3.7-flash:free
+  9.3 sn native — plan-D: olcumle sabitlendi).
+- SKIP: cloudflare, cohere (anahtar yok; hucresi Duzey 2'de SKIP yazar).
+- Kod degisiklikleri: groq auto_enforced (registry'den tek kaynak),
+  groq resample genisletildi, kilo varsayilan modeli degisti,
+  openrouter require_parameters onceki adimda.
+- Gercek yanit kaliplari tests/live/fixtures/ altina kaydedildi
+  (6 dosya); Duzey 0 birim testleri artik GERCEK kalip zerinde kosuyor.
+- Tur-2 (tool-result devami) Duzey 1'de kilo ve groq'ta dogrulandi;
+  digerlerinin tur-2'si Duzey 2 matrisinde her hucrede olculur.
+- Kosucu: tests/live/kosucu.py (tek saglayici modu: python
+  tests/live/kosucu.py <ad>), kabul testi tests/live/test_seviye1_native.py
+  (--live kapisi). Matris: data/kabul-matrisi.json (git-disi).
 
 ESIT GOZLEMLENEBILIRLIK ("web ve yerel ayni sekilde bilsin") — MUMKUN,
 sebebi TEK YOL:
