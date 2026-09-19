@@ -36,8 +36,8 @@ def main():
     if not ajanlar:
         _yaz(
             "### Başak canlı test\n\n"
-            "❌ Gerçek ajan beyni hazır değil. GitHub Actions tarafında "
-            "Groq, Cohere veya Cloudflare canlı anahtarı bulunamadı.\n"
+            "❌ Gerçek ajan beyni hazır değil. Sekiz ücretsiz sağlayıcıdan "
+            "hiçbiri bu GitHub koşusunda ajan olarak hazır değil.\n"
         )
         return
 
