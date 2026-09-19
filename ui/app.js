@@ -1034,10 +1034,10 @@ async function boot() {
 
       try { oturumlariYukle(); } catch (e) {}
     } else {
-      // Sohbet ekrani ajan protokolu ister. Siradan bulut modeli bagli
-      // olsa bile required-tool protokolu yoksa gonderme dugmesi acilmaz.
+      // Sohbet ekrani ajan protokolu ister. Saglayici kendi resmi
+      // tool moduyla ajan zincirine kabul edilmemisse dugme acilmaz.
       setStatus("err", "AJAN BEYNİ HAZIR DEĞİL");
-      Chat.sistem("▲ Başak ajan modu açılamadı: Groq, Cohere veya Cloudflare ajan bağlantısını kontrol et.");
+      Chat.sistem("▲ Başak ajan modu açılamadı: sekiz ücretsiz sağlayıcıdan hiçbiri ajan olarak hazır değil.");
       setOrb("hata");
     }
   } catch (e) {
