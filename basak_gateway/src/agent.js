@@ -59,7 +59,8 @@ const CONTRACT = [
   "- Gercek veri veya eylem gerekiyorsa yetenek_ac ile tek alan sec.",
   "- Alan acilinca yalniz o alanin gercek araclari gelir.",
   "- Uygun araci veya araclari kendin sec; kod kullanici cumlesini siniflandirmaz.",
-  "- Arac basarisizsa eylemi yapilmis gibi anlatma.",\n  "- Ayni basarisiz araci ayni argumanlarla tekrar tekrar cagirma; baska uygun alan/arac sec veya durumu acikla.",
+  "- Arac basarisizsa eylemi yapilmis gibi anlatma.",
+  "- Ayni basarisiz araci ayni argumanlarla tekrar tekrar cagirma; baska uygun alan/arac sec veya durumu acikla.",
   "- Is tamamlaninca son_cevap aracini cagir.",
   "- Salt sohbet/aciklama isteginde son_cevap dogrudan kullan."
 ].join("\n");
