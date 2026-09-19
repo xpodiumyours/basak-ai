@@ -172,6 +172,8 @@ class Brain:
         """
         _tool_istiyor = bool(tools)
         def _uygun(ad, istemci) -> bool:
+            if not registry.otomatik_ucretsiz_mi(ad):
+                return False
             try:
                 if istemci is None or not istemci.musait():
                     return False
@@ -206,11 +208,9 @@ class Brain:
             zincir.append(("qwen", self._qwen))
         if _uygun("gemini", self._gemini):
             zincir.append(("gemini", self._gemini))
-        # 2026-09-10: ozel saglayici EN SONDA — bedavalar once denenir,
-        # parali anahtar takilinca davranis degismez, yedek cogalir.
-        # getattr: elle kurulan Brain nesnelerinde de patlamaz.
+        # Ozel/ucretli saglayici otomatik zincire girmez.
         _genel = getattr(self, "_genel", None)
-        if _genel is not None and _genel.musait():
+        if _uygun("genel", _genel):
             zincir.append(("genel", _genel))
         return zincir
 
