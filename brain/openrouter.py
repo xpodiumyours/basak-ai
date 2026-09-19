@@ -112,10 +112,11 @@ class OpenRouterClient:
     def ajan_musait(self) -> bool:
         """Secili modelin OpenRouter katalogunda tools+tool_choice destegi."""
         onbellek = getattr(self, "_ajan_destek_cache", None)
-        if onbellek is not None:
-            return bool(onbellek)
+        if (isinstance(onbellek, tuple) and len(onbellek) == 2
+                and onbellek[0] == self.model):
+            return bool(onbellek[1])
         if not self.client or not self.model or not self.model.endswith(":free"):
-            self._ajan_destek_cache = False
+            self._ajan_destek_cache = (self.model, False)
             return False
         try:
             for m in self.client.models.list():
@@ -123,11 +124,11 @@ class OpenRouterClient:
                     continue
                 destek = set(getattr(m, "supported_parameters", []) or [])
                 sonuc = {"tools", "tool_choice"}.issubset(destek)
-                self._ajan_destek_cache = sonuc
+                self._ajan_destek_cache = (self.model, sonuc)
                 return sonuc
         except Exception as e:
             logger.warning("OpenRouter ajan yetenegi dogrulanamadi: %s", e)
-        self._ajan_destek_cache = False
+        self._ajan_destek_cache = (self.model, False)
         return False
 
     def cevapla(self, messages: list, tools: list = None, yapi=None,
