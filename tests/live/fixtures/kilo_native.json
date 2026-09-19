@@ -1,0 +1,23 @@
+{
+  "saglayici": "kilo",
+  "kayit": "2026-09-20 00:09:01",
+  "tur1": {
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-907521c52b00c1e0",
+        "type": "function",
+        "function": {
+          "name": "simdi",
+          "arguments": "{}"
+        }
+      }
+    ],
+    "reasoning_anahtarlari": [
+      "reasoning",
+      "reasoning_details"
+    ]
+  },
+  "arac_sonucu": "{\"result\": \"20 Eylul 2026 Pazar, 00:08\"}",
+  "tur2_content": "Şu an 20 Eylül 2026 Pazar, 00:08'deyiz ve yeni bir gün başlıyor."
+}

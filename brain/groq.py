@@ -52,6 +52,10 @@ class GroqClient:
     # FAZ 1.4d: aracsız turda model yine de tool_call üretirse Groq 400 döner
     # ("Tool choice is none, but model called a tool"). Mesaja dokunmadan
     # tek tekrar; modele "duz metin yaz" diye dayatma YAPILMAZ.
+    # Duzey 1 (2026-09-19): ayna durum eklendi — zorunlu turda model arac
+    # cagirmadan duz metin yazarsa ("Tool choice is required, but model
+    # did not call a tool") ayni istek TEK kez yeniden orneklenir
+    # (resample). Metin tool_call'a cevrilmez — native protokol korunur.
 
     def __init__(self, api_key: str, model: str = None):
         if not api_key or not api_key.strip():
@@ -107,8 +111,8 @@ class GroqClient:
             if not self._tool_choice_hatasi_mi(e):
                 raise
             logger.warning(
-                "groq aracsız turda tool_call üretti (%s) — "
-                "metin-nudge ile tek tekrar", str(e))
+                "groq tool_choice uyusmazligi (%s) — ayni istekle tek "
+                "yeniden ornekleme", str(e)[:120])
             kwargs = dict(kwargs)
             kwargs["messages"] = _groq_mesajlari(messages)
             resp = self.client.chat.completions.create(**kwargs)
@@ -136,7 +140,15 @@ class GroqClient:
 
     @staticmethod
     def _tool_choice_hatasi_mi(hata) -> bool:
-        """Groq'un 'tools yokken model tool_call üretti' 400'unu tanir."""
+        """Groq'un tool_choice/tool_call uyusmazlik 400'larini tanir.
+
+        Iki ayna durum: (1) tools yokken model tool_call uretti;
+        (2) zorunlu turda model arac cagirmadan duz metin yazdi.
+        Ikisi de ayni careyi alir: ayni istekle tek resample.
+        """
         metin = str(hata)
-        return ("tool_use_failed" in metin
-                and "Tool choice is none" in metin)
+        if "tool_use_failed" not in metin:
+            return False
+        return ("Tool choice is none" in metin
+                or "Tool choice is required, but model did not call a tool"
+                in metin)

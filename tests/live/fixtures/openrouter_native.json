@@ -1,0 +1,23 @@
+{
+  "saglayici": "openrouter",
+  "kayit": "2026-09-20 00:08:52",
+  "tur1": {
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "call-51dffeda-8b28-4b43-a4ab-00ded79c7fcd",
+        "type": "function",
+        "function": {
+          "name": "simdi",
+          "arguments": "{}"
+        }
+      }
+    ],
+    "reasoning_anahtarlari": [
+      "reasoning",
+      "reasoning_details"
+    ]
+  },
+  "arac_sonucu": "{\"result\": \"20 Eylul 2026 Pazar, 00:08\"}",
+  "tur2_content": "Şu an 20 Eylül 2026 Pazar günü saat 00:08 olduğunu gösteriyor."
+}

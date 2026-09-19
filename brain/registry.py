@@ -16,8 +16,12 @@ SAGLAYICILAR = {
         "ad": "Groq",
         "ucretsiz": True,
         "tools": True,
-        # Resmi Groq API: tool_choice="required" desteklenir.
-        "ajan_tool_mode": "required",
+        # Duzey 1 kaniti (2026-09-19 23:59, canli): gpt-oss modelleri
+        # tool_choice="required" altinda INATLA 400 veriyor ("model did
+        # not call a tool"), hem 120b hem 20b; auto/None'da ise ayni istek
+        # dogal olarak GERCEK tool_call uretiyor. Ajan modu auto_enforced'a
+        # alindi — duz metin zaten Brain'de basari sayilmaz.
+        "ajan_tool_mode": "auto_enforced",
         "gucleri": ["hiz", "genel"],
         # 2026-09 guncellemesi: 20b/120b ikisi de 250K TPM + 1K RPM +
         # 131K baglam + 65K max output (Groq docs). Eski 200K/gun gozlemi

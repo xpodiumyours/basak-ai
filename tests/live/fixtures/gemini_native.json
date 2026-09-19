@@ -1,0 +1,25 @@
+{
+  "saglayici": "gemini",
+  "kayit": "2026-09-20 00:08:47",
+  "tur1": {
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "call_382218",
+        "type": "function",
+        "function": {
+          "name": "simdi",
+          "arguments": "{}"
+        },
+        "extra_content": {
+          "google": {
+            "thought_signature": "EoQFCoEFAWkUfRMxdMjAzMdAq/k7Rfhqt3Z4FyLRIBaOuik9QfVWbBLY5SBNrvXinAksDKYTGYx54Jeou1Eyo8YFQpHvB2buprosqZJIV6EaSvrgxsrtc+lGQRSuMnyjJf2Pp819oKe9h+QRvGMPaTXGm+1YGD5s3n8iZSOh/PZvupiS7M1JgOhh0B++OzLeRPmrswRBfBzZ/ycyVfcuTzXatwSbXHUIFypMo8n1m9xDbywwZVyBYY3P2RP/dlldNK/S58zKoIB629T6QQOjLBBVaBRiPu72uGxMQRY37UCMR+pb4058iqGKZuzlKTPSaH8ci9cXgmbrG0D+GXNGcjZcCyj1t23B2a4mslQli80r8q1CORVyZnLACg6xjU94qkjM5DDBh+yxpLz6jxEgFUtQu/HGzKjFr+mjbcvd4GnSSbN7VSmaH+6Ieb4InwS4Dapqb1UD+Spv8aVXEbs66gxZH12AnYB+1hgbDuXvDhiwLH2nfKZXpbGWpvg0iaf1Ptw7jFOmHIwj7xAAPeW0CDByR9z0OuCfoQrY4ilo9YfNalDwabFg5e6ou+JHgRykCvg+Fa70BKBGHJQNXiING5vUyDGPhN3+FA9bn94WdtypNDhn+ItWtOmsWDLbNP7sZOWVWxFGp3pAAO5GuVLaf4MFVFGHwFz9bnIxDjHx3F3p9pPydAKO/2HxraybaBgq5KZI48CpcZLnVtn8YAR7a6VXBnjz2Fb7BzUHTfzWrdzalz5vpC2ZwrkmTw/QG9it6t0Dp/yGw533QZp32pYA07EHWMacWBhjcHeuFB00Q/Qol+958d3dLi3ectW8bnl7bBDenNQOsQjhi68r+0ATNpTCnzjgeJY="
+          }
+        }
+      }
+    ],
+    "reasoning_anahtarlari": []
+  },
+  "arac_sonucu": "{\"result\": \"20 Eylul 2026 Pazar, 00:08\"}",
+  "tur2_content": "20 Eylül 2026 Pazar gününün bu ilk dakikalarında, yeni bir günün sessiz ve taze başlangıcına tanıklık ediyoruz."
+}

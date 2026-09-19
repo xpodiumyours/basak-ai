@@ -118,7 +118,9 @@ def test_sozlesme_degerleri_resmi_protokole_uygun():
     'auto' gider — karisik tablo sapma isaretidir."""
     from brain import registry
     beklenen = {
-        "groq": "required",
+        # 2026-09-19 Duzey 1 kaniti: groq required altinda 400 (hem 120b
+        # hem 20b), auto'da dogal GERCEK tool_call — auto_enforced.
+        "groq": "auto",
         "gemini": "auto",
         "openrouter": "auto",
         "glm": "auto",

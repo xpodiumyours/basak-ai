@@ -34,12 +34,15 @@ YER_TUTUCU_ANAHTAR = "anonymous"
 VARSAYILAN_JETON = 4096
 
 # kilo-auto/free ücretsiz modeller arasında kendi yönlendirir.
-# Tek tek modeller yedek: liste sunucu tarafında değişiyor.
-# nvidia/nemotron-3-super düşünme metnini content'e sızdırdığı için yok.
-VARSAYILAN_MODEL = "kilo-auto/free"
+# Duzey 1 kaniti (2026-09-20 00:07, canli): kilo-auto/free yonlendiricisi
+# zorunlu arac turunda GERCEK tool_call uretmıyor (metne yazıyor —
+# "[[{"name": "simdi"...}]]"); stepfun/step-3.7-flash:free ayni istekte
+# native tool_call + tur-2 devamini 9.3 sn'de tamamladi. Varsayilan bu
+# olcume gore sabitlendi (sira olcumle dizilir kurali).
+VARSAYILAN_MODEL = "stepfun/step-3.7-flash:free"
 TERCIH_SIRASI = [
-    "kilo-auto/free",
     "stepfun/step-3.7-flash:free",
+    "kilo-auto/free",
     "tencent/hy3:free",
     "poolside/laguna-s-2.1:free",
 ]

@@ -180,7 +180,8 @@ def test_8_saglayici_resmi_tool_choice_haritasi():
     from brain import registry
 
     beklenen = {
-        "groq": "required",
+        # 2026-09-19 Duzey 1 kaniti: groq -> auto_enforced.
+        "groq": "auto",
         "gemini": "auto",
         "openrouter": "auto",
         "glm": "auto",
@@ -214,7 +215,9 @@ def test_8_istemcinin_tamami_tool_choice_parametresini_kabul_ediyor():
 @pytest.mark.parametrize(
     "provider,beklenen",
     [
-        ("groq", "required"),
+        # 2026-09-19 Duzey 1 kaniti: groq gpt-oss required altinda 400
+        # veriyor, auto'da dogal tool_call uretiyor -> auto_enforced.
+        ("groq", "auto"),
         ("gemini", "auto"),
         ("openrouter", "auto"),
         ("glm", "auto"),

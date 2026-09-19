@@ -1,0 +1,23 @@
+{
+  "saglayici": "nvidia",
+  "kayit": "2026-09-20 00:09:19",
+  "tur1": {
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-b2d2b0f2cbe00446",
+        "type": "function",
+        "function": {
+          "name": "simdi",
+          "arguments": "{}"
+        }
+      }
+    ],
+    "reasoning_anahtarlari": [
+      "reasoning_content",
+      "reasoning"
+    ]
+  },
+  "arac_sonucu": "{\"result\": \"20 Eylul 2026 Pazar, 00:09\"}",
+  "tur2_content": "Bugün 20 Eylül 2026 Pazar, saat 00:09."
+}

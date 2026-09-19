@@ -1,0 +1,22 @@
+{
+  "saglayici": "groq",
+  "kayit": "2026-09-20 00:08:43",
+  "tur1": {
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "fc_bb45b111-0721-459f-925c-86aeedc069fb",
+        "type": "function",
+        "function": {
+          "name": "simdi",
+          "arguments": "{}"
+        }
+      }
+    ],
+    "reasoning_anahtarlari": [
+      "reasoning"
+    ]
+  },
+  "arac_sonucu": "{\"result\": \"20 Eylul 2026 Pazar, 00:08\"}",
+  "tur2_content": "Şu an 20 Eylül 2026 Pazar, 00:08."
+}
