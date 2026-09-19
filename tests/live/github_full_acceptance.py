@@ -1,4 +1,17 @@
-"""GitHub Issue #4 FULL TEST icin 8/8 canli saglayici kabul sinavi."""
+"""GitHub Issue #4 FULL TEST — Basak'in tam ajan kabul matrisi.
+
+Kaniti uc ayri katmanda raporlar:
+1) Kotasiz: 52/52 arac semasi + dispatcher + 8x52=416 ajan baglanti yolu.
+2) Canli protokol: 8 saglayicinin her biri 10 yetenek alanindaki tum
+   52 gercek arac semasini kendi gercek API'sinde kabul edip tool-call
+   dondurur mu?
+3) Canli uctan uca: her saglayici salt sohbeti ve gercek `simdi`
+   aracinin calistirilip final cevaba baglanmasini tamamlar mi?
+
+Canli protokol testi gercek dis etkili araclari (dosya yazma, gorev ekleme,
+uygulama acma vb.) CALISTIRMAZ. O araclarin 52/52 dispatcher baglantisi
+kotasiz testte tam denetlenir. Bu ayrim raporda acikca belirtilir.
+"""
 
 import json
 import os
@@ -10,6 +23,19 @@ SAGLAYICILAR = (
     "groq", "gemini", "openrouter", "glm",
     "cloudflare", "cohere", "kilo", "nvidia",
 )
+
+ALAN_SORULARI = {
+    "internet": "İnternette OpenAI resmi sitesini araştır ve uygun aracı seç.",
+    "dosyalar": "Bilgisayardaki bir dosyanın içeriğini okumam gerekiyor; uygun aracı seç.",
+    "projeler": "Bir Git projesinin durumunu kontrol et; uygun proje aracını seç.",
+    "gorevler": "Şu anki tarih ve saati kontrol et; uygun aracı seç.",
+    "hafiza": "Kalıcı hafızada belirli bir konuyu ara; uygun aracı seç.",
+    "gorsel": "Yerel bir görseli analiz etmek gerekiyor; uygun görsel aracını seç.",
+    "katalog": "Mevcut katalog işlerini listelemek gerekiyor; uygun katalog aracını seç.",
+    "matris": "Mevcut fikir matrislerini listelemek gerekiyor; uygun matris aracını seç.",
+    "masaustu": "Beyaz listedeki bir masaüstü uygulamasını açmak gerekiyor; uygun aracı seç.",
+    "hesap": "120 çarpı 18 bölü 100 hesabını yap; uygun hesap aracını seç.",
+}
 
 
 def _ui_sonucu(olaylar):
@@ -35,12 +61,7 @@ def _ui_sonucu(olaylar):
     return cevap, kaynak, hata
 
 
-def _tek_mesaj(beyin, provider, mesaj, beklenen_arac):
-    from chat.flow import mesaj_isle
-    from chat import context as ctx
-    from tools import TOOLS
-    import tools as tools_mod
-
+def _tek_provider_zinciri(beyin, provider):
     asil_zincir = beyin._bulut_zinciri
 
     def tek_zincir(self, tools=False, tool_required=False):
@@ -51,7 +72,17 @@ def _tek_mesaj(beyin, provider, mesaj, beklenen_arac):
             if ad == provider
         ]
 
-    beyin._bulut_zinciri = types.MethodType(tek_zincir, beyin)
+    return asil_zincir, types.MethodType(tek_zincir, beyin)
+
+
+def _tek_mesaj(beyin, provider, mesaj, beklenen_arac):
+    from chat.flow import mesaj_isle
+    from chat import context as ctx
+    from tools import TOOLS
+    import tools as tools_mod
+
+    asil_zincir, tek_zincir = _tek_provider_zinciri(beyin, provider)
+    beyin._bulut_zinciri = tek_zincir
 
     asil_calistir = tools_mod.calistir
     kosulan = []
@@ -62,19 +93,23 @@ def _tek_mesaj(beyin, provider, mesaj, beklenen_arac):
 
     tools_mod.calistir = kayitli_calistir
     olaylar = []
+    yakalanan_hata = ""
 
     try:
         with tempfile.TemporaryDirectory() as td:
             ctx.HISTORY_FILE = os.path.join(td, "gecmis.json")
             ctx.SETTINGS_FILE = os.path.join(td, "ayar.json")
             ctx._hafiza = False
-            mesaj_isle(
-                mesaj,
-                beyin,
-                "Sen Başak'sın. Türkçe konuş.",
-                olaylar.append,
-                TOOLS,
-            )
+            try:
+                mesaj_isle(
+                    mesaj,
+                    beyin,
+                    "Sen Başak'sın. Türkçe konuş.",
+                    olaylar.append,
+                    TOOLS,
+                )
+            except Exception as e:
+                yakalanan_hata = str(e)
     finally:
         tools_mod.calistir = asil_calistir
         beyin._bulut_zinciri = asil_zincir
@@ -82,7 +117,7 @@ def _tek_mesaj(beyin, provider, mesaj, beklenen_arac):
     cevap, kaynak, hata = _ui_sonucu(olaylar)
     if not cevap:
         return False, {
-            "hata": hata or "final cevap yok",
+            "hata": hata or yakalanan_hata or "final cevap yok",
             "araclar": kosulan,
             "kaynak": kaynak,
         }
@@ -95,7 +130,7 @@ def _tek_mesaj(beyin, provider, mesaj, beklenen_arac):
     if beklenen_arac is None:
         if kosulan:
             return False, {
-                "hata": "salt sohbette gereksiz gercek arac calisti",
+                "hata": "salt sohbette gereksiz GERCEK arac calisti",
                 "araclar": kosulan,
                 "kaynak": kaynak,
             }
@@ -112,6 +147,83 @@ def _tek_mesaj(beyin, provider, mesaj, beklenen_arac):
     }
 
 
+def _alan_sema_testi(beyin, provider, istemci):
+    """10 alanda 52 semayi gercek provider API'sinden gecir.
+
+    Araclari calistirmaz; amac provider/modelin Basak'in gercek JSON
+    semalarini kabul edip o alandan bir tool_call uretebilmesidir.
+    """
+    from chat.agent_protocol import YETENEK_ALANLARI
+    from tools import TOOLS
+
+    tum = {
+        t["function"]["name"]: t
+        for t in TOOLS
+    }
+    sonuclar = {}
+    toplam_sema = 0
+
+    for alan, adlar in YETENEK_ALANLARI.items():
+        semalar = [tum[ad] for ad in adlar]
+        toplam_sema += len(semalar)
+        soru = ALAN_SORULARI[alan]
+        try:
+            yanit = beyin._tek_cagri(
+                istemci,
+                provider,
+                [{"role": "user", "content": soru}],
+                semalar,
+                None,
+                None,
+                tool_choice="required",
+            )
+            cagrilar = (
+                yanit.get("tool_calls")
+                if isinstance(yanit, dict) else None
+            ) or []
+            secilen = [
+                ((c.get("function") or {}).get("name"))
+                for c in cagrilar if isinstance(c, dict)
+            ]
+            gecersiz = [x for x in secilen if x not in adlar]
+            ok = bool(secilen) and not gecersiz
+            sonuclar[alan] = {
+                "ok": ok,
+                "sema": len(semalar),
+                "secilen": secilen,
+                "hata": "" if ok else (
+                    "tool_call yok" if not secilen
+                    else "alan disi arac: %s" % ", ".join(gecersiz)
+                ),
+            }
+        except Exception as e:
+            sonuclar[alan] = {
+                "ok": False,
+                "sema": len(semalar),
+                "secilen": [],
+                "hata": str(e),
+            }
+
+    assert toplam_sema == 52
+    return sonuclar
+
+
+def _pytest_ozeti():
+    try:
+        with open("full-pytest.txt", encoding="utf-8", errors="replace") as f:
+            temiz = [x.strip() for x in f.readlines() if x.strip()]
+            if temiz:
+                return temiz[-1]
+    except OSError:
+        pass
+    return "doğrulanamadı"
+
+
+def _kisa(metin, sinir=180):
+    metin = str(metin or "").replace("|", "/").replace("\n", " ")
+    return metin if len(metin) <= sinir else metin[:sinir - 3] + "..."
+
+
 def main():
     from brain import Brain
 
@@ -119,18 +231,24 @@ def main():
     mevcut = dict(b._bulut_zinciri(tools=True, tool_required=True))
 
     satirlar = []
-    basarili = 0
+    detaylar = []
+    tam_gecen = 0
     eksik = 0
-    hatali = 0
+    kalan = 0
 
     for ad in SAGLAYICILAR:
         if ad not in mevcut:
             satirlar.append(
-                "| %s | ❌ YOK | - | - | GitHub ortaminda ajan olarak hazir degil |"
+                "| %s | ❌ YOK | 0/10 | 0/52 | - | - | GitHub ortamında hazır değil |"
                 % ad
             )
+            detaylar.append("**%s:** canlı istemci yok." % ad)
             eksik += 1
             continue
+
+        alanlar = _alan_sema_testi(b, ad, mevcut[ad])
+        alan_ok = sum(1 for x in alanlar.values() if x["ok"])
+        sema_ok = sum(x["sema"] for x in alanlar.values() if x["ok"])
 
         sohbet_ok, sohbet = _tek_mesaj(
             b, ad,
@@ -143,62 +261,116 @@ def main():
             "simdi",
         )
 
-        if sohbet_ok and arac_ok:
+        provider_ok = (
+            alan_ok == 10 and sema_ok == 52 and sohbet_ok and arac_ok
+        )
+        if provider_ok:
+            tam_gecen += 1
             durum = "✅ GEÇTİ"
-            basarili += 1
-            not_ = "salt sohbet + simdi araci + final cevap"
+            not_ = "10 alan + 52 şema + sohbet + gerçek simdi"
         else:
+            kalan += 1
             durum = "❌ KALDI"
-            hatali += 1
-            nedenler = []
+            neden = []
+            bozuk_alanlar = [
+                "%s: %s" % (alan, _kisa(veri["hata"], 90))
+                for alan, veri in alanlar.items() if not veri["ok"]
+            ]
+            if bozuk_alanlar:
+                neden.append("alanlar=" + "; ".join(bozuk_alanlar))
             if not sohbet_ok:
-                nedenler.append("sohbet: " + str(sohbet.get("hata", "")))
+                neden.append("sohbet=" + _kisa(sohbet.get("hata"), 90))
             if not arac_ok:
-                nedenler.append("arac: " + str(arac.get("hata", "")))
-            not_ = "; ".join(nedenler)
+                neden.append("simdi=" + _kisa(arac.get("hata"), 90))
+            not_ = _kisa("; ".join(neden))
 
         satirlar.append(
-            "| %s | %s | %s | %s | %s |"
+            "| %s | %s | %d/10 | %d/52 | %s | %s | %s |"
             % (
                 ad,
                 durum,
+                alan_ok,
+                sema_ok,
                 "✅" if sohbet_ok else "❌",
                 "✅" if arac_ok else "❌",
-                not_.replace("|", "/"),
+                not_,
             )
         )
 
-    pytest_ozet = "doğrulanamadı"
-    try:
-        with open("full-pytest.txt", encoding="utf-8", errors="replace") as f:
-            temiz = [x.strip() for x in f.readlines() if x.strip()]
-            if temiz:
-                pytest_ozet = temiz[-1]
-    except OSError:
-        pass
+        detaylar.append(
+            "**%s alanları:** %s" % (
+                ad,
+                ", ".join(
+                    "%s=%s[%s]" % (
+                        alan,
+                        "✅" if veri["ok"] else "❌",
+                        ",".join(veri["secilen"]) or _kisa(veri["hata"], 60),
+                    )
+                    for alan, veri in alanlar.items()
+                ),
+            )
+        )
 
-    tam = basarili == len(SAGLAYICILAR) and eksik == 0 and hatali == 0
+    pytest_ozet = _pytest_ozeti()
+    kotasiz_ok = "passed" in pytest_ozet and "failed" not in pytest_ozet.lower()
+    tam = (
+        kotasiz_ok
+        and tam_gecen == len(SAGLAYICILAR)
+        and eksik == 0
+        and kalan == 0
+    )
 
     rapor = [
-        "### Başak FULL TEST",
+        "### Başak FULL TEST — tam ajan matrisi",
         "",
-        "**Kotasız tam test paketi:** " + pytest_ozet,
+        "#### 1) Kotasız yapısal doğrulama",
         "",
-        "**Canlı sağlayıcı sonucu:** %d/8 geçti · %d eksik · %d kaldı"
-        % (basarili, eksik, hatali),
+        "**Sonuç:** " + pytest_ozet,
         "",
-        "| Sağlayıcı | Sonuç | Salt sohbet | Gerçek araç | Not |",
-        "|---|---|---|---|---|",
-        *satirlar,
-        "",
-        "**Kabul:** " + (
-            "✅ 8/8 canlı sağlayıcı geçti."
-            if tam else
-            "❌ 8/8 canlı sağlayıcı kanıtlanmadı; FULL TEST tamamlanmış sayılmaz."
+        (
+            "✅ 52/52 araç şeması + 52/52 dispatcher dalı + 10 yetenek alanı "
+            "+ 8×52=416 sağlayıcı-arac bağlantı yolu test paketinden geçti."
+            if kotasiz_ok else
+            "❌ Kotasız yapısal test paketi tam geçmedi."
         ),
         "",
-        "Kotasız paket ayrıca 52/52 araç yüzeyini ve 8×52=416 ajan "
-        "sağlayıcı-arac yolunu denetler.",
+        "**Not:** 416 testi sahte model yanıtlarıyla bağlantı/döngü testidir; "
+        "416 canlı API çağrısı değildir.",
+        "",
+        "#### 2) Gerçek sağlayıcı + gerçek API protokolü",
+        "",
+        "Her hazır sağlayıcı 10 yetenek alanında toplam 52 gerçek Başak araç "
+        "şemasını kendi API'sine alır ve o alandan tool_call üretmek zorundadır.",
+        "",
+        "| Sağlayıcı | Sonuç | Alan | Şema | Salt sohbet | Gerçek simdi | Not |",
+        "|---|---|---:|---:|---|---|---|",
+        *satirlar,
+        "",
+        "**Canlı sağlayıcı özeti:** %d/8 tam geçti · %d eksik · %d kaldı"
+        % (tam_gecen, eksik, kalan),
+        "",
+        "#### 3) Ne gerçekten çalıştırıldı?",
+        "",
+        "- Her hazır sağlayıcıda Başak'ın gerçek sohbet akışı çalıştırıldı.",
+        "- Her hazır sağlayıcıda gerçek `simdi` aracı çalıştırılıp sonuç tekrar modele verildi.",
+        "- 52 aracın tamamı dispatcher seviyesinde kotasız ve yan etkisiz doğrulandı.",
+        "- Dosya yazma, görev ekleme, uygulama açma, katalog değiştirme gibi "
+        "yan etkili 51 aracın tamamı canlı ortamda topluca çalıştırılmadı; "
+        "bu rapor böyle bir iddiada bulunmaz.",
+        "",
+        "#### Alan ayrıntısı",
+        "",
+        *detaylar,
+        "",
+        "### Kabul",
+        "",
+        (
+            "✅ TAM KABUL: kotasız yapı + 8/8 sağlayıcı + 10/10 alan + "
+            "52/52 canlı şema + gerçek sohbet/simdi döngüsü geçti."
+            if tam else
+            "❌ TAM KABUL YOK: yukarıdaki eksik/kırmızı kalemler bitmeden "
+            "Başak'ın tamamı canlı doğrulandı denemez."
+        ),
     ]
 
     with open(SONUC_DOSYASI, "w", encoding="utf-8") as f:
