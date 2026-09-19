@@ -308,10 +308,11 @@ let busyTimer = null;
 const YANIT_UST_SINIR_MS = 90000;   // olculen en yavas model 27.9s (kimi-k3)
 
 /* ---------------- Bekleme sayaci ---------------- */
-/* Akis yok: cevap tek parca geliyor, yol boyunca hicbir isaret cikmiyor.
-   Tam akis 10 saglayicinin hepsini + arac cagirma mantigini degistirmek
-   demek. Sayac o isi yapmaz ama asil sikayeti ("dondu mu?") cozer:
-   bekleme gorunur olur. */
+/* 2026-09-19 GUNCELLEME: yorum bayatti. Basak artik AKIS kullaniyor
+   (chat/flow.py → brain/yayin.py: kelime kelime `BasakUI.parca`), yani
+   yol boyunca isaret VAR. Asagidaki sayac yalniz akis acilamayip tek
+   seferlik yola dusuldugunde gorunur kalir — "dondu mu?" hissini
+   akis acikken zaten parcalar cozer, kapaliyken bu sayac cozer. */
 let sureTimer = null;
 function sureBaslat() {
   const bas = Date.now();

@@ -77,8 +77,14 @@ def _profil_isle(text, konusmaci):
         return "", ""
 
 
-def _baglam_kur(text, system_prompt, konusmaci, araclar_acik=False):
-    """Modele gidecek mesaj listesini kurar."""
+def _baglam_kur(text, system_prompt, konusmaci):
+    """Modele gidecek mesaj listesini kurar.
+
+    2026-09-19: `araclar_acik` parametresi KALDIRILDI. Çağrılıyor ama
+    gövdede hiç okunmuyordu — "araç durumuna göre bağlam kur" niyetinin
+    yarım kalmış kalıntısıydı. Araç seçimini model yapar; bağlam kurucusu
+    ona karışmaz.
+    """
     profil_blogu, ogrenme_notu = _profil_isle(text, konusmaci)
 
     tam_prompt = system_prompt
@@ -179,7 +185,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
     # (a) groq/glm/nvidia ucu de akisla birlikte tools kabul ediyor,
     # (b) zincirde kucuk/yerel model yok. Artik araci MODEL secer.
     arac_acik = bool(tools)
-    mesajlar = _baglam_kur(text, system_prompt, konusmaci, arac_acik)
+    mesajlar = _baglam_kur(text, system_prompt, konusmaci)
 
     mesajlar += ctx.gecmis_pencere(gecmis) + [{"role": "user",
                                                "content": text}]
