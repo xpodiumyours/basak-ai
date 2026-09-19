@@ -100,6 +100,8 @@ class KiloClient:
         }
         if tools:
             kwargs["tools"] = tools
+            if tool_choice is not None:
+                kwargs["tool_choice"] = tool_choice
 
         resp = self.client.chat.completions.create(**kwargs)
         secim = resp.choices[0]
