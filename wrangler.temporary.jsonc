@@ -17,5 +17,6 @@
   },
   "exports": {
     "LabState": { "type": "durable-object", "storage": "sqlite" }
-  }
+  },
+  "ai": { "binding": "AI" }
 }
