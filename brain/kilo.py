@@ -44,6 +44,17 @@ TERCIH_SIRASI = [
     "poolside/laguna-s-2.1:free",
 ]
 
+# kilo-auto/free "tools" destekliyor ama canli katalogda "tool_choice"
+# destekledigini ilan etmiyor. Ajan/protokol turunda yalniz hem tools hem
+# tool_choice ilan eden ucretsiz modeller kullanilir. Ilk tercih 2026-09-19
+# canli iki turlu tool protokolunde dogrulandi.
+ARAC_MODEL_TERCIH_SIRASI = [
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "poolside/laguna-s-2.1:free",
+    "nex-agi/nex-n2.5-pro:free",
+    "inclusionai/ling-3.0-flash-vl:free",
+]
+
 
 class KiloClient:
     """Kilo Gateway istemcisi — API anahtarı gerektirmez."""
@@ -52,6 +63,7 @@ class KiloClient:
         self.model = model or VARSAYILAN_MODEL
         self.api_key = (api_key or "").strip()
         self.client = None
+        self._arac_modeli = None
         self._kur()
 
     def _kur(self):
@@ -82,6 +94,31 @@ class KiloClient:
     def musait(self) -> bool:
         return self.client is not None
 
+    def _arac_modeli_sec(self) -> str:
+        """Ucretsiz ve tool_choice destekli Kilo modelini canli katalogdan sec."""
+        if self._arac_modeli:
+            return self._arac_modeli
+        try:
+            with urllib.request.urlopen(BASE_URL + "/models", timeout=10) as r:
+                data = json.load(r)
+            models = {
+                m.get("id"): m for m in (data.get("data") or [])
+                if isinstance(m, dict) and m.get("id")
+            }
+            for model_id in ARAC_MODEL_TERCIH_SIRASI:
+                model = models.get(model_id) or {}
+                params = set(model.get("supported_parameters") or [])
+                if model.get("isFree") and {"tools", "tool_choice"} <= params:
+                    self._arac_modeli = model_id
+                    return model_id
+        except Exception as e:
+            logger.warning("Kilo arac model katalogu okunamadi: %s", e)
+
+        # Katalog gecici okunamazsa son canli kabulde tam iki tur gecen
+        # ucretsiz modeli kullan. Bu fallback ucretli modele gecmez.
+        self._arac_modeli = ARAC_MODEL_TERCIH_SIRASI[0]
+        return self._arac_modeli
+
     def cevapla(self, messages: list, tools: list = None, yapi=None,
                 tool_choice=None) -> dict:
         """Kilo'ya mesaj gönderir. Dönen şekil groq.py ile aynıdır.
@@ -93,8 +130,12 @@ class KiloClient:
         if not self.client:
             raise RuntimeError("Kilo bağlı değil")
 
+        model = self.model
+        if tools and self.model == VARSAYILAN_MODEL:
+            model = self._arac_modeli_sec()
+
         kwargs = {
-            "model": self.model,
+            "model": model,
             "messages": messages,
             "max_tokens": VARSAYILAN_JETON,
         }

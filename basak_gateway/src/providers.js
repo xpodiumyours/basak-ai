@@ -124,7 +124,39 @@ function openAIConfig(provider, env) {
   throw new Error("OpenAI uyumlu olmayan sağlayıcı: " + provider);
 }
 
-async function chooseOpenRouterModel(apiKey) {
+const KILO_TOOL_PREFERENCE = [
+  "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "poolside/laguna-s-2.1:free",
+  "nex-agi/nex-n2.5-pro:free",
+  "inclusionai/ling-3.0-flash-vl:free"
+];
+let cachedKiloToolModel = null;
+
+async function chooseKiloToolModel() {
+  if (cachedKiloToolModel) return cachedKiloToolModel;
+  const data = await fetchJson(
+    "https://api.kilo.ai/api/gateway/models",
+    {},
+    [],
+    30000
+  );
+  const eligible = (data?.data || []).filter((m) => {
+    const p = new Set(m?.supported_parameters || []);
+    return m?.isFree === true && p.has("tools") && p.has("tool_choice");
+  });
+  for (const id of KILO_TOOL_PREFERENCE) {
+    if (eligible.some((m) => m.id === id)) {
+      cachedKiloToolModel = id;
+      return id;
+    }
+  }
+  if (eligible[0]?.id) {
+    cachedKiloToolModel = eligible[0].id;
+    return cachedKiloToolModel;
+  }
+  throw new Error("Kilo: tools + tool_choice destekli ucretsiz model yok");
+}
+\nasync function chooseOpenRouterModel(apiKey) {
   const data = await fetchJson(
     "https://openrouter.ai/api/v1/models",
     { headers: { Authorization: "Bearer " + apiKey } },
@@ -192,6 +224,7 @@ async function runOpenAIProtocol(provider, env) {
     };
   } else {
     config = openAIConfig(provider, env);
+    if (provider === "kilo") config.model = await chooseKiloToolModel();
   }
 
   const headers = { "content-type": "application/json", ...config.headers };
@@ -551,7 +584,10 @@ async function firstOpenAICell(provider, tool, env) {
   if (provider === "openrouter") {
     const key = env.OPENROUTER_API_KEY || "";
     config = matrixConfig(provider, env, await chooseOpenRouterModel(key));
-  } else config = matrixConfig(provider, env);
+  } else {
+    config = matrixConfig(provider, env);
+    if (provider === "kilo") config.model = await chooseKiloToolModel();
+  }
   const target = sampleArgs(tool);
   const messages = [{ role: "user", content: matrixPrompt(tool, target) }];
   const headers = { "content-type": "application/json", ...config.headers };

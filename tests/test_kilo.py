@@ -123,6 +123,21 @@ class TestToolCevirisi:
         c, sahte = _istemci(_yanit(_mesaj(content="ok")))
         c.cevapla([{"role": "user", "content": "selam"}])
         assert "tools" not in sahte.son_kwargs
+        assert sahte.son_kwargs["model"] == VARSAYILAN_MODEL
+
+    def test_varsayilan_tool_yolu_tool_choice_destekli_ayri_model_kullanir(self):
+        tc = types.SimpleNamespace(
+            id="11", function=types.SimpleNamespace(
+                name="protokol_probe", arguments='{"echo":"BASAK_PROTOCOL_OK"}'))
+        c, sahte = _istemci(_yanit(_mesaj(content=None, tool_calls=[tc])))
+        c._arac_modeli_sec = lambda: "dogrulanmis-tool-model:free"
+        c.cevapla(
+            [{"role": "user", "content": "probe"}],
+            tools=[{}],
+            tool_choice="required",
+        )
+        assert sahte.son_kwargs["model"] == "dogrulanmis-tool-model:free"
+        assert sahte.son_kwargs["tool_choice"] == "required"
 
 
 class TestRegistryKarti:
