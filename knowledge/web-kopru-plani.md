@@ -28,12 +28,25 @@ KARAR (Casper onayli): Worker SİLİNMEZ; ADRES KORUNUR. Adimlar:
 3. Alternatif (alan adi ister): cloudflared tunnel login + named
    tunnel — hesapta alan adi olmadigi icin su an uygulanamaz.
 
-### Kalici adres yolu (siradaki adim)
-- Hesabin workers.dev adresi KALICIDIR (trycloudflare gecicidir —
-  kapanirsa yeniden acilir, adres degisir).
-- Casper'dan istenen: Workers dash'ta basak-gate-preview'in icerigini
-  beyinsiz boruya cevirmek (Bu islem Casper'in dash erisimiyle yapilir;
-  ajan API anahtari olmadan dash'a dokunmaz.)
+### Kalici adres — TAMAMLANDI (2026-09-20, resmi yolla)
+- Worker kaynak kodu REPOYA alindi: basak-kapisi/ (wrangler.jsonc +
+  src/index.js — 8 satir, beyin YOK). Dash'ta kod durmaz; her degisiklik
+  git gecmisinden wrangler deploy ile gider.
+- Casper bir kez npx wrangler login ile tarayicidan izin verdi
+  (OAuth). Sonraki dagitimlar izinsiz, komutla.
+- LabState veri odasi kapanis kaydi RESMI dokumana gore exports'ta
+  verildi: dagitim ciktisi "stale_tombstone — Safe to remove" dedi =
+  oda zaten KAPALI, kayit bir dahaki dagitimda cikarilacak (dokuman
+  boyle soyler; yama degil, dokumanin temizlik adimi).
+- KANIT (curl): kalici adres HTTP 302 -> tunel; /lab/ boş (ikinci
+  beyin kaldi); tunel 200.
+- KALICI ADRES: https://basak-gate-preview.xpodiumyours.workers.dev
+  (onceki deep-baroness-ee7 alt adresi hesap gecisinden; yeni adres
+  hesap adiyla sabit).
+- Tunel adresi degistiginde: basak-kapisi/src/index.js tek satir
+  guncellenir + npx wrangler deploy (30 saniye, izin istemez).
+- Hedef daha sabit yol: alan adi ekleme veya Workers'un kopruye
+  dogrudan proxy'si (siradaki adimda karar).
 
 ### Notlar
 - trycloudflare adresi oturum sureli: bilgisayar/kopru kapalinca olur.

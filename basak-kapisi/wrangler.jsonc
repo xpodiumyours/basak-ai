@@ -1,0 +1,21 @@
+// basak-kapisi — eski "basak-gate-preview" Worker'ının temiz hâli.
+// Tek görev: kalıcı adresi canlı Başak web ekranına yönlendirmek.
+// Beyin YOK (AGENTS.md §9) — kaynak kod repoda, dash'ta değil.
+{
+  "name": "basak-gate-preview",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
+  // IKINCI BEYIN KALINTISININ KAPANIS KAYDI:
+  // LabState = sahte kabul oturumlarının veri odasi. Resmi dokuman
+  // (developers.cloudflare.com/durable-objects/reference/durable-objects-migrations):
+  // yetim ad alaninin resmi cozumu = "deleted" tombstone (exports'ta).
+  // Odanin icindeki sahte oturum verisi KALICI olarak silinir — bu temizligin kendisi.
+  // Silme tamamlandiktan sonra Cloudflare bu kaydi "stale/silinebilir"
+  // diye raporlayacak; o zaman cikarilabilir (asagida not dusuldu).
+  "exports": {
+    "LabState": {
+      "type": "durable-object",
+      "state": "deleted"
+    }
+  }
+}
