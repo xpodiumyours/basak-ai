@@ -42,4 +42,4 @@ jobs:
 
       - name: Cloudflare Worker paketini yayinlamadan derle
         working-directory: basak_gateway
-        run: npx --yes wrangler@4.68.0 deploy --dry-run --outdir /tmp/basak-gate-dist
+        run: npx --yes wrangler@4.135.0 deploy --dry-run --outdir /tmp/basak-gate-dist
