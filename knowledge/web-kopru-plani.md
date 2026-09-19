@@ -17,16 +17,17 @@ Casper 3 ekran resmiyle dogruladi: basak-gate-preview.deep-baroness-ee7
 lab ekraninda kendi itirafi yaziyor: "gercek tool_call -> GUVENLI SAHTE
 tool sonucu" + 7 saglayici "BAGLI DEGIL". Bu, temizlikten kacan ikinci
 beyindir — repoda degil, CLOUDFLARE HESABINDA yasiyordu.
-KARAR (Casper onayli): Worker SİLİNMEZ; ADRES KORUNUR. Adimlar:
-1. Casper Cloudflare dash > Workers & Pages > basak-gate-preview >
-   Settings > wrangler.toml/icerik: yalniz EKRAN dosyalari (web/)
-   + tum istekleri http://127.0.0.1:8787'ye yonlendiren boylece
-   beyinsiz boru. Durable Object / LabState / sahte faz mantigi silinir.
-   Ya da tamamen bos sayfa + yonlendirme.
-2. Boylece sohbet ekranina ulasim KALICI adresle devam eder (Casper'in
-   istegi: "erisim kalici olmali"), yeni yapi KURULMAZ.
-3. Alternatif (alan adi ister): cloudflared tunnel login + named
-   tunnel — hesapta alan adi olmadigi icin su an uygulanamaz.
+KARAR (Casper onayi, 2026-09-20): DASH'TAN KOMPLE SILINIR.
+- Kanitlanan durum: Cloudflare'de IKI hesap var (Google kimligi tek,
+  isim degisligi vixrex.app@gmail.com; Cloudflare kayitlari ayri):
+  A) 4c47dd4f... — wrangler bagli, TEMIZ yonlendirici canli
+     (basak-gate-preview.xpodiumyours.workers.dev, 302 kanitli)
+  B) ee78549a... — eski hesap, IKINCI BEYIN burada yayinda
+     (basak-gate-preview.deep-baroness-ee7.workers.dev)
+- Casper B hesabinda dash > Workers & Pages > basak-gate-preview >
+  Settings > Delete ile silecek. Adres olur; tek kalici adres A'daki
+  yonlendirici kalir. Silme sonrasi dogrulama: deep-baroness-ee7
+  404/DNS donmeli.
 
 ### Kalici adres — TAMAMLANDI (2026-09-20, resmi yolla)
 - Worker kaynak kodu REPOYA alindi: basak-kapisi/ (wrangler.jsonc +
