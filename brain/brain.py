@@ -290,8 +290,13 @@ class Brain:
         tasınır, 400/invalid_request_error ile reddedilirse ayni saglayici
         yapi'siz bir kez daha denenir (_YAPI_DENEME self-healing onbellegi).
         """
-        zincir = self._bulut_zinciri(
-            tools=bool(tools), tool_required=(tool_choice == "required"))
+        if tool_choice == "required":
+            zincir = self._bulut_zinciri(
+                tools=bool(tools), tool_required=True)
+        else:
+            # Eski/ajan-disi yolun cagri imzasi aynen korunur. Test doubles
+            # ve harici kullanimlar yeni kwarg bilmek zorunda degildir.
+            zincir = self._bulut_zinciri(tools=bool(tools))
         mevcutlar = [ad for ad, _ in zincir]
 
         if tercih:
