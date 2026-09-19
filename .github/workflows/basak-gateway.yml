@@ -1,0 +1,47 @@
+name: Basak Gate checks
+
+on:
+  push:
+    branches:
+      - feature/basak-web-gate
+    paths:
+      - "basak_gateway/**"
+      - ".github/workflows/basak-gateway.yml"
+  pull_request:
+    paths:
+      - "basak_gateway/**"
+      - ".github/workflows/basak-gateway.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Web kaynaklarini kontrol et
+        run: |
+          npm --prefix basak_gateway run check
+          npm --prefix basak_gateway test
+
+      - name: 52 arac katalogunu gercek Basak kaynagiyla karsilastir
+        run: python basak_gateway/scripts/check_catalog.py
+
+      - name: 416 asamasi icin gercek sema artifactini uret
+        run: python basak_gateway/scripts/export_schemas.py /tmp/tool_schemas.json
+
+      - name: Sema artifacti
+        uses: actions/upload-artifact@v4
+        with:
+          name: basak-tool-schemas
+          path: /tmp/tool_schemas.json
+          if-no-files-found: error
+          retention-days: 3
