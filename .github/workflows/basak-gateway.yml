@@ -39,3 +39,7 @@ jobs:
         run: |
           python basak_gateway/scripts/export_schemas.py /tmp/tool_schemas.json
           cmp /tmp/tool_schemas.json basak_gateway/src/tool_schemas.json
+
+      - name: Cloudflare Worker paketini yayinlamadan derle
+        working-directory: basak_gateway
+        run: npx --yes wrangler@4.68.0 deploy --dry-run --outdir /tmp/basak-gate-dist

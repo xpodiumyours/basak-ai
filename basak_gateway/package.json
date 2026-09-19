@@ -8,5 +8,5 @@
     "check": "node --check src/index.js && node --check src/providers.js && node --check src/lab_state.js && node --check public/app.js && node --check public/lab.js",
     "deploy": "wrangler deploy"
   },
-  "devDependencies": { "wrangler": "^4.0.0" }
+  "devDependencies": { "wrangler": "^4.68.0" }
 }
