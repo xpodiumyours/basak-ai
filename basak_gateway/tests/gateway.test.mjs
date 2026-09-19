@@ -42,3 +42,13 @@ test("acceptance UI keeps exact 8x52=416 scope", () => {
   assert.match(labHtml, /Aşama 5/);
   assert.match(labHtml, /Aşama 6/);
 });
+
+
+test("normal /api/chat is wired to the agent loop", async () => {
+  const indexJs = await readFile(new URL("src/index.js", root), "utf8");
+  const agentJs = await readFile(new URL("src/agent.js", root), "utf8");
+  assert.match(indexJs, /agentChat\(body\?\.messages, env\)/);
+  assert.match(agentJs, /yetenek_ac/);
+  assert.match(agentJs, /son_cevap/);
+  assert.match(agentJs, /executeWebTool/);
+});
