@@ -200,3 +200,26 @@ git gecmisinde guvenle durur, geri okumak icin sarmalamaya gerek yoktur.
 12. Degisiklik replay/shadow -> canary -> varsayilan; rollback yolu korunur.
 13. Kullanici iptali derhal islenir; fail-closed uygulanir; uc tekrarli ret/hata sonrasi dur.
 14. Saglayici esdegerligi varsayilmaz; her adaptör gerçek yeteneklerini bildirir.
+
+## 9. WEB GATE TEK BEYIN KURALI (2026-09-19, Casper onayli — baglayici)
+
+Ikinci-Basak sapmasi iki kez olculdu, iki kez silindi (kanit: knowledge/
+kabul-plani-web-gate.md + arsiv/*-20260919 etiketleri). Tekrar etmemesi
+icin kural:
+
+- Basagin BEYNI yalniz Python cekirdeginde yasar (basak_app.py + brain/ +
+  chat/ + tools/). Web Gate = yalniz KOOPRU + EKRAN + OLCUM goruntuleyici.
+- Web tarafinda ayri ajan dongusu, ayri saglayici zinciri, ayri arac
+  calistirici, ayri model secimi YASAKTIR. `basak_gateway/` klasoru ve
+  agent.js/providers.js/lab_state.js tarzi ikinci-beyin dosyalari bu
+  plana aykiri kalintidir; goruldugunde arsiv etiketiyle SILINIR,
+  gelistirilmez.
+- SAHTE KABUL YASAKLARI: metin icindeki JSON'u tool_call gibi saymak;
+  sampleValue/BASAK_CELL_OK tarzi simule arac sonucu; agir testi push'ta
+  devre disi birakmak. Bu üçü kabul kaniti DEGILDIR.
+- Kabul cizgisi (8/8 native protokol, 52 arac, 416 hucre, ikinci tur,
+  normal sohbet, tek rapor) ve Adim 1 karari TEK DOGRU KAYNAKTAN okunur:
+  knowledge/kabul-plani-web-gate.md.
+- Web sohbet ekraninin kullaniciya acilmasi bu kuralla celismez:
+  ekran, cekirdekteki `chat/flow.mesaj_isle` yolunu cagiran koprudur;
+  arac beyaz listesi ve izin katmani cekirdekte aynen gecerlidir.
