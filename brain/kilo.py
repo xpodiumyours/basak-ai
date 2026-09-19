@@ -2,7 +2,7 @@
 
 Ücretsiz modeller için kimlik doğrulama istemez; istekler IP ile
 tanınır, saatte 200 istek/IP sınırı vardır.
-OpenAI-uyumlu uç: https://api.kilo.ai/api/gateway/v1
+OpenAI-uyumlu uç: https://api.kilo.ai/api/gateway
 
 DİKKAT — ücretsiz modeller "düşünen" (reasoning) modeller. Düşünme metni
 max_tokens bütçesinden yer ve ayrı bir `reasoning` alanında döner.
@@ -59,7 +59,7 @@ class KiloClient:
             kwargs = {
                 "api_key": self.api_key or YER_TUTUCU_ANAHTAR,
                 "base_url": BASE_URL,
-                "timeout": 20.0,
+                "timeout": 60.0,
                 "max_retries": 0,
                 "default_headers": {
                     "HTTP-Referer": "http://localhost",
