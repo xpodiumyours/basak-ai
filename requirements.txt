@@ -21,7 +21,10 @@ Pillow==12.1.1
 
 # ── Kalici hafiza (vektor arama; sqlite-vec yoksa BM25'e duser) ─────
 sqlite-vec==0.1.9
-numpy==1.26.4
+# pyannote.audio 4.0.7 -> pyannote-core 6.0.1 -> numpy>=2.0.
+# 1.26.4 pini pip cozumunu kiriyordu; Python 3.12 icin guncel kararlı
+# NumPy 2.5.3 sabitlenir ki CI ve masaustu ayni bagimlilik setini kullansin.
+numpy==2.5.3
 
 # ── Ses: TTS (metin->ses) + STT (ses->metin) + konusmaci tanima ────
 # DIKKAT: piper-tts paketi ses MODELINI icermez. tr_TR-dfki-medium.onnx

@@ -1,23 +1,18 @@
-"""chat/flow.py — Ana sohbet akışı.
+"""chat/flow.py — Ana sohbet ve ajan akışı.
 
-2026-09-13 (Casper kararı): ölçü kapısı, orkestra ve araçların etrafına
-sarılmış kural katmanları söküldü. Geriye sekiz salt-okunur araç kaldı.
+Kullanıcı mesajını kelime/niyet tablosuyla sınıflandıran bir router yoktur.
+TOOLS verildiginde LLM önce `yetenek_ac` veya `son_cevap` seçer. Bir
+yetenek alanı açılırsa yalnız o alanın gerçek araçları modele sunulur;
+araç sonucunu gören model gerekirse yeni alan/araç seçerek devam eder.
 
-Tek yol var; ayrımı MODEL yapar:
+    mesaj → LLM
+              ├─ salt sohbet → son_cevap → ekran
+              └─ gerçek iş → yetenek_ac → gerçek araç → sonuç → LLM
+                                   ↑                       │
+                                   └──── gerekirse devam ──┘
 
-    mesaj → bağlam + araç şeması → zincir → akış başlar
-              ├─ düz sohbet ise: kelime kelime akar → ekran
-              └─ ölçüm gerekiyorsa: model araç ister → araç koşar
-                 → sonuç modele döner → özet → ekran
-
-2026-09-13: araçları kelime listesiyle açıp kapatan katman KALDIRILDI
-(Casper kararı) — o liste, araçların etrafına sarılmış bir kural
-katmanıydı ve gerekçesi ölçülünce çürüdü: groq/glm/nvidia üçü de
-akışla birlikte araç kabul ediyor, bulut zincirinde de "küçük model"
-yok. Aracı model seçer.
-
-Sağlayıcı sırası, kota takibi ve "limiti bitince diğerine geç" mantığı
-bu dosyada DEĞİL — `brain/` altında. Burası yalnız bağlamı kurar.
+Araç/alan kararını kod değil model verir. Sağlayıcı uygunluğu, ücretsiz
+kullanım ve kota/fallback mantığı `brain/` altındadır.
 """
 
 import json
@@ -25,6 +20,7 @@ import logging
 import re
 
 from chat.prompts import KIMLIK_BLOGU
+from chat.agent_protocol import AJAN_SOZLESMESI, baslangic_araclari
 from chat import context as ctx
 from chat.gate import temizle as _temizle
 
@@ -187,8 +183,64 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
     arac_acik = bool(tools)
     mesajlar = _baglam_kur(text, system_prompt, konusmaci)
 
+    if arac_acik:
+        mesajlar.append({"role": "system", "content": AJAN_SOZLESMESI})
+
     mesajlar += ctx.gecmis_pencere(gecmis) + [{"role": "user",
                                                "content": text}]
+
+    # ── Gercek ajan yolu ────────────────────────────────────────────
+    # Uretim Brain'i ajan protokolunu destekliyorsa model her turda
+    # function call yapmak zorundadir: gercek bir arac veya son_cevap.
+    # Kelime/niyet siniflandiricisi YOKTUR; hangi araci kullanacagini
+    # model secer. Zorunlu tool protokolunu dogrulamadigimiz saglayiciya
+    # sessizce dusulmez — aksi halde sistem yeniden chatbot gibi davranir.
+    if arac_acik and hasattr(brain, "ajan_musait"):
+        if not brain.ajan_musait():
+            js_callback("BasakUI.error(" + _j(
+                "Ajan modu icin zorunlu arac cagrisi destekli ucretsiz "
+                "bir beyin bagli degil") + ")")
+            return
+
+        ajan_tools = baslangic_araclari()
+        try:
+            yanit, kaynak = brain.cevapla(
+                mesajlar, model, tools=ajan_tools, tool_choice="required")
+        except Exception as e:
+            hata = str(e)
+            if "429" in hata or "rate" in hata.lower():
+                js_callback("BasakUI.error(" + _j(
+                    "Cok fazla istek, biraz bekle") + ")")
+            else:
+                js_callback("BasakUI.error(" + _j(
+                    "Ajan beyni hatasi: " + hata) + ")")
+            return
+
+        tool_calls = (yanit.get("tool_calls")
+                      if isinstance(yanit, dict) else None)
+        if not tool_calls:
+            # required protokolunde duz metin kabul edilmez. Bu kapi,
+            # arac gerektiren isi yalniz anlatarak gecistirmeyi engeller.
+            js_callback("BasakUI.error(" + _j(
+                "Ajan protokolu bozuldu: model arac veya son_cevap "
+                "cagirmadi") + ")")
+            return
+
+        from chat.tools import arac_dongusu
+        from tools import calistir
+        cevap, kosan = arac_dongusu(
+            tool_calls, mesajlar, brain, model, js_callback, calistir,
+            tools=ajan_tools, yanit=yanit, tool_choice="required",
+            tum_tools=tools)
+        cevap = _temizle(cevap)
+        if cevap:
+            _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci)
+            return
+
+        logger.info("Ajan turu final cevap vermedi (%d arac kostu)", kosan)
+        js_callback("BasakUI.error(" + _j(
+            "Ajan gorevi final cevaba baglayamadi") + ")")
+        return
 
     # ── Akan cevap ──────────────────────────────────────────────────
     # Cevap kelime kelime gelsin ("dondu mu?" hissi olmasın). Akış

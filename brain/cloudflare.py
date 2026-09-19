@@ -61,7 +61,8 @@ class CloudflareClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
+    def cevapla(self, messages: list, tools: list = None, yapi=None,
+                tool_choice=None) -> dict:
         """Cloudflare'a mesaj gonderir.
 
         Cevap tavani: max_tokens=4096 (sicaklik saglayicinin kendi
@@ -81,6 +82,8 @@ class CloudflareClient:
         }
         if tools:
             kwargs["tools"] = tools
+            if tool_choice is not None:
+                kwargs["tool_choice"] = tool_choice
 
         resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message

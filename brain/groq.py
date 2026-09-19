@@ -77,7 +77,7 @@ class GroqClient:
         return self.client is not None
 
     def cevapla(self, messages: list, tools: list = None,
-                model: str = None, yapi=None) -> dict:
+                model: str = None, yapi=None, tool_choice=None) -> dict:
         """Groq'a mesaj gönderir.
 
         Cevap tavani: max_tokens=4096 (sicaklik saglayicinin kendi
@@ -96,6 +96,8 @@ class GroqClient:
         }
         if tools:
             kwargs["tools"] = tools
+            if tool_choice is not None:
+                kwargs["tool_choice"] = tool_choice
         if yapi is not None:
             kwargs["response_format"] = {"type": "json_object"}
 

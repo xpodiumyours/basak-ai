@@ -168,11 +168,14 @@ class Api:
     def boot(self):
         beyin = self._beyin_al()
         bulut = beyin.bulut_musait()
+        ajan = beyin.ajan_musait()
         return {
-            # Ozgu-ajan (Faz 2): SADECE bulut. ok = bulut zinciri ayakta.
-            "ok": bool(bulut),
+            # Sohbet ekrani TOOLS ile calisir; "hazir" demek gercek
+            # required-tool ajan protokolunun ayakta olmasidir.
+            "ok": bool(ajan),
             "models": [], "model": None,
             "cloud": bulut,
+            "agent": ajan,
             "tts_on": self.tts_on,
             "current_model": None,
         }
@@ -186,7 +189,9 @@ class Api:
     def set_key(self, key):
         beyin = self._beyin_al()
         beyin.anahtar_ayarla(key)
-        return {"ok": True, "cloud": beyin.bulut_musait()}
+        return {"ok": True,
+                "cloud": beyin.bulut_musait(),
+                "agent": beyin.ajan_musait()}
 
     def set_tts(self, on):
         self.tts_on = bool(on)

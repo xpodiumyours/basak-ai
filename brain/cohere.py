@@ -44,7 +44,8 @@ class CohereClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
+    def cevapla(self, messages: list, tools: list = None, yapi=None,
+                tool_choice=None) -> dict:
         """Cohere'a mesaj gonderir.
 
         Cohere V2 native tool-use protokolu (P1): assistant tool-call
@@ -145,6 +146,10 @@ class CohereClient:
                     })
             if cohere_tools:
                 kwargs["tools"] = cohere_tools
+                if tool_choice == "required":
+                    kwargs["tool_choice"] = "REQUIRED"
+                elif tool_choice == "none":
+                    kwargs["tool_choice"] = "NONE"
 
         try:
             resp = self.client.chat(**kwargs)
