@@ -1,0 +1,69 @@
+name: Basak Phase 1 Provider Protocol
+
+on:
+  push:
+    branches:
+      - audit/exhaustive-8x52-20260919
+    paths:
+      - "brain/**"
+      - "tests/live/provider_protocol_acceptance.py"
+      - ".github/workflows/provider-protocol.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provider-protocol:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Basak kodunu al
+        uses: actions/checkout@v4
+
+      - name: Python 3.12 kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Yalniz provider bagimliliklarini kur
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install openai==2.20.0 cohere==7.0.9
+
+      - name: 8 provider resmi protokol kabulunu canli sina
+        id: protocol
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          KILO_API_KEY: ${{ secrets.KILO_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: python tests/live/provider_protocol_acceptance.py
+
+      - name: Raporu Actions ozetine yaz
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path provider-protocol-report.md) {
+            Get-Content provider-protocol-report.md | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          } else {
+            "Phase 1 raporu uretilemedi." | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
+      - name: Faz 1 kabul kapisi
+        if: always()
+        shell: pwsh
+        run: |
+          if ("${{ steps.protocol.outcome }}" -ne "success") {
+            Write-Error "Faz 1 tamamlanmadi: 8/8 provider resmi protokol kabul kaniti gerekli."
+            exit 1
+          }

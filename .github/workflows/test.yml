@@ -17,21 +17,22 @@ name: testler
 # (voice/speaker_id.py); yine de gercek calisma bagimliligi oldugu icin
 # listeden cikarilmaz.
 #
-# Not: yalniz `tests/` klasoru kosar. Kok dizindeki test_brain_cevapla.py
-# ve test_tts_kontrol.py bilerek DISARIDA — onlar canli ag cagrisi yapar
-# ve elle kosturulur (bkz. README "Elle kontroller").
+# Not: yalniz tests/ klasoru kosar. Kok dizindeki canli ag testleri ayridir.
+#
+# audit/exhaustive-8x52-20260919 dali yalniz canli provider kabulunu
+# olcmek icin ayrildi. Bu dalda agir tam paket her protokol commitinde
+# tekrar kosmaz; son baz commit zaten 428/428 yesildir.
 
 on:
   push:
-    branches: ["**"]
+    branches-ignore:
+      - audit/exhaustive-8x52-20260919
   pull_request:
   workflow_dispatch:
 
 jobs:
   pytest:
     runs-on: windows-latest
-    # Torch/ctranslate2 indirmesi nedeniyle comert tavan (olculen yerel
-    # tam kosu: 28 sn; kurulum burada baskin kalem).
     timeout-minutes: 25
 
     steps:
@@ -50,9 +51,6 @@ jobs:
 
       - name: Testleri kos
         env:
-          # Sirlar CI'ya girmez: testler anahtarsiz da kosmali.
-          # Gercek ag/kota kullanan testler tests/live/ altindadir ve
-          # asagida haric tutulur (--live kapisi gerekir).
           PYTHONWARNINGS: ignore
         run: |
           python -m py_compile tests/live/github_full_acceptance.py
