@@ -2,8 +2,10 @@
    BAŞAK — Jarvis / HUD Sci-Fi FUI Tema
    ═══════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
+/* Google Fonts @import'ları KALDIRILDI (2026-09-19): index.html'deki
+   <link> etiketleri defer/async yükleniyor. @import CSS ayrışmasını
+   bloklar, çevrimdışı açılışta pencereyi saniyelerce bekletir.
+   Sistem fontları her zaman hazırdır. */
 
 :root {
   --bg: #07070d;
@@ -26,8 +28,10 @@
   --green: #00ff88;
   --radius: 6px;
   --radius-lg: 10px;
-  --font-display: 'Share Tech Mono', monospace;
-  --font-mono: 'Fira Code', monospace;
+  /* Sistem fontları ÖNCE: Google Fonts gelmese bile arayüz anında düzgün
+     görünür. CDN yüklenince tarayıcı otomatik geçiş yapar. */
+  --font-display: 'Share Tech Mono', 'Cascadia Mono', Consolas, monospace;
+  --font-mono: 'Fira Code', 'Cascadia Mono', Consolas, 'Courier New', monospace;
 }
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }

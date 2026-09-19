@@ -25,6 +25,9 @@
   var sesSon = -9;
   var arclar = [];       // elektrik arkları
   var bloomKatman = null; // CSS bloom katmanı
+  /* Parçacık sayıları — düşük güç modunda init() yarıya indirir. */
+  var YUZEY_NOKTA_TEN = 7200, YUZEY_NOKTA_HALE = 2400;
+  var BEYIN_NOKTA = 2000, UST_TOZ_NOKTA = 800;
 
   /* ---------- durum tanımları ---------- */
   var DURUMLAR = {
@@ -616,6 +619,23 @@
   window.BasakHead = {
     init: function () {
       if (basladi || !window.THREE) return;
+      /* DÜŞÜK GÜÇ MODU (2026-09-19): Intel Iris Xe / paylaşımlı GPU'da
+         12400 parçacık + bloom + arklar ekranı donduruyor. Donanım
+         12. nesil Intel entegre ise parçacık sayısını yarıya indir. */
+      try {
+        var _zayif = /Intel.*(Iris|UHD|HD Graphics)/i.test(
+          (function () {
+            var _c = document.createElement("canvas");
+            var _g = _c.getContext("webgl") || _c.getContext("experimental-webgl");
+            if (!_g) return "";
+            var _d = _g.getExtension("WEBGL_debug_renderer_info");
+            return _d ? _g.getParameter(_d.UNMASKED_RENDERER_WEBGL) : "";
+          })());
+        if (_zayif) {
+          YUZEY_NOKTA_TEN = 3600; YUZEY_NOKTA_HALE = 1200;
+          BEYIN_NOKTA = 1000; UST_TOZ_NOKTA = 400;
+        }
+      } catch (e) {}
       basladi = true;
       bloomKatmanOlustur();
       var tuval = document.getElementById("sahneCanvas");
@@ -636,10 +656,10 @@
       };
 
       var ten = [], tenN = [], hale = [], beyin = [], ust = [];
-      yuzeyNoktalari(ten, 7200, 0.0, 0.014, tenN);   // cilt yüzeyi (sıkı, az toz)
-      yuzeyNoktalari(hale, 2400, 0.05, 0.22, null);  // silüet çevresi püskürtme
-      beyinCekirdegi(beyin, 2000);                   // beynin iç kümesi
-      ustToz(ust, 800);                              // kafanın tepesinde savrulan toz
+      yuzeyNoktalari(ten, YUZEY_NOKTA_TEN, 0.0, 0.014, tenN);   // cilt yüzeyi (sıkı, az toz)
+      yuzeyNoktalari(hale, YUZEY_NOKTA_HALE, 0.05, 0.22, null);  // silüet çevresi püskürtme
+      beyinCekirdegi(beyin, BEYIN_NOKTA);                   // beynin iç kümesi
+      ustToz(ust, UST_TOZ_NOKTA);                              // kafanın tepesinde savrulan toz
       grup.add(noktaBulutu(ten, tenN, 0.90));        // fresnel kenarlı cilt
       grup.add(noktaBulutu(hale, null, 0));
       grup.add(noktaBulutu(beyin, null, 0));

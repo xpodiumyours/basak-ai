@@ -5,8 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BAŞAK // JARVIS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Çevrimdışı açılışta font CDN'i pencereyi bekletmesin:
+       display=swap ile arka planda yüklenir, yazı tipi gelene kadar
+       sistem fontu gösterilir. -->
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="style.css?v=20260910c">
 </head>
 <body>
@@ -145,8 +148,8 @@
     </div>
   </div>
 
-  <script src="three.min.js"></script>
-  <script src="head.js?v=20260910c"></script>
-  <script src="app.js?v=20260910c"></script>
+  <script src="three.min.js" defer></script>
+  <script src="head.js?v=20260910c" defer></script>
+  <script src="app.js?v=20260910c" defer></script>
 </body>
 </html>
