@@ -3,6 +3,20 @@ name: testler
 # Basak test paketi. Amac: "testler yesil mi" sorusunun cevabi artik
 # yalniz Casper'in bilgisayarinda degil, her push'ta gorunur olsun.
 #
+# NEDEN TAM BAGIMLILIK SETI KURULUYOR (hafif liste yetmez):
+#   tests/test_kapanis_db.py  -> import basak_app
+#   basak_app.py              -> from voice import TTS, STT
+#   voice/tts.py              -> piper, sounddevice, soundfile
+#   voice/stt.py              -> faster_whisper, numpy
+#   basak_app.py              -> import webview
+# Yani testler masaustu ve ses katmanini da ice alir. Hafif bir liste
+# kurulursa import hatasi verir; tam set kurulunca bagimlilik kaymasi
+# (drift) de yakalanmis olur.
+#
+# pyannote.audio (torch) yalniz konusmaci tanimada tembel import edilir
+# (voice/speaker_id.py); yine de gercek calisma bagimliligi oldugu icin
+# listeden cikarilmaz.
+#
 # Not: yalniz `tests/` klasoru kosar. Kok dizindeki test_brain_cevapla.py
 # ve test_tts_kontrol.py bilerek DISARIDA — onlar canli ag cagrisi yapar
 # ve elle kosturulur (bkz. README "Elle kontroller").
@@ -16,7 +30,9 @@ on:
 jobs:
   pytest:
     runs-on: windows-latest
-    timeout-minutes: 15
+    # Torch/ctranslate2 indirmesi nedeniyle comert tavan (olculen yerel
+    # tam kosu: 28 sn; kurulum burada baskin kalem).
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +41,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
 
       - name: Bagimliliklari kur
         run: |
@@ -34,7 +51,7 @@ jobs:
       - name: Testleri kos
         env:
           # Sirlar CI'ya girmez: testler anahtarsiz da kosmali.
-          # Bulut cagrisi yapan testler tests/live/ altindadir ve
-          # asagida haric tutulur.
+          # Gercek ag/kota kullanan testler tests/live/ altindadir ve
+          # asagida haric tutulur (--live kapisi gerekir).
           PYTHONWARNINGS: ignore
         run: python -m pytest tests -q --ignore=tests/live
