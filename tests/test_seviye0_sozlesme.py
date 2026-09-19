@@ -1,0 +1,337 @@
+"""tests/test_seviye0_sozlesme.py — Duzey 0 sozlesme testleri.
+
+AGENTS.md §9 + knowledge/kabul-plani-web-gate.md "TEST DUZEYLERI" bolumunun
+Duzey 0'ini uygular: cevrimdisi, kota harcamaz, GERCEK ag davranisini
+kanitlamaz (o kanit Duzey 1-3 canli kosularindan gelir).
+
+Uc bolum:
+1. 8/8 saglayici sabit tablolari (ajan_tool_choice, registry kartlari).
+2. 52/52/52 arac yapisal eslesmesi (sema/calistirma/ekran/katalog).
+3. Ajan dongusu + kosucu sozlesmesi (simulasyon YASAK; anahtarsiz SKIP).
+"""
+
+import json
+
+import pytest
+
+
+# ── Yardimcilar ─────────────────────────────────────────────────────
+
+class _YD:
+    """Saglayici yanit kalibini taklit eden en kucuk sahte mesaj.
+
+    Not: bu SAHTE ARAC SONUCU degil — yanit PAKETININ seklini tasir.
+    Isin gercegi Duzey 1-3'te canli yanitlarla sabitlenir.
+    """
+
+    def __init__(self, content="", tool_calls=None, **ekstra):
+        self.content = content
+        self.tool_calls = tool_calls or []
+
+        class _Tc:
+            def __init__(self, c):
+                self.id = c["id"]
+                self.function = types.SimpleNamespace(
+                    name=c["function"]["name"],
+                    arguments=c["function"]["arguments"])
+                for k, v in ekstra.items():
+                    setattr(self, k, v)
+
+        self._cagilar = [dict(c) for c in self.tool_calls]
+        for alan, deger in ekstra.items():
+            setattr(self, alan, deger)
+
+    def cagilar(self):
+        return self._cagilar
+
+
+def _tc(ad, args='{"metin":"x"}', cid="c1", **ekstra):
+    c = {"id": cid, "type": "function",
+         "function": {"name": ad, "arguments": args}}
+    if ekstra:
+        c["extra"] = ekstra
+    return c
+
+
+def _tco(ad, args="{}", cid="c1"):
+    """SDK-nesne bicimli tool_call (adaptörler .function bekler)."""
+    import types
+    return types.SimpleNamespace(
+        id=cid, type="function",
+        function=types.SimpleNamespace(name=ad, arguments=args))
+
+
+class _Secim:
+    def __init__(self, message):
+        self.message = message
+
+
+class _Yanit:
+    def __init__(self, message, usage=None):
+        self.choices = [_Secim(message)]
+        self.usage = usage
+
+
+def _mesaj(content="", tool_calls=None, **ekstra):
+    import types
+    m = types.SimpleNamespace()
+    m.content = content
+    m.tool_calls = tool_calls or []
+    for k, v in ekstra.items():
+        setattr(m, k, v)
+    return m
+
+
+def _fake_client(monkeypatch, hedef, yanit, yakalanan, sembol="OpenAI"):
+    """OpenAI tabanli istemcilerin dis cagrisini yakalar (duz siniflar)."""
+
+    class _Uc:
+        def create(self, **kwargs):
+            yakalanan.append(kwargs)
+            return yanit
+
+    class _Chat:
+        completions = _Uc()
+
+    class _Fabrika:
+        def __init__(self, **kwargs):
+            self.chat = _Chat()
+
+    monkeypatch.setattr(hedef, sembol, _Fabrika)
+
+
+# ── BOLUM 1: 8/8 saglayici sozlesmesi ───────────────────────────────
+
+SEKIZLER = ("groq", "gemini", "openrouter", "glm", "cloudflare",
+            "cohere", "kilo", "nvidia")
+
+
+def test_sekiz_saglayici_ajan_destegi_beyan_eder():
+    from brain import registry
+    for ad in SEKIZLER:
+        assert registry.ajan_destegi_var_mi(ad), ad
+        assert registry.ajan_tool_modu(ad) in ("required", "auto_enforced"), ad
+
+
+def test_sozlesme_degerleri_resmi_protokole_uygun():
+    """required destekleyen saglayiciya 'required', auto saglayiciya
+    'auto' gider — karisik tablo sapma isaretidir."""
+    from brain import registry
+    beklenen = {
+        "groq": "required",
+        "gemini": "auto",
+        "openrouter": "auto",
+        "glm": "auto",
+        "cloudflare": "required",
+        "cohere": "required",
+        "kilo": "required",
+        "nvidia": "auto",
+    }
+    for ad, deger in beklenen.items():
+        assert registry.ajan_tool_choice(ad) == deger, ad
+
+
+def test_ajan_akisi_zorunlu_tool_choice_sabiti_tasiyor():
+    """Ajan turu tool_choice'u SABIT 'required' olarak tasir (chat/flow).
+    Kablo kontrolu: ajan yolu bu sozlesmeyi kaybederse Duzey 1'de tum
+    saglayicilar 'auto'ya duser ve duz metin kabul edilmis sayilirirdi."""
+    icerik = open("chat/flow.py", encoding="utf-8").read()
+    assert 'tool_choice="required"' in icerik, (
+        "ajan turu artik zorunlu tool_choice tasimiyor — sozlesme kirildi")
+
+
+def test_ucretsiz_kartlar_zincire_girer_ucretli_girmez():
+    from brain import registry
+    for ad in SEKIZLER:
+        k = registry.kart(ad)
+        assert k["ucretsiz"] is True, ad
+        assert k["tools"] is True, ad
+
+
+# ── BOLUM 2: 52/52/52 arac yapisal eslesmesi ────────────────────────
+
+def test_52_arac_uchalida_birebir():
+    """sema (definitions) <-> calistirma dali <-> ekran etiketi."""
+    import re
+    from tools.definitions import TOOLS, TANINMIS_TOOLLAR
+    from chat.tools import DURUM_METNI
+
+    sema = {t["function"]["name"] for t in TOOLS}
+    kaynak = open("tools/__init__.py", encoding="utf-8").read()
+    dallar = set(re.findall(r"tool_name == \"([a-z_]+)\"", kaynak))
+
+    assert len(sema) == 52
+    assert len(TANINMIS_TOOLLAR) == 52
+    assert sema == dallar, ("sema/dal farki", sema ^ dallar)
+    eksik_etiket = sema - set(DURUM_METNI)
+    assert not eksik_etiket, ("etiketsiz arac", eksik_etiket)
+
+
+def test_yetenek_katalogu_52_gercek_araci_kapsar():
+    from tools.definitions import TOOLS
+    from chat.agent_protocol import YETENEK_ALANLARI
+
+    gercek = {t["function"]["name"] for t in TOOLS}
+    katalog = {ad for grup in YETENEK_ALANLARI.values() for ad in grup}
+    assert katalog == gercek
+    assert len(katalog) == 52
+
+
+def test_katalog_daki_her_arac_gercekten_kosabilir():
+    """Katalogdaki her ad calistirici beyaz listesinde ve calistirma
+    dalinda VAR — katalog hayalet arac icermez."""
+    import re
+    from chat.agent_protocol import YETENEK_ALANLARI
+    from tools.definitions import TANINMIS_TOOLLAR
+
+    kaynak = open("tools/__init__.py", encoding="utf-8").read()
+    for grup in YETENEK_ALANLARI.values():
+        for ad in grup:
+            assert ad in TANINMIS_TOOLLAR, ad
+            assert ('tool_name == "%s"' % ad) in kaynak, ad
+
+
+# ── BOLUM 3: adaptor birim sozlesmeleri ─────────────────────────────
+
+def test_groq_required_istegi_ve_tool_calls_cozumu(monkeypatch):
+    """groq: tool_choice=required istekle gider; tool_calls OpenAI
+    seklinde cozulur; metin-icinde-JSON tool_call SAYILMAZ."""
+    import brain.groq as groq_mod
+    from brain.groq import GroqClient
+
+    yakalanan = []
+    msg = _mesaj(tool_calls=[_tco("simdi", "{}", "g1")])
+    _fake_client(monkeypatch, groq_mod, _Yanit(msg), yakalanan)
+
+    c = GroqClient("test-anahtar")
+    yanit = c.cevapla([{"role": "user", "content": "saat"}],
+                      tools=[{"type": "function", "function": {
+                          "name": "simdi", "parameters": {}}}],
+                      tool_choice="required")
+
+    assert yakalanan[0]["tool_choice"] == "required"
+    assert yanit["tool_calls"][0]["function"]["name"] == "simdi"
+    assert isinstance(yanit["tool_calls"][0]["function"]["arguments"], str)
+
+
+def test_gemini_extra_content_imzasi_cagriya_tasinir(monkeypatch):
+    """gemini: tool_call seviyesindeki extra_content (thought_signature
+    tasiyici) yanit dict'ine AKTARILMALI — dusen imza tur-2 400'unun
+    kokudur (Duzey 1 kanit: 2026-09-19 22:24 olcumu)."""
+    import types
+    import brain.gemini as gemini_mod
+    from brain.gemini import GeminiClient
+
+    tc = _tc("simdi", "{}", "m1")
+    ekstra = types.SimpleNamespace(
+        google=types.SimpleNamespace(thought_signature="IMZA123"))
+    # Gercel SDK pydantic nesnesidir; adaptor model_dump cagirir.
+    ekstra.model_dump = lambda exclude_none=True: {
+        "google": {"thought_signature": "IMZA123"}}
+    cagri = types.SimpleNamespace(**{**tc,
+        "function": types.SimpleNamespace(name="simdi", arguments="{}"),
+        "extra_content": ekstra})
+
+    yakalanan = []
+    _fake_client(monkeypatch, gemini_mod,
+                 _Yanit(_mesaj(tool_calls=[cagri])), yakalanan)
+
+    c = GeminiClient("test-anahtar")
+    yanit = c.cevapla([{"role": "user", "content": "saat"}],
+                      tools=[{"type": "function", "function": {
+                          "name": "simdi", "parameters": {}}}],
+                      tool_choice="auto")
+
+    assert "extra_content" in yanit["tool_calls"][0], (
+        "gemini imzasi tool_call'dan dustu")
+
+
+def test_cohere_required_uzun_form_ve_tool_plan(monkeypatch):
+    """cohere: tool_choice REQUIRED (uzun form) gider; tool_plan korunur."""
+    import types
+    import brain.cohere as cohere_mod
+    from brain.cohere import CohereClient
+
+    tc = types.SimpleNamespace(
+        id="cc1",
+        function=types.SimpleNamespace(name="simdi", arguments="{}"))
+    mesaj = types.SimpleNamespace(
+        content="", tool_calls=[tc], tool_plan="PLAN-1")
+    yanit = types.SimpleNamespace(
+        message=mesaj,
+        meta=types.SimpleNamespace(tokens=types.SimpleNamespace(
+            input_tokens=10, output_tokens=5)))
+
+    yakalanan = []
+
+    class _SahteClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def chat(self, **kwargs):
+            yakalanan.append(kwargs)
+            return yanit
+
+    class _SahteCohereSDK:
+        Client = _SahteClient
+        ClientV2 = _SahteClient
+
+    monkeypatch.setattr(cohere_mod, "cohere", _SahteCohereSDK)
+
+    c = CohereClient("test-anahtar")
+    sonuc = c.cevapla([{"role": "user", "content": "saat"}],
+                      tools=[{"type": "function", "function": {
+                          "name": "simdi", "parameters": {}}}],
+                      tool_choice="required")
+
+    assert yakalanan[0]["tool_choice"] == "REQUIRED"
+    assert sonuc.get("tool_plan") == "PLAN-1"
+    assert sonuc["tool_calls"][0]["function"]["name"] == "simdi"
+
+
+def test_anahtarsiz_kilo_ajan_yuvasi_istegi_gonderir(monkeypatch):
+    """kilo: anahtar yokken Authorization basligi kaldirilir ama istek
+    tool_choice ile GONDERILIR — sessiz yuva sapmadir."""
+    import types
+    import brain.kilo as kilo_mod
+    from brain.kilo import KiloClient
+
+    yakalanan = []
+    _fake_client(monkeypatch, kilo_mod,
+                 _Yanit(_mesaj(tool_calls=[_tco("simdi", "{}", "k1")])),
+                 yakalanan)
+
+    c = KiloClient()
+    yanit = c.cevapla([{"role": "user", "content": "saat"}],
+                      tools=[{"type": "function", "function": {
+                          "name": "simdi", "parameters": {}}}],
+                      tool_choice="required")
+
+    assert yakalanan, "kilo istegi hic gitmedi"
+    assert yakalanan[0]["tool_choice"] == "required"
+    assert yanit["tool_calls"][0]["function"]["name"] == "simdi"
+
+
+# ── BOLUM 4: kosucu-kabul sozlesmesi ────────────────────────────────
+
+def test_kosucu_anahtarsiz_hucreye_skip_yazar_tahmin_etmez():
+    """Kabul sozlesmesi: anahtar yoksa hucre SKIP'tir. Bu test kosucu
+    modulunun sozlesmesini sabitler (modul Duzey 1 oncesi yazilir)."""
+    import pathlib
+    kosucu = pathlib.Path("tests/live/kosucu.py")
+    if not kosucu.exists():
+        pytest.skip("kosucu modulu henüz yazilmadi (Duzey 1 adimi)")
+    icerik = kosucu.read_text(encoding="utf-8")
+    assert "SKIP" in icerik, "kosucu SKIP sozlesmesi tasimiyor"
+    assert "sampleValue" not in icerik and "BASAK_CELL_OK" not in icerik, (
+        "kosucuda simulasyon kalintisi var — AGENTS.md §9 ihlali")
+
+
+def test_plan_dosyasi_kapsam_sozlesmesi_tasiyor():
+    """Kapsam kucultme yasagi ve 6 adimli siralanis tek dogru kaynaktan
+    okunabilir olmali — belge yoksa kabul zinciri kopar."""
+    icerik = open("knowledge/kabul-plani-web-gate.md",
+                  encoding="utf-8").read()
+    for sart in ("kucultme YASAK", "416 HUCRE", "TEK kabul raporu",
+                 "DUZEY 1", "SKIP"):
+        assert sart in icerik, sart
