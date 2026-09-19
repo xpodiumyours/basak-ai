@@ -82,7 +82,8 @@ class KiloClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def cevapla(self, messages: list, tools: list = None, yapi=None,\n                tool_choice=None) -> dict:
+    def cevapla(self, messages: list, tools: list = None, yapi=None,
+                tool_choice=None) -> dict:
         """Kilo'ya mesaj gönderir. Dönen şekil groq.py ile aynıdır.
 
         Reasoning alanlari KULLANICIYA gosterilmez ama zincirde KORUNUR
