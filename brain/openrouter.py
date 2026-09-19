@@ -71,13 +71,22 @@ class OpenRouterClient:
         SADECE :free suffix'li modeller seçilir. Paid modeller asla seçilmez.
         """
         try:
-            mevcutler = [m.id for m in self.client.models.list()]
+            modeller = list(self.client.models.list())
         except Exception as e:
             logger.warning("OpenRouter model listesi alınamadı: %s", e)
             return TERCIH_SIRASI[0]
-        
-        # Sadece :free olan modelleri filtrele
-        free_modeller = [m for m in mevcutler if m.endswith(":free")]
+
+        # Ajan varsayilani yalniz ucretsiz + tools + tool_choice destekli
+        # modelden secilir. OpenRouter bu yetenekleri model kartinda
+        # supported_parameters olarak yayinlar.
+        free_modeller = []
+        for m in modeller:
+            mid = getattr(m, "id", "")
+            if not mid.endswith(":free"):
+                continue
+            destek = set(getattr(m, "supported_parameters", []) or [])
+            if {"tools", "tool_choice"}.issubset(destek):
+                free_modeller.append(mid)
         
         # Tercih sırasına göre ilk bulunan free model
         for aday in TERCIH_SIRASI:
@@ -100,7 +109,22 @@ class OpenRouterClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
+    def ajan_musait(self) -> bool:
+        """Secili modelin OpenRouter katalogunda tools+tool_choice destegi."""
+        if not self.client or not self.model or not self.model.endswith(":free"):
+            return False
+        try:
+            for m in self.client.models.list():
+                if getattr(m, "id", "") != self.model:
+                    continue
+                destek = set(getattr(m, "supported_parameters", []) or [])
+                return {"tools", "tool_choice"}.issubset(destek)
+        except Exception as e:
+            logger.warning("OpenRouter ajan yetenegi dogrulanamadi: %s", e)
+        return False
+
+    def cevapla(self, messages: list, tools: list = None, yapi=None,
+                tool_choice=None) -> dict:
         """OpenRouter'a mesaj gönderir. Dönen şekil groq.py ile aynıdır.
 
         yapi: sozlesme modu icin; bu saglayici su an yok sayar.
@@ -115,6 +139,8 @@ class OpenRouterClient:
         }
         if tools:
             kwargs["tools"] = tools
+            if tool_choice is not None:
+                kwargs["tool_choice"] = tool_choice
 
         resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
