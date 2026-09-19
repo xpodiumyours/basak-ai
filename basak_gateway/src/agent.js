@@ -3,10 +3,10 @@ import schemas from "./tool_schemas.json" with { type: "json" };
 import { agentTurn } from "./providers.js";
 
 const AREA_DESCRIPTIONS = {
-  internet: "web, haber, site, sayfa, URL, sirket ve internet arastirmasi",
+  internet: "harici web aramasi, haber, site, sayfa, URL ve sirket bilgisi; cihaz/sistem saati veya yerel tarih icin kullanilmaz",
   dosyalar: "dosya/klasor ve proje icerigi",
   projeler: "Git, GitHub, CI, test ve proje hat sagligi",
-  gorevler: "gorevler, hatirlatmalar ve tarih/saat",
+  gorevler: "gorevler, hatirlatmalar ve sistemden gercek su anki tarih/saat bilgisi (simdi araci)",
   hafiza: "Basak hafizasinda arama",
   gorsel: "goruntu analizi veya gorsel uretimi",
   katalog: "fatura, urun karti ve Vixrex katalog/yayin paketi",
@@ -59,7 +59,7 @@ const CONTRACT = [
   "- Gercek veri veya eylem gerekiyorsa yetenek_ac ile tek alan sec.",
   "- Alan acilinca yalniz o alanin gercek araclari gelir.",
   "- Uygun araci veya araclari kendin sec; kod kullanici cumlesini siniflandirmaz.",
-  "- Arac basarisizsa eylemi yapilmis gibi anlatma.",
+  "- Arac basarisizsa eylemi yapilmis gibi anlatma.",\n  "- Ayni basarisiz araci ayni argumanlarla tekrar tekrar cagirma; baska uygun alan/arac sec veya durumu acikla.",
   "- Is tamamlaninca son_cevap aracini cagir.",
   "- Salt sohbet/aciklama isteginde son_cevap dogrudan kullan."
 ].join("\n");
