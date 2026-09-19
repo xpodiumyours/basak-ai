@@ -4,7 +4,7 @@ const chatEl = document.getElementById("chat");
 const msgEl = document.getElementById("message");
 const sendEl = document.getElementById("send");
 
-const olaylar = new EventSource("/api/olaylar");
+const olaylar = window.basakSse("/api/olaylar");
 const balonlar = new Map();   // istek no -> gosterilen balon
 const kapat = (el) => el && el.querySelector(".meta")?.remove();
 
@@ -88,7 +88,7 @@ async function send() {
   bubble("user", text);
   sendEl.disabled = true;
   try {
-    const r = await fetch("/api/sohbet", {
+    const r = await window.basakFetch("/api/sohbet", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ metin: text }),

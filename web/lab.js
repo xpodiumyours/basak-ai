@@ -5,7 +5,12 @@ async function yukle() {
   const ozetEl = document.getElementById("ozet");
   const kok = document.getElementById("matris");
   try {
-    const r = await fetch("/api/matris", { cache: "no-store" });
+    const r = await window.basakFetch("/api/matris", { cache: "no-store" });
+    if (r.status === 401) {
+      localStorage.removeItem("basak_token");
+      ozetEl.textContent = "Kod gecersiz. Sayfayi yenile, kod tekrar sorulur.";
+      return;
+    }
     const m = await r.json();
     const d2 = m.duzey2 || {};
     let ty = 0, tk = 0, ts = 0;
@@ -24,7 +29,8 @@ async function yukle() {
       kok.appendChild(baslik);
       const tablo = document.createElement("table");
       tablo.style.width = "100%";
-      tablo.innerHTML = "<tr><th>arac</th><th>durum</th><th>sure</th><th>hata</th></tr>";
+      tablo.innerHTML =
+        "<tr><th>arac</th><th>durum</th><th>sure</th><th>hata</th></tr>";
       for (const a of Object.keys(hucreler).sort()) {
         const h = hucreler[a];
         const simge = h.durum === "YESIL" ? "✅" :
