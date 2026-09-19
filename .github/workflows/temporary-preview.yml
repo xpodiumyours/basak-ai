@@ -1,0 +1,98 @@
+name: Basak Gate temporary Cloudflare preview
+
+on:
+  push:
+    branches:
+      - basak-gate-deploy
+    paths:
+      - "wrangler.temporary.jsonc"
+      - ".github/workflows/temporary-preview.yml"
+      - ".github/preview-public.pem"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Cloudflare temporary preview deploy
+        shell: bash
+        run: |
+          rm -rf /tmp/preview-secret
+          mkdir -p /tmp/preview-secret
+          set +e
+          npx --yes wrangler@4.135.0 deploy --temporary --config wrangler.temporary.jsonc > /tmp/deploy.raw 2>&1
+          code=$?
+          set -e
+          DEPLOY_EXIT="$code" python - <<'PY'
+          import json, os, re, subprocess
+          from pathlib import Path
+
+          raw = Path("/tmp/deploy.raw")
+          text = raw.read_text(encoding="utf-8", errors="replace")
+          text = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", text)
+
+          claim = re.search(r"https://dash\.cloudflare\.com/claim-preview\?[^\s]+", text)
+          worker = re.search(r"https://[^\s]+\.workers\.dev", text)
+
+          out = Path("/tmp/preview-secret")
+          pub = ".github/preview-public.pem"
+
+          def enc(name, value):
+              plain = out / (name + ".txt")
+              cipher = out / (name + ".bin")
+              plain.write_text(value, encoding="utf-8")
+              subprocess.run([
+                  "openssl", "pkeyutl", "-encrypt",
+                  "-pubin", "-inkey", pub,
+                  "-pkeyopt", "rsa_padding_mode:oaep",
+                  "-pkeyopt", "rsa_oaep_md:sha256",
+                  "-in", str(plain), "-out", str(cipher)
+              ], check=True)
+              plain.unlink()
+
+          status = {
+              "exit": int(os.environ.get("DEPLOY_EXIT", "1")),
+              "claim_found": bool(claim),
+              "worker_found": bool(worker),
+          }
+          (out / "status.json").write_text(json.dumps(status), encoding="utf-8")
+
+          if claim:
+              enc("claim", claim.group(0))
+          if worker:
+              enc("worker", worker.group(0))
+
+          if status["exit"] != 0 or not claim or not worker:
+              safe = []
+              for line in text.splitlines():
+                  if "claim-preview?" in line:
+                      line = re.sub(
+                          r"https://dash\.cloudflare\.com/claim-preview\?[^\s]+",
+                          "[CLAIM_URL_REDACTED]",
+                          line,
+                      )
+                  safe.append(line)
+              excerpt = "\n".join(safe[-120:])[-12000:]
+              (out / "safe-error.txt").write_text(excerpt, encoding="utf-8")
+              raise SystemExit(1)
+          PY
+
+      - name: Sifreli preview bilgisi
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: basak-gate-preview-encrypted
+          path: /tmp/preview-secret
+          if-no-files-found: error
+          retention-days: 1
