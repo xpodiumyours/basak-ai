@@ -19,7 +19,7 @@ jobs:
       - name: Canli health ve provider durumu
         shell: bash
         run: |
-          BASE="https://basak-gate-preview.deep-baroness-ee7.workers.dev"
+          BASE="https://basak-gate-preview.positive-spinosaurus.workers.dev"
           curl --fail --silent --show-error "$BASE/api/health" -o /tmp/health.json
           python - <<'PY'
           import json
@@ -33,7 +33,7 @@ jobs:
       - name: Gercek web sohbeti
         shell: bash
         run: |
-          BASE="https://basak-gate-preview.deep-baroness-ee7.workers.dev"
+          BASE="https://basak-gate-preview.positive-spinosaurus.workers.dev"
           cat >/tmp/chat-body.json <<'JSON'
           {"messages":[{"role":"user","content":"Merhaba Başak. Bana sadece hazırım diye cevap ver."}]}
           JSON
@@ -55,11 +55,11 @@ jobs:
       - name: 8 protokol canli durumunu olc
         shell: bash
         run: |
-          BASE="https://basak-gate-preview.deep-baroness-ee7.workers.dev"
+          BASE="https://basak-gate-preview.positive-spinosaurus.workers.dev"
           SESSION="assistant-live-20260919"
           python - <<'PY'
           import json, subprocess
-          base="https://basak-gate-preview.deep-baroness-ee7.workers.dev"
+          base="https://basak-gate-preview.positive-spinosaurus.workers.dev"
           session="assistant-live-20260919"
           providers=["groq","gemini","openrouter","glm","cloudflare","cohere","kilo","nvidia"]
           passed=0
