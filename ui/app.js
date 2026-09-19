@@ -1020,7 +1020,7 @@ async function boot() {
       $("btnMic").disabled = false;
       state.model = status.model;
       state.ttsOn = !!status.tts_on;
-      setStatus("ok", "BULUT HAZIR");
+      setStatus("ok", "AJAN HAZIR");
       const sel = $("modelSelect");
       if (status.models && status.models.length) {
         sel.innerHTML = status.models
@@ -1034,10 +1034,10 @@ async function boot() {
 
       try { oturumlariYukle(); } catch (e) {}
     } else {
-      // Faz 2: SADECE bulut. ok=false demek bulut zinciri ayakta
-      // degil (bilet yok/ag yok). Dugmeler kilitli kalir.
-      setStatus("err", "HİÇBİR BEYİN YOK — bulut biletleri hazır değil");
-      Chat.sistem("▲ Başak açılamadı: internet biletleri geçersiz. Önce internet bağlantını, sonra ayarlar.json'daki anahtarları kontrol et.");
+      // Sohbet ekrani ajan protokolu ister. Siradan bulut modeli bagli
+      // olsa bile required-tool protokolu yoksa gonderme dugmesi acilmaz.
+      setStatus("err", "AJAN BEYNİ HAZIR DEĞİL");
+      Chat.sistem("▲ Başak ajan modu açılamadı: Groq, Cohere veya Cloudflare ajan bağlantısını kontrol et.");
       setOrb("hata");
     }
   } catch (e) {
