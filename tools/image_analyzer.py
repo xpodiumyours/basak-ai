@@ -62,6 +62,56 @@ def _goruntu_b64(goruntu_yolu: str) -> tuple[str, str]:
     return base64.b64encode(icerik).decode("ascii"), mime
 
 
+def _gemini_goru(yol, soru):
+    """Ikinci goz: Gemini ucretsiz katmanla fatura fotorafi okuma.
+
+    NVIDIA dusmus olabilir (timeout/kota/429): ayni soru ikinci
+    buluta sorulur (katalog hatti yedekligi). Donus image_analyzer
+    ile ayni sekil: {"result"} / {"error"}. Anahtar yoksa hata
+    doner, cagiran mevcut akisa devam eder.
+    """
+    import json as _json
+    try:
+        with open(_AYARLAR_DOSYASI, "r", encoding="utf-8-sig") as f:
+            ayar = _json.load(f)
+        anahtar = (os.environ.get("GEMINI_API_KEY") or ""
+                   if isinstance(os.environ.get("GEMINI_API_KEY"), str)
+                   else "")
+        if not anahtar:
+            anahtar = (ayar.get("gemini_key", "")
+                       if isinstance(ayar, dict) else "")
+        if not anahtar or not str(anahtar).strip():
+            return {"error": "Gemini anahtari yok"}
+        from openai import OpenAI as _OpenAI
+        import time as _zaman
+        img_b64, mime = _goruntu_b64(yol)
+        soru = (soru or "").strip() or "Bu görüntüyü açıkla."
+        istemci = _OpenAI(
+            api_key=str(anahtar).strip(),
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            timeout=60.0, max_retries=0)
+        baslangic = _zaman.time()
+        yanit = istemci.chat.completions.create(
+            model="gemini-3-flash-preview",
+            messages=[{"role": "user", "content": [
+                {"type": "text", "text": soru},
+                {"type": "image_url",
+                 "image_url": {"url": "data:%s;base64,%s" % (mime, img_b64)}},
+            ]}],
+            max_tokens=4096,
+        )
+        metin = ((yanit.choices[0].message.content) or "").strip()
+        if not metin:
+            return {"error": "Gemini bos dondu",
+                    "model": "gemini-3-flash-preview"}
+        return {"result": metin, "model": "gemini-3-flash-preview",
+                "sure": "%.1fs" % (_zaman.time() - baslangic),
+                "dosya": os.path.basename(yol)}
+    except Exception as e:
+        logger.warning("Gemini goru yedegi calismadi: %s", e)
+        return {"error": "Gemini goru calismadi: %s" % str(e)[:200]}
+
+
 def image_analyze(goruntu_yolu: str, soru: str = None,
                   model: str = None) -> dict:
     """Görüntüyü multimodal model ile analiz eder.
@@ -132,7 +182,14 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
 
     except Exception as e:
         logger.error("Görüntü analiz hatası: %s", e)
-        return {"error": str(e), "model": kullanilacak_model}
+        # NVIDIA donmedi: ayni soru ikinci buluta sorulur
+        # (katalog hatti yedekligi).
+        yedek = _gemini_goru(goruntu_yolu, soru)
+        if not yedek.get("error"):
+            yedek["yedek"] = "gemini"
+            return yedek
+        return {"error": "%s [yedek: %s]" % (str(e), yedek.get("error", "")),
+                "model": kullanilacak_model}
 
 
 def image_analyze_url(gorsel_url: str, soru: str = None,

@@ -447,16 +447,35 @@ def adres_kontrol(url: str) -> dict:
 _GORSEL_UZANTI = (".jpg", ".jpeg", ".png", ".webp", ".gif")
 _IMG_RE = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']',
                      re.IGNORECASE)
+# 2026-09-18 (Faz B): lazy-load sitelerinde gorsel src'de degil,
+# data-* niteliginde bekler (srcset ilk aday da denenir).
+_IMG_DATA_RE = re.compile(
+    r'<img[^>]+data-(?:src|original|lazy-src|lazy)=["\']([^"\']+)["\']',
+    re.IGNORECASE)
+_SRCSET_RE = re.compile("<img[^>]+srcset=[\"']([^\"']+)[\"']",
+                        re.IGNORECASE)
 _OG_RE = re.compile(
     r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
     re.IGNORECASE)
+# Logo/ikon/şablon görselleri ürün sayfası eşleşmesinden düşer.
+_GORSEL_ATIK_KELIME = ("logo", "icon", "favicon", "sprite", "placeholder",
+                       "banner", "loading", "spinner", "avatar", "marka-")
+
+
+def _srcset_ilk(deger):
+    """srcset içeriğinden ilk aday URL'i döner ("a.jpg 400w, b.jpg 800w")."""
+    ilk = (deger or "").split(",")[0].strip().split()[0] \
+        if (deger or "").strip() else ""
+    return ilk
 
 
 def sayfa_gorseller(url: str, _acici=None) -> dict:
     """Sayfadaki ürün görsellerini toplar (yalnızca GET, salt-okunur).
 
     og:image önce, sonra <img> sırasıyla en fazla 10 adres döner.
-    SSRF savunması sayfa_oku ile aynı (_guvenli_adres +
+    2026-09-18 (Faz B): data-src/data-original/srcset nitelikleri de
+    taranır (lazy-load siteleri); logo/ikon/benzeri atık yollar
+    elenir. SSRF savunması sayfa_oku ile aynı (_guvenli_adres +
     _GuvenliYonlendirme); yeni savunma yazılmadı.
 
     Dönüş: {"result": "[url, ...]"} veya {"error": ...}.
@@ -489,6 +508,8 @@ def sayfa_gorseller(url: str, _acici=None) -> dict:
             ham = resp.read(_MAX_HAM).decode("utf-8", errors="replace")
 
         adaylar = _OG_RE.findall(ham) + _IMG_RE.findall(ham)
+        adaylar += _IMG_DATA_RE.findall(ham)
+        adaylar += [_srcset_ilk(s) for s in _SRCSET_RE.findall(ham)]
         gorseller = []
         for aday in adaylar:
             aday = (aday or "").strip()
@@ -500,6 +521,8 @@ def sayfa_gorseller(url: str, _acici=None) -> dict:
                 continue
             yol = k.path.lower().split("?")[0]
             if not yol.endswith(_GORSEL_UZANTI):
+                continue
+            if any(kelime in yol for kelime in _GORSEL_ATIK_KELIME):
                 continue
             if mutlak not in gorseller:
                 gorseller.append(mutlak)
