@@ -93,12 +93,14 @@ SAGLAYICILAR = {
     "qwen": {
         "ad": "QwenCloud",
         "ucretsiz": True,
+        "otomatik_ucretsiz": False,
         "tools": True,
         "gucleri": ["genel"],
         "gunluk_istek": None,
-        # Anahtar varsa zincire katilir (dashscope_key); yoksa bos yuva.
-        "etkin": True,
-        "not": "DashScope anahtari girilince zincire girer.",
+        # Alibaba Model Studio yeni-kullanici ucretsiz kotasi surelidir.
+        # Anahtar bulunmasi kalici sifir maliyet kaniti degildir.
+        "etkin": False,
+        "not": "Sureli ucretsiz kota olabilir; otomatik sifir-maliyet zincirinde kapali.",
     },
     "nvidia": {
         "ad": "NVIDIA NIM",
@@ -147,7 +149,7 @@ SAGLAYICILAR = {
 # HIC girmez — adaptoru yok, testler ucretli oldugunu dogrular.
 VARSAYILAN_SIRA = [
     "groq", "gemini", "openrouter", "glm", "cloudflare", "cohere",
-    "kilo", "nvidia", "qwen",
+    "kilo", "nvidia",
 ]
 
 
@@ -157,17 +159,25 @@ def kart(ad):
         ad,
         {
             "ad": ad,
-            "ucretsiz": True,
-            "tools": True,
+            "ucretsiz": False,
+            "otomatik_ucretsiz": False,
+            "tools": False,
             "gucleri": [],
             "gunluk_istek": None,
-            "not": "Registry'de kaydi yok.",
+            "not": "Registry'de kaydi yok; otomatik kullanima kapali.",
         },
     )
 
 
 def ucretli_mi(ad):
     return not kart(ad)["ucretsiz"]
+
+
+def otomatik_ucretsiz_mi(ad):
+    """Saglayici otomatik sifir-maliyet zincirinde kullanilabilir mi?"""
+    k = kart(ad)
+    return bool(k.get("ucretsiz", False)
+                and k.get("otomatik_ucretsiz", True))
 
 
 def tool_destegi_var_mi(ad):
