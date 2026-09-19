@@ -15,7 +15,7 @@ jobs:
       github.event.comment.user.login == 'xpodiumyours' &&
       github.event.comment.body == 'FULL TEST'
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Basak kodunu al
@@ -42,7 +42,7 @@ jobs:
           python -m pytest tests -q --ignore=tests/live 2>&1 | Tee-Object -FilePath full-pytest.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: 8 saglayiciyi gercek ajan hattinda sina
+      - name: 8 saglayici x 10 alan x 52 semayi gercek API'de sina
         id: providers
         continue-on-error: true
         env:
