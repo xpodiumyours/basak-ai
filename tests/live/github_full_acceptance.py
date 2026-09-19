@@ -355,7 +355,7 @@ def main():
         "- Her hazır sağlayıcıda gerçek `simdi` aracı çalıştırılıp sonuç tekrar modele verildi.",
         "- 52 aracın tamamı dispatcher seviyesinde kotasız ve yan etkisiz doğrulandı.",
         "- Dosya yazma, görev ekleme, uygulama açma, katalog değiştirme gibi "
-        "yan etkili 51 aracın tamamı canlı ortamda topluca çalıştırılmadı; "
+        "yan etkili araçların tamamı canlı ortamda topluca çalıştırılmadı; "
         "bu rapor böyle bir iddiada bulunmaz.",
         "",
         "#### Alan ayrıntısı",
