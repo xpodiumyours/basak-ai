@@ -49,7 +49,7 @@ Temizlik (2026-09-19, Casper onayli):
 |---|---|
 | 1. 8/8 native protokol | **YESIL (6/8 gecti, 2 SKIP, 0 kirmizi)** — 2026-09-19 Duzey 1 canli kosusu; ayrinti asagida "DUZEY 1 SONUC" |
 | 2. 52 gercEK arac | Kirmizi (web'de 6) |
-| 3. 416 hucre | Kirmizi (altyapi vardi, calistirilmadi) |
+| 3. 416 hucre | **Pilot 64 kosuldu** (2026-09-20): 16 YESIL / 32 KIRMIZI / 16 SKIP — kirmizi analizi asagida "PILOT 64 SONUC"; duzeltmeler sonrasi tam 416 |
 | 4. 416 ikinci tur | Kirmizi |
 | 5. Normal sohbet testi | Kirmizi (github_durum senaryosu zaman asimi, mukerrer cagri) |
 | 6. Tek rapor | Kirmizi |
@@ -156,6 +156,42 @@ DUZEY 1 SONUC (2026-09-19, commit 8490232 — 6 YESIL / 2 SKIP / 0 KIRMIZI):
 - Kosucu: tests/live/kosucu.py (tek saglayici modu: python
   tests/live/kosucu.py <ad>), kabul testi tests/live/test_seviye1_native.py
   (--live kapisi). Matris: data/kabul-matrisi.json (git-disi).
+
+## PILOT 64 SONUC (2026-09-20, 8 saglayici x 8 temsilci arac)
+
+Kosucu: tests/live/matris_kosucu.py (--pilot; matris kaydi + kesintiden
+devam + pace; data/kabul-matrisi.json). Sonuc: 16 YESIL / 32 KIRMIZI /
+16 SKIP (cloudflare+cohere anahtarsiz).
+
+Kirmizi dagilimi (tek tek olcum, tahmin yok):
+- ~14 hucre 429 KOTA/DOLULUK (glm tumu, gemini yarisi): saglayici
+  gunluk siniri — protokol arizasi DEGIL; kota taze iken yeniden kosulur.
+- ~13 hucre SORU EKSIGI (kosucunun hatasi): arguman isteyen araclara
+  (sayfa_oku, hesapla, github_durum...) deger verilmemis; model dogru
+  davranip sormus. Sorulara ornek deger eklenecek — olcum cubugu
+  degismez, hile girmez.
+- ~4 hucre ARAC-HATASI POLITIKASI: model makul arguman verdi ama arac
+  error dondu (list_files "." gibi) ve hucre kirmizi sayildi. Politika:
+  arac error'u gercek sonuctur, tur-2'ye tasinir; hucre tur-2
+  tamamlandiginda YESIL sayilir.
+- 1 gercek kod bulgusu: openrouter NoneType cokmesi — duzeltilecek.
+
+Kural: pilot KIRMIZI'larin siniflandirilmasi tamamlanmadan 416'ya
+gecilmez; 429'lular kota taze iken yeniden kosulur.
+
+## WEB KOPRU KURULDU (2026-09-20, localhost kabul verildi)
+
+- basak_web.py: stdlib http.server + SSE; TEK cekirdek girisi
+  mesaj_isle_cagir -> chat.flow.mesaj_isle (telegram_bot ile ayni yol).
+  web/ klasoru arsivden tasinan ekran (Faz-5 kalintilari silinmis).
+- Guvenlik testleri: yol beyaz listesi disi 404, dis erisimde tum /api/*
+  token ister (matris dahil), mesaj 4000 kr siniri. 7 yeni test
+  (tests/test_web_kopru.py).
+- CANLI KANIT (localhost): sohbet turu SSE akisi: thinking ->
+  toolStatus(Saat okunuyor) -> bitir "Su an 20 Eylul 2026 Pazar, 00:59"
+  (kaynak gemini) — gercEK native arac cagrisiyla, kopurude beyin kodu yok.
+- Sirada: LAN acilimi (token) -> cloudflared tunel -> kullaniciya acilis;
+  pilot kirmizi duzeltmeleri (yukaridaki politika) 416 oncesi.
 
 ESIT GOZLEMLENEBILIRLIK ("web ve yerel ayni sekilde bilsin") — MUMKUN,
 sebebi TEK YOL:

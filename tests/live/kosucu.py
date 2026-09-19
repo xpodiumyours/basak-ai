@@ -94,6 +94,11 @@ MESAJLAR = [{"role": "user", "content":
              "kullan, sonucu kendine gore degerlendir ve bana tek cumle "
              "soyle."}]
 
+# DUZEY 2: 52 gercEK arac semasi — TEK kaynak tools.TOOLS (kopya yok).
+from tools import TOOLS as TOOL_SEMALARI  # noqa: E402
+
+SEMALAR = {t["function"]["name"]: t for t in TOOL_SEMALARI}
+
 
 def _native_mi(yanit):
     """Gercek tool_call var mi? Metin-icinde-JSON SAYILMAZ (§9)."""

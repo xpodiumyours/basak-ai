@@ -337,3 +337,120 @@ def test_plan_dosyasi_kapsam_sozlesmesi_tasiyor():
     for sart in ("kucultme YASAK", "416 HUCRE", "TEK kabul raporu",
                  "DUZEY 1", "SKIP"):
         assert sart in icerik, sart
+
+
+# ── BOLUM 5: duzey 2 matris kosucusu sozlesmesi ─────────────────────
+
+def test_matris_kosucu_simulasyon_yasaklarini_tasiyor():
+    """§9: kosucu dosyasinda simulasyon kalintisi olamaz; arac cagrisi
+    beyaz liste kapisi (_guvenli_calistir) olmadan gecemez."""
+    import pathlib
+    yol = pathlib.Path("tests/live/matris_kosucu.py")
+    assert yol.exists(), "matris kosucusu yok"
+    icerik = yol.read_text(encoding="utf-8")
+    assert "sampleValue" not in icerik and "BASAK_CELL_OK" not in icerik, (
+        "matris kosucusunda simulasyon kalintisi — AGENTS.md §9 ihlali")
+    assert "_guvenli_calistir" in icerik, "beyaz liste kapisi yok"
+    assert "SKIP" in icerik, "anahtarsiz SKIP sozlesmesi yok"
+
+
+def test_matris_kosucu_pilot_listesi_sekiz_arac_gercek_sema_es():
+    """Pilot 8 temsilci arac: sayisi tam 8, taninmis ve semayla es."""
+    from tests.live import matris_kosucu
+    from tools import TANINMIS_TOOLLAR
+    from tests.live import kosucu
+
+    assert len(matris_kosucu.PILOT_ARACLAR) == 8
+    for arac in matris_kosucu.PILOT_ARACLAR:
+        assert arac in TANINMIS_TOOLLAR, "%s beyaz liste disi" % arac
+        assert arac in kosucu.SEMALAR, "%s semasi yok" % arac
+
+
+def test_matris_kosucu_52_semaya_bagli_tek_kaynak():
+    """Koşucunun sema kaynagi tools.TOOLS'in kendisi — kopya tablo yok."""
+    from tests.live import kosucu
+    from tools import TANINMIS_TOOLLAR
+
+    assert set(kosucu.SEMALAR.keys()) == set(TANINMIS_TOOLLAR)
+    assert len(kosucu.SEMALAR) == 52
+
+
+def test_matris_kosucu_hucre_kaydi_yapisi(tmp_path, monkeypatch):
+    """YESIL hucre kaydi: tur1=native, tur2=tamam, sure/model/zaman alani.
+    Sahte istemci yalniz yanit SEKLINI tasir; arac GERCEK kosar (simdi)."""
+    import types
+    from tests.live import kosucu, matris_kosucu
+
+    monkeypatch.setattr(matris_kosucu, "MATRIS", tmp_path / "m.json")
+
+    class _Sahte:
+        model = "sahte-model"
+
+        def __init__(self):
+            self.n = 0
+
+        def cevapla(self, mesajlar, tools=None, yapi=None,
+                    tool_choice=None):
+            self.n += 1
+            if self.n == 1:
+                return {"content": "", "tool_calls": [{
+                    "id": "c1", "type": "function",
+                    "function": {"name": "simdi", "arguments": "{}"}}]}
+            return {"content": "Saat alindi."}
+
+    kayit = matris_kosucu._hucre_kos("groq", "simdi",
+                                     kosucu.SEMALAR["simdi"], _Sahte())
+    assert kayit["durum"] == "YESIL"
+    assert kayit["tur1"] == "native" and kayit["tur2"] == "tamam"
+    assert kayit["model"] == "sahte-model"
+    kayitli = matris_kosucu._yukle()
+    assert kayitli["duzey2"]["groq"]["simdi"]["durum"] == "YESIL"
+
+
+def test_matris_kosucu_yesil_hucreyi_tekrar_kosmaz(tmp_path, monkeypatch):
+    """Kesintiden devam: YESIL hucre olan saglayici icin istek GITMEZ."""
+    from tests.live import kosucu, matris_kosucu
+
+    monkeypatch.setattr(matris_kosucu, "MATRIS", tmp_path / "m.json")
+    monkeypatch.setattr(matris_kosucu, "_add_task_temizle", lambda: None)
+    monkeypatch.setattr(kosucu, "_anahtarlar", lambda ad: ["sahte"])
+
+    class _Sayac:
+        model = "sahte"
+        cagrilar = []
+
+        def cevapla(self, *a, **k):
+            type(self).cagrilar.append(1)
+            return {"content": "x"}
+
+    _Sayac.cagrilar = []
+    monkeypatch.setattr(kosucu, "_istemci", lambda ad: _Sayac())
+
+    # simdi YESIL, diger 7 pilot araci bos: yalniz onlar denenir.
+    matris_kosucu._hucre_yaz("groq", "simdi", {
+        "durum": "YESIL", "zaman": "2026-09-19 10:00:00"})
+    ozet = matris_kosucu.kos_tumu(["groq"], pilot=True, bekleme=0)
+
+    # Sahte yalniz tur-1'de arac cagirmiyor -> hucre basi 1 istek.
+    # YESIL olan simdi icin HIC istek gitmedi: 8 degil 7 cagri.
+    assert len(_Sayac.cagrilar) == 7, (
+        "YESIL hucre icin tekrar istek gitti veya bos hucre atlandi "
+        "— devam sozlesmesi kirildi")
+    assert ozet["YESIL"] == 1 and ozet["KIRMIZI"] == 7
+
+
+def test_matris_kosucu_anahtarsiza_skip_yazar(tmp_path, monkeypatch):
+    """Anahtar yoksa: pilot hucrelerin TAMAMI SKIP, tahmin doldurma yok."""
+    from tests.live import kosucu, matris_kosucu
+
+    monkeypatch.setattr(matris_kosucu, "MATRIS", tmp_path / "m.json")
+    monkeypatch.setattr(kosucu, "_anahtarlar", lambda ad: None)
+
+    ozet = matris_kosucu.kos_tumu(["cohere"], pilot=True, bekleme=0)
+
+    assert ozet["SKIP"] == 8 and ozet["YESIL"] == 0 and ozet["KIRMIZI"] == 0
+    m = matris_kosucu._yukle()
+    hucreler = m["duzey2"]["cohere"]
+    assert len(hucreler) == 8
+    assert all(k["durum"] == "SKIP" for k in hucreler.values())
+
