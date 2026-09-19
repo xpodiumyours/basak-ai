@@ -1,5 +1,9 @@
 # Başak Gate
 
+## Mimari sınır
+
+Başak Gate yalnız web/test kapısıdır; ikinci bir Başak değildir. Ajan kararı ve 52 aracın gerçek çalıştırılması mevcut Python Başak çekirdeğinde kalır. Gate içinde ayrı ajan/router veya ayrı araç çalıştırıcısı kurulmaz. Düz metin içine yazılmış JSON, native `tool_call` kabul edilmez.
+
 Kalıcı web kapısı ve kabul laboratuvarı. Aynı proje bugün test yüzeyi, daha sonra kullanıcı giriş/sohbet kapısı olabilir.
 
 ## Yüzeyler
@@ -26,7 +30,7 @@ Aşama 3'teki provider devam durumları (Gemini thought signature, Cohere tool_p
 
 ## Sohbet
 
-Normal `/app/` sohbeti kabul kanıtı değildir. Aşama 4 tamamen geçince laboratuvar Faz 5'e bağlı özel sohbet bağlantısını açar.
+Normal `/app/` şu aşamada web erişim yüzeyidir; gerçek Başak çekirdeğine bağlanmadan ajan kabul kanıtı değildir. Aşama 4 tamamen geçince Faz 5, normal sohbet ekranından gerçek çekirdek ve gerçek araç zincirini ayrıca doğrular.
 
 ## Kimlik bilgileri
 
