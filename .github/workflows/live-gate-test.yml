@@ -1,0 +1,88 @@
+name: Basak Gate live acceptance smoke
+
+on:
+  push:
+    branches:
+      - basak-gate-deploy
+    paths:
+      - ".github/workflows/live-gate-test.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Canli health ve provider durumu
+        shell: bash
+        run: |
+          BASE="https://basak-gate-preview.deep-baroness-ee7.workers.dev"
+          curl --fail --silent --show-error "$BASE/api/health" -o /tmp/health.json
+          python - <<'PY'
+          import json
+          d=json.load(open("/tmp/health.json",encoding="utf-8"))
+          print("health_ok=", d.get("ok"))
+          print("workers_ai_binding=", d.get("workersAiBinding"))
+          print("provider_ready=", json.dumps(d.get("providerReady",{}), ensure_ascii=False, sort_keys=True))
+          assert d.get("ok") is True
+          PY
+
+      - name: Gercek web sohbeti
+        shell: bash
+        run: |
+          BASE="https://basak-gate-preview.deep-baroness-ee7.workers.dev"
+          cat >/tmp/chat-body.json <<'JSON'
+          {"messages":[{"role":"user","content":"Merhaba Başak. Bana sadece hazırım diye cevap ver."}]}
+          JSON
+          code=$(curl --silent --show-error -o /tmp/chat.json -w "%{http_code}"             -H "content-type: application/json"             --data-binary @/tmp/chat-body.json             "$BASE/api/chat")
+          echo "chat_http=$code"
+          python - <<'PY'
+          import json
+          d=json.load(open("/tmp/chat.json",encoding="utf-8"))
+          print("chat_ok=", d.get("ok"))
+          print("provider=", d.get("provider"))
+          print("model=", d.get("model"))
+          print("text=", (d.get("text") or "")[:300])
+          if d.get("error"):
+              print("error=", d.get("error"))
+          assert d.get("ok") is True, d
+          assert (d.get("text") or "").strip(), d
+          PY
+
+      - name: 8 protokol canli durumunu olc
+        shell: bash
+        run: |
+          BASE="https://basak-gate-preview.deep-baroness-ee7.workers.dev"
+          SESSION="assistant-live-20260919"
+          python - <<'PY'
+          import json, subprocess
+          base="https://basak-gate-preview.deep-baroness-ee7.workers.dev"
+          session="assistant-live-20260919"
+          providers=["groq","gemini","openrouter","glm","cloudflare","cohere","kilo","nvidia"]
+          passed=0
+          for p in providers:
+              url=f"{base}/api/lab/phase1/{p}?session={session}"
+              r=subprocess.run(
+                  ["curl","--silent","--show-error","-X","POST",url],
+                  text=True,capture_output=True,check=True
+              )
+              try:
+                  d=json.loads(r.stdout)
+              except Exception:
+                  d={"ok":False,"error":"invalid json","raw":r.stdout[:200]}
+              ok=bool(d.get("ok"))
+              passed += int(ok)
+              print(json.dumps({
+                  "provider":p,
+                  "ok":ok,
+                  "model":d.get("model"),
+                  "mode":d.get("mode"),
+                  "toolCall":d.get("toolCall"),
+                  "toolResultContinuation":d.get("toolResultContinuation"),
+                  "error":d.get("error")
+              }, ensure_ascii=False))
+          print(f"phase1_passed={passed}/8")
+          PY
