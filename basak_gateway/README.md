@@ -38,3 +38,7 @@ Kilo anahtarsız çalışabilir. Workers AI binding normal sohbet için ücretsi
 ## Kaynak eşliği
 
 `tool_catalog.json` ve `tool_schemas.json` CI'da doğrudan `tools.definitions.TOOLS` ve `chat.agent_protocol.YETENEK_ALANLARI` ile birebir karşılaştırılır.
+
+## Kilo tool rotası
+
+Normal sohbet `kilo-auto/free` üzerinde kalır. Ajan/tool turunda canlı Kilo model kataloğından hem `tools` hem `tool_choice` desteklediğini ilan eden ücretsiz model seçilir. 2026-09-19 canlı iki turlu protokolde `nvidia/nemotron-3-ultra-550b-a55b:free` geçti.
