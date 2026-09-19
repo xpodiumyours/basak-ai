@@ -14,7 +14,7 @@ const cases = [
   },
   {
     name: "hesap araci",
-    prompt: "17 ile 23'ü toplayıp 4 ile çarp. Sonucu hesaplayarak söyle.",
+    prompt: "137.42 ile 18.7'yi çarp, 927.31 ekle ve sonucu 3.14'e böl. Kesin sonucu ver.",
     check: (r) => (r.toolsUsed || []).includes("hesapla")
   }
 ];
