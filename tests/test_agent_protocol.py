@@ -429,3 +429,109 @@ def test_52_arac_dort_yuz_on_alti_saglayici_arac_yolunda_erisebilir():
             sayac += 1
 
     assert sayac == 8 * 52
+
+
+
+@pytest.mark.parametrize(
+    "sinif_yolu,model,tool_choice",
+    [
+        ("brain.gemini.GeminiClient", "gemini-test", "auto"),
+        ("brain.glm.GLMClient", "glm-test", "auto"),
+        ("brain.openrouter.OpenRouterClient", "model:free", "auto"),
+        ("brain.kilo.KiloClient", "kilo-auto/free", "required"),
+    ],
+)
+def test_openai_uyumlu_ajan_istemcileri_tool_choice_http_istegine_yazar(
+        sinif_yolu, model, tool_choice):
+    import importlib
+
+    modul_adi, sinif_adi = sinif_yolu.rsplit(".", 1)
+    cls = getattr(importlib.import_module(modul_adi), sinif_adi)
+    yakalanan = {}
+
+    class Comp:
+        def create(self, **kwargs):
+            yakalanan.update(kwargs)
+            msg = types.SimpleNamespace(content="", tool_calls=[
+                types.SimpleNamespace(
+                    id="c1",
+                    function=types.SimpleNamespace(
+                        name="x", arguments="{}"))
+            ])
+            return types.SimpleNamespace(
+                choices=[types.SimpleNamespace(
+                    message=msg, finish_reason="tool_calls")],
+                usage=None)
+
+    istemci = cls.__new__(cls)
+    istemci.client = types.SimpleNamespace(
+        chat=types.SimpleNamespace(completions=Comp()))
+    istemci.model = model
+
+    istemci.cevapla(
+        [{"role": "user", "content": "s"}],
+        tools=[{"type": "function", "function": {
+            "name": "x",
+            "parameters": {"type": "object", "properties": {}},
+        }}],
+        tool_choice=tool_choice,
+    )
+    assert yakalanan["tool_choice"] == tool_choice
+
+
+def test_nvidia_ajan_istegi_auto_ve_gptoss20b_ile_gider():
+    from brain.nvidia import NvidiaClient, GPTOSS_MODEL
+
+    yakalanan = {}
+
+    class Comp:
+        def create(self, **kwargs):
+            yakalanan.update(kwargs)
+            msg = types.SimpleNamespace(content="", tool_calls=[
+                types.SimpleNamespace(
+                    id="c1",
+                    function=types.SimpleNamespace(
+                        name="x", arguments="{}"))
+            ])
+            return types.SimpleNamespace(
+                choices=[types.SimpleNamespace(
+                    message=msg, finish_reason="tool_calls")],
+                usage=None)
+
+    istemci = NvidiaClient.__new__(NvidiaClient)
+    istemci.client = types.SimpleNamespace(
+        chat=types.SimpleNamespace(completions=Comp()))
+    istemci.model = "baska-model"
+
+    istemci.cevapla(
+        [{"role": "user", "content": "s"}],
+        tools=[{"type": "function", "function": {
+            "name": "x",
+            "parameters": {"type": "object", "properties": {}},
+        }}],
+        tool_choice="auto",
+    )
+    assert yakalanan["tool_choice"] == "auto"
+    assert yakalanan["model"] == GPTOSS_MODEL
+
+
+def test_openrouter_ajan_yetenegi_model_katalogundan_dogrulanir():
+    from brain.openrouter import OpenRouterClient
+
+    class Modeller:
+        def list(self):
+            return [
+                types.SimpleNamespace(
+                    id="iyi:free",
+                    supported_parameters=["tools", "tool_choice"]),
+                types.SimpleNamespace(
+                    id="eksik:free",
+                    supported_parameters=["tools"]),
+            ]
+
+    istemci = OpenRouterClient.__new__(OpenRouterClient)
+    istemci.client = types.SimpleNamespace(models=Modeller())
+    istemci.model = "iyi:free"
+    assert istemci.ajan_musait() is True
+    istemci.model = "eksik:free"
+    assert istemci.ajan_musait() is False
