@@ -1,6 +1,7 @@
 """brain/adapters/kilo_adapter — Kilo Gateway provider adapter (anahtarsız)."""
 
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
