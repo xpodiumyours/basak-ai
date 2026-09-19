@@ -18,6 +18,5 @@
   },
   "exports": {
     "LabState": { "type": "durable-object", "storage": "sqlite" }
-  },
-  "limits": { "subrequests": 20 }
+  }
 }
