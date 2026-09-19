@@ -113,10 +113,16 @@ class CohereClient:
                 _tid = m.get("tool_call_id") or ""
                 if not _tid:
                     continue
+                # Cohere V2 native tool sonucu duz string degil,
+                # document bloklari listesi ister. Basak'in ortak arac
+                # sonucu stringini tek bir document/data blogu olarak tasir.
                 cohere_messages.append({
                     "role": "tool",
                     "tool_call_id": _tid,
-                    "content": content or "",
+                    "content": [{
+                        "type": "document",
+                        "document": {"data": content or ""},
+                    }],
                 })
             else:
                 if not content.strip():
