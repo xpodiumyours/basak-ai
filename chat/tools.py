@@ -132,7 +132,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
         if isinstance(obj, dict):
             for alan in ("reasoning_content", "reasoning",
                          "reasoning_details", "thinking",
-                         "reasoning_text"):
+                         "reasoning_text", "tool_plan"):
                 if alan in obj:
                     out[alan] = obj[alan]
         return out
