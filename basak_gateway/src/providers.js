@@ -798,3 +798,157 @@ export async function runToolSecond(provider, tool, state, env) {
     return matrixFailure(provider, tool, error, env, started);
   }
 }
+
+
+function agentToolChoice(provider) {
+  if (provider === "cohere") return "REQUIRED";
+  return ["groq","cloudflare","kilo"].includes(provider) ? "required" : "auto";
+}
+
+function openAICompatibleMessages(messages) {
+  return (messages || []).map((m) => {
+    if (!m || typeof m !== "object") return m;
+    const out = { ...m };
+    if (Array.isArray(out.content)) {
+      out.content = out.content.map((x) => x?.text || x?.content || "").join("");
+    }
+    delete out.tool_plan;
+    return out;
+  });
+}
+
+async function openAIAgentTurn(provider, messages, tools, env) {
+  let config;
+  if (provider === "openrouter") {
+    const key = env.OPENROUTER_API_KEY || "";
+    config = {
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      model: await chooseOpenRouterModel(key),
+      headers: {
+        Authorization: "Bearer " + key,
+        "HTTP-Referer": "https://basak-gate.invalid",
+        "X-Title": "Basak Gate"
+      },
+      secrets: [key],
+      extra: {}
+    };
+  } else {
+    config = openAIConfig(provider, env);
+    if (provider === "kilo") config.model = await chooseKiloToolModel();
+  }
+
+  const mode = agentToolChoice(provider);
+  const data = await fetchJson(config.url, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...config.headers },
+    body: JSON.stringify({
+      model: config.model,
+      messages: openAICompatibleMessages(messages),
+      tools,
+      tool_choice: mode,
+      max_tokens: 2048,
+      ...(config.extra || {})
+    })
+  }, config.secrets);
+
+  const message = data?.choices?.[0]?.message;
+  if (!message || !Array.isArray(message.tool_calls) || !message.tool_calls.length) {
+    throw new Error("ajan turunda tool_call gelmedi");
+  }
+  return { message: assistantMessage(message), provider, model: config.model, mode };
+}
+
+function cohereMessages(messages) {
+  return (messages || []).map((m) => {
+    if (!m || typeof m !== "object") return m;
+    if (m.role === "tool") {
+      const content = Array.isArray(m.content)
+        ? m.content
+        : [{ type: "document", document: { data: String(m.content || "") } }];
+      return { role: "tool", tool_call_id: m.tool_call_id, content };
+    }
+    const out = { ...m };
+    if (Array.isArray(out.content)) {
+      out.content = out.content.map((x) => x?.text || "").join("");
+    }
+    return out;
+  });
+}
+
+async function cohereAgentTurn(messages, tools, env) {
+  const key = env.COHERE_API_KEY || "";
+  if (!key) throw new Error("Cohere hazir degil");
+  const nativeTools = tools.map((t) => ({
+    name: t.function.name,
+    description: t.function.description || "",
+    parameters: t.function.parameters || {}
+  }));
+  const data = await fetchJson("https://api.cohere.com/v2/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json", Authorization: "Bearer " + key },
+    body: JSON.stringify({
+      model: "command-a-03-2025",
+      messages: cohereMessages(messages),
+      tools: nativeTools,
+      tool_choice: "REQUIRED",
+      max_tokens: 2048
+    })
+  }, [key]);
+
+  const msg = data?.message || {};
+  if (!Array.isArray(msg.tool_calls) || !msg.tool_calls.length) {
+    throw new Error("ajan turunda tool_call gelmedi");
+  }
+  const message = { role: "assistant", content: msg.content || "", tool_calls: msg.tool_calls };
+  if (msg.tool_plan) message.tool_plan = msg.tool_plan;
+  return { message, provider: "cohere", model: "command-a-03-2025", mode: "REQUIRED" };
+}
+
+async function workersAIAgentTurn(messages, tools, env) {
+  if (!env.AI || typeof env.AI.run !== "function") throw new Error("Workers AI binding yok");
+  const data = await env.AI.run("@cf/zai-org/glm-4.7-flash", {
+    messages: openAICompatibleMessages(messages),
+    tools,
+    tool_choice: "required",
+    max_tokens: 2048
+  });
+  const message =
+    data?.choices?.[0]?.message ||
+    data?.result?.choices?.[0]?.message ||
+    data?.message ||
+    (Array.isArray(data?.tool_calls)
+      ? { role: "assistant", content: data?.response || "", tool_calls: data.tool_calls }
+      : null);
+  if (!message || !Array.isArray(message.tool_calls) || !message.tool_calls.length) {
+    throw new Error("Workers AI ajan turunda tool_call gelmedi");
+  }
+  return {
+    message: assistantMessage(message),
+    provider: "cloudflare-binding",
+    model: "@cf/zai-org/glm-4.7-flash",
+    mode: "required"
+  };
+}
+
+export async function agentTurn(messages, tools, env) {
+  const status = providerStatus(env);
+  const errors = [];
+
+  for (const provider of PROVIDERS) {
+    if (!status[provider]) continue;
+    try {
+      if (provider === "cohere") return await cohereAgentTurn(messages, tools, env);
+      return await openAIAgentTurn(provider, messages, tools, env);
+    } catch (error) {
+      errors.push(provider + ": " + safeError(error?.message || error));
+    }
+  }
+
+  try {
+    return await workersAIAgentTurn(messages, tools, env);
+  } catch (error) {
+    errors.push("cloudflare-binding: " + safeError(error?.message || error));
+  }
+
+  throw new Error("Ajan turu icin calisan ucretsiz saglayici yok. " + errors.join(" | ").slice(0, 1500));
+}
