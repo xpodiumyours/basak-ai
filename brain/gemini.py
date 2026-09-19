@@ -83,14 +83,30 @@ class GeminiClient:
                 args = tc.function.arguments
                 if not isinstance(args, str):
                     args = json.dumps(args) if args else "{}"
-                tool_calls.append({
+                _call = {
                     "id": tc.id,
                     "type": "function",
                     "function": {
                         "name": tc.function.name,
                         "arguments": args,
                     }
-                })
+                }
+                # Gemini 3 OpenAI-uyumlu function call'larda sifreli
+                # thought signature'i extra_content.google altinda verir.
+                # Cok turlu tool kullaniminda aynen geri gonderilmesi
+                # zorunludur; atilirsa sonraki tur 400 ile reddedilebilir.
+                ekstra = getattr(tc, "extra_content", None)
+                if ekstra is not None:
+                    if hasattr(ekstra, "model_dump"):
+                        ekstra = ekstra.model_dump(exclude_none=True)
+                    elif not isinstance(ekstra, dict):
+                        try:
+                            ekstra = dict(ekstra)
+                        except Exception:
+                            ekstra = None
+                    if ekstra:
+                        _call["extra_content"] = ekstra
+                tool_calls.append(_call)
             return kullanim_ekle({"content": msg.content or "",
                           "tool_calls": tool_calls, **muhakeme}, resp)
 
