@@ -1,23 +1,18 @@
-"""chat/flow.py — Ana sohbet akışı.
+"""chat/flow.py — Ana sohbet ve ajan akışı.
 
-2026-09-13 (Casper kararı): ölçü kapısı, orkestra ve araçların etrafına
-sarılmış kural katmanları söküldü. Geriye sekiz salt-okunur araç kaldı.
+Kullanıcı mesajını kelime/niyet tablosuyla sınıflandıran bir router yoktur.
+TOOLS verildiginde LLM önce `yetenek_ac` veya `son_cevap` seçer. Bir
+yetenek alanı açılırsa yalnız o alanın gerçek araçları modele sunulur;
+araç sonucunu gören model gerekirse yeni alan/araç seçerek devam eder.
 
-Tek yol var; ayrımı MODEL yapar:
+    mesaj → LLM
+              ├─ salt sohbet → son_cevap → ekran
+              └─ gerçek iş → yetenek_ac → gerçek araç → sonuç → LLM
+                                   ↑                       │
+                                   └──── gerekirse devam ──┘
 
-    mesaj → bağlam + araç şeması → zincir → akış başlar
-              ├─ düz sohbet ise: kelime kelime akar → ekran
-              └─ ölçüm gerekiyorsa: model araç ister → araç koşar
-                 → sonuç modele döner → özet → ekran
-
-2026-09-13: araçları kelime listesiyle açıp kapatan katman KALDIRILDI
-(Casper kararı) — o liste, araçların etrafına sarılmış bir kural
-katmanıydı ve gerekçesi ölçülünce çürüdü: groq/glm/nvidia üçü de
-akışla birlikte araç kabul ediyor, bulut zincirinde de "küçük model"
-yok. Aracı model seçer.
-
-Sağlayıcı sırası, kota takibi ve "limiti bitince diğerine geç" mantığı
-bu dosyada DEĞİL — `brain/` altında. Burası yalnız bağlamı kurar.
+Araç/alan kararını kod değil model verir. Sağlayıcı uygunluğu, ücretsiz
+kullanım ve kota/fallback mantığı `brain/` altındadır.
 """
 
 import json
