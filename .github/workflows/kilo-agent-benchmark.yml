@@ -1,0 +1,189 @@
+name: Kilo agent model benchmark
+
+on:
+  push:
+    branches:
+      - basak-gate-deploy
+    paths:
+      - ".github/workflows/kilo-agent-benchmark.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ucretsiz tool modellerini dogal ajan akisi ile olc
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, time, urllib.request, urllib.error
+          from pathlib import Path
+
+          catalog=json.loads(Path("src/tool_catalog.json").read_text(encoding="utf-8"))
+          schemas=json.loads(Path("src/tool_schemas.json").read_text(encoding="utf-8"))
+          by_name={t["function"]["name"]:t for t in schemas["tools"]}
+
+          models=[
+            "poolside/laguna-s-2.1:free",
+            "nex-agi/nex-n2.5-pro:free",
+            "inclusionai/ling-3.0-flash-vl:free",
+            "nvidia/nemotron-3-ultra-550b-a55b:free",
+          ]
+
+          area_desc={
+            "internet":"harici web aramasi, haber, site, sayfa, URL ve sirket bilgisi; sistem saati degil",
+            "dosyalar":"dosya/klasor ve proje icerigi",
+            "projeler":"Git, GitHub, CI, test ve proje hat sagligi",
+            "gorevler":"gorevler, hatirlatmalar ve sistemden gercek su anki tarih/saat bilgisi (simdi)",
+            "hafiza":"Basak hafizasinda arama",
+            "gorsel":"goruntu analizi veya gorsel uretimi",
+            "katalog":"fatura, urun karti ve Vixrex katalog/yayin paketi",
+            "matris":"fikir/plan agaci, satirlar ve kanitlar",
+            "masaustu":"masaustu uygulamasi acma",
+            "hesap":"guvenli matematik hesabi",
+          }
+          area_text="; ".join(f"{k}={v}" for k,v in area_desc.items())
+
+          controls=[
+            {
+              "type":"function",
+              "function":{
+                "name":"yetenek_ac",
+                "description":"Gercek arac gerekiyorsa ihtiyac duydugun TEK alani sec. "+area_text,
+                "parameters":{
+                  "type":"object",
+                  "properties":{"alan":{"type":"string","enum":list(catalog["areas"].keys())}},
+                  "required":["alan"]
+                }
+              }
+            },
+            {
+              "type":"function",
+              "function":{
+                "name":"son_cevap",
+                "description":"Salt sohbet veya gercek arac sonuclari goruldukten sonra final cevabi ver.",
+                "parameters":{
+                  "type":"object",
+                  "properties":{"metin":{"type":"string"}},
+                  "required":["metin"]
+                }
+              }
+            }
+          ]
+
+          contract=(
+            "Gercek veri gerekiyorsa once yetenek_ac ile tek alan sec. "
+            "Alan acilinca uygun gercek araci sec. "
+            "Arac sonucu olmadan yapilmis gibi anlatma. "
+            "Salt sohbette son_cevap kullan. Duz metin yazma."
+          )
+
+          def post(model,messages,tools,timeout=30):
+            payload={
+              "model":model,"messages":messages,"tools":tools,
+              "tool_choice":"required","max_tokens":1024
+            }
+            req=urllib.request.Request(
+              "https://api.kilo.ai/api/gateway/chat/completions",
+              data=json.dumps(payload).encode(),
+              headers={"content-type":"application/json"},
+              method="POST"
+            )
+            t=time.time()
+            try:
+              with urllib.request.urlopen(req,timeout=timeout) as r:
+                d=json.load(r); code=r.status
+            except Exception as e:
+              return None,round(time.time()-t,2),str(e)
+            msg=((d.get("choices") or [{}])[0].get("message") or {})
+            return msg,round(time.time()-t,2),None
+
+          def recover(msg):
+            calls=(msg or {}).get("tool_calls") or []
+            if calls:
+              return calls
+            text=str((msg or {}).get("content") or "")
+            objs=[]
+            start=-1; depth=0; ins=False; esc=False
+            for i,ch in enumerate(text):
+              if ins:
+                if esc: esc=False
+                elif ch=="\\": esc=True
+                elif ch=='"': ins=False
+                continue
+              if ch=='"': ins=True; continue
+              if ch=="{":
+                if depth==0:start=i
+                depth+=1
+              elif ch=="}":
+                depth-=1
+                if depth==0 and start>=0:
+                  try:
+                    x=json.loads(text[start:i+1])
+                    if x.get("name"):
+                      objs.append({
+                        "id":f"text_{len(objs)}",
+                        "type":"function",
+                        "function":{
+                          "name":x["name"],
+                          "arguments":json.dumps(x.get("parameters") or {})
+                        }
+                      })
+                  except: pass
+                  start=-1
+            return objs
+
+          def scenario(model,prompt,expected_area,expected_tool):
+            base=[
+              {"role":"system","content":contract},
+              {"role":"user","content":prompt},
+            ]
+            msg,t1,e1=post(model,base,controls)
+            if e1:
+              return {"ok":False,"stage":"control","seconds":t1,"error":e1}
+            calls=recover(msg)
+            if not calls:
+              return {"ok":False,"stage":"control","seconds":t1,"error":"no_call","content":str(msg.get("content"))[:180]}
+            c=calls[0]; name=c["function"]["name"]
+            try: args=json.loads(c["function"]["arguments"] or "{}")
+            except: args={}
+            if name!="yetenek_ac" or args.get("alan")!=expected_area:
+              return {"ok":False,"stage":"route","seconds":t1,"got":name,"args":args}
+
+            area_tools=[by_name[n] for n in catalog["areas"][expected_area]]+controls
+            assistant={"role":"assistant","content":"","tool_calls":calls}
+            messages=base+[assistant,{
+              "role":"tool","tool_call_id":c["id"],"name":"yetenek_ac",
+              "content":json.dumps({"acilan_alan":expected_area,"kullanilabilir_araclar":catalog["areas"][expected_area]})
+            }]
+            msg2,t2,e2=post(model,messages,area_tools)
+            if e2:
+              return {"ok":False,"stage":"tool","seconds":t1+t2,"error":e2}
+            calls2=recover(msg2)
+            got=[x.get("function",{}).get("name") for x in calls2]
+            return {
+              "ok":expected_tool in got,
+              "stage":"tool","seconds":round(t1+t2,2),
+              "got":got,"expected":expected_tool
+            }
+
+          scenarios=[
+            ("time","Su an Istanbul'da saat kac? Tahmin etme, gerekli araci kullan.","gorevler","simdi"),
+            ("github","Basak projesinin GitHub'daki son 5 Actions calismasinin durumunu kontrol et.","projeler","github_durum"),
+          ]
+
+          for model in models:
+            row={"model":model,"tests":{}}
+            for name,prompt,area,tool in scenarios:
+              row["tests"][name]=scenario(model,prompt,area,tool)
+            ok=sum(1 for x in row["tests"].values() if x.get("ok"))
+            row["passed"]=ok
+            row["total_seconds"]=round(sum(float(x.get("seconds") or 0) for x in row["tests"].values()),2)
+            print(json.dumps(row,ensure_ascii=False))
+          PY
