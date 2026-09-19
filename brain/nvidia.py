@@ -135,7 +135,8 @@ class NvidiaClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def _cagri_ata(self, model_adi: str, messages: list, tools: list = None) -> dict:
+    def _cagri_ata(self, model_adi: str, messages: list, tools: list = None,
+                   tool_choice=None) -> dict:
         """Tek model icin cagri; buyuk modellerde timeout uzatilir."""
         kwargs = {
             "model": model_adi,
@@ -153,6 +154,8 @@ class NvidiaClient:
             kwargs["max_tokens"] = 4096
         if tools:
             kwargs["tools"] = tools
+            if tool_choice is not None:
+                kwargs["tool_choice"] = tool_choice
 
         resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
@@ -177,7 +180,8 @@ class NvidiaClient:
 
         return kullanim_ekle({"content": msg.content or "", **muhakeme}, resp)
 
-    def cevapla(self, messages: list, tools: list = None, yapi=None) -> dict:
+    def cevapla(self, messages: list, tools: list = None, yapi=None,
+                tool_choice=None) -> dict:
         """NVIDIA NIM'e mesaj gönderir.
 
         Secili model basarisizsa (zaman asimi/hata) siradaki aday modele
@@ -187,15 +191,23 @@ class NvidiaClient:
         if not self.client:
             raise RuntimeError("NVIDIA bağlı değil")
 
-        sirali = []
-        if self.model and self.model not in TERCIH_SIRASI:
-            sirali.append(self.model)   # secili ozel model once denenir
-        sirali += TERCIH_SIRASI
+        # NVIDIA NIM guncel dokumani required degerini desteklemiyor.
+        # Ajan modunda Brain buraya "auto" gonderir ve duz metni disarida
+        # basari saymaz. Tool-calling'i resmi olarak destekledigi acik olan
+        # GPT-OSS-20B ajan hattinda kullanilir.
+        if tools and tool_choice is not None:
+            sirali = [GPTOSS_MODEL]
+        else:
+            sirali = []
+            if self.model and self.model not in TERCIH_SIRASI:
+                sirali.append(self.model)
+            sirali += TERCIH_SIRASI
 
         son_hata = None
         for model_adi in sirali[:_ICI_YEDEK_SAYISI]:
             try:
-                return self._cagri_ata(model_adi, messages, tools)
+                return self._cagri_ata(
+                    model_adi, messages, tools, tool_choice=tool_choice)
             except Exception as e:
                 son_hata = e
                 logger.warning("NVIDIA %s hatasi, siradaki modele dusuluyor: %s",
