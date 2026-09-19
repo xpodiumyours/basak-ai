@@ -1,0 +1,35 @@
+name: Basak Gate live preview verify
+
+on:
+  push:
+    branches:
+      - basak-gate-deploy
+    paths:
+      - ".github/workflows/verify-preview.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Canli health
+        run: |
+          curl --fail --silent --show-error --retry 3             https://basak-gate-preview.deep-baroness-ee7.workers.dev/api/health             -o /tmp/health.json
+          python - <<'PY'
+          import json
+          d=json.load(open("/tmp/health.json",encoding="utf-8"))
+          assert d.get("ok") is True, d
+          assert "kilo" in d.get("providers", []), d
+          assert d.get("providerReady",{}).get("kilo") is True, d
+          print("health OK")
+          PY
+
+      - name: Canli web yuzeyleri
+        run: |
+          curl --fail --silent --show-error --retry 3             https://basak-gate-preview.deep-baroness-ee7.workers.dev/             | grep -q "Başak"
+          curl --fail --silent --show-error --retry 3             https://basak-gate-preview.deep-baroness-ee7.workers.dev/app/             | grep -q "Başak Sohbet"
+          curl --fail --silent --show-error --retry 3             https://basak-gate-preview.deep-baroness-ee7.workers.dev/lab/             | grep -q "Başak Test Laboratuvarı"
+          echo "home/app/lab OK"
