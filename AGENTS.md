@@ -64,7 +64,7 @@ Aşağıdakiler 2026-09-13'te tek tek ölçülerek söküldü. **Hiçbiri, hiçb
 
 **6. Sağlayıcıyı keyfî kapatan bayraklar**
 - Model adını veya kişisel tercihi gerekçe gösteren `_QWEN_BEKLEMEDE` benzeri hard-coded engeller
-- İstisna: resmî maliyet/kota veya required-tool protokolü doğrulanmamış sağlayıcı otomatik sıfır-maliyet ajan zincirine alınmaz. Bu görev yönlendirmesi değil, teknik/maliyet uygunluk kapısıdır.
+- İstisna: resmî maliyet/kota veya araç protokolü doğrulanmamış sağlayıcı otomatik sıfır-maliyet ajan zincirine alınmaz. Sağlayıcı kendi resmî biçimini kullanır: `required` destekleyenlerde doğrudan zorunlu çağrı; yalnız `auto` destekleyenlerde Başak düz metni ajan turunda başarı saymaz. Bu görev yönlendirmesi değil, teknik/maliyet uygunluk kapısıdır.
 
 **Dokunulmaz istisna:** yol kara listesi (`.env`, `.pem`, `.key`, `ayarlar.json`, Windows sistem klasörleri) ve SSRF savunması. Bunlar modeli daraltmaz, sırrı korur.
 
@@ -72,7 +72,7 @@ Aşağıdakiler 2026-09-13'te tek tek ölçülerek söküldü. **Hiçbiri, hiçb
 
 ## 1. Proje
 
-Başak — ücretsiz bulutla çalışan, Türkçe konuşan kişisel Jarvis. Beyin: otomatik sıfır-maliyet bulut zinciri; ajan modunda yalnız required-tool protokolü doğrulanmış ücretsiz sağlayıcılar kullanılır. Qwen entegrasyonu korunur fakat süreli kota kalıcı sıfır maliyet kanıtı olmadığı için otomatik zincirde değildir. Yerel model YOK (Faz 2'de kaldirildi). Ses: Piper TTS + faster-whisper STT (ikisi de yerel). Arayüz: `ui/` altında saf HTML/CSS/JS + Three.js orb, pywebview masaüstü penceresinde açılıyor. `ARASTIRMA.md` teknoloji seçim gerekçelerini tutar.
+Başak — ücretsiz bulutla çalışan, Türkçe konuşan kişisel Jarvis. Beyin: otomatik sıfır-maliyet bulut zinciri; ajan modunda her sağlayıcı kendi resmî araç protokolüyle çalışır. Güncel otomatik ajan havuzu: Groq, Gemini, OpenRouter, GLM, Cloudflare, Cohere, Kilo ve NVIDIA. Qwen entegrasyonu korunur fakat süreli kota kalıcı sıfır maliyet kanıtı olmadığı için otomatik zincirde değildir. Yerel model YOK (Faz 2'de kaldirildi). Ses: Piper TTS + faster-whisper STT (ikisi de yerel). Arayüz: `ui/` altında saf HTML/CSS/JS + Three.js orb, pywebview masaüstü penceresinde açılıyor. `ARASTIRMA.md` teknoloji seçim gerekçelerini tutar.
 
 **19 Ağustos 2026'da başladı, tek günlük iş.** `git` bugün kuruldu — öncesinde hiç versiyon geçmişi yoktu, ilk commit'ten öncesi kurtarılamaz.
 
