@@ -22,11 +22,12 @@ logger = logging.getLogger(__name__)
 from brain.kullanim import kullanim_ekle
 from brain.message_utils import reasoning_ayikla
 
-BASE_URL = "https://api.kilo.ai/api/gateway/v1"
+BASE_URL = "https://api.kilo.ai/api/gateway"
 
-# openai paketi boş anahtar kabul etmiyor; Kilo'nun ücretsiz katmanı
-# Authorization başlığını zaten yok sayıyor — bu bir yer tutucudur.
-YER_TUTUCU_ANAHTAR = "anahtarsiz"
+# Kilo resmi API'si :free modellerde anonim erişime izin verir.
+# OpenAI istemcisi api_key ister; anonim kullanımda HTTP istemcisi
+# Authorization başlığını gönderimden hemen önce kaldırır.
+YER_TUTUCU_ANAHTAR = "anonymous"
 
 # Düşünme metni bütçeden yediği için dar tutulamaz (dosya başındaki nota bak).
 # ARAC-PLANI S5 cizgisi: 4096 (1024'te duzgun cevap olculdu).
@@ -47,23 +48,33 @@ TERCIH_SIRASI = [
 class KiloClient:
     """Kilo Gateway istemcisi — API anahtarı gerektirmez."""
 
-    def __init__(self, model: str = None):
+    def __init__(self, model: str = None, api_key: str = None):
         self.model = model or VARSAYILAN_MODEL
+        self.api_key = (api_key or "").strip()
         self.client = None
         self._kur()
 
     def _kur(self):
         try:
-            self.client = OpenAI(
-                api_key=YER_TUTUCU_ANAHTAR,
-                base_url=BASE_URL,
-                timeout=20.0,
-                max_retries=0,
-                default_headers={
+            kwargs = {
+                "api_key": self.api_key or YER_TUTUCU_ANAHTAR,
+                "base_url": BASE_URL,
+                "timeout": 20.0,
+                "max_retries": 0,
+                "default_headers": {
                     "HTTP-Referer": "http://localhost",
                     "X-Title": "Basak",
                 },
-            )
+            }
+            if not self.api_key:
+                import httpx
+
+                def _anonim_istek(request):
+                    request.headers.pop("authorization", None)
+
+                kwargs["http_client"] = httpx.Client(
+                    event_hooks={"request": [_anonim_istek]})
+            self.client = OpenAI(**kwargs)
         except Exception as e:
             logger.warning("Kilo kurulamadı: %s", e)
             self.client = None
