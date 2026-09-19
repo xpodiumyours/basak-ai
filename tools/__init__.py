@@ -1,4 +1,4 @@
-"""tools — Başak'ın araçları. Elli bir tane.
+"""tools — Başak'ın araçları. Elli iki tane.
 
 2026-09-13: 21 araçlık katman söküldü; Casper'in seçtikleri geri geldi.
 Okuyanlar serbesttir. Etkisi olanlar dardir: dosya yazma yalniz
@@ -259,7 +259,8 @@ def calistir(tool_name, args):
             from tools import katalog
             return katalog.katalog_kur(
                 str(args.get("fatura_id", "")),
-                args.get("satirlar", []) or [])
+                args.get("satirlar", []) or [],
+                ustbilgi=args.get("ustbilgi"))
 
         if tool_name == "katalog_getir":
             from tools import katalog
@@ -305,6 +306,10 @@ def calistir(tool_name, args):
             return katalog.cikti_oku(
                 str(args.get("is_id", "")),
                 str(args.get("dosya", "")))
+
+        if tool_name == "sirket_ara":
+            from tools import katalog
+            return katalog.sirket_ara(str(args.get("marka", "")))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

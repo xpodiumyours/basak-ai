@@ -8,7 +8,7 @@ model karar verir.
 
 Dokuz + dort + bes + dokuz arac: okuyanlar serbest, etkisi olanlar
 dar tablolarda (dosya/gorev/tablo yazma, sabit komut, beyaz liste).
-(2026-09-15: toplam 51; ara-toplam formulu bayat oldugu icin kaldirildi.)
+(2026-09-15: toplam 52; ara-toplam formulu bayat oldugu icin kaldirildi.)
 """
 
 
@@ -399,13 +399,19 @@ KATALOG_KUR = _arac(
     "katalog_kur",
     "Fatura satirlarindan urun kartlari kurar (en fazla 500 satir); ayni "
     "marka+kod tek kart olur, kategori cogunlukla secilir, stok 3 ve "
-    "alti az gosterir. Is ozeti JSON doner.",
+    "alti az gosterir. Donen JSON sorulacaklar listesi ve is ozeti "
+    "icerir. ustbilgi "
+    "parametresi fatura_oku ustbilgi alanindan gelir; is verisine "
+    "yazilir. Is ozeti JSON doner.",
     {"fatura_id": {"type": "string",
                    "description": "Yukleme kimligi"},
      "satirlar": {"type": "array",
                   "description": "Satirlar: marka, kod, urun_adi, barkod, "
                                  "beden, renk, varyant, adet, alis_fiyat, "
-                                 "kategori"}},
+                                 "kategori"},
+     "ustbilgi": {"type": "object",
+                  "description": "fatura_oku ustbilgi alani (fis no, "
+                                 "tarih, firma, toplam, kdv_oran)"}},
     ["fatura_id", "satirlar"],
 )
 
@@ -486,6 +492,16 @@ CIKTI_OKU = _arac(
     ["is_id", "dosya"],
 )
 
+SIRKET_ARA = _arac(
+    "sirket_ara",
+    "Markanın resmi sitesini ve iletişim/vergi bilgilerini arar; "
+    "JSON doner: marka, site, telefonlar, eposta, adresler, vergi_no, "
+    "kaynak, eksik. Bulunamayan alan eksik listesinde yazar; uydurma "
+    "yok. Salt-okunur: disk yazimi yok.",
+    {"marka": {"type": "string", "description": "Marka adı (örn. Tutku)"}},
+    ["marka"],
+)
+
 TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
           KITAP_ARA, DERIN_OKU, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
@@ -495,7 +511,7 @@ TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
          MATRIS_AC, MATRIS_LISTE, SATIR_EKLE, KANIT_EKLE,
          SATIR_KAPAT, SATIR_AC, SATIR_SIL, SATIR_TASI,
          MATRIS_DURUM, GORSEL_URET, SAGLIK_RAPORU, SATIR_DUZENLE,
-         SIMDI, HESAPLA, HAFIZA_ARA,
+         SIMDI, HESAPLA, HAFIZA_ARA, SIRKET_ARA,
          FATURA_OKU, KATALOG_KUR, KATALOG_GETIR, KATALOG_LISTELE,
          KATALOG_FIYAT, KATALOG_ONAYLA, YETKI_BELGESI, URUN_ESLESTIR,
          YAYIN_PAKETI, CIKTI_OKU]

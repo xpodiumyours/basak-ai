@@ -67,6 +67,7 @@ DURUM_METNI = {
     "urun_eslestir": "Ürün eşleştiriliyor",
     "yayin_paketi": "Yayın paketi denetleniyor",
     "cikti_oku": "Çıktı okunuyor",
+    "sirket_ara": "Şirket bilgisi araştırılıyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.
