@@ -198,7 +198,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
     if arac_acik and hasattr(brain, "ajan_musait"):
         if not brain.ajan_musait():
             js_callback("BasakUI.error(" + _j(
-                "Ajan modu icin zorunlu arac cagrisi destekli ucretsiz "
+                "Ajan modu icin dogrulanmis arac protokollu ucretsiz "
                 "bir beyin bagli degil") + ")")
             return
 
