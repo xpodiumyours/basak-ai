@@ -77,6 +77,8 @@ class GLMClient:
         }
         if tools:
             kwargs["tools"] = tools
+            if tool_choice is not None:
+                kwargs["tool_choice"] = tool_choice
 
         resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
