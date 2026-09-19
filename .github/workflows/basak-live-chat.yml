@@ -12,7 +12,8 @@ jobs:
   basak-chat:
     if: >-
       github.event.issue.number == 4 &&
-      github.event.comment.user.login == 'xpodiumyours'
+      github.event.comment.user.login == 'xpodiumyours' &&
+      github.event.comment.body != 'FULL TEST'
     runs-on: windows-latest
     timeout-minutes: 12
 
