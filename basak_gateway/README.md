@@ -1,40 +1,40 @@
 # Başak Gate
 
-Kalıcı web kapısı ve kabul laboratuvarı.
+Kalıcı web kapısı ve kabul laboratuvarı. Aynı proje bugün test yüzeyi, daha sonra kullanıcı giriş/sohbet kapısı olabilir.
 
-## Ürün yüzeyleri
+## Yüzeyler
 
-- `/` — giriş kapısı
-- `/app/` — keşif sohbeti; Faz 5 kabulü değildir
-- `/lab/` — sabit kabul zinciri
-- `/api/health` — sağlayıcıların yalnız var/yok durumu
-- `/api/chat` — ücretsiz sağlayıcı zinciri; gerekirse Workers AI ücretsiz fallback
-- `/api/lab/phase1/:provider` — tek sağlayıcı için canlı tool protokol testi
-- `/api/lab/phase2` — 52 araç katalog yapısı kontrolü
+- `/` giriş
+- `/app/` normal keşif sohbeti
+- `/lab/` kabul laboratuvarı
+- `/api/health` sağlayıcıların yalnız var/yok durumu
 
-## Kilitli sıra
+## Sabit kabul zinciri
 
-1. 8 protokol
-2. 52 araç yapısı
-3. 8 × 52 = 416 canlı hücre
-4. ikinci tur
-5. gerçek sohbet kabulü
+1. 8 sağlayıcı protokolü
+2. 52 gerçek araç yapısı ve tam JSON şemaları
+3. 8 × 52 = 416 canlı ilk-tur hücresi
+4. aynı 416 hücrenin tool-result → ikinci tur devamı
+5. laboratuvar oturumuna bağlı gerçek sohbet; en az iki başarılı turdan sonra kullanıcı kabulü
 6. tek kabul raporu
 
-Web sohbeti Aşama 1–4 kapanmadan da keşif için kullanılabilir; **kabul kanıtı sayılmaz**.
+Kapsam örneklenmez. Kota engeli çıkarsa laboratuvar durur ve aynı oturumdan daha sonra devam eder.
 
-## Ücretsiz çalışma kuralı
+## Oturum durumu
 
-Workers Free kullanılır. Statik asset istekleri ücretsizdir. Worker/Workers AI ücretsiz kotaları aşılırsa işlem hata verir; sistem ücretli plana kendiliğinden geçmez. OpenRouter yalnız `:free` modelleri seçer. Diğer sağlayıcılarda Başak'ın ücretsiz model yolları korunur.
+Aşama 3'teki provider devam durumları (Gemini thought signature, Cohere tool_plan ve benzeri) tarayıcıya verilmez. SQLite-backed Durable Object içinde 24 saat tutulur ve alarm ile temizlenir. Free planda limit aşılırsa işlem hata verir; ücretli kullanıma otomatik geçiş yoktur.
+
+## Sohbet
+
+Normal `/app/` sohbeti kabul kanıtı değildir. Aşama 4 tamamen geçince laboratuvar Faz 5'e bağlı özel sohbet bağlantısını açar.
 
 ## Kimlik bilgileri
 
-Tarayıcıda anahtar alanı yoktur. Worker yalnız Cloudflare ortamında tanımlanmış secret adlarını okur:
-
+Tarayıcıda anahtar alanı yoktur. Worker yalnız Cloudflare secret/binding ortamını okur:
 `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `ZAI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `COHERE_API_KEY`, `KILO_API_KEY`, `NVIDIA_API_KEY`.
 
-Değerler API cevaplarına yazılmaz. Kilo anahtarsız çalışabilir. Workers AI binding ayrıca anahtar gerektirmez.
+Kilo anahtarsız çalışabilir. Workers AI binding normal sohbet için ücretsiz fallback'tir; 8-provider kabulünün yerine geçmez.
 
-## 416 aşaması
+## Kaynak eşliği
 
-`scripts/export_schemas.py` gerçek `tools.definitions.TOOLS` kaynağından tam şemaları üretir. Faz 3 bu çıktı bağlanmadan açılmaz; isim örneklemesi 416 testinin yerine geçmez.
+`tool_catalog.json` ve `tool_schemas.json` CI'da doğrudan `tools.definitions.TOOLS` ve `chat.agent_protocol.YETENEK_ALANLARI` ile birebir karşılaştırılır.

@@ -32,16 +32,10 @@ jobs:
           npm --prefix basak_gateway run check
           npm --prefix basak_gateway test
 
-      - name: 52 arac katalogunu gercek Basak kaynagiyla karsilastir
+      - name: 52 arac katalogu ve tam semalari gercek Basak kaynagiyla karsilastir
         run: python basak_gateway/scripts/check_catalog.py
 
-      - name: 416 asamasi icin gercek sema artifactini uret
-        run: python basak_gateway/scripts/export_schemas.py /tmp/tool_schemas.json
-
-      - name: Sema artifacti
-        uses: actions/upload-artifact@v4
-        with:
-          name: basak-tool-schemas
-          path: /tmp/tool_schemas.json
-          if-no-files-found: error
-          retention-days: 3
+      - name: Uretilen sema birebir ayni mi
+        run: |
+          python basak_gateway/scripts/export_schemas.py /tmp/tool_schemas.json
+          cmp /tmp/tool_schemas.json basak_gateway/src/tool_schemas.json

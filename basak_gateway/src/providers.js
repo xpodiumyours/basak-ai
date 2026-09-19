@@ -437,3 +437,327 @@ export async function chat(messages, env) {
   }
   throw new Error("Hiçbir ücretsiz sohbet hattı cevap vermedi. " + errors.join(" | ").slice(0, 1200));
 }
+
+
+function sampleValue(schema, name = "value") {
+  if (!schema || typeof schema !== "object") return "test";
+  if (Array.isArray(schema.enum) && schema.enum.length) return schema.enum[0];
+  const type = schema.type;
+  if (type === "integer" || type === "number") return 1;
+  if (type === "boolean") return true;
+  if (type === "array") return [];
+  if (type === "object") {
+    const out = {};
+    const props = schema.properties || {};
+    for (const req of schema.required || []) out[req] = sampleValue(props[req] || {}, req);
+    return out;
+  }
+  const n = String(name || "").toLowerCase();
+  if (n.includes("url")) return "https://example.com";
+  if (n === "site") return "example.com";
+  if (n === "proje") return "basak";
+  if (n === "aralik") return "gun";
+  if (n === "platform") return "vixrex";
+  if (n.includes("path")) return "knowledge/test.txt";
+  if (n.includes("folder")) return ".";
+  if (n === "b64") return "dGVzdA==";
+  if (n.includes("dosya")) return "test.json";
+  if (n.includes("query") || n.includes("sorgu")) return "Basak protocol test";
+  return "test";
+}
+
+function sampleArgs(tool) {
+  const params = tool?.function?.parameters || { type: "object", properties: {}, required: [] };
+  return sampleValue(params, "root");
+}
+
+function validateValue(value, schema, path = "args") {
+  if (!schema || typeof schema !== "object") return [];
+  const errors = [];
+  if (Array.isArray(schema.enum) && !schema.enum.includes(value)) errors.push(path + ": enum disi");
+  const type = schema.type;
+  if (type === "string" && typeof value !== "string") errors.push(path + ": string degil");
+  if (type === "integer" && !Number.isInteger(value)) errors.push(path + ": integer degil");
+  if (type === "number" && (typeof value !== "number" || !Number.isFinite(value))) errors.push(path + ": number degil");
+  if (type === "boolean" && typeof value !== "boolean") errors.push(path + ": boolean degil");
+  if (type === "array" && !Array.isArray(value)) errors.push(path + ": array degil");
+  if (type === "object") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      errors.push(path + ": object degil");
+    } else {
+      for (const req of schema.required || []) {
+        if (!(req in value)) errors.push(path + "." + req + ": zorunlu alan yok");
+      }
+      for (const [key, child] of Object.entries(schema.properties || {})) {
+        if (key in value) errors.push(...validateValue(value[key], child, path + "." + key));
+      }
+    }
+  }
+  return errors;
+}
+
+function genericToolCall(message, tool) {
+  const expected = tool?.function?.name;
+  const calls = message?.tool_calls || [];
+  if (!Array.isArray(calls) || calls.length !== 1) throw new Error("tam bir tool_call bekleniyordu");
+  const call = calls[0];
+  const fn = call?.function || {};
+  if (fn.name !== expected) throw new Error("beklenen arac " + expected + ", gelen " + (fn.name || "bos"));
+  let args = fn.arguments || "{}";
+  if (typeof args === "string") {
+    try { args = JSON.parse(args); }
+    catch { throw new Error("tool arguments JSON degil"); }
+  }
+  const errors = validateValue(args, tool?.function?.parameters || {});
+  if (errors.length) throw new Error("schema dogrulamasi: " + errors.slice(0, 5).join("; "));
+  return { call, args };
+}
+
+function matrixPrompt(tool, target) {
+  const name = tool?.function?.name || "tool";
+  return [
+    "This is a Basak provider-tool matrix acceptance cell.",
+    "Call the only available function " + name + " exactly once.",
+    "Use harmless synthetic arguments matching its JSON schema.",
+    "Target example arguments: " + JSON.stringify(target) + ".",
+    "Do not execute a real-world action and do not answer in plain text before the tool call."
+  ].join(" ");
+}
+
+function matrixConfig(provider, env, model = null) {
+  if (provider === "openrouter") {
+    const key = env.OPENROUTER_API_KEY || "";
+    return {
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      model: model || "",
+      mode: "auto",
+      headers: {
+        Authorization: "Bearer " + key,
+        "HTTP-Referer": "https://basak-gate.invalid",
+        "X-Title": "Basak Gate"
+      },
+      secrets: [key]
+    };
+  }
+  const config = openAIConfig(provider, env);
+  if (model) config.model = model;
+  return config;
+}
+
+async function firstOpenAICell(provider, tool, env) {
+  const status = providerStatus(env);
+  if (!status[provider]) throw new Error("saglayici Cloudflare ortaminda hazir degil");
+  let config;
+  if (provider === "openrouter") {
+    const key = env.OPENROUTER_API_KEY || "";
+    config = matrixConfig(provider, env, await chooseOpenRouterModel(key));
+  } else config = matrixConfig(provider, env);
+  const target = sampleArgs(tool);
+  const messages = [{ role: "user", content: matrixPrompt(tool, target) }];
+  const headers = { "content-type": "application/json", ...config.headers };
+  const first = await fetchJson(config.url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model: config.model,
+      messages,
+      tools: [tool],
+      tool_choice: config.mode,
+      max_tokens: 2048,
+      ...(config.extra || {})
+    })
+  }, config.secrets);
+  const message = first?.choices?.[0]?.message;
+  const parsed = genericToolCall(message, tool);
+  return {
+    public: {
+      ok: true,
+      provider,
+      tool: tool.function.name,
+      model: config.model,
+      mode: config.mode,
+      argsValid: true
+    },
+    state: {
+      v: 1,
+      kind: "openai",
+      provider,
+      tool: tool.function.name,
+      model: config.model,
+      messages,
+      assistant: assistantMessage(message),
+      call: parsed.call
+    }
+  };
+}
+
+async function firstCohereCell(tool, env) {
+  const key = env.COHERE_API_KEY || "";
+  if (!key) throw new Error("saglayici Cloudflare ortaminda hazir degil");
+  const target = sampleArgs(tool);
+  const prompt = matrixPrompt(tool, target);
+  const ctool = {
+    name: tool.function.name,
+    description: tool.function.description || "",
+    parameters: tool.function.parameters || {}
+  };
+  const data = await fetchJson("https://api.cohere.com/v2/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json", Authorization: "Bearer " + key },
+    body: JSON.stringify({
+      model: "command-a-03-2025",
+      messages: [{ role: "user", content: prompt }],
+      tools: [ctool],
+      tool_choice: "REQUIRED",
+      max_tokens: 2048
+    })
+  }, [key]);
+  const msg = data?.message || {};
+  const calls = msg.tool_calls || [];
+  if (!Array.isArray(calls) || calls.length !== 1) throw new Error("tam bir tool_call bekleniyordu");
+  const call = calls[0];
+  let args = call?.function?.arguments || {};
+  if (typeof args === "string") {
+    try { args = JSON.parse(args); }
+    catch { throw new Error("tool arguments JSON degil"); }
+  }
+  if (call?.function?.name !== tool.function.name) throw new Error("yanlis arac cagrildi");
+  const errors = validateValue(args, tool.function.parameters || {});
+  if (errors.length) throw new Error("schema dogrulamasi: " + errors.slice(0, 5).join("; "));
+  const assistant = { role: "assistant", content: msg.content || "", tool_calls: calls };
+  if (msg.tool_plan) assistant.tool_plan = msg.tool_plan;
+  return {
+    public: {
+      ok: true,
+      provider: "cohere",
+      tool: tool.function.name,
+      model: "command-a-03-2025",
+      mode: "REQUIRED",
+      argsValid: true
+    },
+    state: {
+      v: 1,
+      kind: "cohere",
+      provider: "cohere",
+      tool: tool.function.name,
+      model: "command-a-03-2025",
+      messages: [{ role: "user", content: prompt }],
+      assistant,
+      call
+    }
+  };
+}
+
+function matrixFailure(provider, tool, error, env, started) {
+  const secrets = [
+    env.GROQ_API_KEY, env.GEMINI_API_KEY, env.OPENROUTER_API_KEY, env.ZAI_API_KEY,
+    env.CLOUDFLARE_ACCOUNT_ID, env.CLOUDFLARE_API_TOKEN, env.COHERE_API_KEY,
+    env.KILO_API_KEY, env.NVIDIA_API_KEY
+  ];
+  const msg = safeError(error?.message || error, secrets);
+  return {
+    ok: false,
+    provider,
+    tool: tool?.function?.name || "-",
+    blocked: /429|rate|quota|too many/i.test(msg),
+    error: msg,
+    durationMs: Date.now() - started
+  };
+}
+
+export async function runToolFirst(provider, tool, env) {
+  const started = Date.now();
+  try {
+    const out = provider === "cohere"
+      ? await firstCohereCell(tool, env)
+      : await firstOpenAICell(provider, tool, env);
+    out.public.durationMs = Date.now() - started;
+    return out;
+  } catch (error) {
+    return { public: matrixFailure(provider, tool, error, env, started), state: null };
+  }
+}
+
+async function secondOpenAICell(tool, state, env) {
+  const config = matrixConfig(state.provider, env, state.model);
+  const headers = { "content-type": "application/json", ...config.headers };
+  const data = await fetchJson(config.url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model: state.model,
+      messages: [
+        ...state.messages,
+        state.assistant,
+        {
+          role: "tool",
+          tool_call_id: state.call?.id || "basak_cell",
+          content: JSON.stringify({ ok: true, tool: tool.function.name, result: "BASAK_CELL_OK" })
+        }
+      ],
+      max_tokens: 1024,
+      ...(config.extra || {})
+    })
+  }, config.secrets);
+  const text = String(data?.choices?.[0]?.message?.content || "").trim();
+  if (!text) throw new Error("tool sonucu sonrasi final cevap yok");
+  return {
+    ok: true,
+    provider: state.provider,
+    tool: tool.function.name,
+    model: state.model,
+    continuation: true,
+    finalPreview: text.slice(0, 180)
+  };
+}
+
+async function secondCohereCell(tool, state, env) {
+  const key = env.COHERE_API_KEY || "";
+  if (!key) throw new Error("saglayici Cloudflare ortaminda hazir degil");
+  const data = await fetchJson("https://api.cohere.com/v2/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json", Authorization: "Bearer " + key },
+    body: JSON.stringify({
+      model: state.model,
+      messages: [
+        ...state.messages,
+        state.assistant,
+        {
+          role: "tool",
+          tool_call_id: state.call?.id || "basak_cell",
+          content: [{
+            type: "document",
+            document: { data: JSON.stringify({ ok: true, tool: tool.function.name, result: "BASAK_CELL_OK" }) }
+          }]
+        }
+      ],
+      max_tokens: 1024
+    })
+  }, [key]);
+  const blocks = data?.message?.content;
+  const text = Array.isArray(blocks)
+    ? blocks.map((x) => x?.text || "").join("").trim()
+    : String(blocks || "").trim();
+  if (!text) throw new Error("tool sonucu sonrasi final cevap yok");
+  return {
+    ok: true,
+    provider: "cohere",
+    tool: tool.function.name,
+    model: state.model,
+    continuation: true,
+    finalPreview: text.slice(0, 180)
+  };
+}
+
+export async function runToolSecond(provider, tool, state, env) {
+  const started = Date.now();
+  try {
+    if (!state || state.provider !== provider || state.tool !== tool.function.name) throw new Error("Faz 3 devam durumu bulunamadi");
+    const result = provider === "cohere"
+      ? await secondCohereCell(tool, state, env)
+      : await secondOpenAICell(tool, state, env);
+    return { ...result, durationMs: Date.now() - started };
+  } catch (error) {
+    return matrixFailure(provider, tool, error, env, started);
+  }
+}
