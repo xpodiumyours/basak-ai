@@ -66,16 +66,20 @@ DOSYA_KATALOG = "basak_katalog.json"
 # Bu bir fatura/satış formu fotoğrafı olabilir, genel bir belge,
 # ürün fotoğrafı veya başka bir görsel. Model içeriği okur,
 # satırların üzerinde durur ve okuyamadığı yeri uydurma, boş bırakır.
+# 2026-09-18 olcumu: omni-reasoning modeli aciklamaya dusunce
+# metniyle basliyordu ("The user wants me..."); cikti bicimini
+# tarif edince ("yalniz yazinin kendisi") tablo metni geldi.
+# Bu, araca ne donecegini soyler (ne yapacagina karismaz).
 GORUNTU_SORUSU = (
-    "Bu fotoğraf/iş dosyasını dikkatle oku. "
-    "Yazı, rakamlar, tablolar, ürün kodları, barkodlar, "
-    "fiyatlar, bedenler, renkler, adet bilgileri varsa "
-    "satır satır/net olarak yaz. "
+    "Bu fotoğraf/iş dosyasındaki TÜM yazıyı satır satır aynen yaz. "
+    "Açıklama yapma, yorum ekleme, düşünceni yazma — yalnız "
+    "fotoğraftaki yazının kendisi olsun. "
+    "Tablo varsa her satırı ayrı satıra yaz; sayıları ve kodları "
+    "olduğu gibi kopyala. "
     "Okuyamadığın yeri uydurma, boş bırak. "
     "Bir ürün/fatura/satış formu tablosu gibi görünüyorsa "
     "Model, Stok (ürün adı), Barkod, Varyant, Beden, Miktar (adet), "
-    "Fiyat gibi sütunları da yazar — ama bu zorunlu değil, "
-    "içerik belirleyici."
+    "Fiyat gibi sütunları da yazar."
 )
 
 _BARKOD_RE = re.compile(r"\d{8,14}")
@@ -237,6 +241,64 @@ def varyant_renk(varyant):
     return renk[:1].upper() + renk[1:].lower() if renk else ""
 
 
+# ── Toptancı jargonu sözlüğü ─────────────────────────────────────
+# Fişteki kısaltmalar temiz Türkçe'ye çözülür. Yalnız BİLİNEN
+# kısaltmalar değişir; bilinmeyen kelime fişteki haliyle kalır
+# (veri uydurulmaz). Model kodları (ELT1301) dokunulmaz — sözlük
+# yalnız bu anahtarlarla kelime kelime eşleşir.
+JARGON_SOZLUGU = {
+    "ERK": "Erkek",
+    "ERKEK": "Erkek",
+    "BYN": "Kadın",
+    "BAYAN": "Kadın",
+    "PEN": "Penye",
+    "PENYE": "Penye",
+    "SIFIRYAKA": "Sıfır Yaka",
+    "UZUNKOL": "Uzun Kol",
+    "KASKORSE": "Kaşkorse",
+    "LICRALI": "Likralı",
+    "DUZ": "Düz",
+    "TUT": "Tut",
+    "ATLET": "Atlet",
+    "BOXER": "Boxer",
+    "TISORT": "Tişört",
+    # ── OCR yamulmaları (özellikle küçük vision modelleri) ──────
+    # Canlı probda (2026-09-18, qwen2.5vl:3b) ölçülen gerçek hatalar:
+    # LZUNKOL→UZUNKOL (U harfi L okundu), SINAR→SİYAH,
+    # LORALI→LİCRALI, KALI→DÜZ, RANDORI→PANDORA,
+    # ENSEMILI→DESENLİ.
+    "LZUNKOL": "Uzun Kol",
+    "LORALI": "Likralı",
+    "SINAR": "SİYAH",
+    "KALI": "Düz",
+    "RANDORI": "Pandora",
+    "ENSEMILI": "Desenli",
+}
+
+_JARGON_RE = re.compile(
+    r"\b(%s)\b" % "|".join(
+        re.escape(k) for k in sorted(JARGON_SOZLUGU, key=len,
+                                     reverse=True)),
+    re.IGNORECASE)
+
+
+def jargon_coz(metin):
+    """Fiş jargonunu sözlükten temiz Türkçe'ye çözer.
+
+    "ELIT ERK PENYE ATLET" → "ELIT Erkek Penye Atlet".
+    Kelime sınırıyla eşleşir; ELT1301 gibi kodlar zarar görmez.
+    """
+    s = str(metin or "")
+    if not s:
+        return s
+
+    def _cevir(m):
+        anahtar = _tr_duzelt(m.group(0)).upper()
+        return JARGON_SOZLUGU.get(anahtar, m.group(0))
+
+    return _JARGON_RE.sub(_cevir, s)
+
+
 # ── Staging: fatura fotoğrafı kaydı ───────────────────────────────
 
 def _staging_kaydet(ham, ad):
@@ -330,6 +392,52 @@ def _gecici_mi(hata):
     return any(k in h for k in _GECICI_HATA)
 
 
+def _ustbilgi_cikar(yazi):
+    """OCR metninden fiş üst bilgilerini kurallarla çıkarır.
+
+    Fiş no, tarih, satıcı firma, KDV, toplam. Bulunamayan alan
+    hiç yazılmaz (uydurma yok); model bunları esnafa sorar.
+    Desenler Tutku tipi Satış Teklif Form dökümlerine göredir;
+    uymayan fişte alanlar boş kalır, satır verisi etkilenmez.
+    """
+    ust = {}
+    if not yazi:
+        return ust
+    m = re.search(r"Fi[şs]\s*No\s*[:.]?\s*([0-9][0-9.]{6,24})", yazi)
+    if m:
+        ust["fis_no"] = m.group(1).strip()
+    m = re.search(r"(?:Fi[şs]\s*|Fatura\s*)Tarihi\s*[:.]?\s*"
+                  r"(\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4})", yazi)
+    if m:
+        ust["tarih"] = m.group(1)
+    if not ust.get("tarih"):
+        m = re.search(r"(\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4})\s+\d{1,2}:\d{2}",
+                      yazi)
+        if m:
+            ust["tarih"] = m.group(1)
+    m = re.search(r"(?:İrsaliye\s*Firma|Firma)\s*[:.]?\s*"
+                  r"([^\r\n]{3,80})", yazi)
+    if m:
+        aday = m.group(1).strip().rstrip(".")
+        if len(aday) >= 3:
+            ust["firma"] = aday
+    m = re.search(r"KDV\s*[(%]?\s*(\d{1,2})\s*[%)]?", yazi, re.IGNORECASE)
+    if m:
+        ust["kdv_oran"] = int(m.group(1))
+    m = re.search(
+        r"Toplam\s*[:.]?\s*(?:\d+\s*ad\s*\d+\s*dz)?\s*"
+        r"(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*(?:TL|₺|TRY)?", yazi)
+    if m:
+        tutar, _uy = fiyat_coz(m.group(1))
+        if tutar is not None:
+            ust["toplam"] = tutar
+    m = re.search(r"(\d+)\s*ad\s+(\d+)\s*dz", yazi)
+    if m:
+        ust["adet"] = int(m.group(1))
+        ust["dusin"] = int(m.group(2))
+    return ust
+
+
 def fatura_oku(fatura_id):
     """Kayıtlı fatura fotoğrafını okur; yazı + aday satırları JSON döner.
 
@@ -363,8 +471,12 @@ def fatura_oku(fatura_id):
             sonuc = image_analyzer.image_analyze(yol, GORUNTU_SORUSU)
             if not sonuc.get("error") or not _gecici_mi(sonuc["error"]):
                 break
+            # 2026-09-18: 10 sn bekleme hatta 60 sn API timeout ile
+            # birlesince tek fatura 200 sn'yi buluyor, sohbet
+            # kilitlenmis gorunuyordu. 2 sn yeterli; kalici
+            # hatada zaten donguden cikiliyor.
             if deneme < 2:
-                _zaman.sleep(10)
+                _zaman.sleep(2)
         if not kaynak:
             kaynak = "bulut"
     if sonuc.get("error"):
@@ -372,8 +484,10 @@ def fatura_oku(fatura_id):
     yazi = sonuc.get("result", "")
     if not yazi.strip():
         return {"error": "Fotoğrafta yazı bulunamadı."}
+    ust = _ustbilgi_cikar(yazi)
     return {"result": _j({"fatura_id": fatura_id, "yazi": yazi,
                           "aday_satirlar": _aday_satirlar(yazi),
+                          "ustbilgi": ust,
                           "kaynak": kaynak,
                           "model": sonuc.get("model", "")})}
 
@@ -381,7 +495,12 @@ def fatura_oku(fatura_id):
 # ── F3: doğrulama + aile birleştirme ──────────────────────────────
 
 def _satir_dogrula(ham, sira):
-    """Tek fatura satırını doğrular; (temiz, uyarilar) döner."""
+    """Tek fatura satırını doğrular; (temiz, uyarilar) döner.
+
+    2026-09-18 (Faz A): marka/kategori jargon sözlüğüyle çözülür;
+    eksik-belirsiz alanlar uyarıya SORU olarak yazılır — model
+    bunları esnafa sohbetten iletir (sessiz varsayım kalmaz).
+    """
     uyarilar = []
     if not isinstance(ham, dict):
         return None, ["%d. satır atlandı (biçim bozuk)." % sira]
@@ -389,10 +508,22 @@ def _satir_dogrula(ham, sira):
     kod = str(ham.get("kod", "") or "").strip()
     if not kod:
         return None, ["%d. satır atlandı (ürün kodu yok)." % sira]
-    renk = renk_normla(ham.get("renk"))
+    if not marka:
+        uyarilar.append("%d. satır: marka boş — SOR: '%s' kodlu ürünün "
+                        "markası nedir?" % (sira, kod))
+    else:
+        cozulmus = jargon_coz(marka)
+        if cozulmus != marka:
+            uyarilar.append("%d. satır: marka '%s' → '%s' (fiş kısaltması "
+                            "çözüldü)." % (sira, marka, cozulmus))
+        marka = cozulmus
+    renk = renk_normla(jargon_coz(ham.get("renk")))
     varyant = str(ham.get("varyant", "") or "").strip()
     if not renk and varyant:
-        renk = renk_normla(varyant_renk(varyant))
+        renk = renk_normla(jargon_coz(varyant_renk(varyant)))
+    if not renk:
+        uyarilar.append("%d. satır: renk belirsiz — SOR: '%s' ürününün "
+                        "rengi nedir?" % (sira, kod))
     barkod, uyari = barkod_dogrula(ham.get("barkod"))
     if uyari:
         uyarilar.append("%d. satır: %s" % (sira, uyari))
@@ -400,21 +531,28 @@ def _satir_dogrula(ham, sira):
         adet = int(str(ham.get("adet", 1) or 1).strip() or 1)
     except (ValueError, TypeError, AttributeError):
         adet = 1
-        uyarilar.append("%d. satır: adet okunamadı, 1 sayıldı." % sira)
+        uyarilar.append("%d. satır: adet okunamadı, 1 sayıldı — SOR: "
+                        "'%s' gerçekten 1 adet mi?" % (sira, kod))
     if adet < 0:
         adet = 0
         uyarilar.append("%d. satır: eksi adet 0 sayıldı." % sira)
     alis, uyari = fiyat_coz(ham.get("alis_fiyat"))
     if uyari:
         uyarilar.append("%d. satır: %s" % (sira, uyari))
+    kategori_ham = str(ham.get("kategori", "") or "").strip()
+    kategori = jargon_coz(kategori_ham) if kategori_ham else ""
+    if not kategori:
+        uyarilar.append("%d. satır: kategori belirsiz — SOR: '%s' ürünü "
+                        "hangi kategoride satılacak (örn. Erkek Tişört, "
+                        "Kadın Atlet)?" % (sira, kod))
+        kategori = "Genel"
     return {"marka": marka, "kod": kod,
             "kod_norm": kodu_normla(kod),
             "marka_norm": kodu_normla(marka),
             "barkod": barkod, "beden": beden_normla(ham.get("beden")),
             "renk": renk, "varyant": varyant,
             "adet": adet, "alis_fiyat": alis,
-            "kategori": str(ham.get("kategori", "") or "").strip()
-            or "Genel",
+            "kategori": kategori,
             "urun_adi": str(ham.get("urun_adi", "") or "").strip()}, \
         uyarilar
 
@@ -447,11 +585,15 @@ def _stok_durumu(toplam):
     return STOK_VAR
 
 
-def katalog_kur(fatura_id, satirlar):
+def katalog_kur(fatura_id, satirlar, ustbilgi=None):
     """Doğrulanmış satırlardan ürün kartları kurar, işi saklar.
 
     Aynı (marka, kod) tek kart olur; beden/renk varyant dizilir.
-    Dönüş: iş özeti JSON (is_id, kartlar, uyarılar).
+    2026-09-18 (Faz A): sonuç 'sorulacaklar' listesi taşır —
+    marka/kategori/renk/adet eksik ya da belirsizse buradan esnafa
+    sorulur; cevaplarla satırlar düzeltildikten sonra katalog_kur
+    yeniden çağrılır. ustbilgi (fatura_oku'dan) iş verisine yazılır.
+    Dönüş: iş özeti JSON (is_id, kartlar, uyarilar, sorulacaklar).
     """
     if not _fatura_yolu(fatura_id):
         return {"error": "Fatura bulunamadı: '%s'." % (fatura_id or "")}
@@ -503,8 +645,10 @@ def katalog_kur(fatura_id, satirlar):
             "eslesme": None,
         })
     is_id = _id("ktg")
+    sorulacaklar = [u for u in uyarilar if "SOR:" in u]
     is_verisi = {"is_id": is_id, "fatura_id": fatura_id,
                  "durum": "taslak", "olusturma": _simdi(),
+                 "ustbilgi": ustbilgi if isinstance(ustbilgi, dict) else {},
                  "satirlar": temizler, "kartlar": kartlar,
                  "uyarilar": uyarilar, "yetki_id": None}
     _kok_hazirla(KATALOG_KOK)
@@ -523,7 +667,8 @@ def katalog_kur(fatura_id, satirlar):
                           "kart_sayisi": len(kartlar),
                           "toplam_adet": sum(
                               k["toplam_adet"] for k in kartlar),
-                          "kartlar": ozet, "uyarilar": uyarilar})}
+                          "kartlar": ozet, "uyarilar": uyarilar,
+                          "sorulacaklar": sorulacaklar})}
 
 
 def _is_yukle(is_id):
@@ -973,10 +1118,46 @@ def yetki_belgesi_ekle(is_id, b64_veri, ad, marka=""):
 # Kayıtlı tedarikçinin resmi sitesinde ürün kodu aranır; bulunan
 # sayfanın başlığı ve görselleri karta işlenir. Görsel YAYINA
 # yalnız marka izinliyse girer (_kart_gorsel); değilse aday durur.
+#
+# 2026-09-18 (Faz A): "alias" desteği — fişlerde aynı üreticinin
+# farklı yazımları (TUTKU / ELİT / TUT ...) aynı tedarikçiye bağlanır.
+# Anahtar kodu_normla çıktısıdır; değer ya tedarikçi sözlüğü ya da
+# başka bir anahtara yönlendirmedir (str = alias).
 
 TEDARIKCILER = {
     "TUTKU": {"site": "tutkuelit.com.tr", "ad": "Tutku"},
+    "ELIT": "TUTKU",
+    "TUT": "TUTKU",
 }
+
+# Sırrı olmayan, esnafın fişinde geçen marka kısaltmaları; jargon
+# çözümünde marka olarak da kullanılır.
+MARKA_TAKMA = {
+    "ELIT": "Tutku Elit",
+}
+
+
+def tedarikci_coz(marka):
+    """Marka adını (alias dâhil) tedarikçi kaydına çözer.
+
+    Türkçe büyük İ önce ASCII I'ya indirilir (ELİT → ELIT),
+    sonra alias zinciri en fazla 3 adım çözülür (döngü koruması).
+    Dönüş: (kayit, cozulen_ad) — kayıtsız markada (None, ad).
+    """
+    anahtar = kodu_normla(_tr_duzelt(marka).replace("İ", "I"))
+    ad = str(marka or "").strip()
+    for _ in range(3):
+        kayit = TEDARIKCILER.get(anahtar)
+        if kayit is None:
+            return None, ad
+        if isinstance(kayit, str):
+            anahtar = kodu_normla(_tr_duzelt(kayit).replace("İ", "I"))
+            ad = TEDARIKCILER.get(anahtar, {}).get("ad", ad) \
+                if isinstance(TEDARIKCILER.get(anahtar), dict) \
+                else ad
+            continue
+        return kayit, ad
+    return None, ad
 
 _URL_RE = re.compile(r"https?://[^\s\"'<>]+")
 
@@ -1023,7 +1204,7 @@ def urun_eslestir(is_id, kart_id):
                  if k.get("kart_id") == kart_id), None)
     if kart is None:
         return {"error": "Kart bulunamadı: '%s'." % (kart_id or "")}
-    tedarikci = TEDARIKCILER.get(kodu_normla(kart.get("marka", "")))
+    tedarikci, cozulen_ad = tedarikci_coz(kart.get("marka", ""))
     if tedarikci is None:
         return {"error": ("'%s' için eşleştirme kaydı yok; "
                           "kart faturasıyla çıkar."
@@ -1092,6 +1273,153 @@ def urun_eslestir(is_id, kart_id):
     return {"result": _j({"is_id": veri["is_id"], "kart_id": kart_id,
                           "guven": guven, "kaynak": en_iyi,
                           "gorsel_sayisi": len(gorseller)})}
+
+def eslesme_adayi(marka, kod):
+    """Eşleştirme için normalize kimlik + aday sorgular üretir.
+
+    Ağ adresi kurmaz, sayfa okumaz; pilot marka başlayınca
+    web_search/sayfa_oku bu sorguları kullanır.
+    """
+    return {"marka": str(marka or "").strip(),
+            "kod": kodu_normla(kod)}
+
+
+# ── Faz B: şirket kartı araştırma ────────────────────────────────
+# Markanın resmi sitesi + iletişim/vergi bilgisi. Salt-okunur:
+# yalnız web_search + sayfa_oku; disk yazımı yok. Alan regex'le
+# sayfa metninden çıkarılır; bulunamayan alan boş kalır (uydurma
+# yok). Model eksik alanları esnafa sorar ya da açık bırakır.
+
+_SIRKET_TEL_RE = re.compile(
+    r"(?:\+90|0)\s?5\d{2}\s?\d{3}\s?\d{2}\s?\d{2}"
+    r"|(?:\+90|0)\s?2\d{2}\s?\d{3}\s?\d{2}\s?\d{2}"
+    r"|(?:\+90|0)\s?3\d{2}\s?\d{3}\s?\d{2}\s?\d{2}")
+_SIRKET_EPOSTA_RE = re.compile(
+    r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+_SIRKET_ADRES_KELIMELERI = ("adres", "mahalle", "mah.", "cadde", "cad.",
+                            "sokak", "sk.", "osb", "organize sanayi",
+                            "sitesi", "bulvar")
+_SIRKET_KELIME_SKORLARI = ("adres", "iletişim", "iletisim", "telefon",
+                           "tel:", "tel ", "faks", "vergi", "e-posta",
+                           "eposta", "bize ulaşın")
+_SOSYAL_HOST = ("facebook.com", "instagram.com", "twitter.com",
+                "x.com", "linkedin.com", "youtube.com", "tiktok.com")
+
+
+def _sirket_adres_meti(satir):
+    """Satır adres cümlesine benziyor mu (kelime + uzunluk)?"""
+    kucuk = _tr_duzelt(satir).lower()
+    if not (5 <= len(satir) <= 200):
+        return False
+    return any(k in kucuk for k in _SIRKET_ADRES_KELIMELERI)
+
+
+def _sirket_sayfa_skor(yazi):
+    """İletişim sayfası adayı skorü: bilinen kelime geçişleri."""
+    if not yazi:
+        return 0
+    kucuk = _tr_duzelt(yazi[:8000]).lower()
+    return sum(kucuk.count(k) for k in _SIRKET_KELIME_SKORLARI)
+
+
+def _sirket_iletisim_yollari(site):
+    """Tedarikçi sitesinin olası iletişim sayfası yolları."""
+    temel = "https://%s" % site.rstrip("/")
+    return [temel + "/iletisim", temel + "/iletisim.html",
+            temel + "/contact", temel + "/contact-us",
+            temel + "/hakkimizda", temel + "/"]
+
+
+def sirket_ara(marka):
+    """Markanın resmi sitesini + iletişim/vergi bilgilerini arar.
+
+    Yalnız web_search + sayfa_oku (salt-okunur); disk yazımı yok.
+    Dönüş JSON: {marka, site, unvan, telefonlar, eposta, adresler,
+    kaynak, eksik}. Bulunamayan alan boş döner — uydurma yok.
+    """
+    marka = str(marka or "").strip()
+    if not marka:
+        return {"error": "Marka boş olamaz."}
+    from tools import web_search as ws
+
+    kayit, cozulen_ad = tedarikci_coz(marka)
+    site = (kayit or {}).get("site", "")
+    adaylar = []
+    if site:
+        adaylar = _sirket_iletisim_yollari(site)
+    else:
+        arama = ws.web_search(
+            "%s iletişim adres telefon resmi site" % cozulen_ad)
+        if arama.get("error"):
+            return {"error": "Arama yapılamadı: %s" % arama["error"]}
+        for adres in _URL_RE.findall(arama.get("result", "")):
+            try:
+                from urllib.parse import urlparse as _coz
+                host = (_coz(adres).hostname or "").lower()
+            except ValueError:
+                continue
+            if any(host.endswith(h) for h in _SOSYAL_HOST):
+                continue
+            temel = "%s://%s" % (_coz(adres).scheme, host)
+            if temel not in adaylar:
+                adaylar.append(temel)
+            if len(adaylar) >= 5:
+                break
+    if not adaylar:
+        return {"error": "'%s' için site bulunamadı." % cozulen_ad}
+
+    en_iyi, en_skor, en_site = "", 0, ""
+    for aday in adaylar[:5]:
+        okuma = ws.sayfa_oku(aday)
+        if okuma.get("error"):
+            continue
+        skor = _sirket_sayfa_skor(okuma.get("result", ""))
+        if skor > en_skor:
+            en_iyi, en_skor, en_site = adres if False else aday, skor, aday
+    if not en_iyi:
+        return {"error": "'%s' için iletişim sayfası okunamadı."
+                         % cozulen_ad}
+    okuma = ws.sayfa_oku(en_iyi)
+    if okuma.get("error"):
+        return {"error": "Sayfa okunamadı: %s" % okuma["error"]}
+    metin = okuma.get("result", "")
+    baslangic = metin[:6000]
+    telefonlar = []
+    for m in _SIRKET_TEL_RE.finditer(baslangic):
+        tel = re.sub(r"\s+", " ", m.group(0)).strip()
+        if tel not in telefonlar:
+            telefonlar.append(tel)
+    eposta = []
+    for m in _SIRKET_EPOSTA_RE.finditer(baslangic):
+        ad = m.group(0).strip().lower()
+        if ad not in eposta:
+            eposta.append(ad)
+    adresler = []
+    for satir in baslangic.splitlines():
+        satir = satir.strip()
+        if _sirket_adres_meti(satir) and satir not in adresler:
+            adresler.append(satir)
+        if len(adresler) >= 3:
+            break
+    m = re.search(r"vergi[^0-9]{0,40}(\d{10,11})", baslangic,
+                  re.IGNORECASE)
+    vergi_no = m.group(1) if m else ""
+    sonuc = {
+        "marka": cozulen_ad,
+        "site": en_site,
+        "unvan": "",
+        "telefonlar": telefonlar[:3],
+        "eposta": eposta[:3],
+        "adresler": adresler,
+        "vergi_no": vergi_no,
+        "kaynak": en_iyi,
+        "eksik": [alan for alan, deger in (
+            ("telefon", telefonlar), ("eposta", eposta),
+            ("adres", adresler), ("vergi_no", vergi_no))
+            if not deger],
+    }
+    return {"result": _j(sonuc)}
+
 
 def eslesme_adayi(marka, kod):
     """Eşleştirme için normalize kimlik + aday sorgular üretir.
