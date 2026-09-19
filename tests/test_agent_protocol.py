@@ -599,3 +599,98 @@ def test_10_yetenek_alani_52_araci_eksiksiz_tasir():
     assert len(duz) == 52
     assert len(set(duz)) == 52
     assert set(duz) == set(TANINMIS_TOOLLAR)
+
+
+
+def test_gemini3_thought_signature_tool_call_icinde_korunur():
+    """Google OpenAI uyumlulugundaki extra_content imzasi kaybolamaz."""
+    from brain.gemini import GeminiClient
+    from brain.message_utils import mesajlari_temizle
+
+    class Comp:
+        def create(self, **kwargs):
+            tc = types.SimpleNamespace(
+                id="g1",
+                function=types.SimpleNamespace(name="x", arguments="{}"),
+                extra_content={
+                    "google": {"thought_signature": "SIG-A"}
+                },
+            )
+            msg = types.SimpleNamespace(content="", tool_calls=[tc])
+            return types.SimpleNamespace(
+                choices=[types.SimpleNamespace(message=msg)], usage=None)
+
+    istemci = GeminiClient.__new__(GeminiClient)
+    istemci.client = types.SimpleNamespace(
+        chat=types.SimpleNamespace(completions=Comp()))
+    istemci.model = "gemini-3-flash-preview"
+
+    yanit = istemci.cevapla(
+        [{"role": "user", "content": "s"}],
+        tools=[{"type": "function", "function": {"name": "x"}}],
+        tool_choice="auto",
+    )
+    tc = yanit["tool_calls"][0]
+    assert tc["extra_content"]["google"]["thought_signature"] == "SIG-A"
+
+    tarihce = mesajlari_temizle([{
+        "role": "assistant",
+        "content": "",
+        "tool_calls": yanit["tool_calls"],
+    }])
+    assert (tarihce[0]["tool_calls"][0]["extra_content"]["google"]
+            ["thought_signature"] == "SIG-A")
+
+
+def test_cohere_v2_tool_sonucu_document_bloguna_cevrilir():
+    """Cohere V2 resmi role=tool content bicimini korur."""
+    from brain.cohere import CohereClient
+
+    yakalanan = {}
+
+    class Client:
+        def chat(self, **kwargs):
+            yakalanan.update(kwargs)
+            msg = types.SimpleNamespace(
+                content=[types.SimpleNamespace(text="tamam")],
+                tool_calls=None,
+            )
+            return types.SimpleNamespace(message=msg, usage=None)
+
+    istemci = CohereClient.__new__(CohereClient)
+    istemci.client = Client()
+    istemci.model = "command-a-03-2025"
+
+    istemci.cevapla(
+        [
+            {"role": "user", "content": "s"},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [_call("x", "{}", "c1")],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "c1",
+                "name": "x",
+                "content": '{"result":"ok"}',
+            },
+        ],
+        tools=[{
+            "type": "function",
+            "function": {
+                "name": "x",
+                "description": "x",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }],
+        tool_choice="required",
+    )
+
+    tool_msg = next(
+        m for m in yakalanan["messages"] if m["role"] == "tool")
+    assert tool_msg["tool_call_id"] == "c1"
+    assert tool_msg["content"] == [{
+        "type": "document",
+        "document": {"data": '{"result":"ok"}'},
+    }]
