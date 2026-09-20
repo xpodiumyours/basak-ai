@@ -149,6 +149,12 @@ class OpenRouterClient:
             kwargs["tools"] = tools
             if tool_choice is not None:
                 kwargs["tool_choice"] = tool_choice
+            # OpenRouter resmi provider-routing davranisi: aracli istegi
+            # yalniz gonderilen parametreleri gercekten destekleyen uclara
+            # yonlendir. Model secimini veya cevabini kisitlamaz.
+            kwargs["extra_body"] = {
+                "provider": {"require_parameters": True}
+            }
 
         resp = self.client.chat.completions.create(**kwargs)
         secimler = getattr(resp, "choices", None) or []
