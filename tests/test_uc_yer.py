@@ -87,5 +87,7 @@ class TestUcYer:
             "Rate limit reached. Please try again in 10.7s.")) == 10.7
         assert _bekleme_suresi(RuntimeError("429 too many")) is None
         assert _bekleme_suresi(RuntimeError("x")) is None
+        # Saglayicinin gercek Retry-After degeri erken kesilmez; aksi halde
+        # kota dolmadan once yeniden istek atilip ucretsiz hak yakilir.
         assert _bekleme_suresi(RuntimeError(
-            "retry-after: 300")) == 180.0  # tavan
+            "retry-after: 300")) == 300.0
