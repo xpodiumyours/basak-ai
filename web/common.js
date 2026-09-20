@@ -1,6 +1,6 @@
-// common.js — saglik pigili + token akisi.
+// common.js — saglik bilgisi + token akisi.
 // Dis erisimde (LAN/internet) kopru token ister: bir kez sorar,
-// localStorage'a yazar, sonra her istekte tasir (SSE icin ?token=).
+// localStorage'a yazar, sonra her HTTP isteginde tasir.
 window.basakToken = () => {
   let t = localStorage.getItem("basak_token");
   if (!t) {
@@ -17,23 +17,27 @@ window.basakFetch = (yol, secenek = {}) => {
   return fetch(yol, { ...secenek, headers: basliklar });
 };
 
-window.basakSse = (yol) => {
-  const t = window.basakToken();
-  const ayirac = yol.includes("?") ? "&" : "?";
-  return new EventSource(t ? yol + ayirac + "token=" +
-    encodeURIComponent(t) : yol);
-};
-
 async function basakHealth() {
   try {
-    const r = await window.basakFetch("/api/matris", { cache: "no-store" });
+    const r = await window.basakFetch("/api/durum", { cache: "no-store" });
     const dot = document.getElementById("healthDot");
     const text = document.getElementById("healthText");
     const ok = r.ok;
-    if (dot) dot.classList.toggle("ok", ok);
-    if (text) text.textContent = ok ? "Köprü hazır" :
-      (r.status === 401 ? "Kod gerekli" : "Köprü hatası");
-    return ok;
+    let d = {};
+    try { d = await r.json(); } catch {}
+    if (dot) dot.classList.toggle("ok", ok && d.ok);
+    if (text) {
+      if (r.status === 401) {
+        text.textContent = "Kod gerekli";
+      } else if (!ok || !d.ok) {
+        text.textContent = "Köprü hatası";
+      } else {
+        const sag = (d.saglayicilar || []).join(", ") || "model yok";
+        text.textContent = "Hazır · " + sag + " · " +
+          (d.arac_sayisi || 0) + " araç · " + (d.commit || "?");
+      }
+    }
+    return ok && !!d.ok;
   } catch (e) {
     const text = document.getElementById("healthText");
     if (text) text.textContent = "Bağlantı yok";
