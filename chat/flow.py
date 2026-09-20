@@ -190,22 +190,15 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
                                                "content": text}]
 
     # ── Gercek ajan yolu ────────────────────────────────────────────
-    # Uretim Brain'i ajan protokolunu destekliyorsa model her turda
-    # function call yapmak zorundadir: gercek bir arac veya son_cevap.
-    # Kelime/niyet siniflandiricisi YOKTUR; hangi araci kullanacagini
-    # model secer. Zorunlu tool protokolunu dogrulamadigimiz saglayiciya
-    # sessizce dusulmez — aksi halde sistem yeniden chatbot gibi davranir.
+    # Tools varken modelin karari serbesttir: normal sohbette dogrudan
+    # metin, gercek veri/eylem gerektiginde native tool_call. tool_choice="auto"
+    # resmi saglayici davranisiyla uyumludur; kod kullanici metnini
+    # siniflandirmaz ve araci zorlamaz.
     if arac_acik and hasattr(brain, "ajan_musait"):
-        if not brain.ajan_musait():
-            js_callback("BasakUI.error(" + _j(
-                "Ajan modu icin dogrulanmis arac protokollu ucretsiz "
-                "bir beyin bagli degil") + ")")
-            return
-
         ajan_tools = baslangic_araclari()
         try:
             yanit, kaynak = brain.cevapla(
-                mesajlar, model, tools=ajan_tools, tool_choice="required")
+                mesajlar, model, tools=ajan_tools, tool_choice="auto")
         except Exception as e:
             hata = str(e)
             if "429" in hata or "rate" in hata.lower():
@@ -218,20 +211,26 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
 
         tool_calls = (yanit.get("tool_calls")
                       if isinstance(yanit, dict) else None)
+
+        # Normal sohbet: model arac gerektirmedigine kendi karar verdiyse
+        # dogal metni final kabul et. Ajan olmak her turda arac kullanmak
+        # demek degildir.
         if not tool_calls:
-            # required protokolunde duz metin kabul edilmez. Bu kapi,
-            # arac gerektiren isi yalniz anlatarak gecistirmeyi engeller.
-            js_callback("BasakUI.error(" + _j(
-                "Ajan protokolu bozuldu: model arac veya son_cevap "
-                "cagirmadi") + ")")
+            cevap = _temizle(
+                yanit.get("content", "") if isinstance(yanit, dict)
+                else yanit)
+            if cevap:
+                _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci)
+                return
+            js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")")
             return
 
         from chat.tools import arac_dongusu
         from tools import calistir
         cevap, kosan = arac_dongusu(
             tool_calls, mesajlar, brain, model, js_callback, calistir,
-            tools=ajan_tools, yanit=yanit, tool_choice="required",
-            tum_tools=tools)
+            tools=ajan_tools, yanit=yanit, tool_choice="auto",
+            tum_tools=tools, tercih=[kaynak] if kaynak else None)
         cevap = _temizle(cevap)
         if cevap:
             _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci)
