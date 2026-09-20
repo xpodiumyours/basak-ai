@@ -31,16 +31,38 @@ SEKIZLER = ("groq", "gemini", "openrouter", "glm", "cloudflare",
             "cohere", "kilo", "nvidia")
 
 # Anahtar adi -> ayarlar.json alani. cloudflare account_id ister.
+# 2026-09-20 DUZELTMESI: alan adlari adaptorun GERCEK adlaridir
+# (brain/adapters/cloudflare_adapter.py -> "cloudflare_account_id" +
+# "cloudflare_api_token"). Onceki liste ("cf_account_id"/"cf_api_token")
+# uyusmadigi icin anahtar girilse bile hucre SKIP yaziyordu.
 ANAHTARLAR = {
     "groq": ["groq_key"],
     "gemini": ["gemini_key"],
     "openrouter": ["openrouter_key"],
     "glm": ["zai_key"],
-    "cloudflare": ["cf_account_id", "cf_api_token"],
+    "cloudflare": ["cloudflare_account_id", "cloudflare_api_token"],
     "cohere": ["cohere_key"],
     "kilo": [],
     "nvidia": ["nvidia_key"],
 }
+
+# Ayni anahtarin ortam degiskeni karsiligi: CI'da sir'lar env ile gelir
+# (.github/workflows/basak-full-acceptance.yml). Dosya yoksa env okunur.
+ORTAM_ANAHTARLARI = {
+    "groq_key": "GROQ_API_KEY",
+    "gemini_key": "GEMINI_API_KEY",
+    "openrouter_key": "OPENROUTER_API_KEY",
+    "zai_key": "ZAI_API_KEY",
+    "cloudflare_account_id": "CLOUDFLARE_ACCOUNT_ID",
+    "cloudflare_api_token": "CLOUDFLARE_API_TOKEN",
+    "cohere_key": "COHERE_API_KEY",
+    "nvidia_key": "NVIDIA_API_KEY",
+}
+
+# Anahtar yoklugunun matristeki tek mesaji: SKIP + TEKRAR DENE. Tahminle
+# doldurma YASAK; anahtar gelince ayni hucre aynen yeniden kosar.
+ANAHTAR_YOK = ("anahtar yok — TEKRAR DENE (anahtar girilince ayni hucre "
+               "yeniden kosar)")
 
 # Tek kaynak: registry. GercEK ajan modu oradan okunur (kopya tablo yok).
 def _zorlama(ad):
@@ -50,9 +72,28 @@ def _zorlama(ad):
 ZORLAMA = {ad: _zorlama(ad) for ad in SEKIZLER}
 
 
+def _ayarlar():
+    """ayarlar.json'u guvenle okur; dosya yok/bozuksa bos sozluk doner.
+
+    CI makinesinde ayarlar.json YOKTUR (sir'lar ortam degiskenindedir);
+    eski kod dosyayi dogrudan acip FileNotFoundError veriyordu.
+    """
+    try:
+        with open(KOK / "ayarlar.json", encoding="utf-8-sig") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
 def _anahtarlar(ad):
-    a = json.load(open(KOK / "ayarlar.json", encoding="utf-8-sig"))
-    degerler = [a.get(k, "").strip() for k in ANAHTARLAR[ad]]
+    """Saglayicinin anahtar degerleri; eksikse None (SKIP yazilir)."""
+    ayar = _ayarlar()
+    degerler = []
+    for k in ANAHTARLAR[ad]:
+        ortam = ORTAM_ANAHTARLARI.get(k, "")
+        v = ((os.environ.get(ortam, "") if ortam else "")
+             or ayar.get(k, "") or "")
+        degerler.append(str(v).strip())
     return degerler if (not degerler or all(degerler)) else None
 
 
@@ -189,8 +230,8 @@ def _matrise_yaz(ad, durum, sure=None, hata=None):
 def saglayici_hucresi(ad):
     """Tek saglayicinin Duzey 1 hucresi. Donus: (durum, mesaj)."""
     if _anahtarlar(ad) is None:
-        _matrise_yaz(ad, "SKIP", hata="anahtar yok")
-        return "SKIP", "anahtar yok"
+        _matrise_yaz(ad, "SKIP", hata=ANAHTAR_YOK)
+        return "SKIP", ANAHTAR_YOK
     if ad in ("glm",):
         # Zincirde halihazira cooldown'lu; yine de DENENIR — kapsam tam.
         pass

@@ -205,3 +205,52 @@ sebebi TEK YOL:
   yuz etiketiyle zenginlestirilmesi; baska hicbir sey degismez.
 - Sonuc: web ekraninda gordugun arac hareketi ile masaustunde gordugun
   AYNI olay kaynagindan akar; esitlik mimariden gelir, kabullenmeye degil.
+
+## KOK NEDEN KANITI — CAPRAZ SAGLAYICI DEVAMI (2026-09-20)
+
+Osman/ajan notu: bu bolum TAHMIN degil OLCUM kaydidir. Once kanit
+uretildi, sonra kod degistirildi (ters sira 2026-09-20'de bir kez
+denendi ve geri alindi).
+
+**Semptom (kanit):** `data/audit/audit.log` 02:18:17 —
+`gemini: 400 ... Function call is missing a thought_signature in
+functionCall parts ... function call 'default_api:yetenek_ac', position 20`
+Ayni saniyelerde groq 413 (TPM 8000) ve zincirin diger saglayicilara
+dagildigi kayitli. Sonuc: `TAM BASARISIZLIK`.
+
+**Once curutulen aciklama:** "gemini adaptoru imzayi dusuruyor".
+Curudu: bugunun GERCEK yaniti (`gemini_native.json`, 12:10:26) imzayi
+tasiyor: `tool_calls[0].extra_content.google.thought_signature`; repodaki
+(HEAD) kalip da ayni; `tests/test_seviye0_sozlesme.py` bunu zaten kilitliyor.
+
+**Kontrollu A/B (3 canli Gemini cagrisi, elle):**
+`python tests/live/gemini_imza_deneyi.py`
+
+| Deney | Gonderilen | Sonuc |
+|---|---|---|
+| TUR-1 | arac sorusu | tool_call imzali geldi |
+| A | ayni tool_call IMZASIYLA tur-2 | **BASARILI** (tur-2 tamam) |
+| B | ayni tool_call IMZASIZ (baska saglayicidan gelmis gibi) | **400** thought_signature |
+
+**Yargi:** Ajan dongusunun devam turu saglayici degistirdiginde, yeni
+saglayici kendi uretmedigi tool_call'i imzasiz gorup istegi reddediyor.
+Kok neden budur.
+
+**Duzeltme (kanit sonrasi, minimal):** devam turu basladigi saglayiciya
+baglanir — `chat/tools.py::arac_dongusu(kaynak=...)` -> `_beyin_devam`
+icinde `tercih=[kaynak]`; akis yolunda saglayici adi
+`brain/yayin.py::AracIstegi.saglayici` ile tasinir; `chat/flow.py` uc
+cagri yerinde `kaynak` gecirir. Kilidi:
+`tests/test_agent_protocol.py::test_dongu_devami_basladigi_saglayicida_surer`.
+
+**Olculmemis kalan (ayri aday, iddia DEGIL):** `brain/yayin.py` akis
+yolunda tool_call parcalari deltalardan yeniden kurulurken
+`extra_content` kopyalanmiyor. Akista baslayan bir Gemini arac turunda
+imza duse bilir; bu HENUZ olculmedi (1-2 canli cagri ile olculebilir).
+
+**Bekleyen kirmizilar (bu isten bagimsiz, saglayici tarafi):**
+- `cloudflare`, `cohere`: anahtar yok -> SKIP + TEKRAR DENE (104 hucre).
+  Casper karari (2026-09-20): anahtar eklenmeyecek, 6 saglayici uzerinden
+  kosulacak ve eksik hucreler durustce TEKRAR DENE yazilacak.
+- `glm/hesapla`: 429 kodu 1302 "Rate limit reached" — protokol degil.
+- Pilot 64 guncel: 47 YESIL / 1 KIRMIZI / 16 SKIP (pilot64-3 kosusu).

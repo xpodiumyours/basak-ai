@@ -5,17 +5,16 @@
   "name": "basak-gate-preview",
   "main": "src/index.js",
   "compatibility_date": "2026-09-01",
-  // IKINCI BEYIN KALINTISININ KAPANIS KAYDI:
-  // LabState = sahte kabul oturumlarının veri odasi. Resmi dokuman
-  // (developers.cloudflare.com/durable-objects/reference/durable-objects-migrations):
-  // yetim ad alaninin resmi cozumu = "deleted" tombstone (exports'ta).
-  // Odanin icindeki sahte oturum verisi KALICI olarak silinir — bu temizligin kendisi.
-  // Silme tamamlandiktan sonra Cloudflare bu kaydi "stale/silinebilir"
-  // diye raporlayacak; o zaman cikarilabilir (asagida not dusuldu).
-  "exports": {
-    "LabState": {
-      "type": "durable-object",
-      "state": "deleted"
+  // TUNEL ADRESI ARTIK KV'DE (2026-09-20): HEDEF namespace'inin "url"
+  // anahtarindaki adrese 302 atar; nobetci adresi gunceller, kod sabit.
+  "kv_namespaces": [
+    {
+      "binding": "HEDEF",
+      "id": "fc31a6c3a2694e33a6ad7f63521a8f9f"
     }
-  }
+  ]
+  // IKINCI BEYIN KALINTISININ KAPANIS KAYDI (LabState): resmi dokumanin
+  // soyledigi temizlik adimi 2026-09-20 deploy ciktisinda tamamlandi —
+  // "stale_tombstone — Safe to remove from `exports`" denildi ve
+  // kalinti cikarildi. Kayit asagida tarih olarak durur.
 }

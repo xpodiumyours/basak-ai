@@ -33,6 +33,24 @@ from tests.live import kosucu  # noqa: E402  (ortak hatti yeniden kullanir)
 MATRIS = KOK / "data" / "kabul-matrisi.json"
 _HUCRE_ARASI_BEKLEME = 2.0   # kota dostu pace (saniye)
 
+# Saglayici bazli pace: saglayicinin İLAN ETTIGI dakikalik/hiz sinirina
+# uymak icin (tavan degil, hiz uyumu — AGENTS.md S0-5 tavan yasagi
+# modeli daraltan sinirlar icindir, saglayicinin kendi kotasi degil).
+#   groq: ucretsiz katman 8000 TPM (2026-09-20 413 kaniti: Requested
+#         11125 / Limit 8000). Hucre basi ~1.2K token -> dakikada ~5 hucre.
+#   gemini: 10 RPM ucretsiz katman; 3.5 sn guvenli aralik.
+#   digerleri: dakika siniri gozlenmedi, 3 sn yeterli.
+_PACE = {
+    "groq": 11.0,
+    "gemini": 3.5,
+    "openrouter": 3.0,
+    "glm": 3.0,
+    "cloudflare": 3.0,
+    "cohere": 3.0,
+    "kilo": 3.0,
+    "nvidia": 3.0,
+}
+
 # Pilot 8 temsilci arac: 2 kontrol + 6 temsilci (kapsam sozlesmesi:
 # pilot BU kosuda gecerli; tam 416'a geciste tum 52 arac acilir).
 PILOT_ARACLAR = ("simdi", "hesapla", "git_durum", "sayfa_oku",
@@ -114,6 +132,28 @@ def _hedef_araclar(pilot):
     return [t["function"]["name"] for t in kosucu.TOOL_SEMALARI]
 
 
+def _hata_sinifi(mesaj):
+    """Kirmizinin SINIFINI yazar (durum DEGISMEZ — yalniz teshis etiketi).
+
+    KOTA: saglayicinin kendi siniri (429/1302/1305/quota/rate limit/TPM).
+    ZAMAN_ASIMI: saglayici sure icinde cevap vermedi.
+    PROTOKOL: native tool_call donmedi / baska arac secti / bos tur-2.
+    SOZLESME: kosucunun kendi kurali (or. SKIP yazilmasi gereken yer).
+    Boylece nihai rapor "kac kirmizi protokol, kac kota" diye ayrilir;
+    kota kirmizisi kota taze iken yeniden kosulur.
+    """
+    s = str(mesaj).lower()
+    if any(k in s for k in ("429", "rate limit", "quota", "1302", "1305",
+                            "overloaded", "tpm", "too large", "413")):
+        return "KOTA"
+    if any(k in s for k in ("timed out", "timeout", "time out")):
+        return "ZAMAN_ASIMI"
+    if ("tool_call" in s or "arac secti" in s or "tur-2" in s
+            or "bos dondu" in s or "native" in s):
+        return "PROTOKOL"
+    return "BILINMEYEN"
+
+
 def _add_task_temizle():
     """Koşumdan ONCE eski pilot test satirlarini kapatir (beyaz kare)."""
     try:
@@ -186,6 +226,7 @@ def _hucre_kos(saglayici, arac, sema, istemci):
     except Exception as e:
         kayit["durum"] = "KIRMIZI"
         kayit["hata"] = str(e)[:250]
+        kayit["sinif"] = _hata_sinifi(e)   # kota/zaman asimi/protokol
         kayit["sure"] = round(time.time() - basla, 2)
     _hucre_yaz(saglayici, arac, kayit)
     return kayit
@@ -203,13 +244,14 @@ def kos_tumu(saglayicilar=None, pilot=False, bekleme=_HUCRE_ARASI_BEKLEME):
             for arac in _hedef_araclar(pilot):
                 _hucre_yaz(saglayici, arac, {
                     "saglayici": saglayici, "arac": arac, "durum": "SKIP",
-                    "hata": "anahtar yok",
+                    "hata": kosucu.ANAHTAR_YOK,
                     "zaman": time.strftime("%Y-%m-%d %H:%M:%S")})
                 n += 1
             ozet["SKIP"] += n
             ozet["toplam"] += n
             ozet["saglayicilar"][saglayici] = {"SKIP": "anahtar yok"}
-            print("[SKIP] %s — anahtar yok (%d hucre)" % (saglayici, n))
+            print("[SKIP] %s — anahtar yok (%d hucre, TEKRAR DENE)"
+                  % (saglayici, n))
             continue
         try:
             istemci = kosucu._istemci(saglayici)
@@ -238,7 +280,7 @@ def kos_tumu(saglayicilar=None, pilot=False, bekleme=_HUCRE_ARASI_BEKLEME):
                                        kayit.get("hata",
                                                  "%.1f sn" % kayit["sure"])))
             if i < len(araclar) - 1 and bekleme > 0:
-                time.sleep(bekleme)
+                time.sleep(_PACE.get(saglayici, bekleme))
         ozet["YESIL"] += sayim["YESIL"]
         ozet["KIRMIZI"] += sayim["KIRMIZI"]
         ozet["saglayicilar"][saglayici] = sayim

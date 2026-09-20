@@ -12,5 +12,11 @@
     "tts_on": false,
     "yerel_goru_kapali": true,
     "_yerel_goru_notu": "true = fatura/goruntu okumasi yerel CPU modelini HIC denemez, dogrudan buluta gider. GPU'su olmayan makinede onerilir (olculen: yerel deneme 300 sn suruyordu)."
+  },
+  "_bos_yuvalar": {
+    "_not": "Cloudflare ve Cohere de ucretsiz ve kart istemez; anahtarlari girilince zincir 8 saglayiciya cikar ve kabul matrisindeki 104 SKIP hucre canli olur. Alan adlari KODUN okudugu adlardir (brain/adapters/cloudflare_adapter.py, cohere_adapter.py) — farkli yazilirsa hucre yine SKIP kalir.",
+    "cloudflare_account_id": "",
+    "cloudflare_api_token": "",
+    "cohere_key": ""
   }
 }

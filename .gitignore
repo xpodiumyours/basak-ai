@@ -62,9 +62,16 @@ tr_TR-dfki-medium.onnx.json
 # Kullanici verisi — asla commit edilmez (tablo + gorevler kisiye ozel)
 data/matris/
 data/uretilen/
+data/kabul-matrisi.json
+
+# Canli kosu loglari — asla commit edilmez (tunnel/pilot/web-kopru)
+data/*.log
+data/eski-login-url.txt
+
+# Wrangler onbellegi — asla commit edilmez (hesap onbellegi repoya ait degil)
+basak-kapisi/.wrangler/
 
 # Katalog yeteneği — fatura fotoğrafları, işler, çıktılar, izin belgeleri
 data/gelen/
 data/katalog/
 data/yetki/
-basak-kapisi/.wrangler: cache
