@@ -29,7 +29,10 @@ SAGLAYICILAR = {
         "gunluk_istek": 1000,
         "dakikalik_token": 8000,
         "gunluk_token": 200000,
-        "not": "Ucretsiz ve cok hizli; 20b hizli, 120b guclu.",
+        # Resmi tablo yuksek-seviye tabandir; org'a ozel limit farkli
+        # olabilir. Yerelde sert kesme yapma, 429 + reset basligi hakikattir.
+        "yerel_kota_koru": False,
+        "not": "Ucretsiz ve cok hizli; 20b hizli, 120b guclu. Exact limit org bazli degisebilir.",
     },
     "gemini": {
         "ad": "Gemini",
@@ -43,6 +46,7 @@ SAGLAYICILAR = {
         # Gemini limitleri model + proje + kullanim katmanina gore degisir;
         # resmi belge kesin rakam icin AI Studio Limits sayfasini isaret eder.
         "gunluk_istek": None,
+        "yerel_kota_koru": False,
         "not": "Ucretsiz katman; kota model/proje bazli, 429 anlik hakikat.",
     },
     "glm": {
@@ -66,6 +70,7 @@ SAGLAYICILAR = {
         "gucleri": ["genel", "hiz"],
         "gunluk_istek": None,
         "gunluk_neuron": 10000,
+        "yerel_kota_koru": False,
         "not": "Workers Free: 10.000 neuron/gun; GLM-4.7-Flash tool calling destekli.",
     },
     "cohere": {
@@ -79,7 +84,8 @@ SAGLAYICILAR = {
         # Resmi belge (docs.cohere.com/docs/rate-limits): deneme bileti
         # ayda toplam 1000 soru + dakikada 20 soru. Gunluk degil AYLIK.
         "aylik_istek": 1000,
-        "not": "Trial key: ayda 1000 soru; Command R hizli ve tool destekli.",
+        "yerel_kota_koru": True,
+        "not": "Trial key: ayda 1000 soru; Command A tool destekli.",
     },
     "deepseek": {
         "ad": "DeepSeek",
@@ -139,6 +145,7 @@ SAGLAYICILAR = {
         "gunluk_istek": None,   # sinir saatlik (200 istek/saat/IP), gunluk degil
         # Resmi davranis: saatte 200 soru/IP. Gunluk karta islenmez.
         "saatlik_istek": 200,
+        "yerel_kota_koru": True,
         "not": "Anahtarsiz calisir; 200 istek/saat/IP. Basari dusuk "
                "(%25, 2026-09 gozlemi) — one alinmaz, yedek durur. "
                "Ucretsiz katman gonderilen yazilari kaydedebilir — "
@@ -153,7 +160,8 @@ SAGLAYICILAR = {
         # ajan icin kabul eder; duz metni ajan turunda basari saymaz.
         "ajan_tool_mode": "auto_enforced",
         "gucleri": ["genel"],
-        "gunluk_istek": 50,   # :free modeller tipik ucretsiz katman limiti
+        "gunluk_istek": 50,
+        "yerel_kota_koru": True,
         "not": "Free hesap: 50 istek/gun; yalniz :free ve tool destekli modeller.",
     },
 }
@@ -173,8 +181,11 @@ SAGLAYICILAR = {
 # DeepSeek karti asagida durur (ucretli oldugu bilinsin) ama zincire
 # HIC girmez — adaptoru yok, testler ucretli oldugunu dogrular.
 VARSAYILAN_SIRA = [
-    "groq", "gemini", "openrouter", "glm", "cloudflare", "cohere",
-    "kilo", "nvidia",
+    # Guclu + genis ucretsiz hatlar once; dar aylik/gunluk havuzlar
+    # son care olarak saklanir. Bu semantik router degildir: kullanici
+    # mesajina bakmaz, yalniz resmi kapasite + canli olcum gercegidir.
+    "groq", "gemini", "cloudflare", "kilo", "nvidia", "glm",
+    "openrouter", "cohere",
 ]
 
 
