@@ -210,6 +210,9 @@ def test_durum_endpointi_sir_gostermeden_surumu_verir(sunucu, monkeypatch):
     assert veri["arac_sayisi"] == 3
     assert veri["tasima"] == "http-polling"
     assert [m["ad"] for m in veri["modeller"]] == ["groq", "gemini"]
+    assert all(m["model"] == "dogrulanamadi" for m in veri["modeller"])
+    assert "groq" in veri["beklenen_saglayicilar"]
+    assert "openrouter" in veri["eksik_saglayicilar"]
     assert "gucleri" in veri["modeller"][0]
     assert "limit" in veri["modeller"][0]
     assert "kullanim" in veri["modeller"][0]
