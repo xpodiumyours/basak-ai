@@ -84,23 +84,75 @@ def _rate_limit_mi(hata):
 
 
 def _bekleme_suresi(hata):
-    """Saglayicinin soyledigi bekleme suresi (sn) — yoksa None.
+    """Saglayicinin bildirdigi gercek reset suresini kullan.
 
-    429/413 mesajlari "try again in 10.7s" tasir; sabit 20 sn yerine
-    soylenene uyulur (bosuna erken donup kota yenmez). Tavan 180 sn:
-    saf teknik bekleme, secim karari degil.
+    Once HTTP Retry-After / x-ratelimit-reset-* basliklari okunur; SDK
+    baslik vermiyorsa hata metnindeki sure ayiklanir. Bu teknik geri cekilme
+    saglayiciyi erken tekrar deneyip ucretsiz kotayi yakmayi engeller.
     """
     import re as _re
-    s = str(hata)
-    m = _re.search(r"try again in ([\d.]+)s", s)
-    if not m:
-        m = _re.search(r"(?i)retry[-\s]?after[:\s]+([\d.]+)", s)
-    if not m:
-        return None
+
+    def _sure(v):
+        if v is None:
+            return None
+        s = str(v).strip().lower()
+        try:
+            return max(1.0, min(86400.0, float(s)))
+        except ValueError:
+            pass
+        toplam = 0.0
+        for sayi, birim in _re.findall(r"([\d.]+)\s*(ms|s|m|h)", s):
+            n = float(sayi)
+            toplam += n * {"ms": 0.001, "s": 1, "m": 60, "h": 3600}[birim]
+        return max(1.0, min(86400.0, toplam)) if toplam else None
+
     try:
-        return max(1.0, min(180.0, float(m.group(1))))
-    except ValueError:
-        return None
+        resp = getattr(hata, "response", None)
+        baslik = getattr(resp, "headers", None) or {}
+        for ad in ("retry-after", "x-ratelimit-reset-tokens",
+                   "x-ratelimit-reset-requests"):
+            deger = baslik.get(ad) or baslik.get(ad.title())
+            sure = _sure(deger)
+            if sure:
+                return sure
+    except Exception:
+        pass
+
+    s = str(hata)
+    for desen in (
+        r"(?i)try again in\s+([\d.]+\s*(?:ms|s|m|h))",
+        r"(?i)retry[-\s]?after[:\s]+([\d.]+\s*(?:ms|s|m|h)?)",
+    ):
+        m = _re.search(desen, s)
+        if m:
+            return _sure(m.group(1))
+    return None
+
+
+def _yerel_kota_doldu(ad, istat):
+    """Resmi, sabit ucretsiz kotalarda gereksiz API denemesini engeller.
+
+    Yalniz registry'de resmi olarak sayisal siniri bulunan saglayicilar
+    kapsanir. Degisken/hesaba ozel kotalarda karar verilmez; 429 hakikattir.
+    """
+    kart = registry.kart(ad)
+    saat = kart.get("saatlik_istek")
+    gun = kart.get("gunluk_istek")
+    ay = kart.get("aylik_istek")
+
+    if saat and istat.istek_sayisi(ad, "saat") >= int(saat):
+        return "saatlik istek kotasi"
+    if gun and istat.istek_sayisi(ad, "gun") >= int(gun):
+        return "gunluk istek kotasi"
+    if ay and istat.istek_sayisi(ad, "ay") >= int(ay):
+        return "aylik istek kotasi"
+
+    token = kart.get("gunluk_token")
+    if token:
+        giris, cikis = istat.token_bugun(ad)
+        if giris + cikis >= int(token):
+            return "gunluk token kotasi"
+    return ""
 
 
 def _zaman_asimi_mi(hata):
@@ -333,13 +385,22 @@ class Brain:
             istemci = istemciler.get(ad)
             if istemci is None:
                 continue
-            # Cooldown: 429 gelmisse atla
+            istat = model_stats_al()
+
+            # Resmi sabit ucretsiz limit yerel kayitta dolduysa yeni istek
+            # atma. Bu bir model/routing karari degil, kota korumasidir.
+            kota_nedeni = _yerel_kota_doldu(ad, istat)
+            if kota_nedeni:
+                logger.info("%s %s, atlandi", ad, kota_nedeni)
+                _audit("KOTA kaynak=%s | %s" % (ad, kota_nedeni))
+                continue
+
+            # 429 / zaman asimi sonrasi saglayicinin reset suresince atla.
             kalan = _cooldown_kaldi(ad)
             if kalan > 0:
                 logger.info("%s cooldown (%.0f sn), atlandi", ad, kalan)
                 continue
 
-            istat = model_stats_al()
             t0 = time.time()
             # FAZ 1.1: yapi istenmisse ve saglayici daha once kirmamissa
             # sozlesme tasınır; kirtilmis saglayicida yapi hic gonderilmez.
