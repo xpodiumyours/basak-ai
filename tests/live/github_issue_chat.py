@@ -30,8 +30,15 @@ def main():
     import tools as tools_mod
 
     b = Brain()
-    ajanlar = [ad for ad, _ in b._bulut_zinciri(
-        tools=True, tool_required=True)]
+    ajan_zinciri = b._bulut_zinciri(tools=True, tool_required=True)
+    ajanlar = [ad for ad, _ in ajan_zinciri]
+    from brain import registry
+    beklenen = list(registry.VARSAYILAN_SIRA)
+    eksikler = [ad for ad in beklenen if ad not in ajanlar]
+    model_adlari = {
+        ad: (getattr(istemci, "model", None) or "dogrulanamadi")
+        for ad, istemci in ajan_zinciri
+    }
 
     if not ajanlar:
         _yaz(
@@ -90,7 +97,10 @@ def main():
                 hata = code
 
     araclar = ", ".join(kosulan) if kosulan else "yok"
-    ajan_havuzu = ", ".join(ajanlar)
+    ajan_havuzu = ", ".join(
+        "%s:%s" % (ad, model_adlari.get(ad, "dogrulanamadi"))
+        for ad in ajanlar)
+    eksik_havuz = ", ".join(eksikler) if eksikler else "yok"
 
     if cevap:
         sonuc = (
@@ -99,7 +109,8 @@ def main():
             f"**Başak:** {cevap}\n\n"
             f"**Sağlayıcı:** {kaynak or 'doğrulanamadı'}\n\n"
             f"**Çalışan gerçek araçlar:** {araclar}\n\n"
-            f"**Hazır ajan havuzu:** {ajan_havuzu}\n"
+            f"**Hazır ajan havuzu:** {ajan_havuzu}\n\n"
+            f"**Hazır olmayan ücretsiz yuvalar:** {eksik_havuz}\n"
         )
     else:
         sonuc = (
