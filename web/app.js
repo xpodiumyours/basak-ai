@@ -5,6 +5,7 @@ const msgEl = document.getElementById("message");
 const sendEl = document.getElementById("send");
 
 const balonlar = new Map();
+const sonAracDurumu = new Map();
 const kapat = (el) => el && el.querySelector(".meta")?.remove();
 const uyu = (ms) => new Promise((coz) => setTimeout(coz, ms));
 
@@ -32,6 +33,7 @@ function olayiIsle(o) {
     return false;
   }
   if (o.tur === "toolStatus") {
+    sonAracDurumu.set(no, o.metin || "");
     let b = balonlar.get(no);
     if (b) {
       b.querySelector(".meta")?.remove();
@@ -68,16 +70,26 @@ function olayiIsle(o) {
           b.textContent === "…") {
         b.textContent = o.cevap || "…";
       }
-      if (o.kaynak) {
+      const meta = [];
+      if (o.kaynak) meta.push("Model: " + o.kaynak);
+      if (sonAracDurumu.get(no)) {
+        meta.push("Araç: " + sonAracDurumu.get(no));
+      }
+      if (meta.length) {
         const m = document.createElement("span");
         m.className = "meta";
-        m.textContent = "Model: " + o.kaynak;
+        m.textContent = meta.join(" · ");
         b.appendChild(m);
       }
     } else {
-      bubble("assistant", o.cevap || "…",
-             o.kaynak ? "Model: " + o.kaynak : "");
+      const meta = [];
+      if (o.kaynak) meta.push("Model: " + o.kaynak);
+      if (sonAracDurumu.get(no)) {
+        meta.push("Araç: " + sonAracDurumu.get(no));
+      }
+      bubble("assistant", o.cevap || "…", meta.join(" · "));
     }
+    sonAracDurumu.delete(no);
     balonlar.delete(no);
     return true;
   }
@@ -85,6 +97,7 @@ function olayiIsle(o) {
     const b = balonlar.get(no);
     if (b) b.remove();
     bubble("assistant", "Hata: " + o.metin);
+    sonAracDurumu.delete(no);
     balonlar.delete(no);
     return true;
   }
