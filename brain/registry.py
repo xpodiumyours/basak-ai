@@ -169,17 +169,12 @@ SAGLAYICILAR = {
 # Varsayilan oncelik sirasi (secici yeniden SIRALAMAZ — bu sira korunur).
 # Ucretli saglayici sonda: kazayla cagrilmasin.
 #
-# 2026-09-19 OLCUM (hiz_olcum.py, bu bilgisayar, ayni kisa soru):
-#   groq 0.42 sn OK · gemini 1.31 sn OK · openrouter 1.49 sn OK
-#   kilo 16.17 sn OK · glm 20.62 sn ZAMAN ASIMI · nvidia 44.08 sn OK
-# Sira bu olcume gore dizildi: cevap veren hizli saglayici one.
-# Eski sira (glm, cloudflare, groq, ...) "GLM onde" diyordu; olcum bunu
-# curuttu — GLM her istekte zaman asimina ugruyor ve her mesaja 20 sn
-# olu bekleme ekliyordu (olculen toplam: 21 sn; groq gelince 0.42 sn).
-# Cloudflare/Cohere/Qwen anahtar girilene kadar bos yuvadir; yeri
-# davranisi degistirmez, orta blokta dururlar.
-# DeepSeek karti asagida durur (ucretli oldugu bilinsin) ama zincire
-# HIC girmez — adaptoru yok, testler ucretli oldugunu dogrular.
+# 2026-09-20: sira hem canli hiz olcumunu hem resmi ucretsiz kapasiteyi
+# korur. Groq/Gemini onde; Cloudflare genis gunluk free havuzuyla erken
+# yedek; Kilo 200/saat ile genis yedek. OpenRouter 50/gun ve Cohere
+# 1000/ay oldugu icin dar havuzlari gereksiz yere yakmamak uzere sonda.
+# GLM'nin onceki canli olcumde 20 sn zaman asimi vermesi de one alinmama
+# nedenidir. Kullanici metnine gore semantik siniflandirma YOKTUR.
 VARSAYILAN_SIRA = [
     # Guclu + genis ucretsiz hatlar once; dar aylik/gunluk havuzlar
     # son care olarak saklanir. Bu semantik router degildir: kullanici
