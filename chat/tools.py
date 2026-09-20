@@ -111,7 +111,7 @@ def sonucu_donustur(sonuc):
 
 def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                  calistir, tools=None, tur_siniri=None, yanit=None,
-                 tool_choice=None, tum_tools=None):
+                 tool_choice=None, tum_tools=None, tercih=None):
     """Arac sonuclarini modele geri vererek ajan turunu surdurur.
 
     Gercek arac secimini MODEL yapar. `yetenek_ac` yalniz modelin sectigi
@@ -137,17 +137,34 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                     out[alan] = obj[alan]
         return out
 
+    # Bir arac zinciri basladiktan sonra ayni saglayici/model ilk tercih
+    # olarak korunur. Teknik ariza/kota olursa Brain'in mevcut fallback
+    # zinciri yine devreye girer; basarili fallback sonraki turda yeni
+    # tercih olur. Bu, cok turlu muhakeme ve provider-ozel durumun gereksiz
+    # yere model degistirmesini engeller.
+    _tercih_aktif = list(tercih or [])
+
     def _beyin_devam(acik_tools):
+        nonlocal _tercih_aktif
+        import inspect
+
         _kw = {"tools": acik_tools}
-        if tool_choice is not None:
-            import inspect
-            _p = inspect.signature(brain.cevapla).parameters
-            _kwargs_var = any(
-                x.kind == inspect.Parameter.VAR_KEYWORD
-                for x in _p.values())
-            if "tool_choice" in _p or _kwargs_var:
-                _kw["tool_choice"] = tool_choice
-        return brain.cevapla(expanded, model, **_kw)
+        _p = inspect.signature(brain.cevapla).parameters
+        _kwargs_var = any(
+            x.kind == inspect.Parameter.VAR_KEYWORD
+            for x in _p.values())
+
+        if tool_choice is not None and (
+                "tool_choice" in _p or _kwargs_var):
+            _kw["tool_choice"] = tool_choice
+        if _tercih_aktif and ("tercih" in _p or _kwargs_var):
+            _kw["tercih"] = list(_tercih_aktif)
+
+        sonuc = brain.cevapla(expanded, model, **_kw)
+        if (isinstance(sonuc, tuple) and len(sonuc) == 2
+                and sonuc[1]):
+            _tercih_aktif = [sonuc[1]]
+        return sonuc
 
     ilk_muhakeme = _muhakeme_al(yanit)
     if not ilk_muhakeme and mesajlar:
