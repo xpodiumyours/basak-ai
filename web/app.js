@@ -1,70 +1,12 @@
 // app.js — web sohbeti. Tek beyin kurali: yalniz yerel kopruyle konusur
-// (/api/sohbet POST + /api/olaylar SSE). Baska hicbir arka uca dokunmaz.
+// (/api/sohbet POST + /api/olaylar HTTP polling). Baska arka uca dokunmaz.
 const chatEl = document.getElementById("chat");
 const msgEl = document.getElementById("message");
 const sendEl = document.getElementById("send");
 
-const olaylar = window.basakSse("/api/olaylar");
-const balonlar = new Map();   // istek no -> gosterilen balon
+const balonlar = new Map();
 const kapat = (el) => el && el.querySelector(".meta")?.remove();
-
-olaylar.addEventListener("message", (e) => {
-  let o;
-  try { o = JSON.parse(e.data); } catch { return; }
-  const no = o.istek;
-  if (o.tur === "thinking") {
-    if (!balonlar.has(no)) {
-      balonlar.set(no, bubble("assistant", "Başak düşünüyor…"));
-    }
-    return;
-  }
-  if (o.tur === "toolStatus") {
-    let b = balonlar.get(no);
-    if (b) {
-      b.querySelector(".meta")?.remove();
-      b.textContent = "…";
-      const m = document.createElement("span");
-      m.className = "meta";
-      m.textContent = o.metin;
-      b.appendChild(m);
-    } else {
-      balonlar.set(no, bubble("assistant", "…", o.metin));
-    }
-    return;
-  }
-  if (o.tur === "parca") {
-    let b = balonlar.get(no);
-    if (b) {
-      kapat(b);
-      const ilk = b.textContent === "…" ||
-                  b.textContent === "Başak düşünüyor…";
-      b.textContent = ilk ? o.metin : b.textContent + o.metin;
-    } else {
-      b = bubble("assistant", o.metin);
-      balonlar.set(no, b);
-    }
-    return;
-  }
-  if (o.tur === "bitir") {
-    let b = balonlar.get(no);
-    if (b) {
-      kapat(b);
-    } else {
-      bubble("assistant", o.cevap || "…");
-    }
-    balonlar.delete(no);
-    sendEl.disabled = false;
-    msgEl.focus();
-    return;
-  }
-  if (o.tur === "error") {
-    const b = balonlar.get(no);
-    if (b) b.remove();
-    bubble("assistant", "Hata: " + o.metin);
-    balonlar.delete(no);
-    sendEl.disabled = false;
-  }
-});
+const uyu = (ms) => new Promise((coz) => setTimeout(coz, ms));
 
 function bubble(role, text, meta) {
   const el = document.createElement("div");
@@ -81,6 +23,95 @@ function bubble(role, text, meta) {
   return el;
 }
 
+function olayiIsle(o) {
+  const no = o.istek;
+  if (o.tur === "thinking") {
+    if (!balonlar.has(no)) {
+      balonlar.set(no, bubble("assistant", "Başak düşünüyor…"));
+    }
+    return false;
+  }
+  if (o.tur === "toolStatus") {
+    let b = balonlar.get(no);
+    if (b) {
+      b.querySelector(".meta")?.remove();
+      b.textContent = "…";
+      const m = document.createElement("span");
+      m.className = "meta";
+      m.textContent = o.metin;
+      b.appendChild(m);
+    } else {
+      balonlar.set(no, bubble("assistant", "…", o.metin));
+    }
+    return false;
+  }
+  if (o.tur === "parca") {
+    let b = balonlar.get(no);
+    if (b) {
+      kapat(b);
+      const ilk = b.textContent === "…" ||
+                  b.textContent === "Başak düşünüyor…";
+      b.textContent = ilk ? o.metin : b.textContent + o.metin;
+    } else {
+      b = bubble("assistant", o.metin);
+      balonlar.set(no, b);
+    }
+    return false;
+  }
+  if (o.tur === "bitir") {
+    let b = balonlar.get(no);
+    if (b) {
+      kapat(b);
+      // Streaming olmayan ajan yolunda balonda yalniz "dusunuyor" kalmis
+      // olabilir. Gercek final cevabi her durumda ekrana yaz.
+      if (!b.textContent || b.textContent === "Başak düşünüyor…" ||
+          b.textContent === "…") {
+        b.textContent = o.cevap || "…";
+      }
+      if (o.kaynak) {
+        const m = document.createElement("span");
+        m.className = "meta";
+        m.textContent = "Model: " + o.kaynak;
+        b.appendChild(m);
+      }
+    } else {
+      bubble("assistant", o.cevap || "…",
+             o.kaynak ? "Model: " + o.kaynak : "");
+    }
+    balonlar.delete(no);
+    return true;
+  }
+  if (o.tur === "error") {
+    const b = balonlar.get(no);
+    if (b) b.remove();
+    bubble("assistant", "Hata: " + o.metin);
+    balonlar.delete(no);
+    return true;
+  }
+  return false;
+}
+
+async function olaylariTakipEt(no) {
+  let son = 0;
+  const baslangic = Date.now();
+  while (Date.now() - baslangic < 12 * 60 * 1000) {
+    const r = await window.basakFetch(
+      "/api/olaylar?istek=" + encodeURIComponent(no) +
+      "&son=" + encodeURIComponent(son),
+      { cache: "no-store" },
+    );
+    if (!r.ok) throw new Error("Sohbet akışı okunamadı (" + r.status + ")");
+    const d = await r.json();
+    for (const o of (d.olaylar || [])) {
+      if (olayiIsle(o)) return;
+    }
+    son = Number.isInteger(d.son) ? d.son : son;
+    if (d.bitti) return;
+    await uyu(350);
+  }
+  throw new Error("Başak yanıtı zaman aşımına uğradı");
+}
+
 async function send() {
   const text = msgEl.value.trim();
   if (!text || sendEl.disabled) return;
@@ -94,12 +125,18 @@ async function send() {
       body: JSON.stringify({ metin: text }),
     });
     const d = await r.json();
-    if (!r.ok || !d.ok) {
+    if (!r.ok || !d.ok || !d.istek) {
       throw new Error(d.error || "Sohbet isteği başarısız");
     }
+    if (!balonlar.has(d.istek)) {
+      balonlar.set(d.istek, bubble("assistant", "Başak düşünüyor…"));
+    }
+    await olaylariTakipEt(d.istek);
   } catch (err) {
     bubble("assistant", "Hata: " + (err.message || err));
+  } finally {
     sendEl.disabled = false;
+    msgEl.focus();
   }
 }
 
