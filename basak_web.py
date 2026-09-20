@@ -288,10 +288,39 @@ def _runtime_durumu():
             ]
         except Exception:
             saglayicilar = []
+
+    modeller = []
+    try:
+        from brain import registry
+        from brain.stats import model_stats_al
+        istat = model_stats_al()
+        for ad in saglayicilar:
+            kart = registry.kart(ad)
+            modeller.append({
+                "ad": ad,
+                "gucleri": list(kart.get("gucleri") or []),
+                "limit": {
+                    "saatlik_istek": kart.get("saatlik_istek"),
+                    "gunluk_istek": kart.get("gunluk_istek"),
+                    "aylik_istek": kart.get("aylik_istek"),
+                    "gunluk_token": kart.get("gunluk_token"),
+                    "gunluk_neuron": kart.get("gunluk_neuron"),
+                },
+                "kullanim": {
+                    "saat": istat.istek_sayisi(ad, "saat"),
+                    "gun": istat.istek_sayisi(ad, "gun"),
+                    "ay": istat.istek_sayisi(ad, "ay"),
+                    "bugun_token": sum(istat.token_bugun(ad)),
+                },
+            })
+    except Exception as e:
+        logger.debug("Model durum ayrintisi okunamadi: %s", e)
+
     return {
         "ok": BEYIN is not None and TOOLS is not None,
         "commit": _git_commit(),
         "saglayicilar": saglayicilar,
+        "modeller": modeller,
         "arac_sayisi": len(TOOLS or []),
         "tasima": "http-polling",
     }
