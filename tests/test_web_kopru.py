@@ -204,10 +204,16 @@ def test_durum_endpointi_sir_gostermeden_surumu_verir(sunucu, monkeypatch):
 
     durum, veri = _istek(adres, "/api/durum")
     assert durum == 200
-    assert veri == {
-        "ok": True,
-        "commit": "abc1234",
-        "saglayicilar": ["groq", "gemini"],
-        "arac_sayisi": 3,
-        "tasima": "http-polling",
-    }
+    assert veri["ok"] is True
+    assert veri["commit"] == "abc1234"
+    assert veri["saglayicilar"] == ["groq", "gemini"]
+    assert veri["arac_sayisi"] == 3
+    assert veri["tasima"] == "http-polling"
+    assert [m["ad"] for m in veri["modeller"]] == ["groq", "gemini"]
+    assert "gucleri" in veri["modeller"][0]
+    assert "limit" in veri["modeller"][0]
+    assert "kullanim" in veri["modeller"][0]
+    # API anahtari/token gibi sir alanlari durum cevabinda bulunmaz.
+    assert "key" not in json.dumps(veri).lower()
+    assert "token" not in json.dumps(veri["modeller"][1]["limit"]).lower() or (
+        "gunluk_token" in veri["modeller"][1]["limit"])
