@@ -130,12 +130,14 @@ def _bekleme_suresi(hata):
 
 
 def _yerel_kota_doldu(ad, istat):
-    """Resmi, sabit ucretsiz kotalarda gereksiz API denemesini engeller.
+    """Yalniz kesin ve hesaptan bagimsiz ucretsiz kotalari yerelde korur.
 
-    Yalniz registry'de resmi olarak sayisal siniri bulunan saglayicilar
-    kapsanir. Degisken/hesaba ozel kotalarda karar verilmez; 429 hakikattir.
+    Org/proje bazinda degisebilen limitlerde sert tavan koymak kapasiteyi
+    bosuna kisitlar; onlarda 429 + Retry-After/reset hakikattir.
     """
     kart = registry.kart(ad)
+    if not kart.get("yerel_kota_koru", False):
+        return ""
     saat = kart.get("saatlik_istek")
     gun = kart.get("gunluk_istek")
     ay = kart.get("aylik_istek")

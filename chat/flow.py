@@ -73,7 +73,7 @@ def _profil_isle(text, konusmaci):
         return "", ""
 
 
-def _baglam_kur(text, system_prompt, konusmaci):
+def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi=""):
     """Modele gidecek mesaj listesini kurar.
 
     2026-09-19: `araclar_acik` parametresi KALDIRILDI. Çağrılıyor ama
@@ -91,6 +91,12 @@ def _baglam_kur(text, system_prompt, konusmaci):
         {"role": "system", "content": KIMLIK_BLOGU},
         {"role": "system", "content": tam_prompt},
     ]
+
+    # Sabit ajan sozlesmesini dinamik hafiza/profil bloklarindan ONCE koy.
+    # Groq/Gemini/Cloudflare prefix caching ayni sistem+arac onekini tekrar
+    # isleyebilsin; model davranisi veya baglam icerigi degismez.
+    if ajan_sozlesmesi:
+        mesajlar.append({"role": "system", "content": ajan_sozlesmesi})
 
     # Hafıza: soruyla ilgili anılar. knowledge/ notlarına erişim de bu
     # yoldan olur — motor o klasörü indeksliyor.
@@ -181,10 +187,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
     # (a) groq/glm/nvidia ucu de akisla birlikte tools kabul ediyor,
     # (b) zincirde kucuk/yerel model yok. Artik araci MODEL secer.
     arac_acik = bool(tools)
-    mesajlar = _baglam_kur(text, system_prompt, konusmaci)
-
-    if arac_acik:
-        mesajlar.append({"role": "system", "content": AJAN_SOZLESMESI})
+    mesajlar = _baglam_kur(
+        text, system_prompt, konusmaci,
+        AJAN_SOZLESMESI if arac_acik else "")
 
     mesajlar += ctx.gecmis_pencere(gecmis) + [{"role": "user",
                                                "content": text}]

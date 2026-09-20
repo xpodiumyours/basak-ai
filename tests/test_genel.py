@@ -59,4 +59,6 @@ class TestGenelSira:
         sirali, _ = secici.sec(gorev_tipi="kod",
                                mevcutlar=["genel", "glm", "nvidia"])
         assert sirali[-1] == "genel"
-        assert sirali[0] == "glm"
+        beklenen = [ad for ad in registry.VARSAYILAN_SIRA
+                    if ad in ("glm", "nvidia")]
+        assert sirali[:-1] == beklenen

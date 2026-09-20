@@ -156,8 +156,8 @@ def test_required_ajan_duz_metni_final_saymaz():
 
 
 AJAN_SAGLAYICILARI = (
-    "groq", "gemini", "openrouter", "glm",
-    "cloudflare", "cohere", "kilo", "nvidia",
+    "groq", "gemini", "cloudflare", "kilo",
+    "nvidia", "glm", "openrouter", "cohere",
 )
 
 

@@ -66,8 +66,10 @@ def test_bilinen_kota_dolunca_api_denemesi_yapilmaz():
         "saatlik istek kotasi")
     assert _yerel_kota_doldu("cohere", _Istat(ay=1000)) == (
         "aylik istek kotasi")
+    # Groq org limiti hesap bazinda degisebildigi icin statik kart
+    # bilgilendirme amaclidir; sert kesme 429/reset sinyaline birakilir.
     assert _yerel_kota_doldu(
-        "groq", _Istat(token=(150000, 50000))) == "gunluk token kotasi"
+        "groq", _Istat(gun=1000, token=(150000, 50000))) == ""
 
 
 def test_degisken_kotaya_sahte_tavan_konmaz():
