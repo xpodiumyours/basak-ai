@@ -42,10 +42,41 @@ VARSAYILAN_JETON = 4096
 VARSAYILAN_MODEL = "stepfun/step-3.7-flash:free"
 TERCIH_SIRASI = [
     "stepfun/step-3.7-flash:free",
-    "kilo-auto/free",
     "tencent/hy3:free",
     "poolside/laguna-s-2.1:free",
+    "kilo-auto/free",
 ]
+
+
+def _kilo_global_kota_mi(hata) -> bool:
+    """Kilo'nun IP-geneli 200/saat kotasi mi?"""
+    s = str(hata).lower()
+    return (
+        "rate limit exceeded for free models" in s
+        or "200 requests per hour" in s
+        or ("per ip" in s and ("rate" in s or "limit" in s))
+    )
+
+
+def _model_yedegi_gerekir_mi(hata) -> bool:
+    """Yalniz model/uplink kaynakli gecici arizada diger free modeli dene."""
+    if _kilo_global_kota_mi(hata):
+        return False
+    durum = getattr(hata, "status_code", None)
+    if durum is None:
+        try:
+            durum = getattr(getattr(hata, "response", None), "status_code", None)
+        except Exception:
+            durum = None
+    if durum in (402, 403, 404, 410, 429, 500, 502, 503, 504):
+        return True
+    s = str(hata).lower()
+    return any(k in s for k in (
+        "kilo bos cevap", "model not found", "model unavailable",
+        "model is unavailable", "no endpoints", "upstream",
+        "timed out", "timeout", "connection reset",
+        "tool_choice", "tool choice",
+    ))
 
 
 class KiloClient:
@@ -85,19 +116,10 @@ class KiloClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def cevapla(self, messages: list, tools: list = None, yapi=None,
-                tool_choice=None) -> dict:
-        """Kilo'ya mesaj gönderir. Dönen şekil groq.py ile aynıdır.
-
-        Reasoning alanlari KULLANICIYA gosterilmez ama zincirde KORUNUR
-        (P0): arac turunda ayni muhakemeyle devam edilir.
-        yapi: sozlesme modu icin; bu saglayici su an yok sayar.
-        """
-        if not self.client:
-            raise RuntimeError("Kilo bağlı değil")
-
+    def _tek_model(self, model_adi: str, messages: list,
+                   tools: list = None, tool_choice=None) -> dict:
         kwargs = {
-            "model": self.model,
+            "model": model_adi,
             "messages": messages,
             "max_tokens": VARSAYILAN_JETON,
         }
@@ -130,11 +152,51 @@ class KiloClient:
 
         icerik = msg.content or ""
         if not icerik.strip():
-            # Düşünme metni bütçeyi bitirmiş: boş balon gösterme, zincir
-            # sıradaki sağlayıcıya geçsin.
             neden = getattr(secim, "finish_reason", None) or "bilinmiyor"
             raise RuntimeError(
                 "Kilo bos cevap dondu (finish_reason=%s) — dusunme metni "
                 "jeton butcesini bitirmis olabilir" % neden)
 
         return kullanim_ekle({"content": icerik, **muhakeme}, resp)
+
+    def cevapla(self, messages: list, tools: list = None, yapi=None,
+                tool_choice=None) -> dict:
+        """Kilo free havuzunda ayni modeli koruyarak cevap verir.
+
+        Aktif model basariliysa degismez. Yalniz model/uplink kaynakli
+        gecici arizada diger guncel free modele gecilir. Kilo ortak
+        200/saat/IP kotasi dolduysa model degistirilmez; hata Brain katmanina
+        birakilir ve saglayici cooldowna girer.
+        """
+        if not self.client:
+            raise RuntimeError("Kilo bağlı değil")
+
+        sirali = []
+        if self.model:
+            sirali.append(self.model)
+        for aday in TERCIH_SIRASI:
+            if aday not in sirali:
+                sirali.append(aday)
+
+        son_hata = None
+        for model_adi in sirali:
+            try:
+                yanit = self._tek_model(
+                    model_adi, messages, tools=tools,
+                    tool_choice=tool_choice)
+                self.model = model_adi
+                return yanit
+            except Exception as e:
+                son_hata = e
+                if _kilo_global_kota_mi(e):
+                    raise
+                if not _model_yedegi_gerekir_mi(e):
+                    raise
+                logger.warning(
+                    "Kilo %s gecici/model hatasi, siradaki free model: %s",
+                    model_adi, str(e))
+
+        raise RuntimeError(
+            "Kilo ücretsiz modellerinin hiçbiri cevap vermedi"
+            + (" (son hata: %s)" % son_hata if son_hata else "")
+        ) from son_hata
