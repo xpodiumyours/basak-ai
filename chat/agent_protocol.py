@@ -45,10 +45,10 @@ YETENEK_ALANLARI = {
 }
 
 ALAN_ACIKLAMALARI = {
-    "internet": "web, haber, site, sayfa, URL, sirket ve internet arastirmasi",
+    "internet": "harici web, haber, site, sayfa, URL ve sirket arastirmasi",
     "dosyalar": "bilgisayardaki dosya/klasor ve proje icerigi; knowledge yazma",
     "projeler": "Git, GitHub, CI, test ve proje hat sagligi",
-    "gorevler": "gorevler, hatirlatmalar ve tarih/saat",
+    "gorevler": "yerel gorevler, hatirlatmalar ve cihazdan dogrulanan su anki tarih/saat",
     "hafiza": "Basak'in kalici hafizasinda arama",
     "gorsel": "yerel goruntu analizi veya yeni gorsel uretimi",
     "katalog": "fatura, urun karti ve Vixrex katalog/yayin paketi",
