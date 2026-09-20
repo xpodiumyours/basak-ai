@@ -48,8 +48,10 @@ async function basakHealth() {
         ad.textContent = m.ad;
         chip.appendChild(ad);
 
+        const model = m.model && m.model !== "dogrulanamadi" ?
+          " · " + m.model : "";
         const guc = document.createTextNode(
-          " · " + ((m.gucleri || []).join("/") || "genel"));
+          model + " · " + ((m.gucleri || []).join("/") || "genel"));
         chip.appendChild(guc);
 
         const l = m.limit || {};
@@ -68,6 +70,19 @@ async function basakHealth() {
         const q = document.createElement("span");
         q.className = "quota";
         q.textContent = parca.join(" · ");
+        chip.appendChild(q);
+        bar.appendChild(chip);
+      }
+      const eksik = d.eksik_saglayicilar || [];
+      if (eksik.length) {
+        const chip = document.createElement("div");
+        chip.className = "modelchip";
+        const ad = document.createElement("strong");
+        ad.textContent = "Bağlı değil";
+        chip.appendChild(ad);
+        const q = document.createElement("span");
+        q.className = "quota";
+        q.textContent = eksik.join(", ");
         chip.appendChild(q);
         bar.appendChild(chip);
       }
