@@ -68,7 +68,7 @@ def _model_yedegi_gerekir_mi(hata) -> bool:
             durum = getattr(getattr(hata, "response", None), "status_code", None)
         except Exception:
             durum = None
-    if durum in (404, 410, 429, 500, 502, 503, 504):
+    if durum in (402, 403, 404, 410, 429, 500, 502, 503, 504):
         return True
     s = str(hata).lower()
     return any(k in s for k in (
@@ -197,4 +197,6 @@ class KiloClient:
                     model_adi, str(e))
 
         raise RuntimeError(
-            "Kilo ücretsiz modellerinin hiçbiri cevap vermedi") from son_hata
+            "Kilo ücretsiz modellerinin hiçbiri cevap vermedi"
+            + (" (son hata: %s)" % son_hata if son_hata else "")
+        ) from son_hata
