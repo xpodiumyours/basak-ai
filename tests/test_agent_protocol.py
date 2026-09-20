@@ -28,12 +28,12 @@ def test_52_aracin_tamami_tek_yetenek_alaninda():
 
 
 def test_ilk_turda_52_arac_modele_yigilmaz():
-    from chat.agent_protocol import (
-        baslangic_araclari, YETENEK_AC_ADI, SON_CEVAP_ADI,
-    )
+    from chat.agent_protocol import baslangic_araclari, YETENEK_AC_ADI
 
     adlar = [x["function"]["name"] for x in baslangic_araclari()]
-    assert adlar == [YETENEK_AC_ADI, SON_CEVAP_ADI]
+    # Model normal sohbette dogrudan metinle bitebilir; ilk turda yalniz
+    # gercek araca ihtiyac duyarsa acacagi katalog kapisi sunulur.
+    assert adlar == [YETENEK_AC_ADI]
 
 
 def test_tek_alan_en_faz_12_sema_tasir():
@@ -42,8 +42,8 @@ def test_tek_alan_en_faz_12_sema_tasir():
 
     for alan in YETENEK_ALANLARI:
         secilen = alan_araclari(TOOLS, alan)
-        # En buyuk alan 10 gercek arac + 2 kontrol araci.
-        assert len(secilen) <= 12, (alan, len(secilen))
+        # En buyuk alan 10 gercek arac + alan degistirme kapisi.
+        assert len(secilen) <= 11, (alan, len(secilen))
 
 
 def test_ajan_sozlesmesi_kelime_routeri_degildir():

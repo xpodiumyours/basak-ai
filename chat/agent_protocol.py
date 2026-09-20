@@ -110,22 +110,28 @@ SON_CEVAP_ARACI = {
 
 AJAN_SOZLESMESI = (
     "AJAN CALISMA SOZLESMESI:\n"
-    "- Ilk turda gercek arac semalari yuklu degildir. Gercek veri veya eylem "
-    "gerekiyorsa yetenek_ac ile ihtiyac duydugun alani kendin sec.\n"
+    "- Sohbet veya aciklama icin gercek arac gerekmiyorsa dogrudan dogal "
+    "dille cevap ver; arac cagirmak zorunda degilsin.\n"
+    "- Gercek veri veya eylem gerekiyorsa yetenek_ac ile ihtiyac duydugun "
+    "alani kendin sec.\n"
     "- Kod kullanici metnini siniflandirmaz; kelime eslestirmesi ve sabit "
     "gorev akisi yoktur.\n"
     "- Alan acilinca o alanin gercek araclari sonraki turda gelir. Uygun "
     "araci veya araclari kendin sec ve calistir.\n"
-    "- Sonuc baska bir yetenek gerektirirse yetenek_ac ile o alana gec.\n"
-    "- Bir eylem basarili arac sonucu olmadan yapilmis gibi soylenemez.\n"
-    "- Is tamamlandiginda son_cevap aracini cagir. Sadece sohbet veya "
-    "aciklama isteyen istekte son_cevap dogrudan kullanilabilir."
+    "- Arac sonucunu gordukten sonra gerekirse baska arac veya alan sec; "
+    "is bittiyse kullaniciya dogrudan dogal cevabi ver.\n"
+    "- Bir eylem basarili arac sonucu olmadan yapilmis gibi soylenemez."
 )
 
 
 def baslangic_araclari():
-    """Ilk model turunda yalniz planlama ve final kontrol araclari vardir."""
-    return [YETENEK_AC_ARACI, SON_CEVAP_ARACI]
+    """Ilk turda model yalniz ihtiyac duyarsa yetenek alani acar.
+
+    Nihai cevap icin ozel bir function-call zorunlulugu yoktur; model
+    dogrudan metinle bitirebilir. SON_CEVAP_ARACI geriye uyumluluk icin
+    tanimli kalir fakat modele sunulmaz.
+    """
+    return [YETENEK_AC_ARACI]
 
 
 def alan_araclari(tum_tools, alan):
@@ -138,4 +144,6 @@ def alan_araclari(tum_tools, alan):
         ad = (arac.get("function") or {}).get("name")
         if ad in adlar:
             secilen.append(arac)
-    return secilen + [YETENEK_AC_ARACI, SON_CEVAP_ARACI]
+    # Alan degistirme kapisi acik kalir. Nihai cevap icin ozel arac
+    # sunulmaz; model dogrudan metinle bitirebilir.
+    return secilen + [YETENEK_AC_ARACI]

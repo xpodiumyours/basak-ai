@@ -133,13 +133,16 @@ def test_sozlesme_degerleri_resmi_protokole_uygun():
         assert registry.ajan_tool_choice(ad) == deger, ad
 
 
-def test_ajan_akisi_zorunlu_tool_choice_sabiti_tasiyor():
-    """Ajan turu tool_choice'u SABIT 'required' olarak tasir (chat/flow).
-    Kablo kontrolu: ajan yolu bu sozlesmeyi kaybederse Duzey 1'de tum
-    saglayicilar 'auto'ya duser ve duz metin kabul edilmis sayilirirdi."""
+def test_ajan_akisi_auto_tool_choice_tasiyor():
+    """Uretim sohbeti araci zorlamaz; model gerekirse native tool_call secer.
+
+    Duzey-1'in zorunlu tool-call olcumu canli test kosucusunun isidir.
+    Uretim sohbetinde 'required' kullanmak normal sohbeti ve dogal finali
+    engeller; burada model karari icin 'auto' sozlesmesi kilitlenir.
+    """
     icerik = open("chat/flow.py", encoding="utf-8").read()
-    assert 'tool_choice="required"' in icerik, (
-        "ajan turu artik zorunlu tool_choice tasimiyor — sozlesme kirildi")
+    assert 'tool_choice="auto"' in icerik, (
+        "ajan sohbeti model kontrollu auto secimini kaybetti")
 
 
 def test_ucretsiz_kartlar_zincire_girer_ucretli_girmez():
