@@ -290,14 +290,23 @@ def _runtime_durumu():
             saglayicilar = []
 
     modeller = []
+    beklenen_saglayicilar = []
+    eksik_saglayicilar = []
     try:
         from brain import registry
         from brain.stats import model_stats_al
         istat = model_stats_al()
+        beklenen_saglayicilar = list(registry.VARSAYILAN_SIRA)
+        eksik_saglayicilar = [
+            ad for ad in beklenen_saglayicilar if ad not in saglayicilar
+        ]
+        istemciler = dict(BEYIN._bulut_zinciri(tools=True)) if BEYIN else {}
         for ad in saglayicilar:
             kart = registry.kart(ad)
+            istemci = istemciler.get(ad)
             modeller.append({
                 "ad": ad,
+                "model": getattr(istemci, "model", None) or "dogrulanamadi",
                 "gucleri": list(kart.get("gucleri") or []),
                 "limit": {
                     "saatlik_istek": kart.get("saatlik_istek"),
@@ -320,6 +329,8 @@ def _runtime_durumu():
         "ok": BEYIN is not None and TOOLS is not None,
         "commit": _git_commit(),
         "saglayicilar": saglayicilar,
+        "beklenen_saglayicilar": beklenen_saglayicilar,
+        "eksik_saglayicilar": eksik_saglayicilar,
         "modeller": modeller,
         "arac_sayisi": len(TOOLS or []),
         "tasima": "http-polling",
