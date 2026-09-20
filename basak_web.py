@@ -5,8 +5,8 @@ AGENTS.md §9 + knowledge/web-kopru-plani.md:
   servisidir. Ayrı ajan dongusu, saglayici zinciri, arac calistirici
   YOKTUR; tek baglanacak nokta chat.flow.mesaj_isle'dir (telegram_bot.py
   ile ayni yol, ucuncu yuz).
-- Olay akisi: cekirdek BasakUI.* dizelerini yayar; kopru bunu SSE'ye
-  dogrudan mapler (parca/bitir/error/toolStatus/thinking).
+- Olay akisi: cekirdek BasakUI.* dizelerini yayar; kopru bunlari
+  istek-bazli HTTP polling ile tasir (parca/bitir/error/toolStatus/thinking).
 - Guvenlik: varsayilan 127.0.0.1; dis erisim yalniz ayarlarla
   ("web_dis_erisim": true) ve zorunlu token ile. Ayarlar.json servis
   EDILMEZ; yol beyaz listesi disinda dosya servis edilmez.
@@ -16,7 +16,9 @@ AGENTS.md §9 + knowledge/web-kopru-plani.md:
 import json
 import logging
 import os
+import subprocess
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -40,19 +42,35 @@ _STATIK = {
     "/lab.js": ("lab.js", "application/javascript; charset=utf-8"),
 }
 
-# ── Olay yayini (SSE) ────────────────────────────────────────────────
+# ── Olay kaydi (HTTP polling) ────────────────────────────────────────
+# Quick Tunnel SSE desteklemez. Olaylar istek kimligine gore bellekte
+# tutulur; tarayici kisa HTTP GET'lerle yalniz kendi olaylarini alir.
+# Boylece olay kacirma/capraz kullanici sizintisi da engellenir.
 _KILIT = threading.Lock()
-_ABONELER = []   # her abone: queue.Queue; yayin tum abonelere gider
+_OLAYLAR = {}       # {istek: [olay, ...]}
+_OLAY_ZAMANI = {}   # {istek: son_degisim_monotonic}
+_OLAY_TTL = 600.0
+
+
+def _eski_olaylari_temizle():
+    simdi = time.monotonic()
+    eski = [
+        no for no, zaman in _OLAY_ZAMANI.items()
+        if simdi - zaman > _OLAY_TTL
+    ]
+    for no in eski:
+        _OLAY_ZAMANI.pop(no, None)
+        _OLAYLAR.pop(no, None)
 
 
 def _yayin(olay):
+    no = olay.get("istek") if isinstance(olay, dict) else None
+    if no is None:
+        return
     with _KILIT:
-        aboneler = list(_ABONELER)
-    for q in aboneler:
-        try:
-            q.put_nowait(olay)
-        except Exception:
-            pass
+        _eski_olaylari_temizle()
+        _OLAYLAR.setdefault(no, []).append(olay)
+        _OLAY_ZAMANI[no] = time.monotonic()
 
 
 # ── Cekirdek olay ayiklayici (telegram_bot.Kaydedici ile ayni kalip) ─
@@ -136,7 +154,7 @@ class _Kopru(BaseHTTPRequestHandler):
         beklenen = _ayar("web_token", "")
         istek_token = self.headers.get("X-Basak-Token", "")
         if not istek_token:
-            # EventSource baslik ekleyemez; SSE icin ?token= kabul edilir.
+            # GET polling sorgusunda da token query yedegi kabul edilir.
             from urllib.parse import parse_qs, urlparse
             qs = parse_qs(urlparse(self.path).query)
             istek_token = (qs.get("token") or [""])[0]
@@ -150,7 +168,9 @@ class _Kopru(BaseHTTPRequestHandler):
             self._gonder(401, {"error": "token gecersiz"})
             return
         if yol == "/api/olaylar":
-            self._sse()
+            self._olaylari_ver()
+        elif yol == "/api/durum":
+            self._gonder(200, _runtime_durumu())
         elif yol == "/api/matris":
             if not MATRIS.exists():
                 self._gonder(200, {"duzey2": {}, "not": "matris henüz yok"})
@@ -164,37 +184,34 @@ class _Kopru(BaseHTTPRequestHandler):
         else:
             self._gonder(404, {"error": "yok"})
 
-    def _sse(self):
-        if not self._token_ok():
-            self._gonder(401, {"error": "token gecersiz"})
-            return
-        import queue
-        q = queue.Queue()
-        with _KILIT:
-            _ABONELER.append(q)
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
-        self.send_header("Cache-Control", "no-cache")
-        self.end_headers()
+    def _olaylari_ver(self):
+        """Bir istegin yeni olaylarini JSON olarak dondurur.
+
+        Query:
+          istek=<int>  zorunlu
+          son=<int>    istemcinin gordugu olay sayisi (varsayilan 0)
+        """
+        from urllib.parse import parse_qs, urlparse
+
+        qs = parse_qs(urlparse(self.path).query)
         try:
-            self.wfile.write(b": baglanti\n\n")
-            self.wfile.flush()
-            while True:
-                try:
-                    olay = q.get(timeout=15)
-                    satir = "data: %s\n\n" % json.dumps(
-                        olay, ensure_ascii=False)
-                    self.wfile.write(satir.encode("utf-8"))
-                    self.wfile.flush()
-                except queue.Empty:
-                    self.wfile.write(b": canli\n\n")   # keep-alive
-                    self.wfile.flush()
-        except (BrokenPipeError, ConnectionAbortedError, OSError):
-            pass
-        finally:
-            with _KILIT:
-                if q in _ABONELER:
-                    _ABONELER.remove(q)
+            istek = int((qs.get("istek") or [""])[0])
+            son = max(0, int((qs.get("son") or ["0"])[0]))
+        except (TypeError, ValueError):
+            self._gonder(400, {"error": "gecersiz istek/son"})
+            return
+
+        with _KILIT:
+            _eski_olaylari_temizle()
+            tumu = list(_OLAYLAR.get(istek, []))
+        yeniler = tumu[son:]
+        bitti = any(o.get("tur") in ("bitir", "error") for o in tumu)
+        self._gonder(200, {
+            "istek": istek,
+            "olaylar": yeniler,
+            "son": len(tumu),
+            "bitti": bitti,
+        })
 
     def do_POST(self):
         if self.path.split("?", 1)[0] != "/api/sohbet":
@@ -222,8 +239,11 @@ class _Kopru(BaseHTTPRequestHandler):
 
         global _SAYAC
         with _KILIT:
+            _eski_olaylari_temizle()
             _SAYAC += 1
             istek = _SAYAC
+            _OLAYLAR[istek] = []
+            _OLAY_ZAMANI[istek] = time.monotonic()
         threading.Thread(target=_sohbet_islet, args=(istek, metin),
                          daemon=True).start()
         self._gonder(200, {"ok": True, "istek": istek})
@@ -244,6 +264,37 @@ _SAYAC = 0
 BEYIN = None
 KISILIK = ""
 TOOLS = None
+
+
+def _git_commit():
+    """Calisan web koprusunun gercek kod surumunu gosterir."""
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(BASE), timeout=2, text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        return "dogrulanamadi"
+
+
+def _runtime_durumu():
+    """Sir/anahtar acmadan calisan Basak'in durumunu verir."""
+    saglayicilar = []
+    if BEYIN is not None:
+        try:
+            saglayicilar = [
+                ad for ad, _ in BEYIN._bulut_zinciri(tools=True)
+            ]
+        except Exception:
+            saglayicilar = []
+    return {
+        "ok": BEYIN is not None and TOOLS is not None,
+        "commit": _git_commit(),
+        "saglayicilar": saglayicilar,
+        "arac_sayisi": len(TOOLS or []),
+        "tasima": "http-polling",
+    }
 
 
 def main():
