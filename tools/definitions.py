@@ -343,7 +343,8 @@ SATIR_DUZENLE = _arac(
 
 SIMDI = _arac(
     "simdi",
-    "Su anki tarih ve saati doner: gun, ay, yil, haftanin gunu, saat.",
+    "Bu cihazin sistem saatinden dogrulanmis su anki yerel tarih ve saati "
+    "doner: gun, ay, yil, haftanin gunu, saat.",
     {},
     [],
 )
