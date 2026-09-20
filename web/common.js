@@ -37,6 +37,41 @@ async function basakHealth() {
           (d.arac_sayisi || 0) + " araç · " + (d.commit || "?");
       }
     }
+
+    const bar = document.getElementById("modelBar");
+    if (bar) {
+      bar.textContent = "";
+      for (const m of (d.modeller || [])) {
+        const chip = document.createElement("div");
+        chip.className = "modelchip";
+        const ad = document.createElement("strong");
+        ad.textContent = m.ad;
+        chip.appendChild(ad);
+
+        const guc = document.createTextNode(
+          " · " + ((m.gucleri || []).join("/") || "genel"));
+        chip.appendChild(guc);
+
+        const l = m.limit || {};
+        const k = m.kullanim || {};
+        const parca = [];
+        if (l.saatlik_istek) parca.push((k.saat || 0) + "/" +
+          l.saatlik_istek + " saat");
+        if (l.gunluk_istek) parca.push((k.gun || 0) + "/" +
+          l.gunluk_istek + " gün");
+        if (l.aylik_istek) parca.push((k.ay || 0) + "/" +
+          l.aylik_istek + " ay");
+        if (l.gunluk_token) parca.push((k.bugun_token || 0) + "/" +
+          l.gunluk_token + " token");
+        if (!parca.length) parca.push("kota: sağlayıcı dinamik");
+
+        const q = document.createElement("span");
+        q.className = "quota";
+        q.textContent = parca.join(" · ");
+        chip.appendChild(q);
+        bar.appendChild(chip);
+      }
+    }
     return ok && !!d.ok;
   } catch (e) {
     const text = document.getElementById("healthText");
