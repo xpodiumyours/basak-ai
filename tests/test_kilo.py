@@ -141,3 +141,87 @@ class TestRegistryKarti:
         assert sira.index("cloudflare") < sira.index("kilo")
         assert sira.index("kilo") < sira.index("openrouter")
         assert sira.index("kilo") < sira.index("cohere")
+
+
+class TestUcretsizModelFallback:
+    def test_dogrudan_tool_modelleri_auto_freeden_once(self):
+        from brain.kilo import TERCIH_SIRASI
+        assert TERCIH_SIRASI.index("tencent/hy3:free") < (
+            TERCIH_SIRASI.index("kilo-auto/free"))
+        assert TERCIH_SIRASI.index("poolside/laguna-s-2.1:free") < (
+            TERCIH_SIRASI.index("kilo-auto/free"))
+
+    def test_model_gecici_hatasinda_siradaki_free_model_devralir(self):
+        from brain.kilo import KiloClient
+
+        cagrilar = []
+
+        class Comp:
+            def create(self, **kwargs):
+                cagrilar.append(kwargs["model"])
+                if len(cagrilar) == 1:
+                    raise RuntimeError("model unavailable upstream")
+                msg = types.SimpleNamespace(content="tamam", tool_calls=None)
+                return types.SimpleNamespace(
+                    choices=[types.SimpleNamespace(
+                        message=msg, finish_reason="stop")],
+                    usage=None,
+                )
+
+        istemci = KiloClient.__new__(KiloClient)
+        istemci.client = types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=Comp()))
+        istemci.model = "stepfun/step-3.7-flash:free"
+
+        yanit = istemci.cevapla(
+            [{"role": "user", "content": "selam"}])
+
+        assert yanit["content"] == "tamam"
+        assert cagrilar[:2] == [
+            "stepfun/step-3.7-flash:free",
+            "tencent/hy3:free",
+        ]
+        # Sonraki arac turunda ayni basarili model once kullanilir.
+        assert istemci.model == "tencent/hy3:free"
+
+    def test_ip_geneli_429da_model_degistirip_kota_yakmaz(self):
+        from brain.kilo import KiloClient
+
+        cagrilar = []
+
+        class Comp:
+            def create(self, **kwargs):
+                cagrilar.append(kwargs["model"])
+                raise RuntimeError(
+                    "Rate limit exceeded for free models. "
+                    "200 requests per hour per IP")
+
+        istemci = KiloClient.__new__(KiloClient)
+        istemci.client = types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=Comp()))
+        istemci.model = "stepfun/step-3.7-flash:free"
+
+        with pytest.raises(RuntimeError):
+            istemci.cevapla([{"role": "user", "content": "selam"}])
+
+        assert cagrilar == ["stepfun/step-3.7-flash:free"]
+
+    def test_gecersiz_istekte_diger_modeller_bosuna_denenmez(self):
+        from brain.kilo import KiloClient
+
+        cagrilar = []
+
+        class Comp:
+            def create(self, **kwargs):
+                cagrilar.append(kwargs["model"])
+                raise RuntimeError("400 invalid request: bad messages")
+
+        istemci = KiloClient.__new__(KiloClient)
+        istemci.client = types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=Comp()))
+        istemci.model = "stepfun/step-3.7-flash:free"
+
+        with pytest.raises(RuntimeError):
+            istemci.cevapla([{"role": "user", "content": "selam"}])
+
+        assert cagrilar == ["stepfun/step-3.7-flash:free"]
