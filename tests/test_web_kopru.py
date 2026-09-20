@@ -2,7 +2,7 @@
 
 AGENTS.md §9 + knowledge/web-kopru-plani.md:
 - Kopru yalniz mesaj_isle'ye baglanir; ikinci beyin YOK (kablo testi).
-- Olay eslemesi dogru: BasakUI.* -> SSE tur alanlari.
+- Olay eslemesi dogru: BasakUI.* -> istek-bazli HTTP polling olaylari.
 - Guvenlik: yol beyaz listesi disi 404; ayarlar.json servis edilmez;
   dis erisimde token zorunlu.
 """
@@ -143,3 +143,77 @@ def test_mesaj_sinirlari(sunucu):
         assert False, "uzun mesaj gecti"
     except Exception as e:
         assert "400" in str(e) or "HTTP Error" in str(e)
+
+
+def test_polling_olaylari_istek_bazli_ve_kayipsiz(sunucu, monkeypatch):
+    adres, _ = sunucu
+    monkeypatch.setattr(basak_web, "TOOLS", object())
+
+    def _sahte(metin, beyin, sistem, js, tools=None):
+        js("BasakUI.thinking()")
+        js("BasakUI.toolStatus(\"Saat okunuyor\")")
+        js("BasakUI.bitir(\"20 Eylul 2026\", \"groq\")")
+
+    with mock.patch.object(basak_web, "mesaj_isle_cagir", _sahte):
+        durum, cevap = _istek(
+            adres, "/api/sohbet", veri={"metin": "saat kac"})
+        assert durum == 200 and cevap["ok"]
+        no = cevap["istek"]
+
+        import time
+        son = 0
+        olaylar = []
+        for _ in range(20):
+            _, veri = _istek(adres, "/api/olaylar?istek=%d&son=%d" %
+                             (no, son))
+            olaylar.extend(veri["olaylar"])
+            son = veri["son"]
+            if veri["bitti"]:
+                break
+            time.sleep(0.02)
+
+    assert [o["tur"] for o in olaylar] == [
+        "thinking", "toolStatus", "bitir"]
+    assert olaylar[-1]["kaynak"] == "groq"
+
+    # Ayni olaylar ikinci kez alinmaz.
+    _, tekrar = _istek(adres, "/api/olaylar?istek=%d&son=%d" % (no, son))
+    assert tekrar["olaylar"] == []
+    assert tekrar["bitti"] is True
+
+
+def test_web_ekrani_eventsource_kullanmaz():
+    icerik = open("web/app.js", encoding="utf-8").read()
+    ortak = open("web/common.js", encoding="utf-8").read()
+    assert "EventSource" not in icerik
+    assert "basakSse" not in icerik
+    assert "basakSse" not in ortak
+    assert "/api/olaylar?istek=" in icerik
+
+
+def test_durum_endpointi_sir_gostermeden_surumu_verir(sunucu, monkeypatch):
+    adres, _ = sunucu
+
+    class Beyin:
+        def _bulut_zinciri(self, tools=False):
+            return [("groq", object()), ("gemini", object())]
+
+    monkeypatch.setattr(basak_web, "BEYIN", Beyin())
+    monkeypatch.setattr(basak_web, "TOOLS", [1, 2, 3])
+    monkeypatch.setattr(basak_web, "_git_commit", lambda: "abc1234")
+
+    durum, veri = _istek(adres, "/api/durum")
+    assert durum == 200
+    assert veri["ok"] is True
+    assert veri["commit"] == "abc1234"
+    assert veri["saglayicilar"] == ["groq", "gemini"]
+    assert veri["arac_sayisi"] == 3
+    assert veri["tasima"] == "http-polling"
+    assert [m["ad"] for m in veri["modeller"]] == ["groq", "gemini"]
+    assert "gucleri" in veri["modeller"][0]
+    assert "limit" in veri["modeller"][0]
+    assert "kullanim" in veri["modeller"][0]
+    # API anahtari/token gibi sir alanlari durum cevabinda bulunmaz.
+    assert "key" not in json.dumps(veri).lower()
+    assert "token" not in json.dumps(veri["modeller"][1]["limit"]).lower() or (
+        "gunluk_token" in veri["modeller"][1]["limit"])

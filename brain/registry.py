@@ -4,9 +4,9 @@ Her saglayicinin statik karti: ucretsiz mi, tool calling destekliyor mu,
 gucleri ne, gunluk istek limiti kac. Saglik durumu (cooldown) burada degil,
 kota.py'de tutulur.
 
-Limitler gercek gozlemlerden gelir:
-- Groq gpt-oss-20b: token/gun limiti 200000 (2026-08-22 429 mesajindan)
-- Gemini flash ucretsiz katman: 20 istek/gun (2026-08-22 429 mesajindan)
+Limit kartlari 2026-09-20 resmi saglayici belgeleriyle guncellendi.
+Hesaba/model katmanina gore degisen limitler burada uydurulmaz; 429 ve
+saglayici basliklari calisma aninda hakikat sayilir.
 """
 
 # Gucleri etiketleri secici motorunun anladigi standart degerlerdir:
@@ -23,9 +23,11 @@ SAGLAYICILAR = {
         # alindi — duz metin zaten Brain'de basari sayilmaz.
         "ajan_tool_mode": "auto_enforced",
         "gucleri": ["hiz", "genel"],
-        # 2026-09 guncellemesi: 20b/120b ikisi de 250K TPM + 1K RPM +
-        # 131K baglam + 65K max output (Groq docs). Eski 200K/gun gozlemi
-        # + "120b tikanir" varsayimi bayat; varsayilan guclu (120b).
+        # Groq resmi free-limit tablosu (2026-09-20): gpt-oss 20b/120b
+        # icin 30 RPM, 1000 RPD, 8K TPM, 200K TPD.
+        "dakikalik_istek": 30,
+        "gunluk_istek": 1000,
+        "dakikalik_token": 8000,
         "gunluk_token": 200000,
         "not": "Ucretsiz ve cok hizli; 20b hizli, 120b guclu.",
     },
@@ -38,8 +40,10 @@ SAGLAYICILAR = {
         # uygulama katmaninda uygular.
         "ajan_tool_mode": "auto_enforced",
         "gucleri": ["arastirma", "uzun-baglam"],
-        "gunluk_istek": 1500,   # 3 Flash free: 10 RPM / 250K TPM / 1500 RPD
-        "not": "Ucretsiz katmanda 3 Flash onerilir (1M baglam).",
+        # Gemini limitleri model + proje + kullanim katmanina gore degisir;
+        # resmi belge kesin rakam icin AI Studio Limits sayfasini isaret eder.
+        "gunluk_istek": None,
+        "not": "Ucretsiz katman; kota model/proje bazli, 429 anlik hakikat.",
     },
     "glm": {
         "ad": "GLM",
@@ -61,7 +65,8 @@ SAGLAYICILAR = {
         "ajan_tool_mode": "required",
         "gucleri": ["genel", "hiz"],
         "gunluk_istek": None,
-        "not": "Workers AI ucretsiz Llama/Mistral; GPU kaynaklanma sinirli.",
+        "gunluk_neuron": 10000,
+        "not": "Workers Free: 10.000 neuron/gun; GLM-4.7-Flash tool calling destekli.",
     },
     "cohere": {
         "ad": "Cohere",
@@ -122,7 +127,7 @@ SAGLAYICILAR = {
         "ajan_tool_mode": "auto_enforced",
         "gucleri": ["kod", "goruntu", "video"],
         "gunluk_istek": None,
-        "not": "GPT-OSS-20b + Gemma-4 + Nemotron + Omni + Kozmos; kod/goruntu/video.",
+        "not": "NVIDIA Developer free endpointleri prototipleme icin; sabit kota resmi olarak yayinlanmiyor.",
     },
     "kilo": {
         "ad": "Kilo Gateway",
@@ -149,7 +154,7 @@ SAGLAYICILAR = {
         "ajan_tool_mode": "auto_enforced",
         "gucleri": ["genel"],
         "gunluk_istek": 50,   # :free modeller tipik ucretsiz katman limiti
-        "not": "Sadece :free modeller; son care bulut.",
+        "not": "Free hesap: 50 istek/gun; yalniz :free ve tool destekli modeller.",
     },
 }
 

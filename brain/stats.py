@@ -218,6 +218,33 @@ class ModelIstatistik:
 
         return sorted(ozet, key=lambda r: r["skor"], reverse=True)
 
+    def istek_sayisi(self, model: str, pencere: str) -> int:
+        """Saglayici icin yerel kayitta kac API denemesi yapildi.
+
+        pencere: "saat" | "gun" | "ay". Basarili+basarisiz tum denemeler
+        sayilir; ucretsiz kotalarda basarisiz denemeler de kapasite
+        tuketebildigi icin iyimser sayim yapilmaz.
+        """
+        if pencere == "saat":
+            kosul = "timestamp >= datetime('now', '-1 hour')"
+        elif pencere == "gun":
+            kosul = "timestamp >= datetime('now', 'start of day')"
+        elif pencere == "ay":
+            kosul = "timestamp >= datetime('now', 'start of month')"
+        else:
+            raise ValueError("pencere saat|gun|ay olmali")
+
+        with self._lock:
+            conn = sqlite3.connect(self._db_yolu)
+            try:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM calls WHERE model=? AND " + kosul,
+                    (model,),
+                ).fetchone()
+                return int(row[0] or 0)
+            finally:
+                conn.close()
+
     def token_bugun(self, model):
         """Bugun (UTC) model icin harcanan (giris, cikis) token toplami."""
         baslangic = datetime.now(timezone.utc).replace(
