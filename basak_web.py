@@ -172,6 +172,17 @@ class _Kopru(BaseHTTPRequestHandler):
             return
         if yol == "/api/olaylar":
             self._olaylari_ver()
+        elif yol == "/api/sohbetler":
+            from chat import oturum
+            self._gonder(200, {"ok": True, "liste": oturum.liste()})
+        elif yol.startswith("/api/sohbet/"):
+            from chat import oturum
+            sid = yol.rsplit("/", 1)[-1]
+            msgs = oturum.ac(sid)
+            if msgs is None:
+                self._gonder(404, {"error": "yok"})
+            else:
+                self._gonder(200, {"ok": True, "mesajlar": msgs})
         elif yol == "/api/durum":
             self._gonder(200, _runtime_durumu())
         elif yol == "/api/matris":
@@ -217,7 +228,26 @@ class _Kopru(BaseHTTPRequestHandler):
         })
 
     def do_POST(self):
-        if self.path.split("?", 1)[0] != "/api/sohbet":
+        yol = self.path.split("?", 1)[0]
+        if yol == "/api/yeni":
+            if not self._token_ok():
+                self._gonder(401, {"error": "token gecersiz"})
+                return
+            from chat import oturum
+            from chat import context as ctx
+            try:
+                eski = [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
+                        if m.get("role") != "system"]
+            except Exception:
+                eski = []
+            sid = oturum.yeni(eski)
+            try:
+                ctx.kaydet(ctx.HISTORY_FILE, [])
+            except OSError:
+                pass
+            self._gonder(200, {"ok": True, "oturum": sid})
+            return
+        if yol != "/api/sohbet":
             self._gonder(404, {"error": "yok"})
             return
         if not self._token_ok():

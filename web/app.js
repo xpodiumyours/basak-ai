@@ -152,6 +152,60 @@ async function olaylariTakipEt(no) {
 
 const MISAFIR = new URLSearchParams(location.search).get("misafir") === "1";
 
+// Kenar menusu: eski sohbetler + yeni. Misafirde gizli (perde).
+async function listeyiYukle() {
+  const kenar = document.getElementById("kenar");
+  if (MISAFIR) {
+    if (kenar) kenar.style.display = "none";
+    return;
+  }
+  try {
+    const r = await window.basakFetch("/api/sohbetler", { cache: "no-store" });
+    if (!r.ok) return;
+    const d = await r.json();
+    const kutu = document.getElementById("liste");
+    if (!kutu) return;
+    kutu.textContent = "";
+    for (const o of (d.liste || [])) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = o.baslik || "Sohbet";
+      b.title = o.baslik || "Sohbet";
+      b.addEventListener("click", () => sohbetiAc(o.id));
+      kutu.appendChild(b);
+    }
+  } catch {}
+}
+
+async function sohbetiAc(id) {
+  try {
+    const r = await window.basakFetch(
+      "/api/sohbet/" + encodeURIComponent(id), { cache: "no-store" });
+    if (!r.ok) return;
+    const d = await r.json();
+    chatEl.textContent = "";
+    balonlar.clear();
+    for (const m of (d.mesajlar || [])) {
+      if (m.role === "user") bubble("user", m.content || "");
+      else if (m.role === "assistant") bubble("assistant", m.content || "");
+    }
+  } catch {}
+}
+
+async function yeniSohbet() {
+  try {
+    await window.basakFetch("/api/yeni", { method: "POST" });
+  } catch {}
+  chatEl.textContent = "";
+  balonlar.clear();
+  bubble("assistant", "Yeni sohbet hazır. Mesajını yazabilirsin.");
+  listeyiYukle();
+}
+
+const yeniDugme = document.getElementById("yeni");
+if (yeniDugme) yeniDugme.addEventListener("click", yeniSohbet);
+listeyiYukle();
+
 async function send() {
   const text = msgEl.value.trim();
   if (!text || sendEl.disabled) return;
