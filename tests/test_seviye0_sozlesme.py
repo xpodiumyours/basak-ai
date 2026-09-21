@@ -337,8 +337,8 @@ def test_plan_dosyasi_kapsam_sozlesmesi_tasiyor():
     okunabilir olmali — belge yoksa kabul zinciri kopar."""
     icerik = open("knowledge/kabul-plani-web-gate.md",
                   encoding="utf-8").read()
-    for sart in ("kucultme YASAK", "416 HUCRE", "TEK kabul raporu",
-                 "DUZEY 1", "SKIP"):
+    for sart in ("kucultme YASAK", "364 HUCRE", "TEK kabul raporu",
+                 "DUZEY 1", "SKIP", "KAPSAM DEĞİŞİKLİĞİ"):
         assert sart in icerik, sart
 
 
@@ -527,4 +527,63 @@ def test_matris_kosucu_anahtarsiza_skip_yazar(tmp_path, monkeypatch):
     hucreler = m["duzey2"]["cohere"]
     assert len(hucreler) == 8
     assert all(k["durum"] == "SKIP" for k in hucreler.values())
+
+
+def test_matris_kapsami_elde_anahtari_olan_yedi_saglayici():
+    """Duzey 2 kapsami: yalniz ELDE ANAHTARI OLAN saglayicilar (2026-09-22).
+
+    cloudflare + cohere icin anahtar eklenmeyecegi bilindigi icin 104
+    hucre kalici SKIP yaziyordu — olcum uretmiyor, tabloyu sisiriyordu.
+    Kapsamdan cikarildilar; anahtari olan mistral kapsama girdi.
+    Sira registry.VARSAYILAN_SIRA'dan FILTRELENIR, uydurulmaz.
+    """
+    from brain import registry
+    from tests.live import matris_kosucu
+
+    assert matris_kosucu.KAPSAM == (
+        "groq", "gemini", "kilo", "nvidia", "glm", "openrouter",
+        "mistral")
+    assert len(matris_kosucu.KAPSAM) * 52 == 364     # 8x52=416 degil
+    assert "cloudflare" not in matris_kosucu.KAPSAM
+    assert "cohere" not in matris_kosucu.KAPSAM
+    beklenen = tuple(ad for ad in registry.VARSAYILAN_SIRA
+                     if ad in matris_kosucu.KAPSAM)
+    assert matris_kosucu.KAPSAM == beklenen, (
+        "kapsam sirasi registry sirasindan sapmis")
+
+
+def test_matris_kapsamindaki_her_saglayici_kosucuda_desteklenir():
+    """Kapsamdaki bir saglayici kosucuda tanimsizsa kosum KeyError ile patlar."""
+    from tests.live import kosucu, matris_kosucu
+
+    for ad in matris_kosucu.KAPSAM:
+        assert ad in kosucu.ANAHTARLAR, "%s anahtar tablosunda yok" % ad
+        assert ad in kosucu.ZORLAMA, "%s zorlama tablosunda yok" % ad
+        assert ad in matris_kosucu._PACE, "%s pace tablosunda yok" % ad
+
+
+def test_kapsam_temizle_yalniz_kapsam_disini_siler(tmp_path, monkeypatch):
+    """Eski kapsamdan kalan cloudflare/cohere satirlari silinir; kapsam
+    icindeki YESIL hucrelere DOKUNULMAZ."""
+    import json
+    from tests.live import matris_kosucu
+
+    hedef = tmp_path / "m.json"
+    hedef.write_text(json.dumps({
+        "duzey1": {"cloudflare": {"durum": "SKIP"}},
+        "duzey2": {
+            "groq": {"simdi": {"durum": "YESIL"}},
+            "cloudflare": {"simdi": {"durum": "SKIP"}},
+            "cohere": {"simdi": {"durum": "SKIP"}},
+        }}), encoding="utf-8")
+    monkeypatch.setattr(matris_kosucu, "MATRIS", hedef)
+
+    silinen = matris_kosucu.kapsam_temizle()
+
+    assert sorted(silinen) == ["cloudflare", "cohere"]
+    kalan = json.loads(hedef.read_text(encoding="utf-8"))
+    assert set(kalan["duzey2"]) == {"groq"}
+    assert kalan["duzey2"]["groq"]["simdi"]["durum"] == "YESIL"
+    # Duzey 1 kayitlari bu isin konusu degil — dokunulmaz.
+    assert "cloudflare" in kalan["duzey1"]
 

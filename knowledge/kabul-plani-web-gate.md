@@ -4,6 +4,26 @@ Tarih: 2026-09-19 | Yazan: Buffy (Codebuff) | Onay: Casper
 Amaç: Bu plan deftere yazilmadigi icin iki ayri oturum ayni sapmayi yapti.
 Bu dosya o boslugu kapatir. Plana sapma oldugunda once bu dosya guncellenir.
 
+## KAPSAM DEĞİŞİKLİĞİ (2026-09-22, Casper kararı)
+
+Düzey 2 matrisi eskiden "8 sağlayıcı × 52 = **416** hücre" diye tanımlıydı ve
+içinde cloudflare + cohere vardı. Bu ikisinin anahtarı 2026-09-20'de
+"eklenmeyecek" diye kararlaştırıldığı için 104 hücre **kalıcı olarak SKIP**
+yazıyordu — yani ölçüm üretmiyor, tabloyu şişiriyordu.
+
+**Yürürlükteki tanım:** matris yalnız **elde anahtarı olan** sağlayıcılar
+üzerinden koşulur — 7 sağlayıcı × 52 araç = **364 hücre**:
+groq, gemini, kilo, nvidia, glm, openrouter, mistral.
+cloudflare + cohere kapsamdan çıktı; anahtarı olan mistral girdi (zincire
+2026-09-22'de girmişti ama matris listesi güncellenmemişti).
+Sıra `registry.VARSAYILAN_SIRA`'dan filtrelenir; elle sıra yazılmaz.
+Kapsam içindeki bir sağlayıcı anahtarını kaybederse hücresi yine SKIP yazar —
+sessiz küçülme ve tahmin doldurma yok.
+Kod: `tests/live/matris_kosucu.py` → `KAPSAM`.
+
+Bu dosyadaki tarihli "416" satırları aşağıda 364'e güncellenmiştir; geçmiş
+kayıtlar (pilot 64 sonucu vb.) okunduğu gibi kalır.
+
 ## TEK KURAL (her ajana, istisnasiz)
 
 Beyin yalniz Python cekirdeginde yasar (basak_app.py + brain/ + chat/ + tools/).
@@ -19,8 +39,9 @@ aykiri kalintidir; goruldugunde silinir, gelistirilmez.
    kirmizidir. Metin icindeki JSON'u koda cevirme hilesi olcumu yumusatir; yasak.
 2. 52 gercEK arac dogrulamasi — web'den 6 araclik alt kume yetmez.
    "bridge_required" donen her arac kirmizidir.
-3. 416 hucre = 8 saglayici x 52 arac, gercEK canli cagri matrisi.
-4. 416 ikinci tur = her cagrinin tool-result devaminin native akista donmesi.
+3. 364 hucre = 7 saglayici x 52 arac (elde anahtari olanlar), gercEK canli
+   cagri matrisi. Kapsam degisikligi icin yukaridaki 2026-09-22 bolumune bak.
+4. 364 ikinci tur = her cagrinin tool-result devaminin native akista donmesi.
 5. Normal sohbet testi — dogal dil + gercEK arac kullanimi. Olculen:
    dogru araci kendi secmis mi, arac gercEKten kosmus mu, ayni isi tekrar
    aramis mi, basarisizligi uydurmus mu, cevap verimli mi.
@@ -49,8 +70,8 @@ Temizlik (2026-09-19, Casper onayli):
 |---|---|
 | 1. 8/8 native protokol | **YESIL (6/8 gecti, 2 SKIP, 0 kirmizi)** — 2026-09-19 Duzey 1 canli kosusu; ayrinti asagida "DUZEY 1 SONUC" |
 | 2. 52 gercEK arac | Kirmizi (web'de 6) |
-| 3. 416 hucre | **Pilot 64 kosuldu** (2026-09-20): 16 YESIL / 32 KIRMIZI / 16 SKIP — kirmizi analizi asagida "PILOT 64 SONUC"; duzeltmeler sonrasi tam 416 |
-| 4. 416 ikinci tur | Kirmizi |
+| 3. 364 hucre | **Pilot kosuldu** (2026-09-20: 64 hucre, 8x8) ve kapsam 2026-09-22'de 7 saglayici x 52 = 364'e cekildi; tam kosu bekliyor |
+| 4. 364 ikinci tur | Kirmizi |
 | 5. Normal sohbet testi | Kirmizi (github_durum senaryosu zaman asimi, mukerrer cagri) |
 | 6. Tek rapor | Kirmizi |
 
@@ -64,7 +85,7 @@ ZAMAN (uc dilim):
 1. Bugun aksam: kotadan bagimsiz kod duzeltmeleri + birim testler.
 2. 20.09 sabah (kota tazelendi): pilot 64 hucre = 8 saglayici x 8 arac
    (2 kontrol + 6 temsilci gercek arac).
-3. 20-22.09: tam 416 hucre, devam-edilebilir kosucuyla (kota dostu,
+3. 20-22.09: tam 364 hucre, devam-edilebilir kosucuyla (kota dostu,
    hucre sonuclari data/ altina yazilir, kesilirse kaldigi yerden surer).
    Rapor: matris tamamlaninca TEK kabul raporu.
 
@@ -96,7 +117,7 @@ matristen okunur.
 
 KAPSAM SOZLESMESI: kapsam kucultme YASAK; "minimum isle maksimum
 verim" tarzi iddia YASAK. Sirasi sabit: 8 protokol -> 52 arac yapis ->
-416 canli hucre -> ikinci tur -> gercEK sohbet -> TEK kabul raporu.
+364 canli hucre -> ikinci tur -> gercEK sohbet -> TEK kabul raporu.
 Her duzey ancak bir onceki duzey yesilken kabul sayilir.
 
 DUZEY 0 — Sozlesme (birim) testleri. Cevrimdisi, kota harcamaz.
@@ -127,7 +148,7 @@ sonuc -> tur-2 devami. Gecme olcutu: yanit GERCEK tool_call icermeli
 gercek yanitlari Duzey 0 fixture'ina yazilir. Basarisiz olan blok
 ismini alir ve duzeltilir; atlanMAZ.
 
-DUZEY 2 — 416 HUCRE (canli, tam). 8 x 52; her hucreye yazilir:
+DUZEY 2 — 364 HUCRE (canli, tam). 7 x 52 (elde anahtari olanlar); her hucreye yazilir:
 saglayici, arac, tur-1 native mi, tur-2 devam mi, sure, model, hata.
 Bicim: data/kabul-matrisi.json; kota-dostu pace; kesilince devam.
 Anahtarsiz saglayicinin hucresi SKIP yazar — uydurma doldurma yok.
@@ -176,7 +197,7 @@ Kirmizi dagilimi (tek tek olcum, tahmin yok):
   tamamlandiginda YESIL sayilir.
 - 1 gercek kod bulgusu: openrouter NoneType cokmesi — duzeltilecek.
 
-Kural: pilot KIRMIZI'larin siniflandirilmasi tamamlanmadan 416'ya
+Kural: pilot KIRMIZI'larin siniflandirilmasi tamamlanmadan 364'e
 gecilmez; 429'lular kota taze iken yeniden kosulur.
 
 ## WEB KOPRU KURULDU (2026-09-20, localhost kabul verildi)
@@ -191,7 +212,7 @@ gecilmez; 429'lular kota taze iken yeniden kosulur.
   toolStatus(Saat okunuyor) -> bitir "Su an 20 Eylul 2026 Pazar, 00:59"
   (kaynak gemini) — gercEK native arac cagrisiyla, kopurude beyin kodu yok.
 - Sirada: LAN acilimi (token) -> cloudflared tunel -> kullaniciya acilis;
-  pilot kirmizi duzeltmeleri (yukaridaki politika) 416 oncesi.
+  pilot kirmizi duzeltmeleri (yukaridaki politika) 364 oncesi.
 
 ESIT GOZLEMLENEBILIRLIK ("web ve yerel ayni sekilde bilsin") — MUMKUN,
 sebebi TEK YOL:

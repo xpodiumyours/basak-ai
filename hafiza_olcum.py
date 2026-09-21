@@ -43,7 +43,7 @@ KELIME_SETI = (
     ("Zincirde groq en hizli saglayicidir.", "en hizli saglayici", "groq"),
     ("Mistral telefon dogrulamasi ister.", "Mistral dogrulama ister mi", "telefon"),
     ("Fatura fotografi katalog uretir.", "fatura ne uretir", "katalog"),
-    ("Kabul matrisi 416 hucreden olusur.", "kabul matrisi kac hucre", "416"),
+    ("Kabul matrisi 364 hucreden olusur.", "kabul matrisi kac hucre", "364"),
 )
 
 # Soru ile kayit arasinda ortak anlamli kelime YOK - yalniz vektor bulur.

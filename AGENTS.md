@@ -217,7 +217,7 @@ icin kural:
 - SAHTE KABUL YASAKLARI: metin icindeki JSON'u tool_call gibi saymak;
   sampleValue/BASAK_CELL_OK tarzi simule arac sonucu; agir testi push'ta
   devre disi birakmak. Bu üçü kabul kaniti DEGILDIR.
-- Kabul cizgisi (8/8 native protokol, 52 arac, 416 hucre, ikinci tur,
+- Kabul cizgisi (8/8 native protokol, 52 arac, 364 hucre, ikinci tur,
   normal sohbet, tek rapor) ve Adim 1 karari TEK DOGRU KAYNAKTAN okunur:
   knowledge/kabul-plani-web-gate.md.
 - Web sohbet ekraninin kullaniciya acilmasi bu kuralla celismez:

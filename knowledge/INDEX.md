@@ -7,7 +7,7 @@ Basak once bu dosyayi okur, sonra sadece ilgili dosyalari acar.
 
 - **casper-hakkinda.md** | konu: Furkan (Casper) profili | guncelleme: 2026-08-21 | Kim oldugu, nasil konusulmasi gerektigi, calisma ilkeleri, projeleri (VixRex/Xpodiumyours, NumeraMatch, Basak), dogum 26.08.1995 (Basak burcu)
 - **takvim-ve-hatirlatmalar.md** | konu: Tarihler ve hatirlatmalar | guncelleme: 2026-08-21 | Dogum gunleri (kendi 26 Agustos, anne 3 Ekim), final 25 Agustos, proje sunumu Cuma 14:00, sertifika basvurusu, su icme/kitap okuma
-- **kabul-plani-web-gate.md** | konu: Web Gate kabul plani + tek kural (beyin yalniz cekirdekte) | guncelleme: 2026-09-19 | 8 native protokol, 52 arac, 416 hucre kabul cizgisi; ikinci-Basak sapmasinin ve temizliginin kaydi
+- **kabul-plani-web-gate.md** | konu: Web Gate kabul plani + tek kural (beyin yalniz cekirdekte) | guncelleme: 2026-09-19 | 8 native protokol, 52 arac, 364 hucre kabul cizgisi (2026-09-22 kapsam: elde anahtari olan 7 saglayici); ikinci-Basak sapmasinin ve temizliginin kaydi
 - **web-kopru-plani.md** | konu: Kullaniciya acik web sohbet koprusunun mimari kararlari | guncelleme: 2026-09-19 | HTTP kopru + SSE; mesaj_isle'ye baglanir, ikinci beyin yazilmaz; token + kademe erisim
 - **README.md** | konu: Kutuphane kurallari | Bu klasore atilan her .md/.txt dosyasi Basak tarafindan okunur
 

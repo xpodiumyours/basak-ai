@@ -1,9 +1,13 @@
-"""tests/live/matris_kosucu.py — DUZEY 2: 8x52 GERCEK canli hucre matrisi.
+"""tests/live/matris_kosucu.py — DUZEY 2: 7x52=364 GERCEK canli hucre matrisi.
 
 Kabul plani (knowledge/kabul-plani-web-gate.md, DUZEY 2):
 - Her hucreye yazilir: saglayici, arac, tur-1 native mi, tur-2 devam mi,
   sure, model, hata. Bicim: data/kabul-matrisi.json (git-disi).
-- Anahtarsiz saglayicinin hucreleri SKIP yazilir — tahmin DOLDURULMAZ.
+- Kapsam (KAPSAM): yalniz ELDE ANAHTARI OLAN saglayicilar (2026-09-22
+  Casper karari). Anahtari olmayacak saglayici kapsama hic girmez;
+  boylece kalici SKIP hucreleri matrisi sisirmez. Kapsam icindeki bir
+  saglayici anahtarini kaybederse o hucreler yine SKIP yazar (sessiz
+  kuculme yok, tahmin yok).
 - Kesilince kaldigi yerden surer: YESIL hucreler tekrar kosmaz.
 - Kota dostu pace: hucre aralari ile sinirli; tum zincir TEK hucrede
   tamamlanir.
@@ -12,9 +16,10 @@ Kabul plani (knowledge/kabul-plani-web-gate.md, DUZEY 2):
   sapma donemindeki simulasyon kalintilari BURADA YOKTUR.
 
 Kosum:
-  python tests/live/matris_kosucu.py             -> tam 416 hucre
-  python tests/live/matris_kosucu.py --pilot     -> 8x8 pilot (64 hucre)
+  python tests/live/matris_kosucu.py             -> tam 364 hucre (KAPSAM)
+  python tests/live/matris_kosucu.py --pilot     -> 7x8 pilot (56 hucre)
   python tests/live/matris_kosucu.py --temizle   -> KIRMIZI/SKIP sil
+  python tests/live/matris_kosucu.py --kapsam-temizle -> kapsam disi sil
   python tests/live/matris_kosucu.py groq gemini -> yalniz bu saglayicilar
 """
 
@@ -49,10 +54,28 @@ _PACE = {
     "cohere": 3.0,
     "kilo": 3.0,
     "nvidia": 3.0,
+    # Mistral ucretsiz "Experiment": ~1 istek/sn (60 RPM) — 3 sn guvenli.
+    "mistral": 3.0,
 }
 
+# DUZEY 2 KAPSAMI (2026-09-22, Casper karari).
+#
+# Neden degisti: matris "8 saglayici" diye tanimliydi ve icinde cloudflare
+# + cohere vardi. Bu ikisinin anahtari 2026-09-20'de "eklenmeyecek" diye
+# kararlastirildigi icin 104 hucre KALICI olarak SKIP yaziyordu — yani
+# olculen bir sey uretmiyordu, tabloyu sisiriyordu.
+#
+# Yeni tanim: YALNIZ ELDE ANAHTARI OLAN saglayicilar. Sira
+# registry.VARSAYILAN_SIRA ile aynidir (uydurulmaz); cloudflare ve cohere
+# kapsamdan cikarildi, anahtari olan MISTRAL kapsama girdi (zincire
+# 2026-09-22'de girdi ama matris listesi guncellenmemisti).
+#
+# Sayilar: 7 x 52 = 364 hucre (once 8 x 52 = 416 diye yaziliydi).
+KAPSAM = ("groq", "gemini", "kilo", "nvidia", "glm", "openrouter",
+          "mistral")
+
 # Pilot 8 temsilci arac: 2 kontrol + 6 temsilci (kapsam sozlesmesi:
-# pilot BU kosuda gecerli; tam 416'a geciste tum 52 arac acilir).
+# pilot BU kosuda gecerli; tam 364'e geciste tum 52 arac acilir).
 PILOT_ARACLAR = ("simdi", "hesapla", "git_durum", "sayfa_oku",
                  "list_files", "dosya_bilgi", "github_durum", "add_task")
 
@@ -235,7 +258,7 @@ def _hucre_kos(saglayici, arac, sema, istemci):
 def kos_tumu(saglayicilar=None, pilot=False, bekleme=_HUCRE_ARASI_BEKLEME):
     """Matris kosusu. Donus: ozet dict. Kesilirse YESIL'ler yerinde kalir."""
     m = _yukle()
-    hedefler = list(saglayicilar or kosucu.SEKIZLER)
+    hedefler = list(saglayicilar or KAPSAM)
     ozet = {"toplam": 0, "YESIL": 0, "KIRMIZI": 0, "SKIP": 0,
             "saglayicilar": {}}
     for saglayici in hedefler:
@@ -288,6 +311,24 @@ def kos_tumu(saglayicilar=None, pilot=False, bekleme=_HUCRE_ARASI_BEKLEME):
     return ozet
 
 
+def kapsam_temizle():
+    """Kapsam DISI saglayicilarin hucrelerini matristen siler (2026-09-22).
+
+    Kapsamdan cikan saglayicinin (cloudflare, cohere) kalinti satirlari
+    nihai raporun hucre sayimini sisirmesin. Yalniz o saglayicilarin
+    duzey2 kayitlarini siler; YESIL hucrelere ve baska anahtarlara
+    dokunmaz. Donus: silinen saglayici adlari.
+    """
+    with _KILIT:
+        m = _yukle()
+        d2 = m.get("duzey2", {})
+        disi = [s for s in d2 if s not in KAPSAM]
+        for s in disi:
+            d2.pop(s, None)
+        _yaz(m)
+    return disi
+
+
 def temizle(saglayici=None):
     """KIRMIZI/SKIP hucreleri siler; YESIL korunur (kesintisiz devam)."""
     with _KILIT:
@@ -304,7 +345,11 @@ def temizle(saglayici=None):
 if __name__ == "__main__":
     adlar = [a for a in sys.argv[1:] if not a.startswith("--")]
     pilot = "--pilot" in sys.argv
-    if "--temizle" in sys.argv:
+    if "--kapsam-temizle" in sys.argv:
+        silinen = kapsam_temizle()
+        print("Kapsam disi saglayici hucreleri silindi: %s"
+              % (", ".join(silinen) if silinen else "yok"))
+    elif "--temizle" in sys.argv:
         temizle(adlar[0] if adlar else None)
         print("KIRMIZI/SKIP hucreler silindi; tekrar kosuma hazir.")
     else:

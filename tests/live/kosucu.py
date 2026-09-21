@@ -44,6 +44,8 @@ ANAHTARLAR = {
     "cohere": ["cohere_key"],
     "kilo": [],
     "nvidia": ["nvidia_key"],
+    # 2026-09-22: Mistral zincire girdi (bkz. brain/registry.py).
+    "mistral": ["mistral_key"],
 }
 
 # Ayni anahtarin ortam degiskeni karsiligi: CI'da sir'lar env ile gelir
@@ -57,6 +59,7 @@ ORTAM_ANAHTARLARI = {
     "cloudflare_api_token": "CLOUDFLARE_API_TOKEN",
     "cohere_key": "COHERE_API_KEY",
     "nvidia_key": "NVIDIA_API_KEY",
+    "mistral_key": "MISTRAL_API_KEY",
 }
 
 # Anahtar yoklugunun matristeki tek mesaji: SKIP + TEKRAR DENE. Tahminle
@@ -69,7 +72,10 @@ def _zorlama(ad):
     from brain import registry
     return registry.ajan_tool_choice(ad)
 
-ZORLAMA = {ad: _zorlama(ad) for ad in SEKIZLER}
+# Zorlama tablosu Duzey 1 kapsamindan (SEKIZLER) buyuktur: 2026-09-22'de
+# zincire giren mistral da burada durur, cunku Duzey 2 matrisi onu kosar
+# (matris_kosucu.KAPSAM). Duzey 1'in kendi hedef listesi SEKIZLER'dir.
+ZORLAMA = {ad: _zorlama(ad) for ad in SEKIZLER + ("mistral",)}
 
 
 def _ayarlar():
@@ -123,6 +129,10 @@ def _istemci(ad):
     if ad == "nvidia":
         from brain.nvidia import NvidiaClient
         return NvidiaClient(_anahtarlar("nvidia")[0])
+    if ad == "mistral":
+        # Adres/model varsayilanlari adaptorun kendisinde; kopyalanmaz.
+        from brain.adapters.mistral_adapter import adapter as _mistral
+        return _mistral.create({"mistral_key": _anahtarlar("mistral")[0]})
     raise ValueError(ad)
 
 
