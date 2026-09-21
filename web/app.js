@@ -9,10 +9,35 @@ const sonAracDurumu = new Map();
 const kapat = (el) => el && el.querySelector(".meta")?.remove();
 const uyu = (ms) => new Promise((coz) => setTimeout(coz, ms));
 
+function kacis(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// Guvenli mini bicim: once HTML'yi etkisizlestir, sonra yalniz
+// **kalin**, `kod` ve satir sonu isle. Zararli kod calismaz.
+function bicimle(metin) {
+  let h = kacis(metin);
+  h = h.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+  h = h.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  return h.replace(/\n/g, "<br>");
+}
+
+function icerikYaz(b, metin) {
+  b.dataset.ham = String(metin);
+  let ic = b.querySelector(".icerik");
+  if (!ic) {
+    ic = document.createElement("div");
+    ic.className = "icerik";
+    b.prepend(ic);
+  }
+  ic.innerHTML = bicimle(metin);
+}
+
 function bubble(role, text, meta) {
   const el = document.createElement("div");
   el.className = "bubble " + role;
-  el.textContent = text;
+  icerikYaz(el, text);
   if (meta) {
     const m = document.createElement("span");
     m.className = "meta";
@@ -37,7 +62,7 @@ function olayiIsle(o) {
     let b = balonlar.get(no);
     if (b) {
       b.querySelector(".meta")?.remove();
-      b.textContent = "…";
+      icerikYaz(b, "…");
       const m = document.createElement("span");
       m.className = "meta";
       m.textContent = o.metin;
@@ -51,9 +76,9 @@ function olayiIsle(o) {
     let b = balonlar.get(no);
     if (b) {
       kapat(b);
-      const ilk = b.textContent === "…" ||
-                  b.textContent === "Başak düşünüyor…";
-      b.textContent = ilk ? o.metin : b.textContent + o.metin;
+      const ham = b.dataset.ham ?? b.textContent;
+      const ilk = ham === "…" || ham === "Başak düşünüyor…";
+      icerikYaz(b, ilk ? o.metin : ham + o.metin);
     } else {
       b = bubble("assistant", o.metin);
       balonlar.set(no, b);
@@ -66,9 +91,9 @@ function olayiIsle(o) {
       kapat(b);
       // Streaming olmayan ajan yolunda balonda yalniz "dusunuyor" kalmis
       // olabilir. Gercek final cevabi her durumda ekrana yaz.
-      if (!b.textContent || b.textContent === "Başak düşünüyor…" ||
-          b.textContent === "…") {
-        b.textContent = o.cevap || "…";
+      const ham = b.dataset.ham ?? b.textContent;
+      if (!ham || ham === "Başak düşünüyor…" || ham === "…") {
+        icerikYaz(b, o.cevap || "…");
       }
       const meta = [];
       if (o.kaynak) meta.push("Model: " + o.kaynak);
