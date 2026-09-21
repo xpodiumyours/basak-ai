@@ -33,6 +33,8 @@ ve fatura fotoğrafından satış kataloğu üreten bir hat içerir.
 - **Araçları model kendi seçer.** Kodda "şu kelime geçerse şu aracı aç"
   mantığı YOKTUR ve bilerek yoktur (bkz. §9). Bunun bedeli: zayıf bir
   model araç çağırmayı atlayabilir.
+- **Verin bilgisayarından çıkar.** Beyin bulutta çalıştığı için mesajın
+  sağlayıcının sunucusuna gider; neyin nerede kaldığı §12'dedir.
 
 ## 3. Hızlı başlangıç
 
@@ -278,3 +280,28 @@ topluma geri vermesini sağlamak.
 
 Kendi bilgisayarına kurup kendi işinde kullanırsan (kodu dağıtmadığın
 sürece) hiçbir yükümlülük doğmaz.
+
+## 12. Gizlilik — verin nereye gidiyor?
+
+**Dürüst cevap: yazdıkların bilgisayarından ÇIKIYOR.**
+
+Başak'ın beyni yerel değildir; `brain/` katmanı ücretsiz bulut modellerini
+kullanır (bkz. §5). Cevap üretilebilmesi için mesajın sağlayıcının
+sunucusuna gitmek zorundadır.
+
+| Ne | Nerede durur |
+|---|---|
+| Sohbet kayıtları, kalıcı hafıza, profil | **Senin bilgisayarında** (`data/`) — git'e girmez |
+| Gönderdiğin mesaj + araç sonuçları | **Sağlayıcının sunucusuna gider** |
+| API anahtarların | Senin bilgisayarında (`ayarlar.json`) — git'e girmez |
+| Denetim kaydı (hangi sağlayıcı, kaç sn, hata var mı) | Senin bilgisayarında (`data/audit/audit.log`) |
+
+**Sağlayıcı seçimi verini etkiler.** Kodda yazılı somut bir örnek:
+Kilo Gateway'in ücretsiz katmanı gönderilen yazıları kaydedebilir
+(`brain/registry.py`); bu, proje sahibi tarafından 2026-08-23'te bilerek
+onaylandı. Genel kural `AGENTS.md` §8'de yazılı: *"eğitimde kullanılmıyor"
+demek "saklanmıyor" demek değildir.* Hassas veriyle çalışacaksan
+sağlayıcının veri kartını oku.
+
+**Tamamen yerel çalıştırmak istersen** yerel bir model gerekir. Ölçüldü:
+GPU'suz makinede koşmuyor (§2) — bu yüzden yerel model yolu şu an kapalıdır.
