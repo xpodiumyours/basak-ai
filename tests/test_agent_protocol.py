@@ -155,13 +155,17 @@ def test_required_ajan_duz_metni_final_saymaz():
     assert cevap == ""
 
 
+# 2026-09-22: Mistral + glhf.chat eklendi (Yol 1, Casper onayli).
+# Ikisi de otomatik bedava zincire girer: ucretsiz + tool destekli +
+# ajan protokolune uygun. Sira sondadir cunku canli hiz olcumu bekliyor.
 AJAN_SAGLAYICILARI = (
     "groq", "gemini", "cloudflare", "kilo",
     "nvidia", "glm", "openrouter", "cohere",
+    "mistral", "glhf",
 )
 
 
-def test_registry_8_ucretsiz_saglayicinin_tamamini_ajan_olarak_tanimlar():
+def test_registry_10_ucretsiz_saglayicinin_tamamini_ajan_olarak_tanimlar():
     from brain import registry
 
     assert tuple(registry.VARSAYILAN_SIRA) == AJAN_SAGLAYICILARI
@@ -174,9 +178,13 @@ def test_registry_8_ucretsiz_saglayicinin_tamamini_ajan_olarak_tanimlar():
     assert registry.ajan_destegi_var_mi("genel") is False
     assert registry.ajan_destegi_var_mi("deepseek") is False
     assert registry.ajan_destegi_var_mi("kimi") is False
+    # KAPALI kartlar: anahtar yazilsa bile otomatik zincire GIRMEZLER.
+    # Hugging Face ucretsiz kredisi ayda 0,10 dolar; Chutes ucretlidir.
+    assert registry.otomatik_ucretsiz_mi("huggingface") is False
+    assert registry.otomatik_ucretsiz_mi("chutes") is False
 
 
-def test_8_saglayici_resmi_tool_choice_haritasi():
+def test_10_saglayici_resmi_tool_choice_haritasi():
     from brain import registry
 
     beklenen = {
@@ -189,12 +197,16 @@ def test_8_saglayici_resmi_tool_choice_haritasi():
         "cohere": "required",
         "kilo": "required",
         "nvidia": "auto",
+        # 2026-09-22: ikisi de auto_enforced — resmi API auto tool-calling
+        # destekler; Basak ajan turunda duz metni basari saymaz.
+        "mistral": "auto",
+        "glhf": "auto",
     }
     assert {ad: registry.ajan_tool_choice(ad)
             for ad in AJAN_SAGLAYICILARI} == beklenen
 
 
-def test_8_istemcinin_tamami_tool_choice_parametresini_kabul_ediyor():
+def test_tum_istemcinin_tool_choice_parametresini_kabul_ediyor():
     from brain.groq import GroqClient
     from brain.gemini import GeminiClient
     from brain.openrouter import OpenRouterClient
@@ -203,10 +215,15 @@ def test_8_istemcinin_tamami_tool_choice_parametresini_kabul_ediyor():
     from brain.cohere import CohereClient
     from brain.kilo import KiloClient
     from brain.nvidia import NvidiaClient
+    # 2026-09-22: Mistral, glhf.chat, Hugging Face ve Chutes ayni genel
+    # istemciyi (GenelClient) kullanir. Bu parametre bir kez eksikti ve
+    # arac kullanan her cagriyi TypeError ile kiriyordu; test artik kapsar.
+    from brain.genel import GenelClient
 
     siniflar = (
         GroqClient, GeminiClient, OpenRouterClient, GLMClient,
         CloudflareClient, CohereClient, KiloClient, NvidiaClient,
+        GenelClient,
     )
     for cls in siniflar:
         assert "tool_choice" in inspect.signature(cls.cevapla).parameters, cls
@@ -349,16 +366,23 @@ def test_otomatik_bulut_zinciri_ucretli_ve_qwen_sokmaz():
 
     b = Brain.__new__(Brain)
     for ad in ("groq", "gemini", "glm", "nvidia", "kilo", "openrouter",
-               "cloudflare", "cohere", "qwen", "genel"):
+               "cloudflare", "cohere", "qwen", "genel",
+               "mistral", "glhf", "huggingface", "chutes"):
         setattr(b, "_" + ad, Saglayici())
 
     adlar = [ad for ad, _ in b._bulut_zinciri()]
     assert "genel" not in adlar
     assert "qwen" not in adlar
     assert "groq" in adlar
+    # 2026-09-22: kartlari KAPALI oldugu icin istemci kurulu olsa da girmez.
+    assert "huggingface" not in adlar
+    assert "chutes" not in adlar
+    # Bedava olan yeni platformlar girer.
+    assert "mistral" in adlar
+    assert "glhf" in adlar
 
 
-def test_ajan_zinciri_8_ucretsiz_saglayicinin_tamamini_kapsar():
+def test_ajan_zinciri_10_ucretsiz_saglayicinin_tamamini_kapsar():
     from brain.brain import Brain
 
     class Saglayici:
@@ -367,17 +391,18 @@ def test_ajan_zinciri_8_ucretsiz_saglayicinin_tamamini_kapsar():
 
     b = Brain.__new__(Brain)
     for ad in ("groq", "gemini", "glm", "nvidia", "kilo", "openrouter",
-               "cloudflare", "cohere", "qwen", "genel"):
+               "cloudflare", "cohere", "qwen", "genel",
+               "mistral", "glhf", "huggingface", "chutes"):
         setattr(b, "_" + ad, Saglayici())
 
     adlar = [ad for ad, _ in b._bulut_zinciri(
         tools=True, tool_required=True)]
     assert set(adlar) == set(AJAN_SAGLAYICILARI)
-    assert len(adlar) == 8
+    assert len(adlar) == 10
 
 
-def test_52_arac_dort_yuz_on_alti_saglayici_arac_yolunda_erisebilir():
-    """8 saglayici x 52 arac = 416 ajan yolu; kota kullanmaz."""
+def test_52_arac_bes_yuz_yirmi_saglayici_arac_yolunda_erisebilir():
+    """10 saglayici x 52 arac = 520 ajan yolu; kota kullanmaz."""
     from chat.agent_protocol import (
         YETENEK_AC_ADI, SON_CEVAP_ADI, YETENEK_ALANLARI,
         baslangic_araclari,
@@ -431,7 +456,7 @@ def test_52_arac_dort_yuz_on_alti_saglayici_arac_yolunda_erisebilir():
             assert cevap == "tamam"
             sayac += 1
 
-    assert sayac == 8 * 52
+    assert sayac == 10 * 52
 
 
 

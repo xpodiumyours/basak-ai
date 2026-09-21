@@ -72,6 +72,28 @@ Desteklenen sağlayıcılar (hepsi ücretsiz katmanlı):
 Boş bıraktığın sağlayıcı **zincire girmez** ve hata vermez — "boş yuva"
 sayılır. Zaman aşımları ve sıralama: bkz. §5.
 
+### 3.3.1 2026-09-22'de eklenen platformlar
+
+Adresler ve varsayılan modeller kodda gömülüdür; `mistral_api_url`,
+`glhf_api_url`, `hf_api_url`, `chutes_api_url` alanlarıyla değiştirilebilir
+(kod değişmez).
+
+| Anahtar alanı | Platform | Durum |
+|---|---|---|
+| `mistral_key` | Mistral | ✅ Bedava "Experiment": ~1 milyar token/ay, ~1 istek/sn. **Telefon doğrulaması ister**, kart istemez |
+| `glhf_key` | glhf.chat | ✅ Bedava; bedava modellerde sınırsız deniyor (2 model: Llama 3.1 70B, Mixtral 8x7B) |
+| `hf_token` | Hugging Face | ⛔ **Kapalı**: ücretsiz kredisi ayda yalnızca 0,10 dolar. Anahtar yazmak tek başına yetmez |
+| `chutes_key` | Chutes | ⛔ **Kapalı**: ücretlidir (1M token 0,0245 dolardan). Anahtar yazmak tek başına yetmez |
+
+⛔ işaretlilerin **kayıt kartı** açılmadan zincire girmez; bu bilerek
+böyledir — bedava düzen bozulmaz. Yeni platformların sırası ölçümden sonra
+`brain/registry.py` içinde gerekçesiyle belirlenir (bkz. §6 kuralı):
+şu an ikisi de listenin **sonundadır**, çünkü canlı hız ölçümleri henüz yok.
+
+> **Gizlilik notu:** Mistral'in ücretsiz katmanında veri, panelden
+> kapatılmazsa model geliştirmesinde kullanılabilir
+> (Mistral panel → Settings → Privacy).
+
 ### 3.4 Ses modeli (unutulursa Başak KONUŞMAZ)
 
 `piper-tts` paketi ses modelini içermez. Türkçe ses modelini proje köküne

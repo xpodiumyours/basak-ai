@@ -164,6 +164,60 @@ SAGLAYICILAR = {
         "yerel_kota_koru": True,
         "not": "Free hesap: 50 istek/gun; yalniz :free ve tool destekli modeller.",
     },
+    "mistral": {
+        "ad": "Mistral",
+        "ucretsiz": True,
+        "tools": True,
+        # OpenAI-uyumlu uc; function calling resmi olarak destekli.
+        "ajan_tool_mode": "auto_enforced",
+        "gucleri": ["genel", "kod"],
+        # Dogrulama 2026-09-22 (console.mistral.ai + freellm.net):
+        # Experiment plani ~1 milyar token/ay, ~1 istek/sn, 500K token/dk.
+        # Kart istemez; TELEFON DOGRULAMASI ister.
+        "dakikalik_istek": 60,
+        "gunluk_istek": None,
+        "yerel_kota_koru": False,
+        "not": "Ucretsiz Experiment: ~1 milyar token/ay, ~1 istek/sn. "
+               "Telefon dogrulamasi ister. Veri, panelden kapatilmazsa "
+               "model gelistirmesinde kullanilabilir (Settings > Privacy). "
+               "Sira olcumden sonra kesinlesir.",
+    },
+    "glhf": {
+        "ad": "glhf.chat",
+        "ucretsiz": True,
+        "tools": True,
+        # OpenAI SDK uyumlu; function calling destekli (freellm.net).
+        "ajan_tool_mode": "auto_enforced",
+        "gucleri": ["genel"],
+        "gunluk_istek": None,
+        "not": "Ucretsiz modeller icin sinirsiz deniyor; resmi limit "
+               "yayinlanmiyor. Yalniz 2 model (Llama 3.1 70B, Mixtral 8x7B). "
+               "Kucuk/bagimsiz saglayici — yedek olarak durur. "
+               "Sira olcumden sonra kesinlesir.",
+    },
+    "huggingface": {
+        "ad": "Hugging Face",
+        "ucretsiz": False,
+        # Aylik ucretsiz kredi 0,10 dolar (PRO 2 dolar). Sinirsiz bedava
+        # saglayici DEGILDIR; otomatik zincire kendiliginden girmez.
+        "otomatik_ucretsiz": False,
+        "tools": True,
+        "gucleri": ["genel"],
+        "gunluk_istek": None,
+        "not": "Router: tek HF jetonuyla 18+ saglayiciya gider. Ucretsiz "
+               "kredi ayda yalnizca 0,10 dolar — otomatik zincire KAPALI "
+               "(kart acilmadan cagrilmaz).",
+    },
+    "chutes": {
+        "ad": "Chutes",
+        "ucretsiz": False,
+        "tools": True,
+        "gucleri": ["genel"],
+        "gunluk_istek": None,
+        "not": "UCRETLI (kullanim basina odeme): 1M token 0,0245 dolardan "
+               "baslar. Modeller donanim dogrulamali TEE icinde calisir. "
+               "Anahtar yoksa zincire girmez; otomatik bedava duzen degismez.",
+    },
 }
 
 # Varsayilan oncelik sirasi (secici yeniden SIRALAMAZ — bu sira korunur).
@@ -181,6 +235,12 @@ VARSAYILAN_SIRA = [
     # mesajina bakmaz, yalniz resmi kapasite + canli olcum gercegidir.
     "groq", "gemini", "cloudflare", "kilo", "nvidia", "glm",
     "openrouter", "cohere",
+    # 2026-09-22 eklendi: Mistral + glhf.chat. Yerleri KASITLI olarak
+    # sonda, cunku henuz canli hiz olcumu yok. README kurali: "Yeni bir
+    # saglayici eklersen once hiz_olcum.py ile olc, sonra sirayi
+    # gerekcesiyle birlikte yorumda belirt." Olcumden sonra yerleri
+    # burada gerekcesiyle guncellenir.
+    "mistral", "glhf",
 ]
 
 

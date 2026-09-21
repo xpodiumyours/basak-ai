@@ -206,6 +206,12 @@ class Brain:
         self._cloudflare = self._providers.get("cloudflare")
         self._cohere = self._providers.get("cohere")
         self._qwen = self._providers.get("qwen")
+        # 2026-09-22 (Yol 1): yeni platformlar. Adapter dosyalari
+        # otomatik kesfedilir; burada yalniz nitelik baglanir.
+        self._mistral = self._providers.get("mistral")
+        self._glhf = self._providers.get("glhf")
+        self._huggingface = self._providers.get("huggingface")
+        self._chutes = self._providers.get("chutes")
         # 2026-09-10: kullanicinin ozel (ucretli) saglayicisi. Anahtar
         # yoksa None'dir — bedava kurulum etkilenmez.
         self._genel = self._providers.get("genel")
@@ -262,6 +268,20 @@ class Brain:
             zincir.append(("kilo", self._kilo))
         if _uygun("openrouter", self._openrouter):
             zincir.append(("openrouter", self._openrouter))
+        # 2026-09-22 (Yol 1): yeni platformlar. Dort satirin dordu de
+        # burada durur — boylece "sessizce olu saglayici" olusmaz
+        # (README §6 uyarisi: uc yeri birden yapilmazsa saglayici olu kalir).
+        # Mistral + glhf kartlari ACIK, zincire girerler; huggingface +
+        # chutes kartlari KAPALI oldugu icin _uygun() eler. Kart acilirsa
+        # satir zaten hazirdir.
+        if _uygun("mistral", self._mistral):
+            zincir.append(("mistral", self._mistral))
+        if _uygun("glhf", self._glhf):
+            zincir.append(("glhf", self._glhf))
+        if _uygun("huggingface", self._huggingface):
+            zincir.append(("huggingface", self._huggingface))
+        if _uygun("chutes", self._chutes):
+            zincir.append(("chutes", self._chutes))
         if _uygun("qwen", self._qwen):
             zincir.append(("qwen", self._qwen))
         if _uygun("gemini", self._gemini):

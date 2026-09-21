@@ -60,8 +60,15 @@ class GenelClient:
         return self.client is not None
 
     def cevapla(self, messages: list, tools: list = None,
-                model: str = None, yapi=None) -> dict:
-        """Diger istemcilerle birebir ayni sozlesme."""
+                model: str = None, yapi=None, tool_choice=None) -> dict:
+        """Diger istemcilerle birebir ayni sozlesme.
+
+        2026-09-22 DUZELTME: tool_choice parametresi eksikti. brain.py
+        istemciye tool_choice'i ekstra olarak gecirir (bkz. _tek_cagri);
+        parametre olmadigi icin ARAC KULLANAN her cagri TypeError ile
+        kirilirdi. Artik diger istemciler gibi kabul edilir ve saglayicinin
+        resmi degeri (auto/required) dogrudan gecilir.
+        """
         if not self.client:
             raise RuntimeError("Genel sağlayıcı bağlı değil")
 
@@ -72,6 +79,8 @@ class GenelClient:
         }
         if tools:
             kwargs["tools"] = tools
+        if tool_choice is not None:
+            kwargs["tool_choice"] = tool_choice
         if yapi is not None:
             kwargs["response_format"] = {"type": "json_object"}
 
