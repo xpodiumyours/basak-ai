@@ -45,7 +45,8 @@ async function basakHealth() {
       }
     }
 
-    const bar = document.getElementById("modelBar");
+    const bar = document.getElementById("modelBarAlt")
+      || document.getElementById("modelBar");
     if (bar) {
       bar.textContent = "";
       for (const m of (d.modeller || [])) {

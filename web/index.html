@@ -18,15 +18,10 @@
       <a class="pill" href="/lab.html">Kabul matrisi</a>
     </div>
   </header>
-  <div id="modelBar" class="modelbar" aria-live="polite"></div>
-  <section class="hero">
+  <div id="modelBar" class="modelbar" aria-live="polite" hidden></div>
+  <section class="hero" style="text-align:center">
     <h1>Başak'a sor, işini hızlandır</h1>
-    <p>Türkçe konuşan yapay zeka asistanı: araştırır, yazar, hatırlatır, hesap yapar. Aşağıdan bir soru seç ya da kendi sorunu yaz.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-      <button class="pill ornek" type="button">Neler yapabilirsin?</button>
-      <button class="pill ornek" type="button">Bugün hava nasıl?</button>
-      <button class="pill ornek" type="button">Bana işlerimi nasıl kolaylaştırırsın?</button>
-    </div>
+    <p style="margin:0 auto">Türkçe konuşan yapay zeka asistanı: araştırır, yazar, hatırlatır, hesap yapar.</p>
   </section>
   <section class="card">
     <div id="chat" class="chat">
@@ -36,8 +31,14 @@
       <textarea id="message" maxlength="4000" placeholder="Başak'a yaz..."></textarea>
       <button id="send" class="action">Gönder</button>
     </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px">
+      <button class="pill ornek" type="button">Neler yapabilirsin?</button>
+      <button class="pill ornek" type="button">Bugün hava nasıl?</button>
+      <button class="pill ornek" type="button">Bana işlerimi nasıl kolaylaştırırsın?</button>
+    </div>
   </section>
-  <p class="muted" style="margin-top:12px">Deneme sayfasıdır; yazdıkların bu bilgisayarda işlenir.</p>
+  <p class="muted" style="margin-top:12px">Deneme sayfasıdır; yazdıkların bu bilgisayarda işlenir. <a href="/lab.html">Teknik durum</a></p>
+  <div id="modelBarAlt" class="modelbar" aria-live="polite"></div>
 </main>
 <script src="/common.js?v=2"></script>
 <script src="/app.js"></script>
