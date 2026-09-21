@@ -256,3 +256,25 @@ yapar.
 - **Yerel görü (fatura okuma) GPU'suz makinede çok yavaş**: ölçüldü, yerel
   CPU modeli denemesi ~300 sn sürüyordu. `ayarlar.json` içinde
   `"yerel_goru_kapali": true` ile kapatılır (varsayılan öneri).
+
+## 11. Lisans
+
+Bu proje **GNU AGPL-3.0** ile lisanslıdır — tam metin: [LICENSE](LICENSE).
+Telif hakkı: **Casper, 2026**.
+
+**Düz Türkçe özeti:**
+
+| Ne yapmak istiyorsun? | İzin var mı? |
+|---|---|
+| İndirip kendi bilgisayarında kullanmak | ✅ Serbest |
+| Değiştirip kendine uyarlamak | ✅ Serbest |
+| Arkadaşına vermek, paylaşmak, yaymak | ✅ Serbest |
+| Alıp değiştirip **kendi sunucunda hizmet olarak sunmak** | ✅ Serbest — **ama kendi kodunu da AGPL ile açman gerekir** |
+| Alıp kapalı kutuya çevirip satmak | ❌ Yasak |
+
+**Ticari kullanım yasak değildir.** Tek şart: kodu açık tutmak. Amaç,
+Başak'ı alıp kapalı bir servise çeviren birinin yaptığı iyileştirmeyi
+topluma geri vermesini sağlamak.
+
+Kendi bilgisayarına kurup kendi işinde kullanırsan (kodu dağıtmadığın
+sürece) hiçbir yükümlülük doğmaz.
