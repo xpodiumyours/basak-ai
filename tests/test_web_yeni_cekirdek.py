@@ -4,7 +4,8 @@ Sadelestirme dali icin 1 test. --live YOK, gercek API YOK (sahte beyin).
 KAYNAK DOSYALARA DOKUNMAZ; yalniz davranisi olcer.
 
 1. web kuyruk sayi + bitir garantisi: her /api/sohbet artan istek numarasi
-   alir; beyin patlasa bile o istek icin 'bitir' olayi yayinlanir.
+   alir; beyin patlasa bile o istek icin 'bitir' olayi yayinlanir
+   (/api/olaylar üzerinden yoklanir).
 
 NOT: tur siniri ve gecmis kirpma testleri YOK. AGENTS.md S0-5 yasagi
 geregi bu tavanlar koda giremez, o yuzden testi de yazilmaz.
@@ -40,8 +41,8 @@ def _sunucu_ac(tmp_path, monkeypatch):
     (tmp_path / "index.html").write_text("<html>ekran</html>",
                                          encoding="utf-8")
     monkeypatch.setattr(basak_web, "_SAYAC", 0)
-    monkeypatch.setattr(basak_web, "_OLAY_SIRA", 0)
-    basak_web._OLAY_DOSYASI.clear()
+    basak_web._OLAYLAR.clear()
+    basak_web._OLAY_ZAMANI.clear()
     srv = ThreadingHTTPServer(("127.0.0.1", 0), basak_web._Kopru)
     t = threading.Thread(target=srv.serve_forever, daemon=True)
     t.start()
@@ -52,7 +53,7 @@ def _bitir_bekle(adres, istek_no, timeout=5):
     """Yoklamadan o istegin bitir olayi gelene kadar bekler."""
     son = time.time() + timeout
     while time.time() < son:
-        _, d = _istek(adres, "/api/yoklama?son=0&istek=%d" % istek_no)
+        _, d = _istek(adres, "/api/olaylar?istek=%d&son=0" % istek_no)
         for o in d["olaylar"]:
             if o.get("tur") == "bitir":
                 return o
@@ -63,7 +64,8 @@ def _bitir_bekle(adres, istek_no, timeout=5):
 def test_web_kuyruk_sayi_ve_bitir_garantisi(tmp_path, monkeypatch):
     srv, adres = _sunucu_ac(tmp_path, monkeypatch)
     try:
-        def _sahte(metin, beyin, sistem, js, tools=None):
+        def _sahte(metin, beyin, sistem, js, tools=None,
+                   misafir=False, sid=None):
             js('BasakUI.bitir("selam", "")')
 
         with mock.patch.object(basak_web, "mesaj_isle_cagir", _sahte):
@@ -74,7 +76,8 @@ def test_web_kuyruk_sayi_ve_bitir_garantisi(tmp_path, monkeypatch):
         assert c2["istek"] == c1["istek"] + 1
 
         # Bitir garantisi: beyin patlasa bile bitir olayi gelir.
-        def _patlayan(metin, beyin, sistem, js, tools=None):
+        def _patlayan(metin, beyin, sistem, js, tools=None,
+                       misafir=False, sid=None):
             raise RuntimeError("boom")
 
         with mock.patch.object(basak_web, "mesaj_isle_cagir", _patlayan):
@@ -83,4 +86,5 @@ def test_web_kuyruk_sayi_ve_bitir_garantisi(tmp_path, monkeypatch):
         assert "boom" in olay["cevap"], olay
     finally:
         srv.shutdown()
-        basak_web._OLAY_DOSYASI.clear()
+        basak_web._OLAYLAR.clear()
+        basak_web._OLAY_ZAMANI.clear()
