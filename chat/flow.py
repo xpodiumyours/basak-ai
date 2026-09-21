@@ -243,7 +243,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
 
         logger.info("Ajan turu final cevap vermedi (%d arac kostu)", kosan)
         js_callback("BasakUI.error(" + _j(
-            "Ajan gorevi final cevaba baglayamadi") + ")")
+            "Bu sefer araclardan sonuc alamadim, tekrar dene") + ")")
         return
 
     # ── Akan cevap ──────────────────────────────────────────────────
