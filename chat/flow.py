@@ -23,6 +23,7 @@ from chat.prompts import KIMLIK_BLOGU, MISAFIR_BLOGU
 from chat.agent_protocol import AJAN_SOZLESMESI, baslangic_araclari
 from chat import context as ctx
 from chat.gate import temizle as _temizle
+from chat import onbellek as _onbellek
 
 logger = logging.getLogger(__name__)
 
@@ -138,8 +139,13 @@ def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi="",
 
 
 def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
-            misafir=False):
-    """Cevabı ekrana basar, geçmişe ve kalıcı hafızaya yazar."""
+            misafir=False, onbellekle=False):
+    """Cevabı ekrana basar, geçmişe ve kalıcı hafızaya yazar.
+
+    onbellekle=True: yalnız ARAC KOSMAYAN turlar icin gecilir; cevap
+    kisa sure icin saklanir ki ayni mesaj tekrar gonderilirse model
+    yeniden cagrilmasin (bkz. chat/onbellek.py).
+    """
     if misafir:
         # Misafir iz birakmaz: ortak gecmise, oturuma ve hafizaya yazilmaz.
         js_callback("BasakUI.bitir(" + _j(cevap) + ", " + _j(kaynak) + ")")
@@ -161,6 +167,9 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
         logger.warning("Oturum kaydi atlandi: %s", e)
 
     js_callback("BasakUI.bitir(" + _j(cevap) + ", " + _j(kaynak) + ")")
+
+    if onbellekle and not misafir:
+        _onbellek.koy(text, cevap)
 
     # Ekran güncellendikten SONRA anıyı yaz — cevabı bekletmesin.
     motor = ctx.hafiza_al()
@@ -209,6 +218,18 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
          if m.get("role") != "system"])
 
+    # 2026-09-22: kullanici ayni mesaji kisa sure icinde IKINCI kez
+    # gonderdiyse (cift tiklama/tekrar deneme) ayni cevabi yeniden satin
+    # almayalim. Karar metnin anlamina bakmaz; bir onceki kullanici
+    # mesajinin TAM AYNISI olmasi sarttir (bkz. chat/onbellek.py).
+    # Misafirde onbellek yok — misafir iz birakmaz.
+    if not misafir:
+        _tekrar = _onbellek.al(text, gecmis)
+        if _tekrar:
+            _kaydet(text, _tekrar, "onbellek", gecmis, js_callback,
+                    konusmaci)
+            return
+
     # 2026-09-13 (Casper karari): kelime listesiyle tetikleme KALKTI.
     # O liste, araclarin etrafina sarilmis bir kural katmaniydi — bu
     # gece soktugumuz seyin aynisi. Gerekcesi de olculunce curudu:
@@ -254,7 +275,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 else yanit)
             if cevap:
                 _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
-                     misafir=misafir)
+                     misafir=misafir, onbellekle=True)
                 return
             js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")")
             return
@@ -297,8 +318,10 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 p if isinstance(p, str) else str(p) if p is not None else ""
                 for p in parcalar))
             if tam:
+                # Akis tamamlandi => hicbir arac kosmadi (arac istendiyse
+                # AracIstegi yukarida yakalanirdi). Onbelleklenebilir.
                 _kaydet(text, tam, kaynak or "bulut", gecmis, js_callback,
-                        konusmaci, misafir=misafir)
+                        konusmaci, misafir=misafir, onbellekle=True)
                 return
             logger.info("Akis bos dondu, tek seferlik yola dusuluyor")
         except AracIstegi as istek:
@@ -374,5 +397,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")")
         return
 
+    # Arac kosan turun sonucu yeniden kullanilmaz (yan etkisi olabilir);
+    # yalniz duz sohbet cevabi onbelleklenir.
     _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
-                     misafir=misafir)
+            misafir=misafir, onbellekle=not (tool_calls and tools))
