@@ -223,3 +223,12 @@ icin kural:
 - Web sohbet ekraninin kullaniciya acilmasi bu kuralla celismez:
   ekran, cekirdekteki `chat/flow.mesaj_isle` yolunu cagiran koprudur;
   arac beyaz listesi ve izin katmani cekirdekte aynen gecerlidir.
+
+## 10. DAL KURALI (2026-09-21, Casper karari — baglayici)
+
+- Ana dal `sadelestirme`dir (GitHub varsayilani). `master` aynadir:
+  calisilmaz, is bitince `sadelestirme` ile esitlenir.
+- Her is kisa dalda (`sadelestirme`den acilir), bitince ana dala
+  birlesir, dal silinir. Uzun yasayan ikinci ana dal YASAKTIR.
+- Ajan yeni ana dal, varsayilan degisikligi veya korumali-alan
+  degisikligi ONEREMEZ; gerekirse Casper'a tek cumleyle sorar.
