@@ -98,7 +98,7 @@ class TestBrainKablolama:
         b = Brain.__new__(Brain)   # __init__ agirliklari olmadan
         for ad in ("_glm", "_cloudflare", "_cohere", "_nvidia", "_kilo",
                    "_openrouter", "_qwen", "_gemini", "_genel",
-                   "_mistral", "_glhf", "_huggingface", "_chutes"):
+                   "_mistral", "_huggingface", "_chutes"):
             setattr(b, ad, None)
 
         class SahteSaglayici:

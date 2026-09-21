@@ -182,19 +182,6 @@ SAGLAYICILAR = {
                "model gelistirmesinde kullanilabilir (Settings > Privacy). "
                "Sira olcumden sonra kesinlesir.",
     },
-    "glhf": {
-        "ad": "glhf.chat",
-        "ucretsiz": True,
-        "tools": True,
-        # OpenAI SDK uyumlu; function calling destekli (freellm.net).
-        "ajan_tool_mode": "auto_enforced",
-        "gucleri": ["genel"],
-        "gunluk_istek": None,
-        "not": "Ucretsiz modeller icin sinirsiz deniyor; resmi limit "
-               "yayinlanmiyor. Yalniz 2 model (Llama 3.1 70B, Mixtral 8x7B). "
-               "Kucuk/bagimsiz saglayici — yedek olarak durur. "
-               "Sira olcumden sonra kesinlesir.",
-    },
     "huggingface": {
         "ad": "Hugging Face",
         "ucretsiz": False,
@@ -235,12 +222,11 @@ VARSAYILAN_SIRA = [
     # mesajina bakmaz, yalniz resmi kapasite + canli olcum gercegidir.
     "groq", "gemini", "cloudflare", "kilo", "nvidia", "glm",
     "openrouter", "cohere",
-    # 2026-09-22 eklendi: Mistral + glhf.chat. Yerleri KASITLI olarak
-    # sonda, cunku henuz canli hiz olcumu yok. README kurali: "Yeni bir
-    # saglayici eklersen once hiz_olcum.py ile olc, sonra sirayi
-    # gerekcesiyle birlikte yorumda belirt." Olcumden sonra yerleri
-    # burada gerekcesiyle guncellenir.
-    "mistral", "glhf",
+    # 2026-09-22 eklendi: Mistral. Yeri KASITLI olarak sonda, cunku
+    # henuz canli hiz olcumu yok (hesap onay bekliyor). README kurali:
+    # "Yeni bir saglayici eklersen once hiz_olcum.py ile olc, sonra
+    # sirayi gerekcesiyle birlikte yorumda belirt."
+    "mistral",
 ]
 
 
