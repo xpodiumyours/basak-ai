@@ -75,3 +75,6 @@ basak-kapisi/.wrangler/
 data/gelen/
 data/katalog/
 data/yetki/
+
+# Ajan oturum durumu (kod değil, yerel kalır)
+.freebuff/

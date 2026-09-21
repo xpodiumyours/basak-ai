@@ -1,31 +1,32 @@
 {
   "_aciklama": "Basak anahtar sablonu. Bu dosyayi 'ayarlar.json' adiyla kopyalayip kendi anahtarlarini yaz. ayarlar.json git'e GIRMEZ (.gitignore).",
   "_hangi_anahtar_gerekli": "En az bir tanesi yeterli. Bos birakilan saglayici zincire girmez (bos yuva sayilir), hata vermez.",
+  "_onemli": "Butun anahtarlar ve ayarlar EN UST SEVIYEDE durur. Ic ice duran '_' gruplari YALNIZ ACIKLAMADIR; kod onlari okumaz (2026-09-22: sablon anahtarlari ic ice gruplara koyuyordu, kod ust seviyeden okudugu icin sessizce yok sayiliyordu). Kontrol: python doktor.py",
+
   "groq_key": "",
   "gemini_key": "",
   "openrouter_key": "",
   "zai_key": "",
   "nvidia_key": "",
-  "_opsiyonel": {
-    "glm_model": "glm-4.7-flash",
-    "groq_model": "openai/gpt-oss-120b",
-    "tts_on": false,
-    "yerel_goru_kapali": true,
-    "_yerel_goru_notu": "true = fatura/goruntu okumasi yerel CPU modelini HIC denemez, dogrudan buluta gider. GPU'su olmayan makinede onerilir (olculen: yerel deneme 300 sn suruyordu)."
-  },
-  "_yeni_platformlar": {
-    "_not": "2026-09-22'de eklendi. Mistral ve glhf.chat BEDAVA: anahtari yazinca zincire girer. Hugging Face ve Chutes KAPALI: HF'nin ucretsiz kredisi ayda yalnizca 0,10 dolar, Chutes ise ucretlidir — bu ikisinde anahtar yazmak TEK BASINA yetmez, saglayici kayit karti da acilmalidir (Casper karari).",
-    "_adresler": "Adresler kodda gomulu (mistral: api.mistral.ai/v1 · glhf: glhf.chat/api/openai/v1 · hf: router.huggingface.co/v1 · chutes: llm.chutes.ai/v1). Degistirmek isterseniz mistral_api_url / glhf_api_url / hf_api_url / chutes_api_url alanlarini eklemeniz yeter; kod degismez.",
-    "_hf_notu": "hf_token hem Hugging Face yonlendiricisi hem de konusmaci tanima (voice/speaker_id.py) icin kullanilir.",
-    "mistral_key": "",
-    "glhf_key": "",
-    "hf_token": "",
-    "chutes_key": ""
-  },
-  "_bos_yuvalar": {
-    "_not": "Cloudflare ve Cohere de ucretsiz ve kart istemez; anahtarlari girilince zincir 8 saglayiciya cikar ve kabul matrisindeki 104 SKIP hucre canli olur. Alan adlari KODUN okudugu adlardir (brain/adapters/cloudflare_adapter.py, cohere_adapter.py) — farkli yazilirsa hucre yine SKIP kalir.",
-    "cloudflare_account_id": "",
-    "cloudflare_api_token": "",
-    "cohere_key": ""
+  "kilo_key": "",
+  "cloudflare_account_id": "",
+  "cloudflare_api_token": "",
+  "cohere_key": "",
+  "mistral_key": "",
+  "hf_token": "",
+  "chutes_key": "",
+
+  "glm_model": "glm-4.7-flash",
+  "groq_model": "openai/gpt-oss-120b",
+  "tts_on": false,
+  "yerel_goru_kapali": true,
+
+  "_aciklamalar": {
+    "_yerel_goru_notu": "yerel_goru_kapali=true ise fatura/goruntu okumasi yerel CPU modelini HIC denemez, dogrudan buluta gider. GPU'su olmayan makinede onerilir (olculen: yerel deneme 300 sn suruyordu).",
+    "_ses_notu": "tts_on sese gecis icindir; ses MODELI (tr_TR-dfki-medium.onnx) ayri indirilir — README 3.4.",
+    "_mistral_notu": "mistral_key: ucretsiz 'Experiment' plani. Telefon dogrulamasi ister, kart istemez. Gizlilik: panelden kapatilmazsa veri model gelistirmesinde kullanilabilir (Settings > Privacy).",
+    "_hf_notu": "hf_token hem Hugging Face yonlendiricisi hem konusmaci tanima (voice/speaker_id.py) icin kullanilir. HF ucretsiz kredisi ayda yalnizca 0,10 dolar oldugu icin otomatik zincire KAPALI.",
+    "_chutes_notu": "chutes_key: UCRETLIDIR (kullanim basina odeme). Bu yuzden KAPALI yuvadir; anahtar yazmak tek basina yetmez.",
+    "_cloudflare_cohere_notu": "cloudflare_account_id + cloudflare_api_token ve cohere_key ucretsizdir, kart istemez. Girilince zincir 9 saglayiciya cikar ve kabul matrisindeki SKIP hucreler canli olur."
   }
 }

@@ -52,7 +52,7 @@ python -m pip install -r requirements.txt
 
 ### 3.3 Anahtarlar
 
-`ayarlar.json` git'e girmez. Şablondan kopyala ve **en az bir** anahtar yaz:
+`ayarlar.json` git'e girmez. Şablondan kopyala ve **en az bir** anahtar yaz. **Anahtarlar ve ayarlar dosyanın EN ÜST SEVİYESİNDE durmalı** — iç içe `_` grupları yalnız açıklamadır, kod onları okumaz (2026-09-22 düzeltmesi; bekçisi `doktor.py`):
 
 ```powershell
 Copy-Item ayarlar.ornek.json ayarlar.json
@@ -75,15 +75,21 @@ sayılır. Zaman aşımları ve sıralama: bkz. §5.
 ### 3.3.1 2026-09-22'de eklenen platformlar
 
 Adresler ve varsayılan modeller kodda gömülüdür; `mistral_api_url`,
-`glhf_api_url`, `hf_api_url`, `chutes_api_url` alanlarıyla değiştirilebilir
-(kod değişmez).
+`hf_api_url`, `chutes_api_url` alanlarıyla değiştirilebilir (kod değişmez).
 
 | Anahtar alanı | Platform | Durum |
 |---|---|---|
 | `mistral_key` | Mistral | ✅ Bedava "Experiment": ~1 milyar token/ay, ~1 istek/sn. **Telefon doğrulaması ister**, kart istemez |
-| `glhf_key` | glhf.chat | ✅ Bedava; bedava modellerde sınırsız deniyor (2 model: Llama 3.1 70B, Mixtral 8x7B) |
 | `hf_token` | Hugging Face | ⛔ **Kapalı**: ücretsiz kredisi ayda yalnızca 0,10 dolar. Anahtar yazmak tek başına yetmez |
 | `chutes_key` | Chutes | ⛔ **Kapalı**: ücretlidir (1M token 0,0245 dolardan). Anahtar yazmak tek başına yetmez |
+
+⛔ işaretlilerin **kayıt kartı** açılmadan zincire girmez; bu bilerek
+böyledir — bedava düzen bozulmaz. Yeni platformun sırası ölçümden sonra
+`brain/registry.py` içinde gerekçesiyle belirlenir (bkz. §6 kuralı):
+şu an listenin **sonundadır**, çünkü canlı hız ölçümü henüz yok.
+
+> **2026-09-22:** glhf.chat adayı ölçümde ölü çıktı (HTTP 522) ve koddan
+> tamamen kaldırıldı. Ölü sağlayıcı tutulmuyor.
 
 ⛔ işaretlilerin **kayıt kartı** açılmadan zincire girmez; bu bilerek
 böyledir — bedava düzen bozulmaz. Yeni platformların sırası ölçümden sonra
@@ -212,6 +218,8 @@ kendine yetki yazamaz.
 | Araç | Ne yapar |
 |---|---|
 | `hiz_olcum.py` | Sağlayıcı gecikmelerini ölçer (kod değiştirmez) |
+| `doktor.py` | Ortam kontrolü: paket · anahtar · ses modeli · hafıza — tek komut, kota harcamaz (`--canli` hariç) |
+| `hafiza_olcum.py` | Hafıza arama doğruluğunu sabit setle ölçer; `--canli` ile anlam seti de ölçülür |
 | `hata.log` | Çalışma günlüğü (5 MB × 3 döner) |
 | `data/audit/audit.log` | Her beyin çağrısının denetim kaydı |
 | `tools/saglik_raporu.py` | Sayaçlar + denetim özeti (araç olarak da koşar) |
