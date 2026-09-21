@@ -181,6 +181,12 @@ async function send() {
 }
 
 sendEl.addEventListener("click", send);
+document.querySelectorAll(".ornek").forEach((d) => {
+  d.addEventListener("click", () => {
+    msgEl.value = d.textContent.trim();
+    msgEl.focus();
+  });
+});
 msgEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
 });
