@@ -15,6 +15,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Ariza freni (2026-09-21): model ayni isi ard arda tekrarlayip takilirsa
+# donguden cikilir. Yalniz (arac adi + duzenlenmis arguman) tekrarina
+# bakilir; toplam tur sayisina bakilmaz, cesitli isler sinirsiz surer.
+# Esik bekciyle uyumlu tutuldu: bekci 31 ayni cagriyi serbest birakir
+# (tests/test_chatbot_yasagi.py), fren 32'nci ayni iste dokunmadan durur.
+# Tur siniri DEGILDIR: farkli araclar/argumanlar sonsuza dek devam eder.
+_ARD_ARDA_ESIK = 32
+_TAKILMA_MESAJI = "Bu sefer araclardan sonuc alamadim, tekrar dene"
+
 DURUM_METNI = {
     "web_search": "İnternette aranıyor",
     "haber_ara": "Haberlerde aranıyor",
@@ -170,6 +179,20 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     if not ilk_muhakeme and mesajlar:
         ilk_muhakeme = _muhakeme_al(mesajlar[-1])
 
+    # Ariza freni durumu: yalniz ard arda AYNI is sayilir.
+    # Anahtar = (arac adi, duzenlenmis arguman). Kullanici metnine
+    # bakilmaz, cevaba dokunulmaz, toplam tur sayilmaz.
+    _son_is = None
+    _ard_arda = 0
+
+    def _is_anahtar(ad, args):
+        try:
+            _kanon = json.dumps(args or {}, sort_keys=True,
+                                ensure_ascii=False)
+        except (TypeError, ValueError):
+            _kanon = str(args)
+        return (ad or "", _kanon)
+
     while tool_calls:
         tur_sonuclari = []
 
@@ -196,10 +219,26 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
         }
 
         for call in tool_calls:
-            func = call.get("function", {})
+            func = call.get("function", {}) if isinstance(call, dict) else {}
             ad = func.get("name", "")
             args = parse_args(func.get("arguments", "{}"))
-            cagri_id = call.get("id") or "call_%d" % len(tur_sonuclari)
+            cagri_id = (call.get("id") if isinstance(call, dict) else None
+                        ) or "call_%d" % len(tur_sonuclari)
+
+            # Ariza freni: ayni arac ayni argumanla ard arda gelirse
+            # calistirmadan dur, durust cumleyi dondur (0aa7c5c deseni).
+            # Sayac yalniz AYNI is surerse artar; farkli is sifirlar.
+            # Toplam tur sayilmaz, cesitli isler sinirsiz surer.
+            _anahtar = _is_anahtar(ad, args)
+            if _anahtar == _son_is:
+                _ard_arda += 1
+            else:
+                _son_is = _anahtar
+                _ard_arda = 1
+            if _ard_arda >= _ARD_ARDA_ESIK:
+                logger.info("Ayni is %d kez tekrarlandi, fren: %s",
+                            _ard_arda, ad)
+                return _TAKILMA_MESAJI, kosan
 
             if ad == YETENEK_AC_ADI:
                 alan = args.get("alan")

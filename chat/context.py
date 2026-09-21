@@ -29,8 +29,9 @@ OBSIDIAN_DIR = os.path.join(BASE, "Basak")
 # Her açılışta bir oturum kimliği — kayıtlara işlenir.
 OTURUM_ID = uuid.uuid4().hex[:8]
 
-# Gecmis yazma kilidi (tek surec ici; bkz. kaydet).
-_kayit_kilidi = threading.Lock()
+# Gecmis yazma kilidi (tek surec ici; bkz. kaydet + cift_ekle).
+# RLock: cift_ekle kilit altinda kaydet cagirir.
+_kayit_kilidi = threading.RLock()
 
 # ── Geçmiş penceresi ────────────────────────────────────────────────
 # Ozgu-ajan (2026-09-13 Faz 1, AGENTS.md S0-5): kilo/adet kirpmasi YOK.
@@ -62,6 +63,34 @@ def kaydet(path, veri):
         with open(gecici, "w", encoding="utf-8") as f:
             json.dump(veri, f, ensure_ascii=False, indent=2)
         os.replace(gecici, path)
+
+
+def cift_ekle(soru, cevap, oturum_id, path=None):
+    """Bir soru-cevap ciftini gecmis dosyasina kayipsiz ekler.
+
+    2026-09-21 oturum ayrimi: yukle+ekle+kaydet tek kilit altinda.
+    Ayri thread'de iki mesaj ayni anda gelse biri digerini ezmez;
+    yazma yine .tmp + os.replace ile atomiktir.
+    path verilmezse HISTORY_FILE (eski tek kisilik davranis korunur).
+    """
+    hedef = path or HISTORY_FILE
+    with _kayit_kilidi:
+        try:
+            with open(hedef, "r", encoding="utf-8-sig") as f:
+                gecmis = json.load(f)
+                if not isinstance(gecmis, list):
+                    gecmis = []
+        except (OSError, ValueError):
+            gecmis = []
+        gecmis += [
+            {"role": "user", "content": soru, "oturum": oturum_id},
+            {"role": "assistant", "content": cevap, "oturum": oturum_id},
+        ]
+        gecici = hedef + ".tmp"
+        with open(gecici, "w", encoding="utf-8") as f:
+            json.dump(gecmis, f, ensure_ascii=False, indent=2)
+        os.replace(gecici, hedef)
+        return gecmis
 
 
 def gecmis_pencere(gecmis, limit=GECMIS_KILO_LIMITI, adet_siniri=MAX_HISTORY):

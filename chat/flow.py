@@ -138,27 +138,49 @@ def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi="",
 
 
 def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
-            misafir=False):
-    """Cevabı ekrana basar, geçmişe ve kalıcı hafızaya yazar."""
+            misafir=False, sid=None):
+    """Cevabı ekrana basar, geçmişe ve kalıcı hafızaya yazar.
+
+    sid verilirse yalniz o sohbetin kaydina yazar (iki kisi karismaz,
+    ortak gecmis.json'a dokunulmaz). Verilmezse eski davranis: ortak
+    gecmis.json aynasi + aktif oturum. Yazma kayipsiz + atomiktir.
+    """
     if misafir:
         # Misafir iz birakmaz: ortak gecmise, oturuma ve hafizaya yazilmaz.
         js_callback("BasakUI.bitir(" + _j(cevap) + ", " + _j(kaynak) + ")")
         return
-    gecmis += [
-        {"role": "user", "content": text, "oturum": ctx.OTURUM_ID},
-        {"role": "assistant", "content": cevap, "oturum": ctx.OTURUM_ID},
-    ]
-    try:
-        ctx.kaydet(ctx.HISTORY_FILE, gecmis)
-    except OSError as e:
-        # Gecmis yazilamasa da ekran bitmeli (2026-09-15 checkup).
-        logger.warning("Gecmis yazilamadi (ekran etkilenmez): %s", e)
+    if sid:
+        # Oturum ayrimi: her sohbet kendi dosyasina, kilitli + atomik.
+        # Ortak gecmis.json'a dokunulmaz (baska sohbet gorunmez).
+        try:
+            from chat import oturum
+            oturum.kaydet_cift(text, cevap, sid=sid)
+        except Exception as e:
+            logger.warning("Oturum kaydi atlandi: %s", e)
+    else:
+        # Eski tek kisilik yol: kayipsiz ekle (taze yukle + kilit + atomik).
+        try:
+            ctx.cift_ekle(text, cevap, ctx.OTURUM_ID)
+        except OSError as e:
+            # Gecmis yazilamasa da ekran bitmeli (2026-09-15 checkup).
+            logger.warning("Gecmis yazilamadi (ekran etkilenmez): %s", e)
+        except AttributeError:
+            # Eski test cift_ekle bilmezse klasik yola dus.
+            gecmis += [
+                {"role": "user", "content": text, "oturum": ctx.OTURUM_ID},
+                {"role": "assistant", "content": cevap,
+                 "oturum": ctx.OTURUM_ID},
+            ]
+            try:
+                ctx.kaydet(ctx.HISTORY_FILE, gecmis)
+            except OSError as e:
+                logger.warning("Gecmis yazilamadi (ekran etkilenmez): %s", e)
 
-    try:
-        from chat import oturum
-        oturum.kaydet_cift(text, cevap)
-    except Exception as e:
-        logger.warning("Oturum kaydi atlandi: %s", e)
+        try:
+            from chat import oturum
+            oturum.kaydet_cift(text, cevap)
+        except Exception as e:
+            logger.warning("Oturum kaydi atlandi: %s", e)
 
     js_callback("BasakUI.bitir(" + _j(cevap) + ", " + _j(kaynak) + ")")
 
@@ -173,8 +195,13 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
 
 
 def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
-               misafir=False):
-    """Bir mesajı baştan sona işler."""
+               misafir=False, sid=None):
+    """Bir mesajı baştan sona işler.
+
+    sid verilirse o sohbetin gecmisi kullanilir (iki kisi karismaz);
+    verilmezse eski davranis: ortak gecmis.json. Eski kod/testler
+    sid vermeden cagirir — bozulmaz.
+    """
     text, konusmaci = _konusmaci_ayir((text or "").strip())
 
     js_callback("BasakUI.thinking()")
@@ -193,9 +220,24 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     # model adi tasiyarak karistirma.
     model = None
 
-    gecmis = [] if misafir else ctx.temizle_history(
-        [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
-         if m.get("role") != "system"])
+    if misafir:
+        gecmis = []
+    elif sid:
+        # Oturum ayrimi: her sohbet kendi kaydini okur, ortak aynaya
+        # dokunulmaz. Aktif kimlik DEGISTIRILMEZ (ac() cagrilmaz —
+        # yoksa iki kisi birbirinin sohbetine gecer). Kayit yoksa bos.
+        try:
+            from chat import oturum as _oturum_mod
+            _ham = _oturum_mod._oku(sid)
+            _kayit = (_ham or {}).get("mesajlar", []) if _ham else []
+            gecmis = ctx.temizle_history(
+                [m for m in (_kayit or []) if m.get("role") != "system"])
+        except Exception:
+            gecmis = []
+    else:
+        gecmis = ctx.temizle_history(
+            [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
+             if m.get("role") != "system"])
 
     # 2026-09-13 (Casper karari): kelime listesiyle tetikleme KALKTI.
     # O liste, araclarin etrafina sarilmis bir kural katmaniydi — bu
@@ -242,7 +284,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 else yanit)
             if cevap:
                 _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
-                     misafir=misafir)
+                     misafir=misafir, sid=sid)
                 return
             js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")")
             return
@@ -256,7 +298,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         cevap = _temizle(cevap)
         if cevap:
             _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
-                     misafir=misafir)
+                     misafir=misafir, sid=sid)
             return
 
         logger.info("Ajan turu final cevap vermedi (%d arac kostu)", kosan)
@@ -286,7 +328,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 for p in parcalar))
             if tam:
                 _kaydet(text, tam, kaynak or "bulut", gecmis, js_callback,
-                        konusmaci, misafir=misafir)
+                        konusmaci, misafir=misafir, sid=sid)
                 return
             logger.info("Akis bos dondu, tek seferlik yola dusuluyor")
         except AracIstegi as istek:
@@ -310,7 +352,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 cevap = _temizle(cevap)
                 if cevap:
                     _kaydet(text, cevap, kaynak or "bulut", gecmis,
-                            js_callback, konusmaci, misafir=misafir)
+                            js_callback, konusmaci, misafir=misafir, sid=sid)
                     return
                 logger.info("Akis-arac turu bos dondu (%d arac kostu)",
                             kosan)
@@ -352,7 +394,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         cevap = _temizle(cevap)
         if cevap:
             _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
-                     misafir=misafir)
+                     misafir=misafir, sid=sid)
             return
         logger.info("Arac turu bos dondu (%d arac kostu)", kosan)
 
@@ -363,4 +405,4 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         return
 
     _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
-                     misafir=misafir)
+                     misafir=misafir, sid=sid)

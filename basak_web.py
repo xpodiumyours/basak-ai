@@ -108,21 +108,58 @@ def _ayar(anahtar, varsayilan=None):
         return varsayilan
 
 
+def _sid_temizle(ham):
+    """POST'taki opsiyonel sohbet kimligini dogrular (yoksa None).
+
+    Eski ekran oturum gondermez — None doner, eski tek kisilik yol aynen
+    calisir. Gecerli kimlik: 1-64 karakter [A-Za-z0-9_-].
+    """
+    if ham is None:
+        return None
+    try:
+        sid = str(ham).strip()
+    except Exception:
+        return None
+    if not sid:
+        return None
+    if len(sid) > 64:
+        return None
+    for ch in sid:
+        if not (("a" <= ch <= "z") or ("A" <= ch <= "Z")
+                or ("0" <= ch <= "9") or ch in ("-", "_")):
+            return None
+    return sid
+
+
 def mesaj_isle_cagir(metin, beyin, kisilik, ayiklayici, toollar,
-                     misafir=False):
+                     misafir=False, sid=None):
     """TEK cekirdek girisi — testlerde enjekte edilebilir nokta.
-    Buradan baska hicbir sey cagrilmaz (tek beyin kurali)."""
+    Buradan baska hicbir sey cagrilmaz (tek beyin kurali).
+
+    BEYIN nesnesi sohbet-basina degil, surec-basina tektir: cagri-basina
+    mesaj listesi tasir, icinde konusma durumu tutmaz. Bu yuzden ayni
+    nesnenin thread'ler arasi paylasimi guvenlidir; kisiye ozel durum
+    gecmis dosyalarinda durur (sid verilirse o sohbetin dosyasi,
+    verilmezse eski ortak ayna)."""
     from chat.flow import mesaj_isle
-    mesaj_isle(metin, beyin, kisilik, ayiklayici, toollar,
-               misafir=misafir)
+    if sid is None:
+        mesaj_isle(metin, beyin, kisilik, ayiklayici, toollar,
+                   misafir=misafir)
+    else:
+        mesaj_isle(metin, beyin, kisilik, ayiklayici, toollar,
+                   misafir=misafir, sid=sid)
 
 
-def _sohbet_islet(istek, metin, misafir=False):
+def _sohbet_islet(istek, metin, misafir=False, sid=None):
     """Cekirdek cagrisi — kendi thread'inde. TEK beyin: mesaj_isle."""
     ayikla = _OlayAyiklayici(istek)
     try:
-        mesaj_isle_cagir(metin, BEYIN, KISILIK, ayikla, TOOLS,
-                         misafir=misafir)
+        if sid is None:
+            mesaj_isle_cagir(metin, BEYIN, KISILIK, ayikla, TOOLS,
+                             misafir=misafir)
+        else:
+            mesaj_isle_cagir(metin, BEYIN, KISILIK, ayikla, TOOLS,
+                             misafir=misafir, sid=sid)
     except Exception as e:
         logger.warning("Sohbet hatasi: %s", e)
         if not ayikla.bitti:
@@ -265,6 +302,10 @@ class _Kopru(BaseHTTPRequestHandler):
             metin = str(veri.get("metin", "")).strip()
             # Misafir bayragi URL'den gelir (?misafir=1), metne bakilmaz.
             misafir = bool(veri.get("misafir", False))
+            # Oturum ayrimi (2026-09-21): her sohbet kendi kimligini
+            # gonderebilir ("oturum" alani). Gondermezse eski davranis:
+            # ortak gecmis + aktif oturum. Metne bakilmaz, ayiklama yok.
+            sid = _sid_temizle(veri.get("oturum"))
         except (ValueError, UnicodeDecodeError):
             self._gonder(400, {"error": "gecersiz json"})
             return
@@ -280,7 +321,7 @@ class _Kopru(BaseHTTPRequestHandler):
             _OLAYLAR[istek] = []
             _OLAY_ZAMANI[istek] = time.monotonic()
         threading.Thread(target=_sohbet_islet, args=(istek, metin, misafir),
-                         daemon=True).start()
+                         kwargs={"sid": sid}, daemon=True).start()
         self._gonder(200, {"ok": True, "istek": istek})
 
     def do_HEAD(self):
