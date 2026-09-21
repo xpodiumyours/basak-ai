@@ -128,3 +128,52 @@ class TestBoot:
         api.tts_on = False
         r = api.boot()
         assert r["ok"] is False
+
+
+class TestBeyinYokkenMesaj:
+    """2026-09-22: 'hicbir beyin yok' iki AYRI durumu ayirt etmeli.
+
+    Eski tek cumle, anahtar hic yokken de anahtar yanlisken de ayni seyi
+    soyluyordu — teshis edilemiyordu. Ayrim KULLANICI METNINE bakmadan,
+    yalniz beyin nesnesinin durumundan yapilir (chatbot yasagi).
+    """
+
+    class Anahtarsiz:
+        """Hicbir saglayici kurulamadi: anahtar eksigi."""
+
+        def __init__(self):
+            self._providers = {}
+
+        def bulut_musait(self):
+            return False
+
+    class Zincirsiz:
+        """Saglayici kuruldu ama zincire giremedi (ucretli/kapali)."""
+
+        def __init__(self):
+            self._providers = {"deepseek": object()}
+
+        def bulut_musait(self):
+            return False
+
+    def test_anahtar_hic_yoksa_cozum_yolu_soyler(self, izole):
+        kutu, cb = _toplayici()
+        c.mesaj_isle("merhaba", self.Anahtarsiz(), "SYS", cb)
+        hata = kutu["hata"] or ""
+        assert "ayarlar.json" in hata and "doktor.py" in hata
+
+    def test_zincir_kurulamazsa_kok_neden_soylenir(self, izole):
+        kutu, cb = _toplayici()
+        c.mesaj_isle("merhaba", self.Zincirsiz(), "SYS", cb)
+        hata = kutu["hata"] or ""
+        assert "beyin" in hata
+        assert "ayarlar.json'a" not in hata
+
+    def test_mesaj_kullanici_cumlesine_gore_degismez(self, izole):
+        toplanan = []
+        for metin in ("merhaba", "ayarlar.json dosyami ac",
+                      "anahtar eklemen lazim"):
+            kutu, cb = _toplayici()
+            c.mesaj_isle(metin, self.Anahtarsiz(), "SYS", cb)
+            toplanan.append(kutu["hata"])
+        assert len(set(toplanan)) == 1, toplanan

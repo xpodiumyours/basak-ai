@@ -184,9 +184,21 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
 
     # Ozgu-ajan (Faz 2): SADECE bulut zinciri. Yerel model yok.
     # Bulut musait degilse dur; baska on kosul yok.
+    # 2026-09-22: "hicbir beyin yok" tek cumleydi ve iki AYRI durumu ayni
+    # sozle anlatiyordu: (1) anahtar hic yok, (2) anahtar var ama zincir
+    # kurulamiyor. Kullanici metnine BAKILMAZ (chatbot yasagi); yalniz
+    # beyin nesnesinin durumu okunur.
     if not brain.bulut_musait():
-        js_callback("BasakUI.error(" + _j(
-            "Hicbir beyin yok: bulut anahtarlari hazir degil") + ")")
+        _saglayicilar = getattr(brain, "_providers", None)
+        if _saglayicilar is not None and not _saglayicilar:
+            _mesaj = ("Hicbir beyin yok: hicbir saglayici anahtari "
+                      "kurulmadi. ayarlar.json'a bir anahtar yaz."
+                      " Kontrol: python doktor.py")
+        else:
+            _mesaj = ("Hicbir beyin yok: saglayici zinciri kurulamadi "
+                      "(anahtar, baglanti veya kota). Kontrol: python "
+                      "doktor.py")
+        js_callback("BasakUI.error(" + _j(_mesaj) + ")")
         return
 
     # Zincirdeki bulut saglayici kendi modelini secer; disaridan
