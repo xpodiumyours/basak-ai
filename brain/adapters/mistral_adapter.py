@@ -21,7 +21,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 VARSAYILAN_ADRES = "https://api.mistral.ai/v1"
-VARSAYILAN_MODEL = "mistral-small-4"
+# 2026-09-22 DUZELTME: once burada "mistral-small-4" yaziyordu ama o model
+# ID'si hesapta YOK ("Invalid model" verdi). Liste senin anahtarinla
+# sorgulanarak cikarildi. Genel sohbet: "mistral-small-latest" (kararli
+# takma ad); daha guclu: "mistral-medium-latest"; kod: "codestral-latest".
+VARSAYILAN_MODEL = "mistral-small-latest"
 
 
 class _MistralAdapter:
