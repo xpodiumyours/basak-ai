@@ -1,20 +1,27 @@
 // common.js — saglik bilgisi + token akisi.
 // Dis erisimde (LAN/internet) kopru token ister: bir kez sorar,
 // localStorage'a yazar, sonra her HTTP isteginde tasir.
-window.basakToken = () => {
-  let t = localStorage.getItem("basak_token");
-  if (!t) {
-    t = (prompt("Başak köprüsü erişim kodu (token):") || "").trim();
-    if (t) localStorage.setItem("basak_token", t);
-  }
+// Sormadan kutu cikarmaz: kod yalniz 401'de istenir.
+window.basakToken = () => localStorage.getItem("basak_token") || "";
+
+window.basakKodIste = () => {
+  const t = (prompt("Başak köprüsü erişim kodu (token):") || "").trim();
+  if (t) localStorage.setItem("basak_token", t);
   return t;
 };
 
-window.basakFetch = (yol, secenek = {}) => {
+window.basakFetch = async (yol, secenek = {}) => {
   const t = window.basakToken();
   const basliklar = { ...(secenek.headers || {}) };
   if (t) basliklar["X-Basak-Token"] = t;
-  return fetch(yol, { ...secenek, headers: basliklar });
+  let r = await fetch(yol, { ...secenek, headers: basliklar });
+  if (r.status === 401) {
+    const y = window.basakKodIste();
+    if (!y) return r;
+    location.reload();
+    return r;
+  }
+  return r;
 };
 
 async function basakHealth() {
