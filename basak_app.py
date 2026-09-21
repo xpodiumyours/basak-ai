@@ -97,12 +97,55 @@ class Api:
     def _j(self, obj):
         return json.dumps(obj, ensure_ascii=False)
 
-    def mesaj(self, text):
-        threading.Thread(target=self._chat, args=(text,), daemon=True).start()
+    def mesaj(self, text, sid=None):
+        """JS mesaj gönderildiğinde: session bilgisiyle işlet."""
+        threading.Thread(
+            target=self._chat, args=(text, sid), daemon=True
+        ).start()
 
-    def _chat(self, text):
+    def oturum_liste(self):
+        """JS boot() sonrası çağrılan: tüm oturum listesi."""
         try:
-            mesaj_isle(text, self._beyin_al(), KISILIK, self._js, TOOLS)
+            from chat import oturum as _ot
+            return {"ok": True, "liste": _ot.liste()}
+        except Exception as e:
+            logger.warning("Oturum listesi okunamadi: %s", e)
+            return {"ok": False, "hata": str(e)}
+
+    def oturum_ac(self, sid):
+        """Belirli bir oturumun mesajlarını döndürür (JS → Python)."""
+        try:
+            from chat import oturum as _ot
+            msgs = _ot.ac(sid)
+            if msgs is None:
+                return {"ok": False, "hata": "oturum yok"}
+            return {"ok": True, "mesajlar": msgs}
+        except Exception as e:
+            logger.warning("Oturum açilamadi (%s): %s", sid, e)
+            return {"ok": False, "hata": str(e)}
+
+    def oturum_yeni(self):
+        """Yeni boş oturum başlatır; eskisinin arşiv kalır. Dönüş: yeni sid."""
+        try:
+            from chat import oturum as _ot
+            sid = _ot.yeni()
+            return {"ok": True, "sid": sid}
+        except Exception as e:
+            logger.warning("Yeni oturum olusturulamadi: %s", e)
+            return {"ok": False, "hata": str(e)}
+
+    def oturum_sil(self, sid):
+        """Oturumu siler. Dönüş: başarılı mı."""
+        try:
+            from chat import oturum as _ot
+            return {"ok": _ot.sil(sid)}
+        except Exception as e:
+            logger.warning("Oturum silinemedi (%s): %s", sid, e)
+            return {"ok": False, "hata": str(e)}
+
+    def _chat(self, text, sid=None):
+        try:
+            mesaj_isle(text, self._beyin_al(), KISILIK, self._js, TOOLS, sid=sid)
         except Exception as e:
             # 2026-09-10: iz birak — bir dahaki "beklenmeyen hata"da
             # hata.log'dan kok sebep okunsun.
