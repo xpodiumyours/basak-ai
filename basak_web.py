@@ -108,18 +108,21 @@ def _ayar(anahtar, varsayilan=None):
         return varsayilan
 
 
-def mesaj_isle_cagir(metin, beyin, kisilik, ayiklayici, toollar):
+def mesaj_isle_cagir(metin, beyin, kisilik, ayiklayici, toollar,
+                     misafir=False):
     """TEK cekirdek girisi — testlerde enjekte edilebilir nokta.
     Buradan baska hicbir sey cagrilmaz (tek beyin kurali)."""
     from chat.flow import mesaj_isle
-    mesaj_isle(metin, beyin, kisilik, ayiklayici, toollar)
+    mesaj_isle(metin, beyin, kisilik, ayiklayici, toollar,
+               misafir=misafir)
 
 
-def _sohbet_islet(istek, metin):
+def _sohbet_islet(istek, metin, misafir=False):
     """Cekirdek cagrisi — kendi thread'inde. TEK beyin: mesaj_isle."""
     ayikla = _OlayAyiklayici(istek)
     try:
-        mesaj_isle_cagir(metin, BEYIN, KISILIK, ayikla, TOOLS)
+        mesaj_isle_cagir(metin, BEYIN, KISILIK, ayikla, TOOLS,
+                         misafir=misafir)
     except Exception as e:
         logger.warning("Sohbet hatasi: %s", e)
         if not ayikla.bitti:
@@ -230,6 +233,8 @@ class _Kopru(BaseHTTPRequestHandler):
         try:
             veri = json.loads(self.rfile.read(uzunluk).decode("utf-8"))
             metin = str(veri.get("metin", "")).strip()
+            # Misafir bayragi URL'den gelir (?misafir=1), metne bakilmaz.
+            misafir = bool(veri.get("misafir", False))
         except (ValueError, UnicodeDecodeError):
             self._gonder(400, {"error": "gecersiz json"})
             return
@@ -244,7 +249,7 @@ class _Kopru(BaseHTTPRequestHandler):
             istek = _SAYAC
             _OLAYLAR[istek] = []
             _OLAY_ZAMANI[istek] = time.monotonic()
-        threading.Thread(target=_sohbet_islet, args=(istek, metin),
+        threading.Thread(target=_sohbet_islet, args=(istek, metin, misafir),
                          daemon=True).start()
         self._gonder(200, {"ok": True, "istek": istek})
 

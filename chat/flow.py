@@ -19,7 +19,7 @@ import json
 import logging
 import re
 
-from chat.prompts import KIMLIK_BLOGU
+from chat.prompts import KIMLIK_BLOGU, MISAFIR_BLOGU
 from chat.agent_protocol import AJAN_SOZLESMESI, baslangic_araclari
 from chat import context as ctx
 from chat.gate import temizle as _temizle
@@ -73,14 +73,24 @@ def _profil_isle(text, konusmaci):
         return "", ""
 
 
-def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi=""):
+def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi="",
+                misafir=False):
     """Modele gidecek mesaj listesini kurar.
 
     2026-09-19: `araclar_acik` parametresi KALDIRILDI. Çağrılıyor ama
     gövdede hiç okunmuyordu — "araç durumuna göre bağlam kur" niyetinin
     yarım kalmış kalıntısıydı. Araç seçimini model yapar; bağlam kurucusu
     ona karışmaz.
+
+    misafir=True ise Casper'a ait hicbir sey eklenmez: isim yok,
+    profil yok, ani yok, gecmis yok. Bayrak URL'den gelir, metne bakilmaz.
     """
+    if misafir:
+        return [
+            {"role": "system", "content": MISAFIR_BLOGU},
+            {"role": "system", "content": system_prompt},
+        ]
+
     profil_blogu, ogrenme_notu = _profil_isle(text, konusmaci)
 
     tam_prompt = system_prompt
@@ -127,8 +137,13 @@ def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi=""):
     return mesajlar
 
 
-def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci):
+def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
+            misafir=False):
     """Cevabı ekrana basar, geçmişe ve kalıcı hafızaya yazar."""
+    if misafir:
+        # Misafir iz birakmaz: ortak gecmise, oturuma ve hafizaya yazilmaz.
+        js_callback("BasakUI.bitir(" + _j(cevap) + ", " + _j(kaynak) + ")")
+        return
     gecmis += [
         {"role": "user", "content": text, "oturum": ctx.OTURUM_ID},
         {"role": "assistant", "content": cevap, "oturum": ctx.OTURUM_ID},
@@ -157,7 +172,8 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci):
             logger.warning("Ani kaydedilemedi: %s", e)
 
 
-def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
+def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
+               misafir=False):
     """Bir mesajı baştan sona işler."""
     text, konusmaci = _konusmaci_ayir((text or "").strip())
 
@@ -177,7 +193,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
     # model adi tasiyarak karistirma.
     model = None
 
-    gecmis = ctx.temizle_history(
+    gecmis = [] if misafir else ctx.temizle_history(
         [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
          if m.get("role") != "system"])
 
@@ -189,7 +205,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
     arac_acik = bool(tools)
     mesajlar = _baglam_kur(
         text, system_prompt, konusmaci,
-        AJAN_SOZLESMESI if arac_acik else "")
+        AJAN_SOZLESMESI if arac_acik else "", misafir=misafir)
 
     mesajlar += ctx.gecmis_pencere(gecmis) + [{"role": "user",
                                                "content": text}]
@@ -225,7 +241,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
                 yanit.get("content", "") if isinstance(yanit, dict)
                 else yanit)
             if cevap:
-                _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci)
+                _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
+                     misafir=misafir)
                 return
             js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")")
             return
@@ -238,7 +255,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
             tum_tools=tools, tercih=[kaynak] if kaynak else None)
         cevap = _temizle(cevap)
         if cevap:
-            _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci)
+            _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
+                     misafir=misafir)
             return
 
         logger.info("Ajan turu final cevap vermedi (%d arac kostu)", kosan)
@@ -268,7 +286,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
                 for p in parcalar))
             if tam:
                 _kaydet(text, tam, kaynak or "bulut", gecmis, js_callback,
-                        konusmaci)
+                        konusmaci, misafir=misafir)
                 return
             logger.info("Akis bos dondu, tek seferlik yola dusuluyor")
         except AracIstegi as istek:
@@ -292,7 +310,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
                 cevap = _temizle(cevap)
                 if cevap:
                     _kaydet(text, cevap, kaynak or "bulut", gecmis,
-                            js_callback, konusmaci)
+                            js_callback, konusmaci, misafir=misafir)
                     return
                 logger.info("Akis-arac turu bos dondu (%d arac kostu)",
                             kosan)
@@ -333,7 +351,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
             tools=tools, yanit=yanit)
         cevap = _temizle(cevap)
         if cevap:
-            _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci)
+            _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
+                     misafir=misafir)
             return
         logger.info("Arac turu bos dondu (%d arac kostu)", kosan)
 
@@ -343,4 +362,5 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None):
         js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")")
         return
 
-    _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci)
+    _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
+                     misafir=misafir)

@@ -65,9 +65,11 @@ def test_sohbet_mesaj_isleye_gider(sunucu, monkeypatch):
     nisan = object()   # TOOLS global'inin kimlik nisanesi
     monkeypatch.setattr(basak_web, "TOOLS", nisan)
 
-    def _sahte_mesaj_isle(metin, beyin, sistem, js, tools=None):
+    def _sahte_mesaj_isle(metin, beyin, sistem, js, tools=None,
+                          misafir=False):
         yakalanan["metin"] = metin
         yakalanan["tools"] = tools
+        yakalanan["misafir"] = misafir
         js("BasakUI.bitir(\"selam\", \"\")")
 
     with mock.patch.object(basak_web, "mesaj_isle_cagir",
@@ -78,6 +80,32 @@ def test_sohbet_mesaj_isleye_gider(sunucu, monkeypatch):
     assert yakalanan["metin"] == "merhaba"
     assert yakalanan["tools"] is nisan, (
         "kopru cekirdege TOOLS global'ini gecirmedi")
+    assert yakalanan["misafir"] is False
+
+
+def test_misafir_bayragi_cekirdege_gecer(sunucu, monkeypatch):
+    adres, _ = sunucu
+    yakalanan = {}
+    monkeypatch.setattr(basak_web, "TOOLS", object())
+
+    def _sahte2(metin, beyin, sistem, js, tools=None, misafir=False):
+        yakalanan["misafir"] = misafir
+        js("BasakUI.bitir(\"selam\", \"\")")
+
+    with mock.patch.object(basak_web, "mesaj_isle_cagir", _sahte2):
+        durum, cevap = _istek(adres, "/api/sohbet",
+                              veri={"metin": "merhaba", "misafir": True})
+    assert durum == 200 and cevap["ok"]
+    assert yakalanan["misafir"] is True
+
+
+def test_misafir_baglami_casper_verisi_tasimaz():
+    from chat.flow import _baglam_kur
+    mesajlar = _baglam_kur("benim hakkimda ne biliyorsun", "", None,
+                           misafir=True)
+    govde = "\n".join(m.get("content", "") for m in mesajlar)
+    assert "Casper" not in govde
+    assert "Hafızadan" not in govde
 
 
 # ── Olay eslemesi ────────────────────────────────────────────────────
@@ -149,7 +177,7 @@ def test_polling_olaylari_istek_bazli_ve_kayipsiz(sunucu, monkeypatch):
     adres, _ = sunucu
     monkeypatch.setattr(basak_web, "TOOLS", object())
 
-    def _sahte(metin, beyin, sistem, js, tools=None):
+    def _sahte(metin, beyin, sistem, js, tools=None, misafir=False):
         js("BasakUI.thinking()")
         js("BasakUI.toolStatus(\"Saat okunuyor\")")
         js("BasakUI.bitir(\"20 Eylul 2026\", \"groq\")")

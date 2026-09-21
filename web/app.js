@@ -150,6 +150,8 @@ async function olaylariTakipEt(no) {
   throw new Error("Başak yanıtı zaman aşımına uğradı");
 }
 
+const MISAFIR = new URLSearchParams(location.search).get("misafir") === "1";
+
 async function send() {
   const text = msgEl.value.trim();
   if (!text || sendEl.disabled) return;
@@ -160,7 +162,7 @@ async function send() {
     const r = await window.basakFetch("/api/sohbet", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ metin: text }),
+      body: JSON.stringify({ metin: text, misafir: MISAFIR }),
     });
     const d = await r.json();
     if (!r.ok || !d.ok || !d.istek) {
