@@ -141,7 +141,7 @@ SAGLAYICILAR = {
         "tools": True,
         # Kilo Gateway API ToolChoice semasi required destekli.
         "ajan_tool_mode": "required",
-        "gucleri": ["genel", "kod"],
+        "gucleri": ["genel", "kod", "goruntu"],
         "gunluk_istek": None,   # sinir saatlik (200 istek/saat/IP), gunluk degil
         # Resmi davranis: saatte 200 soru/IP. Gunluk karta islenmez.
         "saatlik_istek": 200,

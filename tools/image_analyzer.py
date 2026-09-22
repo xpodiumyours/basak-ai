@@ -112,6 +112,34 @@ def _gemini_goru(yol, soru):
         return {"error": "Gemini goru calismadi: %s" % str(e)[:200]}
 
 
+def _kilo_goru(yol, soru):
+    """Anahtarsiz ucuncu goz: mevcut Kilo Step 3.7 Flash goruntu modeli."""
+    try:
+        from brain.kilo import KiloClient
+        img_b64, mime = _goruntu_b64(yol)
+        soru = (soru or "").strip() or "Bu görüntüyü açıkla."
+        istemci = KiloClient(model="stepfun/step-3.7-flash:free")
+        yanit = istemci.goru_cevapla([{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": soru},
+                {"type": "image_url",
+                 "image_url": {"url": "data:%s;base64,%s" % (mime, img_b64)}},
+            ],
+        }])
+        metin = (yanit.get("content") or "").strip() if isinstance(yanit, dict) else ""
+        if not metin:
+            return {"error": "Kilo goruntu modeli bos dondu"}
+        return {
+            "result": metin,
+            "model": "stepfun/step-3.7-flash:free",
+            "dosya": os.path.basename(yol),
+        }
+    except Exception as e:
+        logger.warning("Kilo goru yedegi calismadi: %s", e)
+        return {"error": "Kilo goru calismadi: %s" % str(e)[:200]}
+
+
 def image_analyze(goruntu_yolu: str, soru: str = None,
                   model: str = None) -> dict:
     """Görüntüyü multimodal model ile analiz eder.
@@ -132,10 +160,22 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
     if uzanti not in DESTEKLENEN:
         return {"error": f"Desteklenmeyen format: {uzanti}. İzin verilen: {', '.join(DESTEKLENEN)}"}
 
-    # Key kontrolü
+    # Key kontrolü. NVIDIA yoksa mevcut Gemini yedegi, o da yoksa
+    # anahtarsiz Kilo Step 3.7 Flash denenir; fotoğraf yolu kapanmaz.
     nvidia_key = _nvidia_key_al()
     if not nvidia_key:
-        return {"error": "NVIDIA API key bulunamadı (ayarlar.json -> nvidia_key)"}
+        yedek = _gemini_goru(goruntu_yolu, soru)
+        if not yedek.get("error"):
+            yedek["yedek"] = "gemini"
+            return yedek
+        kilo = _kilo_goru(goruntu_yolu, soru)
+        if not kilo.get("error"):
+            kilo["yedek"] = "kilo"
+            return kilo
+        return {
+            "error": "Goruntu saglayicisi kullanilamadi [gemini: %s] [kilo: %s]"
+                     % (yedek.get("error", ""), kilo.get("error", ""))
+        }
 
     # Model seçimi
     kullanilacak_model = model or VARSAYILAN_MODEL
@@ -188,8 +228,15 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
         if not yedek.get("error"):
             yedek["yedek"] = "gemini"
             return yedek
-        return {"error": "%s [yedek: %s]" % (str(e), yedek.get("error", "")),
-                "model": kullanilacak_model}
+        kilo = _kilo_goru(goruntu_yolu, soru)
+        if not kilo.get("error"):
+            kilo["yedek"] = "kilo"
+            return kilo
+        return {
+            "error": "%s [gemini: %s] [kilo: %s]"
+                     % (str(e), yedek.get("error", ""), kilo.get("error", "")),
+            "model": kullanilacak_model,
+        }
 
 
 def image_analyze_url(gorsel_url: str, soru: str = None,

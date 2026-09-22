@@ -116,6 +116,12 @@ class KiloClient:
     def musait(self) -> bool:
         return self.client is not None
 
+    def goru_cevapla(self, messages: list) -> dict:
+        """Step 3.7 Flash'in dogrulanmis goruntu girdisini keyless hatta kullan."""
+        if not self.client:
+            raise RuntimeError("Kilo bağlı değil")
+        return self._tek_model("stepfun/step-3.7-flash:free", messages)
+
     def _tek_model(self, model_adi: str, messages: list,
                    tools: list = None, tool_choice=None) -> dict:
         kwargs = {
