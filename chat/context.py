@@ -21,7 +21,14 @@ logger = logging.getLogger(__name__)
 # ── Dosya yolları ───────────────────────────────────────────────────
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-HISTORY_FILE = os.path.join(BASE, "gecmis.json")
+# 2026-09-22: Vercel salt-okunur dosya sistemi; yazma hedefi de
+# BASAK_STATE_DIR altina alinir (oturum.py + memory/engine.py ile
+# ayni kural). Yerelde hicbir sey degismez. Vercel'de gecmis zaten
+# tarayicida tasiniyor; bu yedekleme yoludur.
+if os.environ.get("BASAK_STATE_DIR"):
+    HISTORY_FILE = os.path.join(os.environ["BASAK_STATE_DIR"], "gecmis.json")
+else:
+    HISTORY_FILE = os.path.join(BASE, "gecmis.json")
 SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
 OBSIDIAN_DIR = os.path.join(BASE, "Basak")

@@ -17,8 +17,14 @@ import uuid
 logger = logging.getLogger(__name__)
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DIZIN = os.path.join(BASE, "data", "sohbetler")
-AKTIF_DOSYA = os.path.join(BASE, "data", "aktif_oturum")
+# 2026-09-22: Vercel salt-okunur dosya sistemi; yazilar engine.py ile
+# ayni kurala baglandi (BASAK_STATE_DIR varsa /tmp altina). Yerelde degismez.
+if os.environ.get("BASAK_STATE_DIR"):
+    DIZIN = os.path.join(os.environ["BASAK_STATE_DIR"], "sohbetler")
+    AKTIF_DOSYA = os.path.join(os.environ["BASAK_STATE_DIR"], "aktif_oturum")
+else:
+    DIZIN = os.path.join(BASE, "data", "sohbetler")
+    AKTIF_DOSYA = os.path.join(BASE, "data", "aktif_oturum")
 ESKI_DOSYA = os.path.join(BASE, "gecmis.json")
 
 

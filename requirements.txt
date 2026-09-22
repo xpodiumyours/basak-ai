@@ -21,11 +21,17 @@ pystray==0.19.5; sys_platform == "win32"
 Pillow==12.1.1; sys_platform == "win32"
 
 # ── Kalici hafiza (vektor arama; sqlite-vec yoksa BM25'e duser) ─────
-sqlite-vec==0.1.9; sys_platform == "win32"
+# sqlite-vec: manylinux wheel'i var; Linux'ta da anlam aramasi acik kalsin
+# (yoksa motor yine BM25'e duser — dayanikli, build riski sifir).
+sqlite-vec==0.1.9
 # pyannote.audio 4.0.7 -> pyannote-core 6.0.1 -> numpy>=2.0.
 # 1.26.4 pini pip cozumunu kiriyordu; Python 3.12 icin guncel kararlı
 # NumPy 2.5.3 sabitlenir ki CI ve masaustu ayni bagimlilik setini kullansin.
-numpy==2.5.3; sys_platform == "win32"
+# 2026-09-22: kosul GERI ALINDI — memory/ motoru Vercel (Linux)da da
+# numpy ister; "yalniz win32" isareti bulutta hafizayi sessizce devre
+# disi birakiyordu (log: "Hafiza motoru acilamadi: No module numpy").
+# pyannote zaten win32 kosullu, Linux'a inmez.
+numpy==2.5.3
 
 # ── Ses: TTS (metin->ses) + STT (ses->metin) + konusmaci tanima ────
 # DIKKAT: piper-tts paketi ses MODELINI icermez. tr_TR-dfki-medium.onnx

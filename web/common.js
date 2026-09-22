@@ -2,10 +2,21 @@
 // Dis erisimde (LAN/internet) kopru token ister: bir kez sorar,
 // localStorage'a yazar, sonra her HTTP isteginde tasir.
 // Sormadan kutu cikarmaz: kod yalniz 401'de istenir.
-window.basakToken = () => localStorage.getItem("basak_token") || "";
+//
+// NOT: HTTP basliklari yalniz ISO-8859-1 (tek bayt) tasiyabilir.
+// Kullanici Turkce karakter/bosluk yapistirirsa fetch BASLIK OKUMADA
+// patlar ("non ISO-8859-1 code point") — istek hic gitmez, ekranda
+// "Hata: Failed to execute fetch" gorunur. Bu yuzden kod her yazimda
+// ve her okumada suzulur; sadece tek bayt gecerli karakterler kalir.
+window.basakTokenTemiz = (s) =>
+  String(s || "").split("").filter((c) => c.charCodeAt(0) <= 255).join("");
+
+window.basakToken = () =>
+  window.basakTokenTemiz(localStorage.getItem("basak_token") || "");
 
 window.basakKodIste = () => {
-  const t = (prompt("Başak köprüsü erişim kodu (token):") || "").trim();
+  const ham = prompt("Başak köprüsü erişim kodu (token):") || "";
+  const t = window.basakTokenTemiz(ham).trim();
   if (t) localStorage.setItem("basak_token", t);
   return t;
 };

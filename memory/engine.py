@@ -23,7 +23,14 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_YOLU = os.path.join(BASE, "data", "memory", "basak.db")
+# 2026-09-22: Vercel'de /var/task salt-okunur; hafiza dosyasi oraya
+# yazilamaz. BASAK_STATE_DIR (app.py'de /tmp'ye kurulu) varsa oraya
+# gider — stats.py ile ayni kural. Yerelde hicbir sey degismez.
+# Dogrudan kalicilik vermez (sunucu sifirlaninca ucar) ama "hafiza
+# motoru acilamadi" hatasini kaldirir; ilk deploy'da hafiza yine acik.
+_STATE_DIR = os.environ.get("BASAK_STATE_DIR")
+DB_YOLU = (os.path.join(_STATE_DIR, "memory", "basak.db")
+           if _STATE_DIR else os.path.join(BASE, "data", "memory", "basak.db"))
 
 EMBED_DIM = 768
 
