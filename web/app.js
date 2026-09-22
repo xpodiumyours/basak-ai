@@ -1,36 +1,167 @@
-// app.js — web sohbeti. Tek beyin kurali: yerel veya Vercel koprusu\n// ayni Python cekirdegine gider; web tarafinda ikinci beyin yoktur.
+// app.js — Başak web sohbet yüzü.
+// Tek beyin kuralı korunur: bu dosya yalnız arayüz ve HTTP köprüsüdür.
+
 const chatEl = document.getElementById("chat");
+const chatScrollEl = document.getElementById("chatScroll");
+const heroEl = document.getElementById("hero");
 const msgEl = document.getElementById("message");
 const sendEl = document.getElementById("send");
 const imageEl = document.getElementById("image");
 const imageNameEl = document.getElementById("imageName");
+const previewEl = document.getElementById("attachmentPreview");
+const previewThumbEl = document.getElementById("attachmentThumb");
+const removeImageEl = document.getElementById("removeImage");
+const micEl = document.getElementById("micButton");
+const composerNoteEl = document.getElementById("composerNote");
+
 let seciliGorsel = null;
+let onizlemeUrl = "";
+let gonderiliyor = false;
 let bulutGecmisi = [];
+
 try {
   const kayitli = JSON.parse(localStorage.getItem("basak_cloud_history") || "[]");
   if (Array.isArray(kayitli)) bulutGecmisi = kayitli;
 } catch {}
 
 function bulutGecmisiniKaydet() {
-  try { localStorage.setItem("basak_cloud_history", JSON.stringify(bulutGecmisi)); } catch {}
+  try {
+    localStorage.setItem("basak_cloud_history", JSON.stringify(bulutGecmisi));
+  } catch {}
+}
+
+function kacis(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function bicimle(metin) {
+  let h = kacis(metin);
+  h = h.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+  h = h.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  return h.replace(/\n/g, "<br>");
+}
+
+function icerikYaz(b, metin) {
+  b.dataset.ham = String(metin || "");
+  let ic = b.querySelector(".icerik");
+  if (!ic) {
+    ic = document.createElement("div");
+    ic.className = "icerik";
+    b.appendChild(ic);
+  }
+  ic.innerHTML = bicimle(metin || "");
+}
+
+function sohbetAlta() {
+  if (chatScrollEl) chatScrollEl.scrollTop = chatScrollEl.scrollHeight;
+}
+
+function bubble(role, text) {
+  if (heroEl) heroEl.hidden = true;
+
+  const row = document.createElement("div");
+  row.className = "message-row " + role;
+
+  const b = document.createElement("div");
+  b.className = "bubble";
+
+  if (role === "assistant") {
+    const head = document.createElement("div");
+    head.className = "assistant-head";
+
+    const mark = document.createElement("span");
+    mark.className = "assistant-mark";
+    mark.textContent = "B";
+
+    const name = document.createElement("span");
+    name.textContent = "Başak";
+
+    head.appendChild(mark);
+    head.appendChild(name);
+    b.appendChild(head);
+  }
+
+  icerikYaz(b, text);
+  row.appendChild(b);
+  chatEl.appendChild(row);
+  sohbetAlta();
+  return b;
+}
+
+function gorselBalonaEkle(b, file) {
+  if (!b || !file) return;
+  const url = URL.createObjectURL(file);
+  const img = document.createElement("img");
+  img.className = "sent-image";
+  img.alt = "Gönderilen fotoğraf";
+  img.src = url;
+  img.onload = () => URL.revokeObjectURL(url);
+  b.appendChild(img);
+}
+
+function durumSatiri(b, metin) {
+  if (!b) return;
+  let s = b.querySelector(".status-line");
+  if (!s) {
+    s = document.createElement("span");
+    s.className = "status-line";
+    b.appendChild(s);
+  }
+  s.textContent = metin || "";
+}
+
+function durumuKapat(b) {
+  if (!b) return;
+  b.querySelector(".status-line")?.remove();
+}
+
+function autoResize() {
+  msgEl.style.height = "auto";
+  msgEl.style.height = Math.min(msgEl.scrollHeight, 160) + "px";
+}
+
+function gonderimDurumu() {
+  const dolu = !!msgEl.value.trim() || !!seciliGorsel;
+  sendEl.disabled = gonderiliyor || !dolu;
+}
+
+function notYaz(metin) {
+  if (composerNoteEl) composerNoteEl.textContent = metin;
+}
+
+function onizlemeTemizle() {
+  seciliGorsel = null;
+  if (imageEl) imageEl.value = "";
+  if (imageNameEl) imageNameEl.textContent = "";
+  if (onizlemeUrl) {
+    URL.revokeObjectURL(onizlemeUrl);
+    onizlemeUrl = "";
+  }
+  if (previewThumbEl) previewThumbEl.removeAttribute("src");
+  if (previewEl) previewEl.hidden = true;
+  gonderimDurumu();
 }
 
 async function gorseliDataUrl(file) {
   if (!file || !String(file.type || "").startsWith("image/")) {
     throw new Error("Yalnız fotoğraf yüklenebilir");
   }
+
   const ham = await new Promise((coz, reddet) => {
     const r = new FileReader();
     r.onload = () => coz(r.result);
     r.onerror = () => reddet(new Error("Fotoğraf okunamadı"));
     r.readAsDataURL(file);
   });
+
   const img = await new Promise((coz, reddet) => {
     const i = new Image();
     i.onload = () => coz(i);
     i.onerror = () => reddet(new Error("Fotoğraf açılamadı"));
     i.src = ham;
   });
+
   const enBuyuk = 1600;
   const oran = Math.min(1, enBuyuk / Math.max(img.width, img.height));
   const canvas = document.createElement("canvas");
@@ -42,139 +173,115 @@ async function gorseliDataUrl(file) {
 
 if (imageEl) {
   imageEl.addEventListener("change", () => {
-    seciliGorsel = imageEl.files && imageEl.files[0] ? imageEl.files[0] : null;
-    if (imageNameEl) imageNameEl.textContent = seciliGorsel ? seciliGorsel.name : "";
+    const file = imageEl.files && imageEl.files[0] ? imageEl.files[0] : null;
+    if (!file) {
+      onizlemeTemizle();
+      return;
+    }
+    if (!String(file.type || "").startsWith("image/")) {
+      onizlemeTemizle();
+      notYaz("Yalnız fotoğraf eklenebilir.");
+      return;
+    }
+
+    seciliGorsel = file;
+    if (onizlemeUrl) URL.revokeObjectURL(onizlemeUrl);
+    onizlemeUrl = URL.createObjectURL(file);
+    if (previewThumbEl) previewThumbEl.src = onizlemeUrl;
+    if (imageNameEl) imageNameEl.textContent = file.name;
+    if (previewEl) previewEl.hidden = false;
+    notYaz("Fotoğraf mesajla birlikte gönderilecek.");
+    gonderimDurumu();
   });
 }
 
+if (removeImageEl) removeImageEl.addEventListener("click", onizlemeTemizle);
+
+msgEl.addEventListener("input", () => {
+  autoResize();
+  gonderimDurumu();
+});
+
 const balonlar = new Map();
-const sonAracDurumu = new Map();
-const kapat = (el) => el && el.querySelector(".meta")?.remove();
 const uyu = (ms) => new Promise((coz) => setTimeout(coz, ms));
-
-function kacis(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
-// Guvenli mini bicim: once HTML'yi etkisizlestir, sonra yalniz
-// **kalin**, `kod` ve satir sonu isle. Zararli kod calismaz.
-function bicimle(metin) {
-  let h = kacis(metin);
-  h = h.replace(/`([^`\n]+)`/g, "<code>$1</code>");
-  h = h.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-  return h.replace(/\n/g, "<br>");
-}
-
-function icerikYaz(b, metin) {
-  b.dataset.ham = String(metin);
-  let ic = b.querySelector(".icerik");
-  if (!ic) {
-    ic = document.createElement("div");
-    ic.className = "icerik";
-    b.prepend(ic);
-  }
-  ic.innerHTML = bicimle(metin);
-}
-
-function bubble(role, text, meta) {
-  const el = document.createElement("div");
-  el.className = "bubble " + role;
-  icerikYaz(el, text);
-  if (meta) {
-    const m = document.createElement("span");
-    m.className = "meta";
-    m.textContent = meta;
-    el.appendChild(m);
-  }
-  chatEl.appendChild(el);
-  chatEl.scrollTop = chatEl.scrollHeight;
-  return el;
-}
 
 function olayiIsle(o) {
   const no = o.istek;
+
   if (o.tur === "thinking") {
     if (!balonlar.has(no)) {
-      balonlar.set(no, bubble("assistant", "Başak düşünüyor…"));
+      balonlar.set(no, bubble("assistant", "Düşünüyorum…"));
     }
     return false;
   }
+
   if (o.tur === "toolStatus") {
-    sonAracDurumu.set(no, o.metin || "");
     let b = balonlar.get(no);
-    if (b) {
-      b.querySelector(".meta")?.remove();
-      icerikYaz(b, "…");
-      const m = document.createElement("span");
-      m.className = "meta";
-      m.textContent = o.metin;
-      b.appendChild(m);
-    } else {
-      balonlar.set(no, bubble("assistant", "…", o.metin));
-    }
-    return false;
-  }
-  if (o.tur === "parca") {
-    let b = balonlar.get(no);
-    if (b) {
-      kapat(b);
-      const ham = b.dataset.ham ?? b.textContent;
-      const ilk = ham === "…" || ham === "Başak düşünüyor…";
-      icerikYaz(b, ilk ? o.metin : ham + o.metin);
-    } else {
-      b = bubble("assistant", o.metin);
+    if (!b) {
+      b = bubble("assistant", "");
       balonlar.set(no, b);
     }
+    durumSatiri(b, o.metin || "İşleniyor…");
     return false;
   }
+
+  if (o.tur === "parca") {
+    let b = balonlar.get(no);
+    if (!b) {
+      b = bubble("assistant", "");
+      balonlar.set(no, b);
+    }
+    durumuKapat(b);
+    const ham = b.dataset.ham || "";
+    const ilk = !ham || ham === "Düşünüyorum…";
+    icerikYaz(b, ilk ? (o.metin || "") : ham + (o.metin || ""));
+    sohbetAlta();
+    return false;
+  }
+
   if (o.tur === "bitir") {
     let b = balonlar.get(no);
-    if (b) {
-      kapat(b);
-      // Streaming olmayan ajan yolunda balonda yalniz "dusunuyor" kalmis
-      // olabilir. Gercek final cevabi her durumda ekrana yaz.
-      const ham = b.dataset.ham ?? b.textContent;
-      if (!ham || ham === "Başak düşünüyor…" || ham === "…") {
+    if (!b) {
+      b = bubble("assistant", o.cevap || "…");
+    } else {
+      durumuKapat(b);
+      const ham = b.dataset.ham || "";
+      if (!ham || ham === "Düşünüyorum…" || ham === "…") {
         icerikYaz(b, o.cevap || "…");
       }
-      const meta = [];
-      if (o.kaynak) meta.push("Model: " + o.kaynak);
-      if (sonAracDurumu.get(no)) {
-        meta.push("Araç: " + sonAracDurumu.get(no));
-      }
-      if (meta.length) {
-        const m = document.createElement("span");
-        m.className = "meta";
-        m.textContent = meta.join(" · ");
-        b.appendChild(m);
-      }
-    } else {
-      const meta = [];
-      if (o.kaynak) meta.push("Model: " + o.kaynak);
-      if (sonAracDurumu.get(no)) {
-        meta.push("Araç: " + sonAracDurumu.get(no));
-      }
-      bubble("assistant", o.cevap || "…", meta.join(" · "));
     }
-    sonAracDurumu.delete(no);
     balonlar.delete(no);
+    sohbetAlta();
     return true;
   }
+
   if (o.tur === "error") {
     const b = balonlar.get(no);
-    if (b) b.remove();
-    bubble("assistant", "Hata: " + o.metin);
-    sonAracDurumu.delete(no);
+    if (b) {
+      const row = b.closest(".message-row");
+      if (row) row.remove(); else b.remove();
+    }
+    bubble("assistant", "Bir sorun oluştu: " + (o.metin || "Yanıt alınamadı."));
     balonlar.delete(no);
     return true;
   }
+
   return false;
+}
+
+async function jsonOku(r) {
+  const raw = await r.text();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error("Sunucu geçerli bir yanıt vermedi.");
+  }
 }
 
 async function olaylariTakipEt(no) {
   let son = 0;
   const baslangic = Date.now();
+
   while (Date.now() - baslangic < 12 * 60 * 1000) {
     const r = await window.basakFetch(
       "/api/olaylar?istek=" + encodeURIComponent(no) +
@@ -182,91 +289,68 @@ async function olaylariTakipEt(no) {
       { cache: "no-store" },
     );
     if (!r.ok) throw new Error("Sohbet akışı okunamadı (" + r.status + ")");
-    const d = await r.json();
+    const d = await jsonOku(r);
+
     for (const o of (d.olaylar || [])) {
       if (olayiIsle(o)) return;
     }
+
     son = Number.isInteger(d.son) ? d.son : son;
     if (d.bitti) return;
     await uyu(350);
   }
-  throw new Error("Başak yanıtı zaman aşımına uğradı");
+
+  throw new Error("Başak yanıtı zaman aşımına uğradı.");
 }
 
 const MISAFIR = new URLSearchParams(location.search).get("misafir") === "1";
-
-// Kenar menusu: eski sohbetler + yeni. Misafirde gizli (perde).
-async function listeyiYukle() {
-  const kenar = document.getElementById("kenar");
-  if (MISAFIR) {
-    if (kenar) kenar.style.display = "none";
-    return;
-  }
-  try {
-    const r = await window.basakFetch("/api/sohbetler", { cache: "no-store" });
-    if (!r.ok) return;
-    const d = await r.json();
-    const kutu = document.getElementById("liste");
-    if (!kutu) return;
-    kutu.textContent = "";
-    for (const o of (d.liste || [])) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.textContent = o.baslik || "Sohbet";
-      b.title = o.baslik || "Sohbet";
-      b.addEventListener("click", () => sohbetiAc(o.id));
-      kutu.appendChild(b);
-    }
-  } catch {}
-}
-
-async function sohbetiAc(id) {
-  try {
-    const r = await window.basakFetch(
-      "/api/sohbet/" + encodeURIComponent(id), { cache: "no-store" });
-    if (!r.ok) return;
-    const d = await r.json();
-    chatEl.textContent = "";
-    balonlar.clear();
-    for (const m of (d.mesajlar || [])) {
-      if (m.role === "user") bubble("user", m.content || "");
-      else if (m.role === "assistant") bubble("assistant", m.content || "");
-    }
-  } catch {}
-}
 
 async function yeniSohbet() {
   try {
     await window.basakFetch("/api/yeni", { method: "POST" });
   } catch {}
+
   chatEl.textContent = "";
   balonlar.clear();
   bulutGecmisi = [];
   bulutGecmisiniKaydet();
-  seciliGorsel = null;
-  if (imageEl) imageEl.value = "";
-  if (imageNameEl) imageNameEl.textContent = "";
-  bubble("assistant", "Yeni sohbet hazır. Mesajını yazabilirsin.");
-  listeyiYukle();
+  onizlemeTemizle();
+  msgEl.value = "";
+  msgEl.style.height = "auto";
+  if (heroEl) heroEl.hidden = false;
+  notYaz("Enter gönderir · Shift+Enter yeni satır");
+  gonderimDurumu();
+  msgEl.focus();
 }
 
 const yeniDugme = document.getElementById("yeni");
 if (yeniDugme) yeniDugme.addEventListener("click", yeniSohbet);
-listeyiYukle();
 
 async function send() {
   const text = msgEl.value.trim();
   const gorsel = seciliGorsel;
-  if ((!text && !gorsel) || sendEl.disabled) return;
+  if ((!text && !gorsel) || gonderiliyor) return;
+
   const gonderilecekMetin = text || "Bu görüntüyü açıkla.";
+  const userBubble = bubble("user", text || "Fotoğraf gönderildi");
+  if (gorsel) gorselBalonaEkle(userBubble, gorsel);
+
   msgEl.value = "";
-  bubble("user", text || ("[Fotoğraf] " + gorsel.name));
-  sendEl.disabled = true;
+  msgEl.style.height = "auto";
+  gonderiliyor = true;
+  gonderimDurumu();
+  notYaz("Başak yanıtlıyor…");
+
   try {
     let ek = null;
     if (gorsel && window.basakRuntime === "vercel") {
-      ek = { ad: gorsel.name, tur: "image", data_url: await gorseliDataUrl(gorsel) };
+      ek = {
+        ad: gorsel.name,
+        tur: "image",
+        data_url: await gorseliDataUrl(gorsel),
+      };
     }
+
     const r = await window.basakFetch("/api/sohbet", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -277,45 +361,105 @@ async function send() {
         ek,
       }),
     });
-    const d = await r.json();
+
+    const d = await jsonOku(r);
 
     if (Array.isArray(d.olaylar)) {
       for (const o of d.olaylar) olayiIsle(o);
       if (!r.ok || !d.ok) throw new Error(d.error || "Sohbet isteği başarısız");
+
       if (d.cevap) {
         bulutGecmisi.push({ role: "user", content: gonderilecekMetin });
         bulutGecmisi.push({ role: "assistant", content: d.cevap });
         bulutGecmisiniKaydet();
       }
-      seciliGorsel = null;
-      if (imageEl) imageEl.value = "";
-      if (imageNameEl) imageNameEl.textContent = "";
+
+      onizlemeTemizle();
       return;
     }
 
     if (!r.ok || !d.ok || !d.istek) {
       throw new Error(d.error || "Sohbet isteği başarısız");
     }
+
     if (!balonlar.has(d.istek)) {
-      balonlar.set(d.istek, bubble("assistant", "Başak düşünüyor…"));
+      balonlar.set(d.istek, bubble("assistant", "Düşünüyorum…"));
     }
     await olaylariTakipEt(d.istek);
+    onizlemeTemizle();
   } catch (err) {
-    bubble("assistant", "Hata: " + (err.message || err));
+    bubble("assistant", "Bir sorun oluştu: " + (err.message || err));
   } finally {
-    sendEl.disabled = false;
+    gonderiliyor = false;
+    notYaz("Enter gönderir · Shift+Enter yeni satır");
+    gonderimDurumu();
     msgEl.focus();
   }
 }
 
 sendEl.addEventListener("click", send);
+
 document.querySelectorAll(".ornek").forEach((d) => {
   d.addEventListener("click", () => {
     msgEl.value = d.textContent.trim();
+    autoResize();
+    gonderimDurumu();
     msgEl.focus();
   });
 });
+
 msgEl.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
 });
+
+function sesleYaz() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    notYaz("Bu tarayıcı sesle yazmayı desteklemiyor.");
+    return;
+  }
+
+  const r = new SpeechRecognition();
+  r.lang = "tr-TR";
+  r.interimResults = false;
+  r.maxAlternatives = 1;
+
+  r.onstart = () => {
+    micEl.classList.add("listening");
+    notYaz("Dinliyorum…");
+  };
+
+  r.onresult = (e) => {
+    const metin = e.results?.[0]?.[0]?.transcript || "";
+    msgEl.value = [msgEl.value.trim(), metin.trim()].filter(Boolean).join(" ");
+    autoResize();
+    gonderimDurumu();
+  };
+
+  r.onerror = () => {
+    notYaz("Ses algılanamadı. Tekrar deneyebilirsin.");
+  };
+
+  r.onend = () => {
+    micEl.classList.remove("listening");
+    if (composerNoteEl?.textContent === "Dinliyorum…") {
+      notYaz("Enter gönderir · Shift+Enter yeni satır");
+    }
+    msgEl.focus();
+  };
+
+  try {
+    r.start();
+  } catch {
+    notYaz("Mikrofon başlatılamadı.");
+  }
+}
+
+if (micEl) micEl.addEventListener("click", sesleYaz);
+
+autoResize();
+gonderimDurumu();
 msgEl.focus();
