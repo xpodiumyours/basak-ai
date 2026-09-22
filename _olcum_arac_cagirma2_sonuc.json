@@ -1,0 +1,122 @@
+[
+  {
+    "soru": "klasor_bilgi",
+    "metin": "basak-ai klasorunde kac tane python dosyasi var",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: dosyalar",
+      "Klasör listeleniyor: basak-ai",
+      "Dosya bilgisi ölçülüyor: basak",
+      "BITTI"
+    ],
+    "sure_sn": 37.2
+  },
+  {
+    "soru": "dosya_oku",
+    "metin": "basak-ai reposundaki requirements.txt icinde ne yaziyor",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: dosyalar",
+      "Dosya bilgisi ölçülüyor: basak",
+      "Dosya okunuyor: requirements.txt",
+      "Klasör listeleniyor: basak-ai",
+      "BITTI"
+    ],
+    "sure_sn": 34.6
+  },
+  {
+    "soru": "icerik_ara",
+    "metin": "basak-ai kodunda AJAN_SOZLESMESI nerede tanimli",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: dosyalar",
+      "İçerikte aranıyor: basak",
+      "BITTI"
+    ],
+    "sure_sn": 18.8
+  },
+  {
+    "soru": "belge_ara",
+    "metin": "basak-ai projesinde chatbot yasagi ne diyor",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: dosyalar",
+      "Klasör listeleniyor: basak-ai",
+      "BITTI"
+    ],
+    "sure_sn": 20.8
+  },
+  {
+    "soru": "adres_kontrol",
+    "metin": "https://basak-vercel.vercel.app/ acik mi kontrol et",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: internet",
+      "Adres kontrol ediliyor: https://basak-vercel.vercel.app/",
+      "BITTI"
+    ],
+    "sure_sn": 13.7
+  },
+  {
+    "soru": "site_ara",
+    "metin": "site:github.com xpodiumyours basak-ai",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: internet",
+      "Sitede aranıyor...",
+      "BITTI"
+    ],
+    "sure_sn": 15.9
+  },
+  {
+    "soru": "gorsel_ara",
+    "metin": "kedi fotografi ara",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: internet",
+      "Görsel aranıyor: kedi fotografi",
+      "BITTI"
+    ],
+    "sure_sn": 19.0
+  },
+  {
+    "soru": "kitap_ara",
+    "metin": "yapay zeka kitaplari ara",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: internet",
+      "Kitaplarda aranıyor: yapay zeka kitapları",
+      "İnternette aranıyor: yapay zeka kitapları önerileri",
+      "BITTI"
+    ],
+    "sure_sn": 24.0
+  },
+  {
+    "soru": "gorev_ekle",
+    "metin": "bir test gorevi ekle: olcum turu2",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: gorevler",
+      "Görev ekleniyor: ölçüm turu2",
+      "BITTI"
+    ],
+    "sure_sn": 14.3
+  },
+  {
+    "soru": "saglik",
+    "metin": "basak'in saglik raporu ne durumda",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: dosyalar",
+      "Belgelerde aranıyor: basak",
+      "Dosya okunuyor: tools/saglik_raporu.py",
+      "Klasör listeleniyor: .",
+      "Dosya bilgisi ölçülüyor: basak",
+      "İçerikte aranıyor: basak",
+      "Dosya okunuyor: tests/test_saglik.py",
+      "Belgelerde aranıyor: basak-ai",
+      "BITTI"
+    ],
+    "sure_sn": 49.8
+  }
+]

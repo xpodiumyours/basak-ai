@@ -1,0 +1,110 @@
+[
+  {
+    "soru": "masaustu_liste",
+    "metin": "bilgisayarimin masasustunde ne var",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: dosyalar",
+      "BITTI"
+    ],
+    "sure_sn": 20.9
+  },
+  {
+    "soru": "simdi_saat",
+    "metin": "su an saat kac",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: gorevler",
+      "Saat okunuyor...",
+      "BITTI"
+    ],
+    "sure_sn": 5.7
+  },
+  {
+    "soru": "gorev_liste",
+    "metin": "gorevlerime bak",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: gorevler",
+      "Görevler listeleniyor...",
+      "BITTI"
+    ],
+    "sure_sn": 23.1
+  },
+  {
+    "soru": "hafiza_ara",
+    "metin": "hafizamda ne kayitli",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: hafiza",
+      "Hafızada aranıyor...",
+      "BITTI"
+    ],
+    "sure_sn": 17.7
+  },
+  {
+    "soru": "matris_liste",
+    "metin": "matris tablolaim var mi",
+    "arac_kostu": false,
+    "olaylar": [
+      "BITTI"
+    ],
+    "sure_sn": 17.4
+  },
+  {
+    "soru": "hava_web",
+    "metin": "bugun istanbulda hava nasil",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: internet",
+      "Haberlerde aranıyor: İstanbul hava durumu bugün 2026-09-22",
+      "Sayfa okunuyor: https://www.cnnturk.com/hava-durumu/cnn-turk-hava-durumu/hava-durumu-2",
+      "BITTI"
+    ],
+    "sure_sn": 16.5
+  },
+  {
+    "soru": "groq_ara",
+    "metin": "groq nedir internette arastir",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: internet",
+      "İnternette aranıyor: Groq nedir",
+      "Sayfa okunuyor: https://tr.wikipedia.org/wiki/Groq",
+      "Sayfa okunuyor: https://www.webtekno.com/groq-nedir-lpu-teknolojisi-ozellikleri-h20967",
+      "BITTI"
+    ],
+    "sure_sn": 41.3
+  },
+  {
+    "soru": "git_durum",
+    "metin": "basak-ai projesinin git durumu ne",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: projeler",
+      "Proje durumu ölçülüyor: basak",
+      "BITTI"
+    ],
+    "sure_sn": 20.0
+  },
+  {
+    "soru": "hesapla_yuzde",
+    "metin": "240in yuzde 18 kac",
+    "arac_kostu": false,
+    "olaylar": [
+      "BITTI"
+    ],
+    "sure_sn": 7.6
+  },
+  {
+    "soru": "son_commit",
+    "metin": "basak-ai reposunun son commitleri neler",
+    "arac_kostu": true,
+    "olaylar": [
+      "Yetenek acildi: projeler",
+      "Commit geçmişi ölçülüyor: basak",
+      "BITTI"
+    ],
+    "sure_sn": 17.7
+  }
+]

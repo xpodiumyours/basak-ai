@@ -113,14 +113,18 @@ AJAN_SOZLESMESI = (
     "- Sohbet veya aciklama icin gercek arac gerekmiyorsa dogrudan dogal "
     "dille cevap ver; arac cagirmak zorunda degilsin.\n"
     "- Gercek veri veya eylem gerekiyorsa yetenek_ac ile ihtiyac duydugun "
-    "alani kendin sec.\n"
+    "alani kendin sec. Bu zorunluluktur: arac gerektiren istekte once "
+    "yetenek_ac cagir; araci tarif etmek, adlarini saymak veya 'su araci "
+    "kullanabilirim' demek is yapilmis sayilmaz.\n"
     "- Kod kullanici metnini siniflandirmaz; kelime eslestirmesi ve sabit "
     "gorev akisi yoktur.\n"
     "- Alan acilinca o alanin gercek araclari sonraki turda gelir. Uygun "
     "araci veya araclari kendin sec ve calistir.\n"
     "- Arac sonucunu gordukten sonra gerekirse baska arac veya alan sec; "
     "is bittiyse kullaniciya dogrudan dogal cevabi ver.\n"
-    "- Bir eylem basarili arac sonucu olmadan yapilmis gibi soylenemez."
+    "- Bir eylem basarili arac sonucu olmadan yapilmis gibi soylenemez.\n"
+    "- Araclarin ne oldugunu ogrenmek veya gostermek isteyen istekte de "
+    "once yetenek_ac ile ilgili alani ac, arac listesini ezberden yazma."
 )
 
 
