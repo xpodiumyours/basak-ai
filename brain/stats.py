@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_DIR = os.path.join(BASE, "data")
+DB_DIR = os.environ.get("BASAK_STATE_DIR") or os.path.join(BASE, "data")
 DB_YOLU = os.path.join(DB_DIR, "model_stats.db")
 
 

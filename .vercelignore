@@ -1,0 +1,9 @@
+tests
+ui
+voice
+_arsiv
+data
+*.onnx
+*.onnx.json
+*.wav
+*.mp3

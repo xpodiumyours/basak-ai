@@ -33,6 +33,13 @@ async function basakHealth() {
     let d = {};
     try { d = await r.json(); } catch {}
     if (dot) dot.classList.toggle("ok", ok && d.ok);
+    window.basakRuntime = d.runtime || "local";
+    const imagePick = document.getElementById("imagePick");
+    if (imagePick) imagePick.hidden = window.basakRuntime !== "vercel";
+    const runtimeNote = document.getElementById("runtimeNote");
+    if (runtimeNote) runtimeNote.firstChild.textContent = window.basakRuntime === "vercel" ?
+      "Bulut Başak çalışıyor; bilgisayarın açık olmak zorunda değil. " :
+      "Yerel Başak köprüsü çalışıyor. ";
     if (text) {
       if (r.status === 401) {
         text.textContent = "Kod gerekli";

@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
-AUDIT_DOSYASI = os.path.join(BASE, "data", "audit", "audit.log")
+STATE_DIR = os.environ.get("BASAK_STATE_DIR") or os.path.join(BASE, "data")
+AUDIT_DOSYASI = os.path.join(STATE_DIR, "audit", "audit.log")
 
 
 def _audit(mesaj: str):

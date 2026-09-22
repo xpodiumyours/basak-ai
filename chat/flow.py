@@ -182,7 +182,7 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
 
 
 def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
-               misafir=False):
+               misafir=False, gecmis_override=None):
     """Bir mesajı baştan sona işler."""
     text, konusmaci = _konusmaci_ayir((text or "").strip())
 
@@ -214,9 +214,12 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     # model adi tasiyarak karistirma.
     model = None
 
-    gecmis = [] if misafir else ctx.temizle_history(
-        [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
-         if m.get("role") != "system"])
+    if gecmis_override is not None:
+        gecmis = ctx.temizle_history(list(gecmis_override or []))
+    else:
+        gecmis = [] if misafir else ctx.temizle_history(
+            [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
+             if m.get("role") != "system"])
 
     # 2026-09-22: kullanici ayni mesaji kisa sure icinde IKINCI kez
     # gonderdiyse (cift tiklama/tekrar deneme) ayni cevabi yeniden satin

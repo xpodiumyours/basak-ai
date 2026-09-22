@@ -37,13 +37,17 @@
       <textarea id="message" maxlength="4000" placeholder="Başak'a yaz..."></textarea>
       <button id="send" class="action">Gönder</button>
     </div>
+    <div class="composer-tools">
+      <label id="imagePick" class="pill attach" hidden>Fotoğraf seç<input id="image" type="file" accept="image/*" hidden></label>
+      <span id="imageName" class="muted"></span>
+    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px">
       <button class="pill ornek" type="button">Neler yapabilirsin?</button>
       <button class="pill ornek" type="button">Bugün hava nasıl?</button>
       <button class="pill ornek" type="button">Bana işlerimi nasıl kolaylaştırırsın?</button>
     </div>
   </section>
-  <p class="muted" style="margin-top:12px">Deneme sayfasıdır; yazdıkların bu bilgisayarda işlenir. <a href="/lab.html">Teknik durum</a></p>
+  <p id="runtimeNote" class="muted" style="margin-top:12px">Çalışma konumu denetleniyor. <a href="/lab.html">Teknik durum</a></p>
   <div id="modelBarAlt" class="modelbar" aria-live="polite"></div>
   </div>
   </div>

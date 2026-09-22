@@ -13,30 +13,31 @@ cohere==7.0.9
 
 # ── Web arama ve sayfa okuma ───────────────────────────────────────
 ddgs==9.14.4
+fastapi==0.117.1
 
 # ── Masaustu arayuz ────────────────────────────────────────────────
-pywebview==6.2.1
-pystray==0.19.5
-Pillow==12.1.1
+pywebview==6.2.1; sys_platform == "win32"
+pystray==0.19.5; sys_platform == "win32"
+Pillow==12.1.1; sys_platform == "win32"
 
 # ── Kalici hafiza (vektor arama; sqlite-vec yoksa BM25'e duser) ─────
-sqlite-vec==0.1.9
+sqlite-vec==0.1.9; sys_platform == "win32"
 # pyannote.audio 4.0.7 -> pyannote-core 6.0.1 -> numpy>=2.0.
 # 1.26.4 pini pip cozumunu kiriyordu; Python 3.12 icin guncel kararlı
 # NumPy 2.5.3 sabitlenir ki CI ve masaustu ayni bagimlilik setini kullansin.
-numpy==2.5.3
+numpy==2.5.3; sys_platform == "win32"
 
 # ── Ses: TTS (metin->ses) + STT (ses->metin) + konusmaci tanima ────
 # DIKKAT: piper-tts paketi ses MODELINI icermez. tr_TR-dfki-medium.onnx
 # ayri indirilir — README "Ses modeli" bolumune bak.
-piper-tts==1.7.0
-sounddevice==0.5.5
-soundfile==0.13.1
-faster-whisper==1.2.1
-pyannote.audio==4.0.7
+piper-tts==1.7.0; sys_platform == "win32"
+sounddevice==0.5.5; sys_platform == "win32"
+soundfile==0.13.1; sys_platform == "win32"
+faster-whisper==1.2.1; sys_platform == "win32"
+pyannote.audio==4.0.7; sys_platform == "win32"
 
 # ── Telegram koprusu ───────────────────────────────────────────────
-python-telegram-bot==22.8
+python-telegram-bot==22.8; sys_platform == "win32"
 
 # ── Test ───────────────────────────────────────────────────────────
-pytest==9.1.1
+pytest==9.1.1; sys_platform == "win32"

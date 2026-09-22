@@ -1,8 +1,51 @@
-// app.js — web sohbeti. Tek beyin kurali: yalniz yerel kopruyle konusur
-// (/api/sohbet POST + /api/olaylar HTTP polling). Baska arka uca dokunmaz.
+// app.js — web sohbeti. Tek beyin kurali: yerel veya Vercel koprusu\n// ayni Python cekirdegine gider; web tarafinda ikinci beyin yoktur.
 const chatEl = document.getElementById("chat");
 const msgEl = document.getElementById("message");
 const sendEl = document.getElementById("send");
+const imageEl = document.getElementById("image");
+const imageNameEl = document.getElementById("imageName");
+let seciliGorsel = null;
+let bulutGecmisi = [];
+try {
+  const kayitli = JSON.parse(localStorage.getItem("basak_cloud_history") || "[]");
+  if (Array.isArray(kayitli)) bulutGecmisi = kayitli;
+} catch {}
+
+function bulutGecmisiniKaydet() {
+  try { localStorage.setItem("basak_cloud_history", JSON.stringify(bulutGecmisi)); } catch {}
+}
+
+async function gorseliDataUrl(file) {
+  if (!file || !String(file.type || "").startsWith("image/")) {
+    throw new Error("Yalnız fotoğraf yüklenebilir");
+  }
+  const ham = await new Promise((coz, reddet) => {
+    const r = new FileReader();
+    r.onload = () => coz(r.result);
+    r.onerror = () => reddet(new Error("Fotoğraf okunamadı"));
+    r.readAsDataURL(file);
+  });
+  const img = await new Promise((coz, reddet) => {
+    const i = new Image();
+    i.onload = () => coz(i);
+    i.onerror = () => reddet(new Error("Fotoğraf açılamadı"));
+    i.src = ham;
+  });
+  const enBuyuk = 1600;
+  const oran = Math.min(1, enBuyuk / Math.max(img.width, img.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(img.width * oran));
+  canvas.height = Math.max(1, Math.round(img.height * oran));
+  canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.82);
+}
+
+if (imageEl) {
+  imageEl.addEventListener("change", () => {
+    seciliGorsel = imageEl.files && imageEl.files[0] ? imageEl.files[0] : null;
+    if (imageNameEl) imageNameEl.textContent = seciliGorsel ? seciliGorsel.name : "";
+  });
+}
 
 const balonlar = new Map();
 const sonAracDurumu = new Map();
@@ -198,6 +241,11 @@ async function yeniSohbet() {
   } catch {}
   chatEl.textContent = "";
   balonlar.clear();
+  bulutGecmisi = [];
+  bulutGecmisiniKaydet();
+  seciliGorsel = null;
+  if (imageEl) imageEl.value = "";
+  if (imageNameEl) imageNameEl.textContent = "";
   bubble("assistant", "Yeni sohbet hazır. Mesajını yazabilirsin.");
   listeyiYukle();
 }
@@ -208,17 +256,43 @@ listeyiYukle();
 
 async function send() {
   const text = msgEl.value.trim();
-  if (!text || sendEl.disabled) return;
+  const gorsel = seciliGorsel;
+  if ((!text && !gorsel) || sendEl.disabled) return;
+  const gonderilecekMetin = text || "Bu görüntüyü açıkla.";
   msgEl.value = "";
-  bubble("user", text);
+  bubble("user", text || ("[Fotoğraf] " + gorsel.name));
   sendEl.disabled = true;
   try {
+    let ek = null;
+    if (gorsel && window.basakRuntime === "vercel") {
+      ek = { ad: gorsel.name, tur: "image", data_url: await gorseliDataUrl(gorsel) };
+    }
     const r = await window.basakFetch("/api/sohbet", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ metin: text, misafir: MISAFIR }),
+      body: JSON.stringify({
+        metin: gonderilecekMetin,
+        misafir: MISAFIR,
+        gecmis: bulutGecmisi,
+        ek,
+      }),
     });
     const d = await r.json();
+
+    if (Array.isArray(d.olaylar)) {
+      for (const o of d.olaylar) olayiIsle(o);
+      if (!r.ok || !d.ok) throw new Error(d.error || "Sohbet isteği başarısız");
+      if (d.cevap) {
+        bulutGecmisi.push({ role: "user", content: gonderilecekMetin });
+        bulutGecmisi.push({ role: "assistant", content: d.cevap });
+        bulutGecmisiniKaydet();
+      }
+      seciliGorsel = null;
+      if (imageEl) imageEl.value = "";
+      if (imageNameEl) imageNameEl.textContent = "";
+      return;
+    }
+
     if (!r.ok || !d.ok || !d.istek) {
       throw new Error(d.error || "Sohbet isteği başarısız");
     }
