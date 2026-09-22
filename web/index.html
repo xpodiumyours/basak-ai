@@ -31,7 +31,13 @@
     <div id="historyList" class="history-list"></div>
     <div id="historyEmpty" class="history-empty">Henüz kayıtlı sohbet yok.</div>
 
-    <div class="sidebar-foot">Bu tarayıcıdaki sohbetler</div>
+    <div class="sidebar-foot">
+      <div id="kimlikSatir" hidden style="margin-bottom:4px;">
+        <span id="kullaniciAd" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        <button id="cikisYap" type="button" style="border:0;background:transparent;color:inherit;font-size:inherit;padding:0;cursor:pointer;text-decoration:underline;">Çıkış</button>
+      </div>
+      Bu tarayıcıdaki sohbetler
+    </div>
   </aside>
 
   <div id="sidebarBackdrop" class="sidebar-backdrop" hidden></div>
@@ -108,7 +114,7 @@
   </div>
 </div>
 
-<script src="/common.js?v=3"></script>
-<script src="/app.js?v=3"></script>
+<script src="/common.js?v=4"></script>
+<script src="/app.js?v=4"></script>
 </body>
 </html>

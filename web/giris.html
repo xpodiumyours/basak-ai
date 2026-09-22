@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fbfbfc">
+<title>Başak — Giriş</title>
+<link rel="stylesheet" href="/chat.css?v=2">
+<style>
+  .giris-kutu {
+    max-width: 360px; margin: 12vh auto; padding: 28px 24px;
+    background: #fff; border: 1px solid rgba(0,0,0,.08);
+    border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.06);
+  }
+  .giris-kutu h1 { font-size: 20px; margin: 0 0 4px; }
+  .giris-kutu p  { color: #666; font-size: 14px; margin: 0 0 18px; }
+  .giris-kutu label { display: block; font-size: 13px; margin: 12px 0 4px; color: #444; }
+  .giris-kutu input {
+    width: 100%; box-sizing: border-box; padding: 10px 12px;
+    border: 1px solid rgba(0,0,0,.15); border-radius: 10px; font-size: 15px;
+  }
+  .giris-kutu button {
+    width: 100%; margin-top: 18px; padding: 11px;
+    border: 0; border-radius: 10px; background: #1d4ed8; color: #fff;
+    font-size: 15px; cursor: pointer;
+  }
+  .giris-kutu button:disabled { opacity: .6; cursor: default; }
+  .hata { color: #b91c1c; font-size: 13px; margin-top: 10px; min-height: 1em; }
+</style>
+</head>
+<body>
+  <form id="girisForm" class="giris-kutu" autocomplete="on">
+    <h1>Başak</h1>
+    <p>Kişisel alanına girmek için giriş yap.</p>
+
+    <label for="ad">Kullanıcı adı</label>
+    <input id="ad" name="ad" type="text" required autofocus>
+
+    <label for="sifre">Şifre</label>
+    <input id="sifre" name="sifre" type="password" required>
+
+    <button id="gonder" type="submit">Giriş yap</button>
+    <div id="hata" class="hata" role="alert"></div>
+  </form>
+
+<script>
+(function () {
+  var form = document.getElementById("girisForm");
+  var hata = document.getElementById("hata");
+  var gonder = document.getElementById("gonder");
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    hata.textContent = "";
+    gonder.disabled = true;
+    try {
+      var r = await fetch("/api/giris", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          ad: document.getElementById("ad").value,
+          sifre: document.getElementById("sifre").value
+        })
+      });
+      var d = {};
+      try { d = await r.json(); } catch (x) {}
+      if (r.ok && d.ok) {
+        try {
+          if (d.kullanici) localStorage.setItem("basak_kullanici", String(d.kullanici));
+        } catch (x) {}
+        location.href = "/";
+        return;
+      }
+      hata.textContent = d.error || "Giriş başarısız";
+    } catch (err) {
+      hata.textContent = "Bağlantı hatası";
+    } finally {
+      gonder.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>

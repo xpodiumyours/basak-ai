@@ -21,16 +21,36 @@ window.basakKodIste = () => {
   return t;
 };
 
+// giris.html'de miyiz? (401 yonlendirmesinde sonsuz dongu korumasi)
+window.basakGirisSayfasi = () => {
+  const parca = location.pathname.split("/").pop() || "";
+  return parca === "giris.html" || parca === "giris";
+};
+
+let basakTokenSoruldu = false; // sayfa omrunde koprü token'i bir kez sorulur
+
 window.basakFetch = async (yol, secenek = {}) => {
   const t = window.basakToken();
   const basliklar = { ...(secenek.headers || {}) };
   if (t) basliklar["X-Basak-Token"] = t;
-  let r = await fetch(yol, { ...secenek, headers: basliklar });
+  let r = await fetch(yol, {
+    credentials: "same-origin", ...secenek, headers: basliklar,
+  });
   if (r.status === 401) {
-    const y = window.basakKodIste();
-    if (!y) return r;
-    location.reload();
-    return r;
+    // Tek 401 akisi: "token gecersiz" → eski localStorage token yolu
+    // (bir kez sor, kaydet, yenile); "giris gerekli" ve diger 401'ler
+    // → giris.html (giris sayfasinda zatenysak yonlendirmeyiz).
+    let hata = "";
+    try { hata = (await r.clone().json()).error || ""; } catch (x) {}
+    if (hata === "token gecersiz" && !basakTokenSoruldu) {
+      basakTokenSoruldu = true;
+      const y = window.basakKodIste();
+      if (y) {
+        location.reload();
+        return r;
+      }
+    }
+    if (!window.basakGirisSayfasi()) location.href = "/giris.html";
   }
   return r;
 };
@@ -123,3 +143,6 @@ async function basakHealth() {
 window.basakHealth = basakHealth;
 basakHealth();
 setInterval(basakHealth, 30000);
+
+// Ilk yukleme kimlik kapisi: 401 donerse basakFetch giris.html'e yonlendirir.
+window.basakFetch("/api/sohbetler", { cache: "no-store" }).catch(() => {});

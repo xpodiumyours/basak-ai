@@ -18,10 +18,14 @@ const historyEmptyEl = document.getElementById("historyEmpty");
 const sidebarEl = document.getElementById("sidebar");
 const sidebarToggleEl = document.getElementById("sidebarToggle");
 const sidebarBackdropEl = document.getElementById("sidebarBackdrop");
+const kimlikSatirEl = document.getElementById("kimlikSatir");
+const kullaniciAdEl = document.getElementById("kullaniciAd");
+const cikisButonEl = document.getElementById("cikisYap");
 
 const CHATS_KEY = "basak_cloud_chats_v1";
 const ACTIVE_KEY = "basak_cloud_active_chat";
 const LEGACY_KEY = "basak_cloud_history";
+const KIMLIK_ANAHTAR = "basak_kullanici";
 
 let seciliGorsel = null;
 let onizlemeUrl = "";
@@ -577,9 +581,28 @@ function sidebarKapat() {
 if (sidebarToggleEl) sidebarToggleEl.addEventListener("click", sidebarAc);
 if (sidebarBackdropEl) sidebarBackdropEl.addEventListener("click", sidebarKapat);
 
+function kimligiCiz() {
+  let ad = "";
+  try { ad = localStorage.getItem(KIMLIK_ANAHTAR) || ""; } catch {}
+  if (!ad || !kimlikSatirEl || !kullaniciAdEl) return;
+  kullaniciAdEl.textContent = ad;
+  kimlikSatirEl.hidden = false;
+}
+
+async function oturumuKapat() {
+  try {
+    await window.basakFetch("/api/cikis", { method: "POST" });
+  } catch {}
+  try { localStorage.removeItem(KIMLIK_ANAHTAR); } catch {}
+  location.href = "/giris.html";
+}
+
+if (cikisButonEl) cikisButonEl.addEventListener("click", oturumuKapat);
+
 depoyuYukle();
 gecmisCiz();
 sohbetiCiz();
 autoResize();
 gonderimDurumu();
+kimligiCiz();
 msgEl.focus();

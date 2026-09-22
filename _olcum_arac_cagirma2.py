@@ -43,7 +43,7 @@ def main():
     sonuclar = []
     for ad, soru in SORULAR:
         try:
-            ctx.kaydet(ctx.HISTORY_FILE, [])
+            ctx.kaydet(ctx.gecmis_yolu(), [])
         except OSError:
             pass
 

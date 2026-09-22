@@ -51,8 +51,9 @@ def _izole_stats(_izole_olcum_dizini):
 
 
 @pytest.fixture(autouse=True)
-def _gercek_veriyi_koru(_izole_olcum_dizini, _izole_stats, monkeypatch):
-    """Testler gerçek denetim günlüğüne ve kota sayacına YAZMAZ."""
+def _gercek_veriyi_koru(_izole_olcum_dizini, _izole_stats, monkeypatch, tmp_path):
+    """Testler gerçek denetim günlüğüne, kota sayacına ve
+    kullanıcı tablosuna YAZMAZ (tek-kullanıcı modu kalır)."""
     import brain.brain as beyin_modulu
     import brain.stats as stats_modulu
 
@@ -62,4 +63,23 @@ def _gercek_veriyi_koru(_izole_olcum_dizini, _izole_stats, monkeypatch):
     # bu yüzden DB_YOLU'yu yamamak yetmez — tekillik doğrudan geçici
     # veritabanıyla kurulur.
     monkeypatch.setattr(stats_modulu, "_stats", _izole_stats)
+    # 2026-09-23: gerçek kullanicilar.json okunursa testler giris
+    # zorunluluğuna takılır; depo tmp'ye yonlendirilir (dosya yok =>
+    # tek-kullanici modu, eski davranis).
+    try:
+        import kullanici as kullanici_modulu
+        monkeypatch.setattr(kullanici_modulu, "KULLANICI_DOSYA",
+                            str(tmp_path / "kullanicilar.json"))
+    except Exception:
+        pass
+    # 2026-09-23 (kisi-hafiza): (a) aktif kisi (contextvar) bir onceki
+    # testten sizmasin; (b) devlet koku tmp'ye alinsin — testler gercek
+    # data/'ya gecmis/hafiza/sohbet yazmasin (AGENTS.md: her test kendi
+    # gecici dosyasina yazar).
+    try:
+        import chat.kimlik as kimlik_modulu
+        kimlik_modulu.kullanici_kur(kimlik_modulu.VARSAYILAN_KULLANICI)
+    except Exception:
+        pass
+    monkeypatch.setenv("BASAK_STATE_DIR", str(tmp_path / "state"))
     yield

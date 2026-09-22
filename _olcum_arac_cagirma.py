@@ -47,7 +47,7 @@ def main():
         # Her soru bagimsiz: gecmis temizlenir (misafir=False ->
         # AJAN_SOZLESMESI gonderilir; misafirde sozlesme gonderilmiyor).
         try:
-            ctx.kaydet(ctx.HISTORY_FILE, [])
+            ctx.kaydet(ctx.gecmis_yolu(), [])
         except OSError:
             pass
 

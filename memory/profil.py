@@ -62,7 +62,15 @@ def profil_koy(motor, profil):
 
 
 def blok(motor):
-    """System prompt'a eklenecek 'bilinenler' blogu (bossa '')."""
+    """System prompt'a eklenecek 'bilinenler' blogu (bossa '').
+
+    2026-09-23: yalniz casper oturumunda cagrilir (flow._baglam_kur
+    kisitlar) — diger web kullanicilarina kisisel bilgi sizmaz.
+    Savunma derinligi: aktif kisi casper degilse profil hic okunmaz.
+    """
+    from chat.kimlik import VARSAYILAN_KULLANICI, aktif_kullanici
+    if aktif_kullanici() != VARSAYILAN_KULLANICI:
+        return ""
     profil = profil_al(motor)
     parcalar = []
     if profil["ad"]:

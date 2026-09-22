@@ -19,7 +19,8 @@ import json
 import logging
 import re
 
-from chat.prompts import KIMLIK_BLOGU, MISAFIR_BLOGU
+from chat.prompts import MISAFIR_BLOGU, kimlik_blogu
+from chat.kimlik import VARSAYILAN_KULLANICI, aktif_kullanici, gorunur_ad
 from chat.agent_protocol import AJAN_SOZLESMESI, baslangic_araclari
 from chat import context as ctx
 from chat.gate import temizle as _temizle
@@ -92,14 +93,20 @@ def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi="",
             {"role": "system", "content": system_prompt},
         ]
 
-    profil_blogu, ogrenme_notu = _profil_isle(text, konusmaci)
+    # 2026-09-23: profil blogu yalniz casper oturumunda system prompt'a
+    # girer — diger web kullanicilarina kisisel bilgi sizmaz.
+    kid = aktif_kullanici()
+    if kid == VARSAYILAN_KULLANICI:
+        profil_blogu, ogrenme_notu = _profil_isle(text, konusmaci)
+    else:
+        profil_blogu, ogrenme_notu = "", ""
 
     tam_prompt = system_prompt
     if konusmaci:
         tam_prompt += "\nKonuşan: %s" % konusmaci
 
     mesajlar = [
-        {"role": "system", "content": KIMLIK_BLOGU},
+        {"role": "system", "content": kimlik_blogu(gorunur_ad(kid))},
         {"role": "system", "content": tam_prompt},
     ]
 
@@ -155,7 +162,7 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
         {"role": "assistant", "content": cevap, "oturum": ctx.OTURUM_ID},
     ]
     try:
-        ctx.kaydet(ctx.HISTORY_FILE, gecmis)
+        ctx.kaydet(ctx.gecmis_yolu(), gecmis)
     except OSError as e:
         # Gecmis yazilamasa da ekran bitmeli (2026-09-15 checkup).
         logger.warning("Gecmis yazilamadi (ekran etkilenmez): %s", e)
@@ -168,7 +175,8 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
 
     js_callback("BasakUI.bitir(" + _j(cevap) + ", " + _j(kaynak) + ")")
 
-    if onbellekle and not misafir:
+    if onbellekle and not misafir and \
+            aktif_kullanici() == VARSAYILAN_KULLANICI:
         _onbellek.koy(text, cevap)
 
     # Ekran güncellendikten SONRA anıyı yaz — cevabı bekletmesin.
@@ -218,15 +226,18 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         gecmis = ctx.temizle_history(list(gecmis_override or []))
     else:
         gecmis = [] if misafir else ctx.temizle_history(
-            [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
+            [m for m in ctx.yukle(ctx.gecmis_yolu(), [])
              if m.get("role") != "system"])
 
     # 2026-09-22: kullanici ayni mesaji kisa sure icinde IKINCI kez
     # gonderdiyse (cift tiklama/tekrar deneme) ayni cevabi yeniden satin
     # almayalim. Karar metnin anlamina bakmaz; bir onceki kullanici
     # mesajinin TAM AYNISI olmasi sarttir (bkz. chat/onbellek.py).
-    # Misafirde onbellek yok — misafir iz birakmaz.
-    if not misafir:
+    # Misafirde onbellek yok — misafir iz birakmaz. Onbellek anahtari
+    # kisiye gore degil (chat/onbellek.py baskasinin dosyasi); yalniz
+    # casper oturumunda okunur/yazilir ki baska kisinin cevabi
+    # baska kisiye donmesin.
+    if not misafir and aktif_kullanici() == VARSAYILAN_KULLANICI:
         _tekrar = _onbellek.al(text, gecmis)
         if _tekrar:
             _kaydet(text, _tekrar, "onbellek", gecmis, js_callback,

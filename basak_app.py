@@ -46,9 +46,19 @@ from chat import mesaj_isle, yukle, kaydet, init_cache
 BASE = os.path.dirname(os.path.abspath(__file__))
 UI_DIR = os.path.join(BASE, "ui")
 INDEX_FILE = os.path.join(UI_DIR, "index.html")
-HISTORY_FILE = os.path.join(BASE, "gecmis.json")
+# None = kimlikten hesapla (data/<kullanici>/gecmis.json); testler
+# monkeypatch edebilir (None olmayan deger kullanilir).
+HISTORY_FILE = None
 SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
+
+
+def _gecmis_yolu():
+    """Yerel uygulamanın gecmis.json yolu (her zaman casper kökü)."""
+    if HISTORY_FILE is not None:
+        return HISTORY_FILE
+    from chat.kimlik import kullanici_koku
+    return os.path.join(kullanici_koku(), "gecmis.json")
 
 KISILIK = (
     "Sen Basak'sin, Casper'in kisisel asistanisin. Turkce konus."
@@ -117,7 +127,7 @@ class Api:
             try:
                 if self.tts is None:
                     self.tts = TTS(on_level=self._ses_seviyesi)
-                gecmis = yukle(HISTORY_FILE, [])
+                gecmis = yukle(_gecmis_yolu(), [])
                 if gecmis:
                     self.tts.speak(gecmis[-1].get("content", ""))
             except Exception as e:
@@ -234,7 +244,7 @@ class Api:
           turetilir, sohbet degil; tamamen silme istenmemisti.
         """
         try:
-            os.remove(HISTORY_FILE)
+            os.remove(_gecmis_yolu())
         except OSError:
             pass
 
@@ -345,7 +355,7 @@ class Api:
             mesajlar = _oturum.ac(sid)
             if mesajlar is None:
                 return {"ok": False}
-            kaydet(HISTORY_FILE, [
+            kaydet(_gecmis_yolu(), [
                 {"role": m.get("role"), "content": m.get("content", "")}
                 for m in mesajlar[-40:]
                 if m.get("role") in ("user", "assistant")])
@@ -357,9 +367,9 @@ class Api:
         """Yeni bos sohbet; mevcutu arsive kaldirir (2026-09-10)."""
         try:
             from chat import oturum as _oturum
-            _oturum.yeni(yukle(HISTORY_FILE, []))
+            _oturum.yeni(yukle(_gecmis_yolu(), []))
             try:
-                os.remove(HISTORY_FILE)
+                os.remove(_gecmis_yolu())
             except OSError:
                 pass
             return {"ok": True}
@@ -380,6 +390,19 @@ class Api:
             if motor:
                 motor.kapat()
                 logger.info("Hafiza DB kapatildi")
+                return
+            # 2026-09-23: kullanici bazli motor cache'i (_hafizalar).
+            _kapatilan = 0
+            for m in list(getattr(_ctx, "_hafizalar", {}).values()):
+                if not m:
+                    continue
+                try:
+                    m.kapat()
+                    _kapatilan += 1
+                except Exception:
+                    pass
+            if _kapatilan:
+                logger.info("Hafiza DB kapatildi (%d kisi)", _kapatilan)
         except Exception as e:
             logger.warning("Hafiza DB kapanamadi: %s", e)
 
@@ -446,6 +469,9 @@ def main():
         os.chdir(BASE)
     except OSError:
         pass
+    # Yerel uygulama her zaman casper (tasarım: yerel = casper).
+    from chat.kimlik import kullanici_kur
+    kullanici_kur("casper")
     init_cache()
     api = Api()
     _api = api

@@ -144,6 +144,9 @@ def main():
     izinli = str(_ayar("telegram_izinli_id", "") or "")
 
     init_cache()
+    # 2026-09-23: telegram her zaman yerel kişi = casper (davranış değişmez).
+    from chat.kimlik import kullanici_kur
+    kullanici_kur("casper")
     beyin = Brain()
     print("Telegram koprusu hazir. Kapatmak icin pencereyi kapat.")
 

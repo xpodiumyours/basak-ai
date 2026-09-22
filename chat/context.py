@@ -5,11 +5,15 @@
 ve hafıza bağlantısı buraya taşındı.
 
 Sorumluluğu:
-  - dosya yolları ve ayar okuma
+  - dosya yolları ve ayar okuma (kişiye özel: chat.kimlik)
   - modele giden geçmiş penceresi (kilo limitli)
-  - kalıcı hafıza motoruna tek giriş noktası
+  - kalıcı hafıza motoruna tek giriş noktası (kişi başına ayrı DB)
+
+2026-09-23: HISTORY_FILE None ise dinamiktir (kimlik); testler
+monkeypatch ile ezebilir (None olmayan deger kullanilir).
 """
 
+import contextvars
 import json
 import logging
 import os
@@ -21,14 +25,9 @@ logger = logging.getLogger(__name__)
 # ── Dosya yolları ───────────────────────────────────────────────────
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# 2026-09-22: Vercel salt-okunur dosya sistemi; yazma hedefi de
-# BASAK_STATE_DIR altina alinir (oturum.py + memory/engine.py ile
-# ayni kural). Yerelde hicbir sey degismez. Vercel'de gecmis zaten
-# tarayicida tasiniyor; bu yedekleme yoludur.
-if os.environ.get("BASAK_STATE_DIR"):
-    HISTORY_FILE = os.path.join(os.environ["BASAK_STATE_DIR"], "gecmis.json")
-else:
-    HISTORY_FILE = os.path.join(BASE, "gecmis.json")
+
+# None = kimlikten hesapla (uretim). Test monkeypatch ederse o deger kullanilir.
+HISTORY_FILE = None
 SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
 OBSIDIAN_DIR = os.path.join(BASE, "Basak")
@@ -46,6 +45,14 @@ _kayit_kilidi = threading.Lock()
 
 MAX_HISTORY = 200
 GECMIS_KILO_LIMITI = 200000
+
+
+def gecmis_yolu():
+    """Aktif kişinin gecmis.json yolu (test monkeypatch'i önce gelir)."""
+    if HISTORY_FILE is not None:
+        return HISTORY_FILE
+    from chat.kimlik import kullanici_koku
+    return os.path.join(kullanici_koku(), "gecmis.json")
 
 
 def yukle(path, varsayilan):
@@ -100,7 +107,10 @@ def onem_puanla(text):
 
 # ── Hafıza ──────────────────────────────────────────────────────────
 
+# None: kullanici bazli (_hafizalar) kullanilir. Test monkeypatch'i
+# False/motor verirse o tek deger kullanilir (eski test davranisi).
 _hafiza = None
+_hafizalar = {}   # {kullanici_id: motor|False}
 _hafiza_lock = threading.Lock()
 
 
@@ -120,7 +130,7 @@ def _anlam_fn():
     return None
 
 
-# Vektor uzayi damgasi: saglayici/boyut degisince eski vektorler
+# Vektor uzayi damgasi: saglayici/boyut degince eski vektorler
 # cop olur (iki farkli olcum ayni tabloda karsilastirilamaz).
 # Damga tutmazsa vektorler silinip metinler yeniden islenir.
 # 2026-09-15: taskType (DOCUMENT/QUERY) + L2 normalizasyonu eklendi —
@@ -130,18 +140,43 @@ _VEKTOR_DAMGA = "embed_uzay"
 _GERI_DOLDURMA_TAVAN = 500
 
 
+def _motor_yolu():
+    from chat.kimlik import kullanici_koku
+    return os.path.join(kullanici_koku(), "memory", "basak.db")
+
+
 def hafiza_al():
-    """Motoru tek seferlik oluşturur; açılamazsa None (sohbet devam eder)."""
+    """Motoru kişiye göre tek seferlik oluşturur; açılamazsa None."""
     global _hafiza
+    # Test/tek-kullanıcı monkeypatch: _hafiza None DEGILSE o kullanilir.
+    if _hafiza is not None:
+        return _hafiza or None
+
+    from chat.kimlik import aktif_kullanici
+    kid = aktif_kullanici()
     with _hafiza_lock:
-        if _hafiza is None:
+        if kid not in _hafizalar:
             try:
                 from memory import HafizaMotoru
-                _hafiza = HafizaMotoru(embed_fn=_anlam_fn())
+                _hafizalar[kid] = HafizaMotoru(
+                    db_yolu=_motor_yolu(), embed_fn=_anlam_fn())
             except Exception as e:
                 logger.warning("Hafiza motoru acilamadi: %s", e)
-                _hafiza = False
-    return _hafiza or None
+                _hafizalar[kid] = False
+    motor = _hafizalar.get(kid)
+    return motor or None
+
+
+def hafizalari_kapat():
+    """Tum acik motorlari kapatir (uygulama kapanisinda)."""
+    with _hafiza_lock:
+        for motor in list(_hafizalar.values()):
+            if motor:
+                try:
+                    motor.kapat()
+                except Exception:
+                    pass
+        _hafizalar.clear()
 
 
 def ilgili_anilar(sorgu, limit=20):
@@ -158,7 +193,7 @@ def ilgili_anilar(sorgu, limit=20):
 
 def _gecmisi_aktar(motor):
     """gecmis.json'daki eski sohbeti bir kereye mahsus hafızaya taşır."""
-    kayitlar = yukle(HISTORY_FILE, [])
+    kayitlar = yukle(gecmis_yolu(), [])
     soru = None
     sayac = 0
     for m in kayitlar:
@@ -230,10 +265,13 @@ def _vektor_uzay_sagla(motor):
 def _hafiza_hazirla():
     """Arka planda: eski geçmişi aktar, notları indeksle.
 
-    Araçlar söküldü; `knowledge/` klasörüne erişim artık YALNIZ hafıza
-    araması üzerinden. Bu yüzden indeksleme kritik — çalışmazsa notlar
-    görünmez olur.
+    2026-09-23: bilgi sızıntısı önlenmesi — global knowledge/ ve
+    Obsidian yalnız `casper` oturumunda indekslenir; diğer kullanıcılar
+    yalnız kendi kökündeki knowledge/ dosyalarını indeksler (bu fazda
+    kimsede yok → 0).
     """
+    from chat.kimlik import VARSAYILAN_KULLANICI, aktif_kullanici, kullanici_koku
+    kid = aktif_kullanici()
     motor = hafiza_al()
     if not motor:
         return
@@ -245,8 +283,13 @@ def _hafiza_hazirla():
             _gecmisi_aktar(motor)
             motor.meta_koy("gecmis_aktarildi", True)
 
-        n1 = indeksle_klasor(motor, KNOWLEDGE_DIR, "knowledge")
-        n2 = indeksle_klasor(motor, OBSIDIAN_DIR, "obsidian")
+        if kid == VARSAYILAN_KULLANICI:
+            n1 = indeksle_klasor(motor, KNOWLEDGE_DIR, "knowledge")
+            n2 = indeksle_klasor(motor, OBSIDIAN_DIR, "obsidian")
+        else:
+            kendi = os.path.join(kullanici_koku(kid), "knowledge")
+            n1 = indeksle_klasor(motor, kendi, "knowledge")
+            n2 = 0
         logger.info("Hafiza hazir: %d ani, indeksleme +%d",
                     motor.say(), n1 + n2)
     except Exception as e:
@@ -255,4 +298,10 @@ def _hafiza_hazirla():
 
 def init_cache():
     """Açılışta çağrılır: hafızayı arka planda hazırlar."""
-    threading.Thread(target=_hafiza_hazirla, daemon=True).start()
+    from chat.kimlik import kullanici_koku  # noqa: F401  (migration tetik)
+    # 2026-09-23: thread context kopyasi alinmazsa aktif_kullanici()
+    # her zaman fabrika degerini (casper) gorur — diger kisi icin
+    # bilincli knowledge/ yolu fiilen olu kalirdi.
+    ctx = contextvars.copy_context()
+    threading.Thread(target=ctx.run, args=(_hafiza_hazirla,),
+                     daemon=True).start()

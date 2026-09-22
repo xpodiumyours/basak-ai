@@ -8,7 +8,6 @@ gecer. Vercel'de kalici disk varsayilmaz; tarayici gecmisi istekte tasir.
 import asyncio
 import base64
 import binascii
-import hmac
 import json
 import os
 import tempfile
@@ -31,7 +30,8 @@ app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 _BEYIN = None
 _TOOLS = None
-_KISILIK = "Sen Basak'sin, Casper'in kisisel asistanisin. Turkce konus."
+# Kişilik artık isteğe göre chat.prompts.kisilik_blogu ile üretilir;
+# sabit "Casper'in asistanısın" metni web'de yabancıya sızmaz.
 
 
 def _cekirdek():
@@ -44,17 +44,29 @@ def _cekirdek():
     return _BEYIN, _TOOLS
 
 
-def _yetki(request: Request):
-    beklenen = (os.environ.get("BASAK_WEB_TOKEN") or "").strip()
-    if not beklenen:
-        return JSONResponse(
-            {"error": "BASAK_WEB_TOKEN Vercel ortaminda ayarlanmadi."},
-            status_code=503,
-        )
-    gelen = (request.headers.get("x-basak-token") or "").strip()
-    if not gelen or not hmac.compare_digest(gelen, beklenen):
-        return JSONResponse({"error": "yetkisiz"}, status_code=401)
-    return None
+def _kimlik(request: Request):
+    """Istegin kisi kimligi; None = 401 gerekir.
+
+    Once imzali cookie; gecerliyse chat.kimlik contextvar'ina kurulur.
+    Kullanici tablosu bosken tek-kullanici modu (casper) — eski
+    yerel/test davranisi bozulmaz.
+    """
+    import kullanici as kullanici_modulu
+    from chat.kimlik import VARSAYILAN_KULLANICI, kullanici_kur
+
+    token = request.cookies.get(kullanici_modulu.cookie_adi()) or ""
+    kid = kullanici_modulu.oturum_coz(token)
+    if kid is None:
+        if not kullanici_modulu.giris_zorunlu_mu():
+            kid = VARSAYILAN_KULLANICI
+        else:
+            return None
+    kullanici_kur(kid)
+    return kid
+
+
+def _giris_engeli():
+    return JSONResponse({"error": "giris gerekli"}, status_code=401)
 
 
 class _OlayToplayici:
@@ -135,9 +147,6 @@ def _gorsel_kaydet(ek):
 
 @app.get("/api/durum")
 async def durum(request: Request):
-    engel = _yetki(request)
-    if engel:
-        return engel
     beyin, tools = _cekirdek()
     try:
         zincir = beyin._bulut_zinciri(tools=True)
@@ -177,9 +186,9 @@ async def durum(request: Request):
 
 @app.post("/api/sohbet")
 async def sohbet(request: Request):
-    engel = _yetki(request)
-    if engel:
-        return engel
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
     try:
         body = await request.json()
     except Exception:
@@ -205,13 +214,17 @@ async def sohbet(request: Request):
 
         def _kos():
             from chat.flow import mesaj_isle
+            from chat.kimlik import kullanici_kur
+            from chat.prompts import kisilik_blogu
+            kullanici_kur(kid)  # thread contextvar'i — kisi izolasyonu
+            misafir = bool((body or {}).get("misafir", False))
             mesaj_isle(
                 metin,
                 beyin,
-                _KISILIK,
+                kisilik_blogu(kid, misafir=misafir),
                 kayit,
                 tools,
-                misafir=bool((body or {}).get("misafir", False)),
+                misafir=misafir,
                 gecmis_override=_gecmis(body or {}),
             )
 
@@ -247,18 +260,64 @@ async def sohbet(request: Request):
 
 @app.get("/api/sohbetler")
 async def sohbetler(request: Request):
-    engel = _yetki(request)
-    if engel:
-        return engel
+    if _kimlik(request) is None:
+        return _giris_engeli()
     return {"liste": []}
 
 
 @app.post("/api/yeni")
 async def yeni(request: Request):
-    engel = _yetki(request)
-    if engel:
-        return engel
+    if _kimlik(request) is None:
+        return _giris_engeli()
     return {"ok": True}
+
+
+@app.post("/api/giris")
+async def giris(request: Request):
+    """POST /api/giris — ad + sifre -> HttpOnly cookie."""
+    import kullanici as kullanici_modulu
+
+    try:
+        uzunluk = int(request.headers.get("content-length") or 0)
+    except ValueError:
+        uzunluk = 0
+    if uzunluk <= 0 or uzunluk > 4096:
+        return JSONResponse({"error": "govde boyu"}, status_code=400)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "gecersiz json"}, status_code=400)
+    body = body or {}
+    ad = str(body.get("ad") or "").strip()
+    sifre = str(body.get("sifre") or "")
+    kid = kullanici_modulu.giris_kontrol(ad, sifre)
+    if kid is None:
+        return JSONResponse(
+            {"error": "ad veya sifre hatali"}, status_code=401)
+    token = kullanici_modulu.oturum_tokeni_uret(kid)
+    resp = JSONResponse(
+        {"ok": True, "kullanici": kid},
+        headers={"Cache-Control": "no-store"},
+    )
+    resp.set_cookie(
+        kullanici_modulu.cookie_adi(), token,
+        max_age=7 * 24 * 3600, path="/", httponly=True, samesite="lax",
+    )
+    return resp
+
+
+@app.post("/api/cikis")
+async def cikis():
+    """POST /api/cikis — cookie'yi siler."""
+    import kullanici as kullanici_modulu
+
+    resp = JSONResponse(
+        {"ok": True}, headers={"Cache-Control": "no-store"})
+    resp.set_cookie(
+        kullanici_modulu.cookie_adi(), "",
+        max_age=0, path="/", httponly=True, samesite="lax",
+    )
+    return resp
 
 
 app.mount("/", StaticFiles(directory=str(WEB), html=True), name="web")

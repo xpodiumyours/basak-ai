@@ -23,14 +23,18 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# 2026-09-22: Vercel'de /var/task salt-okunur; hafiza dosyasi oraya
-# yazilamaz. BASAK_STATE_DIR (app.py'de /tmp'ye kurulu) varsa oraya
-# gider — stats.py ile ayni kural. Yerelde hicbir sey degismez.
-# Dogrudan kalicilik vermez (sunucu sifirlaninca ucar) ama "hafiza
-# motoru acilamadi" hatasini kaldirir; ilk deploy'da hafiza yine acik.
-_STATE_DIR = os.environ.get("BASAK_STATE_DIR")
-DB_YOLU = (os.path.join(_STATE_DIR, "memory", "basak.db")
-           if _STATE_DIR else os.path.join(BASE, "data", "memory", "basak.db"))
+# 2026-09-23: yol kisiye gore chat.kimlik uzerinden cozulur
+# (data/<kullanici>/memory/basak.db). DB_YOLU None = dinamik; testler
+# monkeypatch ederse o deger kullanilir. Vercel'de BASAK_STATE_DIR alti.
+DB_YOLU = None
+
+
+def _varsayilan_db():
+    """Aktif kişinin hafıza DB yolu (test monkeypatch'i önce gelir)."""
+    if DB_YOLU is not None:
+        return DB_YOLU
+    from chat.kimlik import kullanici_koku
+    return os.path.join(kullanici_koku(), "memory", "basak.db")
 
 EMBED_DIM = 768
 
@@ -129,7 +133,7 @@ class HafizaMotoru:
     """Hibrit hafiza motoru: vektor + BM25 ayni DB uzerinden."""
 
     def __init__(self, db_yolu=None, embed_fn=None):
-        self.db_yolu = db_yolu or DB_YOLU
+        self.db_yolu = db_yolu or _varsayilan_db()
         self._embed_fn = embed_fn
         self._lock = threading.Lock()
 

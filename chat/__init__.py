@@ -23,6 +23,7 @@ from chat.context import (  # noqa: F401
     GECMIS_KILO_LIMITI,
     yukle,
     kaydet,
+    gecmis_yolu,
     gecmis_pencere,
     temizle_history,
     onem_puanla,
@@ -37,7 +38,7 @@ __all__ = [
     "temizle",
     "BASE", "HISTORY_FILE", "SETTINGS_FILE", "KNOWLEDGE_DIR",
     "OBSIDIAN_DIR", "OTURUM_ID", "MAX_HISTORY", "GECMIS_KILO_LIMITI",
-    "yukle", "kaydet", "gecmis_pencere", "temizle_history",
+    "yukle", "kaydet", "gecmis_yolu", "gecmis_pencere", "temizle_history",
     "onem_puanla", "hafiza_al", "ilgili_anilar", "init_cache",
     "oturum",
 ]

@@ -121,10 +121,13 @@ class TestSesVeVeri:
         (tmp_path / (doktor.SES_MODELI_ADI + ".json")).write_text("{}")
         assert doktor.kontrol_ses_modeli(str(tmp_path))[0][0] == doktor.OK
 
-    def test_veri_klasoru_olusturulur(self, tmp_path):
+    def test_veri_klasoru_olusturulur(self, tmp_path, monkeypatch):
+        """2026-09-23: kişi kökü kimlikten gelir; veri klasörü + memory oluşur."""
+        monkeypatch.delenv("BASAK_STATE_DIR", raising=False)
+        monkeypatch.setattr("chat.kimlik.aktif_kullanici", lambda: "ayse")
         satirlar = doktor.kontrol_veri_klasoru(str(tmp_path))
         assert satirlar[0][0] == doktor.OK
-        assert (tmp_path / "data" / "memory").is_dir()
+        assert (tmp_path / "data" / "ayse" / "memory").is_dir()
 
     def test_hafiza_db_acilir(self, tmp_path):
         satirlar = doktor.kontrol_hafiza(str(tmp_path))
@@ -159,7 +162,8 @@ class TestBeyinVeButun:
 
         assert doktor.kontrol_canli(Patlayan())[0][0] == doktor.HATA
 
-    def test_calistir_tum_kontrolleri_dondurur(self, tmp_path):
+    def test_calistir_tum_kontrolleri_dondurur(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("BASAK_STATE_DIR", raising=False)
         satirlar = doktor.calistir(kok=str(tmp_path), brain=SahteBeyin())
         assert all(d in (doktor.OK, doktor.UYARI, doktor.HATA)
                    for d, _, _ in satirlar)

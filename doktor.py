@@ -182,7 +182,15 @@ def kontrol_ses_modeli(kok):
 
 
 def kontrol_veri_klasoru(kok):
-    hedef = os.path.join(kok, "data", "memory")
+    # 2026-09-23: kisi koku chat.kimlik ile (tasima sonrasi
+    # state_kok/kisi/memory): BASAK_STATE_DIR yoksa <kok>/data.
+    try:
+        from chat.kimlik import aktif_kullanici
+        kisi = aktif_kullanici()
+    except Exception:
+        kisi = "casper"  # kimlik bozuksa doktor yine de kendi isini yapsin
+    temel = os.environ.get("BASAK_STATE_DIR") or os.path.join(kok, "data")
+    hedef = os.path.join(temel, kisi, "memory")
     try:
         os.makedirs(hedef, exist_ok=True)
         deneme = os.path.join(hedef, ".doktor-yazma-testi")
@@ -191,14 +199,15 @@ def kontrol_veri_klasoru(kok):
         os.remove(deneme)
     except OSError as e:
         return [(HATA, "Veri klasoru", "%s - %s" % (hedef, e))]
-    return [(OK, "Veri klasoru", os.path.join("data", "memory"))]
+    return [(OK, "Veri klasoru", hedef)]
 
 
 def kontrol_hafiza(kok):
     try:
         from memory.engine import HafizaMotoru
-        motor = HafizaMotoru(db_yolu=os.path.join(kok, "data", "memory",
-                                                  "basak.db"))
+        # 2026-09-23: tek kisilik tasima sonrasi yol data/casper/ altinda.
+        motor = HafizaMotoru(db_yolu=os.path.join(kok, "data", "casper",
+                                                  "memory", "basak.db"))
         try:
             sayi = motor.say()
             vektor = "acik" if getattr(motor, "vektor_var", False) else "kapali"

@@ -35,12 +35,18 @@ AYARLAR = BASE / "ayarlar.json"
 _STATIK = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/index.html": ("index.html", "text/html; charset=utf-8"),
+    "/giris.html": ("giris.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "application/javascript; charset=utf-8"),
     "/styles.css": ("styles.css", "text/css; charset=utf-8"),
     "/common.js": ("common.js", "application/javascript; charset=utf-8"),
+    "/chat.css": ("chat.css", "text/css; charset=utf-8"),
     "/lab.html": ("lab.html", "text/html; charset=utf-8"),
     "/lab.js": ("lab.js", "application/javascript; charset=utf-8"),
 }
+
+# Kimlik istisnaları: giris/сagri disinda /api/* kimlik ister.
+# Saglik (/api/durum) acik kalir — kopru durumu olcer.
+_KIMLIK_ISTISNA = ("/api/durum",)
 
 # ── Olay kaydi (HTTP polling) ────────────────────────────────────────
 # Quick Tunnel SSE desteklemez. Olaylar istek kimligine gore bellekte
@@ -108,6 +114,35 @@ def _ayar(anahtar, varsayilan=None):
         return varsayilan
 
 
+# ── Kisi kimligi (web) ──────────────────────────────────────────────
+
+def _cookie_al(handler, ad):
+    ham = handler.headers.get("Cookie", "") or ""
+    for parcasi in ham.split(";"):
+        parcasi = parcasi.strip()
+        if parcasi.startswith(ad + "="):
+            return parcasi.split("=", 1)[1]
+    return ""
+
+
+def _aktif_kimlik(handler):
+    """Istegin kisi kimligi; None = 401 gerekir.
+
+    once imzali cookie; yoksa kullanici tablosu bosken tek-kullanici
+    modu (casper) — eski yerel/test davranisi bozulmaz.
+    """
+    import kullanici as kullanici_modulu
+    from chat.kimlik import VARSAYILAN_KULLANICI
+
+    token = _cookie_al(handler, kullanici_modulu.cookie_adi())
+    kid = kullanici_modulu.oturum_coz(token)
+    if kid:
+        return kid
+    if not kullanici_modulu.giris_zorunlu_mu():
+        return VARSAYILAN_KULLANICI
+    return None
+
+
 def mesaj_isle_cagir(metin, beyin, kisilik, ayiklayici, toollar,
                      misafir=False):
     """TEK cekirdek girisi — testlerde enjekte edilebilir nokta.
@@ -117,12 +152,20 @@ def mesaj_isle_cagir(metin, beyin, kisilik, ayiklayici, toollar,
                misafir=misafir)
 
 
-def _sohbet_islet(istek, metin, misafir=False):
-    """Cekirdek cagrisi — kendi thread'inde. TEK beyin: mesaj_isle."""
+def _sohbet_islet(istek, metin, misafir=False, kid=None):
+    """Cekirdek cagrisi — kendi thread'inde. TEK beyin: mesaj_isle.
+
+    kid: web girisindeki kisi — yeni thread'in contextvar'i default
+    'casper'a sifirlanir; burada tekrar kurulur (kişi izolasyonu).
+    """
+    if kid:
+        from chat.kimlik import kullanici_kur
+        kullanici_kur(kid)
+    from chat.prompts import kisilik_blogu
     ayikla = _OlayAyiklayici(istek)
     try:
-        mesaj_isle_cagir(metin, BEYIN, KISILIK, ayikla, TOOLS,
-                         misafir=misafir)
+        mesaj_isle_cagir(metin, BEYIN, kisilik_blogu(kid, misafir=misafir),
+                         ayikla, TOOLS, misafir=misafir)
     except Exception as e:
         logger.warning("Sohbet hatasi: %s", e)
         if not ayikla.bitti:
@@ -163,12 +206,89 @@ class _Kopru(BaseHTTPRequestHandler):
             istek_token = (qs.get("token") or [""])[0]
         return bool(istek_token) and istek_token == beklenen
 
+    def _json(self, kod, veri):
+        self._gonder(kod, veri)
+
+    def _kimlik_zorunlu(self, yol):
+        """True = engellendi (401 yazildi); False = devam et."""
+        if not yol.startswith("/api/"):
+            return False
+        if yol in _KIMLIK_ISTISNA:
+            return False
+        kid = _aktif_kimlik(self)
+        if kid is None:
+            self._gonder(401, {"error": "giris gerekli"})
+            return True
+        from chat.kimlik import kullanici_kur
+        kullanici_kur(kid)
+        return False
+
+    def _giris_yap(self):
+        """POST /api/giris — ad + sifre -> HttpOnly cookie."""
+        import kullanici as kullanici_modulu
+
+        try:
+            uzunluk = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            uzunluk = 0
+        if uzunluk <= 0 or uzunluk > 4096:
+            self._gonder(400, {"error": "govde boyu"})
+            return
+        try:
+            veri = json.loads(self.rfile.read(uzunluk).decode("utf-8"))
+            ad = str(veri.get("ad", "")).strip()
+            sifre = str(veri.get("sifre", ""))
+        except (ValueError, UnicodeDecodeError):
+            self._gonder(400, {"error": "gecersiz json"})
+            return
+        kid = kullanici_modulu.giris_kontrol(ad, sifre)
+        if kid is None:
+            self._gonder(401, {"error": "ad veya sifre hatali"})
+            return
+        token = kullanici_modulu.oturum_tokeni_uret(kid)
+        govde = self._govde_olustur({"ok": True, "kullanici": kid})
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(govde)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header(
+            "Set-Cookie",
+            "%s=%s; Path=/; HttpOnly; SameSite=Lax; Max-Age=%d"
+            % (kullanici_modulu.cookie_adi(), token, 7 * 24 * 3600))
+        self.end_headers()
+        try:
+            self.wfile.write(govde)
+        except (BrokenPipeError, ConnectionAbortedError):
+            pass
+
+    def _cikis_yap(self):
+        import kullanici as kullanici_modulu
+        govde = self._govde_olustur({"ok": True})
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(govde)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header(
+            "Set-Cookie",
+            "%s=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+            % kullanici_modulu.cookie_adi())
+        self.end_headers()
+        try:
+            self.wfile.write(govde)
+        except (BrokenPipeError, ConnectionAbortedError):
+            pass
+
+    def _govde_olustur(self, veri):
+        return json.dumps(veri, ensure_ascii=False).encode("utf-8")
+
     def do_GET(self):
         yol = self.path.split("?", 1)[0]
         if yol.startswith("/api/") and not self._token_ok():
             # Dis erisimde tum api noktalari token ister (matris dahil —
             # olcum verisi disariya acilmaz). localhost'ta serbest.
             self._gonder(401, {"error": "token gecersiz"})
+            return
+        if yol.startswith("/api/") and self._kimlik_zorunlu(yol):
             return
         if yol == "/api/olaylar":
             self._olaylari_ver()
@@ -177,10 +297,16 @@ class _Kopru(BaseHTTPRequestHandler):
             self._gonder(200, {"ok": True, "liste": oturum.liste()})
         elif yol.startswith("/api/sohbet/"):
             from chat import oturum
+            from chat.kimlik import aktif_kullanici
             sid = yol.rsplit("/", 1)[-1]
+            # Sahiplik: kisi kendi dizininde okur; sahip alan da
+            # denetlenir (eski tek-dizin bug'ina karsi ikinci kapi).
             msgs = oturum.ac(sid)
-            if msgs is None:
-                self._gonder(404, {"error": "yok"})
+            kid = aktif_kullanici()
+            if msgs is None or not oturum.sahip_mi(sid, kid):
+                # 403: bu sohbet sana ait degil (404 ile karistirmamak
+                # icin sahiplik reddi burada; kisi kokusunda yok = sahipsiz).
+                self._gonder(403, {"error": "bu sohbet sana ait degil"})
             else:
                 self._gonder(200, {"ok": True, "mesajlar": msgs})
         elif yol == "/api/durum":
@@ -229,20 +355,28 @@ class _Kopru(BaseHTTPRequestHandler):
 
     def do_POST(self):
         yol = self.path.split("?", 1)[0]
+        if yol == "/api/giris":
+            self._giris_yap()
+            return
+        if yol == "/api/cikis":
+            self._cikis_yap()
+            return
         if yol == "/api/yeni":
             if not self._token_ok():
                 self._gonder(401, {"error": "token gecersiz"})
                 return
+            if self._kimlik_zorunlu(yol):
+                return
             from chat import oturum
             from chat import context as ctx
             try:
-                eski = [m for m in ctx.yukle(ctx.HISTORY_FILE, [])
+                eski = [m for m in ctx.yukle(ctx.gecmis_yolu(), [])
                         if m.get("role") != "system"]
             except Exception:
                 eski = []
             sid = oturum.yeni(eski)
             try:
-                ctx.kaydet(ctx.HISTORY_FILE, [])
+                ctx.kaydet(ctx.gecmis_yolu(), [])
             except OSError:
                 pass
             self._gonder(200, {"ok": True, "oturum": sid})
@@ -268,6 +402,12 @@ class _Kopru(BaseHTTPRequestHandler):
         except (ValueError, UnicodeDecodeError):
             self._gonder(400, {"error": "gecersiz json"})
             return
+        # Misafir hariç: giris zorunlu (kisi kimligi alinir).
+        kid = None
+        if not misafir:
+            if self._kimlik_zorunlu(yol):
+                return
+            kid = _aktif_kimlik(self)
         if not metin or len(metin) > 4000:
             self._gonder(400, {"error": "mesaj bos veya cok uzun"})
             return
@@ -279,7 +419,8 @@ class _Kopru(BaseHTTPRequestHandler):
             istek = _SAYAC
             _OLAYLAR[istek] = []
             _OLAY_ZAMANI[istek] = time.monotonic()
-        threading.Thread(target=_sohbet_islet, args=(istek, metin, misafir),
+        threading.Thread(target=_sohbet_islet,
+                         args=(istek, metin, misafir, kid),
                          daemon=True).start()
         self._gonder(200, {"ok": True, "istek": istek})
 
@@ -297,7 +438,8 @@ class _Kopru(BaseHTTPRequestHandler):
 
 _SAYAC = 0
 BEYIN = None
-KISILIK = ""
+# KISILIK artık kisilik_blogu ile istek bazında üretilir (yabancıya
+# Casper adı sızmaz). main() sadece beyin/toolları kurar.
 TOOLS = None
 
 
@@ -373,10 +515,13 @@ def _runtime_durumu():
 
 
 def main():
-    global BEYIN, KISILIK, TOOLS
-    from basak_app import KISILIK, init_cache
+    global BEYIN, TOOLS
+    from basak_app import init_cache
     from brain import Brain
+    from chat.kimlik import kullanici_kur
     from tools import TOOLS as _TOOLS
+    # Yerel web koprusu da yerel kisi = casper (web girisinden once).
+    kullanici_kur("casper")
     init_cache()
     BEYIN = Brain()
     TOOLS = _TOOLS
