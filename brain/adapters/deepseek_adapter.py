@@ -1,7 +1,7 @@
 """brain/adapters/deepseek_adapter — DeepSeek yuvasi (KAPALI).
 
 Cifte kapi: (1) ayarlarda "deepseek_acik": true, (2) veri karti
-data/veri-kartlari/deepseek.md MEVCUT. Ikisi de yoksa None doner —
+<durum>/veri-kartlari/deepseek.md MEVCUT. Ikisi de yoksa None doner —
 ayarlardaki deepseek_key TEK BASINA zincire sokmaz (ucretli cagri
 varsayilan engelli + kartsiz saglayiciya hassas veri gitmez).
 """
@@ -9,11 +9,19 @@ varsayilan engelli + kartsiz saglayiciya hassas veri gitmez).
 import logging
 import os
 
+from chat.kimlik import durum_yolu
+
 logger = logging.getLogger(__name__)
 
-BASE = os.path.dirname(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))))
-KART_YOLU = os.path.join(BASE, "data", "veri-kartlari", "deepseek.md")
+# None = durum kokunun veri-kartlari/deepseek.md dosyasi; test patch
+# edebilir. Modul yuklenirken sabitlenmez (BASAK_STATE_DIR degisiyor).
+KART_YOLU = None
+
+
+def kart_yolu():
+    """Veri karti dosyasi: durum kokunun veri-kartlari/ alti."""
+    return KART_YOLU or os.path.join(
+        durum_yolu("veri-kartlari", olustur=False), "deepseek.md")
 
 
 class _DeepSeekAdapter:
@@ -25,7 +33,7 @@ class _DeepSeekAdapter:
         from brain.deepseek import DeepSeekClient
         if not (ayar or {}).get("deepseek_acik", False):
             return None
-        if not os.path.isfile(KART_YOLU):
+        if not os.path.isfile(kart_yolu()):
             logger.info("DeepSeek kapali: veri karti yok")
             return None
         key = (os.environ.get("DEEPSEEK_API_KEY")

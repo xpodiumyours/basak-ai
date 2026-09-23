@@ -5,7 +5,7 @@ Agac fikre gore buyur/kucultur: ekle, sil (arsivlenir), tasi,
 birlestir. Satir kanitsiz kapanmaz; skor = kanitli / canli toplam.
 Onay sohbette olur — koda onay kurali konmaz.
 
-Saklama: data/matris/matris_<id>.json. Kilit + atomik yazma
+Saklama: <durum>/matris/matris_<id>.json. Kilit + atomik yazma
 (tasks.py duzeni aynen). Dosya yoksa bos doner, asla patlamaz.
 """
 
@@ -15,10 +15,19 @@ import os
 import threading
 from datetime import datetime
 
+from chat.kimlik import durum_yolu
+
 logger = logging.getLogger(__name__)
 
-BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MATRIS_KOK = os.path.join(BASE, "data", "matris")
+# None = durum_yolu("matris"); test patch edebilir. Modul yuklenirken
+# SABITLENMEZ: BASAK_STATE_DIR calisma aninda degisiyor.
+MATRIS_KOK = None
+
+
+def matris_kok():
+    """Matris dosyalarinin klasoru: durum kokunun matris/ alti."""
+    return MATRIS_KOK or durum_yolu("matris")
+
 
 _KILIT = threading.Lock()
 
@@ -36,7 +45,7 @@ def _dosya(matris_id):
         return None
     if no < 1:
         return None
-    return os.path.join(MATRIS_KOK, "matris_%d.json" % no)
+    return os.path.join(matris_kok(), "matris_%d.json" % no)
 
 
 def _yukle(matris_id):

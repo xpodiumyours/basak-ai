@@ -57,6 +57,28 @@ def state_kok():
     return os.path.join(BASE, "data")
 
 
+def durum_yolu(*parcalar, olustur=True):
+    """Durum kökü altındaki yol: <state_kok()>/<parcalar...>.
+
+    Kök HER ÇAĞRIDA yeniden okunur; modül yüklenirken sabitlenmez.
+    Sebep ölçüldü (2026-09-23): BASAK_STATE_DIR hem testte (conftest
+    her teste ayrı tmp verir) hem Vercel'de (app.py istek öncesi /tmp'ye
+    çevirir) çalışma anında değişiyor. Sabit değişkene bir kez yazılırsa
+    test izolasyonu ve dağıtım yazma alanı bozulur.
+
+    olustur=True ise klasörü kurmayı dener; kuramazsa (salt-okunur
+    dağıtım) yol yine döner — hata çağıranın yazma denemesinde çıkar.
+    Salt-okuma denetimleri için olustur=False verilir.
+    """
+    yol = os.path.join(state_kok(), *[str(p) for p in parcalar])
+    if olustur:
+        try:
+            os.makedirs(yol, exist_ok=True)
+        except OSError:
+            pass
+    return yol
+
+
 def kullanici_koku(kid=None):
     """Kişinin veri kökü: <state>/<kullanici_id>."""
     kid = kid or aktif_kullanici()

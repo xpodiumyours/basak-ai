@@ -17,7 +17,20 @@ logger = logging.getLogger(__name__)
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KNOWLEDGE_DIR = os.path.join(BASE, "knowledge")
-GOREVLER_FILE = os.path.join(BASE, "gorevler.json")
+
+# None = durum kokunun gorevler.json dosyasi; test patch edebilir.
+# Depo kokune yazilmiyor: dagitim klasoru yazilabilir degil.
+GOREVLER_FILE = None
+
+
+def gorevler_dosyasi():
+    """Gorev listesi dosyasi: durum kokunun gorevler.json'u.
+
+    chat.kimlik burada (modul seviyesinde degil) alinir: tools paketi
+    chat paketinden once yuklenebiliyor, dairesel import riski var.
+    """
+    from chat.kimlik import durum_yolu
+    return GOREVLER_FILE or os.path.join(durum_yolu(), "gorevler.json")
 
 
 def calistir(tool_name, args):
@@ -111,17 +124,17 @@ def calistir(tool_name, args):
         if tool_name == "get_reminders":
             from tools import reminders
             return reminders.bugunku_hatirlatmalar(
-                KNOWLEDGE_DIR, GOREVLER_FILE)
+                KNOWLEDGE_DIR, gorevler_dosyasi())
 
         if tool_name == "add_task":
             from tools import tasks
             return tasks.add_task(
-                str(args.get("text", "")), GOREVLER_FILE,
+                str(args.get("text", "")), gorevler_dosyasi(),
                 date=args.get("date"))
 
         if tool_name == "list_tasks":
             from tools import tasks
-            return tasks.list_tasks(GOREVLER_FILE)
+            return tasks.list_tasks(gorevler_dosyasi())
 
         if tool_name == "complete_task":
             from tools import tasks
@@ -129,7 +142,7 @@ def calistir(tool_name, args):
                 task_id = int(args.get("task_id", 0))
             except (TypeError, ValueError):
                 return {"error": "Gorev no sayi olmali."}
-            return tasks.complete_task(task_id, GOREVLER_FILE)
+            return tasks.complete_task(task_id, gorevler_dosyasi())
 
         if tool_name == "ac_uygulama":
             from tools import app_launcher

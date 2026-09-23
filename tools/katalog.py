@@ -9,10 +9,10 @@ Vixrex'e YAZMA YOK — yalnız dosya çıktısı; aktarım ayrı aşamadır.
 Resmi kaynak eşleştirmesi bu sürümde yok: image_urls boş çıkar,
 alanı rezerve eder (eslesme_adayi F6 iskelesidir, ağa çıkmaz).
 
-Klasörler (hepsi .gitignore'da, kişisel veri):
-  data/gelen/    — yüklenen fatura fotoğrafları (staging)
-  data/katalog/  — katalog işleri (<is_id>.json) + çıktılar (<is_id>/)
-  data/yetki/    — üretici kullanım izni belgeleri
+Klasörler (hepsi .gitignore'da, kişisel veri) — durum kökü altında:
+  <durum>/gelen/    — yüklenen fatura fotoğrafları (staging)
+  <durum>/katalog/  — katalog işleri (<is_id>.json) + çıktılar (<is_id>/)
+  <durum>/yetki/    — üretici kullanım izni belgeleri
 
 Eşzamanlılık: tools/tasks.py deseni — _KILIT + _atomik_yaz.
 """
@@ -28,12 +28,32 @@ import re
 import threading
 import time
 
+from chat.kimlik import durum_yolu
+
 logger = logging.getLogger(__name__)
 
-BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GELEN_KOK = os.path.join(BASE, "data", "gelen")
-KATALOG_KOK = os.path.join(BASE, "data", "katalog")
-YETKI_KOK = os.path.join(BASE, "data", "yetki")
+# None = durum kökü altındaki klasör (durum_yolu); test patch edebilir.
+# Yol modül yüklenirken SABİTLENMEZ: BASAK_STATE_DIR çalışma anında
+# değişiyor (conftest her teste ayrı tmp, Vercel /tmp).
+GELEN_KOK = None
+KATALOG_KOK = None
+YETKI_KOK = None
+
+
+def gelen_kok():
+    """Fatura staging klasörü: durum kökünün gelen/ altı."""
+    return GELEN_KOK or durum_yolu("gelen")
+
+
+def katalog_kok():
+    """Katalog işleri klasörü: durum kökünün katalog/ altı."""
+    return KATALOG_KOK or durum_yolu("katalog")
+
+
+def yetki_kok():
+    """İzin belgeleri klasörü: durum kökünün yetki/ altı."""
+    return YETKI_KOK or durum_yolu("yetki")
+
 
 _KILIT = threading.Lock()
 
@@ -314,12 +334,13 @@ def _staging_kaydet(ham, ad):
                               "faturanın fotoğrafını gönder.")}
         return {"error": ("Desteklenmeyen dosya: '%s'. " % uzanti
                           + "Fotoğraf (jpg/png/webp) gönder.")}
-    _kok_hazirla(GELEN_KOK)
+    kok = gelen_kok()
+    _kok_hazirla(kok)
     fatura_id = _id("gln")
     dosya = fatura_id + uzanti
     try:
         with _KILIT:
-            with open(os.path.join(GELEN_KOK, dosya), "wb") as f:
+            with open(os.path.join(kok, dosya), "wb") as f:
                 f.write(ham)
     except OSError as e:
         logger.warning("Fatura yazilamadi: %s", e)
@@ -345,15 +366,16 @@ def fatura_kaydet_b64(b64_veri, ad):
 def _fatura_yolu(fatura_id):
     if not _guvenli_id(fatura_id):
         return None
+    gelen = gelen_kok()
     try:
-        adaylar = [d for d in os.listdir(GELEN_KOK)
+        adaylar = [d for d in os.listdir(gelen)
                    if d.startswith(str(fatura_id) + ".")]
     except OSError:
         return None
     if len(adaylar) != 1:
         return None
-    yol = os.path.realpath(os.path.join(GELEN_KOK, adaylar[0]))
-    kok = os.path.realpath(GELEN_KOK)
+    yol = os.path.realpath(os.path.join(gelen, adaylar[0]))
+    kok = os.path.realpath(gelen)
     if os.path.commonpath([yol, kok]) != kok:
         return None
     return yol
@@ -651,10 +673,11 @@ def katalog_kur(fatura_id, satirlar, ustbilgi=None):
                  "ustbilgi": ustbilgi if isinstance(ustbilgi, dict) else {},
                  "satirlar": temizler, "kartlar": kartlar,
                  "uyarilar": uyarilar, "yetki_id": None}
-    _kok_hazirla(KATALOG_KOK)
+    kok = katalog_kok()
+    _kok_hazirla(kok)
     try:
         with _KILIT:
-            _atomik_yaz(os.path.join(KATALOG_KOK, is_id + ".json"),
+            _atomik_yaz(os.path.join(kok, is_id + ".json"),
                         is_verisi)
     except OSError as e:
         logger.warning("Katalog yazilamadi: %s", e)
@@ -674,9 +697,9 @@ def katalog_kur(fatura_id, satirlar, ustbilgi=None):
 def _is_yukle(is_id):
     if not _guvenli_id(is_id):
         return None
-    yol = os.path.realpath(os.path.join(KATALOG_KOK, str(is_id) + ".json"))
-    if os.path.commonpath([yol, os.path.realpath(KATALOG_KOK)]) != \
-            os.path.realpath(KATALOG_KOK):
+    kok = os.path.realpath(katalog_kok())
+    yol = os.path.realpath(os.path.join(kok, str(is_id) + ".json"))
+    if os.path.commonpath([yol, kok]) != kok:
         return None
     try:
         veri = _yukle_json(yol)
@@ -698,16 +721,17 @@ def katalog_getir(is_id):
 
 def katalog_listele():
     """Katalog işlerini listeler: is_id, durum, kart sayısı."""
+    kok = katalog_kok()
     try:
         dosyalar = sorted(
-            (d for d in os.listdir(KATALOG_KOK) if d.endswith(".json")),
+            (d for d in os.listdir(kok) if d.endswith(".json")),
             reverse=True)
     except OSError:
         return {"result": _j([])}
     ozet = []
     for dosya in dosyalar[:100]:
         try:
-            veri = _yukle_json(os.path.join(KATALOG_KOK, dosya))
+            veri = _yukle_json(os.path.join(kok, dosya))
             ozet.append({"is_id": veri.get("is_id", dosya[:-5]),
                          "durum": veri.get("durum", "?"),
                          "kart_sayisi": len(veri.get("kartlar", [])),
@@ -734,8 +758,8 @@ def katalog_fiyat_guncelle(is_id, kart_id, satis_fiyat):
     kart["satis_fiyat"] = deger
     try:
         with _KILIT:
-            _atomik_yaz(os.path.join(KATALOG_KOK, veri["is_id"] + ".json"),
-                        veri)
+            _atomik_yaz(os.path.join(katalog_kok(),
+                                     veri["is_id"] + ".json"), veri)
     except (OSError, KeyError) as e:
         logger.warning("Fiyat yazilamadi: %s", e)
         return {"error": "Fiyat saklanamadı."}
@@ -844,7 +868,7 @@ def katalog_onayla(is_id):
     if len(csv_metni.encode("utf-8-sig")) > 5 * 1024 * 1024:
         return {"error": "Çıktı 5MB sınırını aştı (Vixrex kabul etmez)."}
     batch = _batch_uret(kartlar)
-    klasor = os.path.join(KATALOG_KOK, veri["is_id"])
+    klasor = os.path.join(katalog_kok(), veri["is_id"])
     _kok_hazirla(klasor)
     try:
         with _KILIT:
@@ -855,7 +879,7 @@ def katalog_onayla(is_id):
             _atomik_yaz(os.path.join(klasor, DOSYA_KATALOG),
                         {**veri, "uyarilar": uyarilar})
             veri["durum"] = "hazir"
-            _atomik_yaz(os.path.join(KATALOG_KOK,
+            _atomik_yaz(os.path.join(katalog_kok(),
                                      veri["is_id"] + ".json"), veri)
     except OSError as e:
         logger.warning("Cikti yazilamadi: %s", e)
@@ -875,9 +899,9 @@ def cikti_oku(is_id, dosya):
     veri = _is_yukle(is_id)
     if veri is None or veri.get("durum") != "hazir":
         return {"error": "Hazır çıktı yok; önce katalog_onayla."}
-    yol = os.path.realpath(os.path.join(KATALOG_KOK, veri["is_id"],
+    kok = os.path.realpath(katalog_kok())
+    yol = os.path.realpath(os.path.join(kok, veri["is_id"],
                                         dosya))
-    kok = os.path.realpath(KATALOG_KOK)
     if os.path.commonpath([yol, kok]) != kok:
         return {"error": "Yol reddedildi."}
     try:
@@ -945,7 +969,7 @@ def yayin_paketi(is_id, platform="vixrex"):
         return {"error": "Katalog işi bulunamadı: '%s'." % (is_id or "")}
     if veri.get("durum") != "hazir":
         return {"error": "Önce katalog_onayla ile çıktı üret."}
-    yol = os.path.join(KATALOG_KOK, veri["is_id"], DOSYA_CSV)
+    yol = os.path.join(katalog_kok(), veri["is_id"], DOSYA_CSV)
     try:
         with open(yol, "rb") as f:
             ham = f.read()
@@ -1012,15 +1036,16 @@ def yayin_paketi(is_id, platform="vixrex"):
 
 def _yetki_tara():
     """Üstveri dosyalarını okur; bozuk olanı atlar."""
+    kok = yetki_kok()
     try:
-        dosyalar = [d for d in os.listdir(YETKI_KOK)
+        dosyalar = [d for d in os.listdir(kok)
                     if d.endswith(".json")]
     except OSError:
         return []
     kayitlar = []
     for dosya in dosyalar:
         try:
-            with open(os.path.join(YETKI_KOK, dosya), "r",
+            with open(os.path.join(kok, dosya), "r",
                       encoding="utf-8-sig") as f:
                 veri = json.load(f)
             if isinstance(veri, dict) and veri.get("yetki_id"):
@@ -1091,20 +1116,21 @@ def yetki_belgesi_ekle(is_id, b64_veri, ad, marka=""):
         # Isimsiz belge saklanmaz: kapsama bos norma hic eslesmez,
         # basari donmek oksuz kayit uretir.
         return {"error": "Marka ver (isimsiz belge saklanmaz)."}
-    _kok_hazirla(YETKI_KOK)
+    kok = yetki_kok()
+    _kok_hazirla(kok)
     yetki_id = _id("yzk")
     try:
         with _KILIT:
-            with open(os.path.join(YETKI_KOK, yetki_id + uzanti),
+            with open(os.path.join(kok, yetki_id + uzanti),
                       "wb") as f:
                 f.write(ham)
-            _atomik_yaz(os.path.join(YETKI_KOK, yetki_id + ".json"),
+            _atomik_yaz(os.path.join(kok, yetki_id + ".json"),
                         {"yetki_id": yetki_id, "marka": secili,
                          "marka_norm": kodu_normla(secili),
                          "dosya": yetki_id + uzanti, "tarih": _simdi()})
             if veri is not None:
                 veri["yetki_id"] = yetki_id
-                _atomik_yaz(os.path.join(KATALOG_KOK,
+                _atomik_yaz(os.path.join(katalog_kok(),
                                          veri["is_id"] + ".json"), veri)
     except OSError as e:
         logger.warning("Yetki yazilamadi: %s", e)
@@ -1265,8 +1291,8 @@ def urun_eslestir(is_id, kart_id):
     }
     try:
         with _KILIT:
-            _atomik_yaz(os.path.join(KATALOG_KOK, veri["is_id"] + ".json"),
-                        veri)
+            _atomik_yaz(os.path.join(katalog_kok(),
+                                     veri["is_id"] + ".json"), veri)
     except OSError as e:
         logger.warning("Eslesme yazilamadi: %s", e)
         return {"error": "Eşleşme saklanamadı."}
