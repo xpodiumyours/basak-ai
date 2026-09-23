@@ -158,7 +158,10 @@ def oturum_coz(token):
         return None
     beklenen = hmac.new(_anahtar(), ham.encode("utf-8"),
                         hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(beklenen, imza):
+    # imza cerezden gelir: ASCII disi harf (or. Turkce s) compare_digest'i
+    # TypeError ile patlatir ve istek 500 doner. Imza her zaman onaltilik
+    # ASCII'dir; oyle degilse gecersizdir -- cokme yerine None.
+    if not imza.isascii() or not hmac.compare_digest(beklenen, imza):
         return None
     try:
         kid, bitis = ham.rsplit(".", 1)

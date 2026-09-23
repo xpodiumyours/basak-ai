@@ -248,3 +248,34 @@ def test_durum_endpointi_sir_gostermeden_surumu_verir(sunucu, monkeypatch):
     assert "key" not in json.dumps(veri).lower()
     assert "token" not in json.dumps(veri["modeller"][1]["limit"]).lower() or (
         "gunluk_token" in veri["modeller"][1]["limit"])
+
+
+def test_giris_cerezi_token_sormaz(sunucu):
+    """Ad+sifre girisinden sonra token tekrar sorulmaz — ama kapi acilmaz.
+
+    2026-09-23: bu atlama once `_aktif_kimlik` ile yazilmisti; o, kullanici
+    tablosu bosken tek-kullanici moduna dustugu icin dis istekleri TOKENSUZ
+    geciriyordu. Atlama yalniz GECERLI IMZALI cereze baglidir.
+    """
+    import kullanici as kullanici_modulu
+
+    adres, tmp = sunucu
+    (tmp / "ayarlar.json").write_text(
+        json.dumps({"web_dis_erisim": True, "web_token": "gizli123"}),
+        encoding="utf-8")
+    ad = kullanici_modulu.cookie_adi()
+
+    # 1) Uydurma cerez gecmez.
+    try:
+        _istek(adres, "/api/matris",
+               baslik={"Cookie": "%s=uydurma.imza" % ad})
+        assert False, "uydurma cerez tokensuz gecti"
+    except Exception as e:
+        assert "401" in str(e) or "HTTP Error" in str(e)
+
+    # 2) Gercek imzali oturum cerezi token sormaz.
+    kullanici_modulu.kullanici_ekle("ayse", "S3ifre!")
+    token = kullanici_modulu.oturum_tokeni_uret("ayse")
+    durum, _ = _istek(adres, "/api/matris",
+                      baslik={"Cookie": "%s=%s" % (ad, token)})
+    assert durum == 200

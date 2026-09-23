@@ -195,6 +195,15 @@ class _Kopru(BaseHTTPRequestHandler):
             pass
 
     def _token_ok(self):
+        # Gecerli IMZALI oturum cerezi varsa token tekrar sorulmaz:
+        # ad+sifre girisinden sonraki istekler bu yoldan gecer.
+        # _aktif_kimlik BURADA KULLANILMAZ — o, kullanici tablosu bosken
+        # tek-kullanici moduna duser ve disa acik kapiyi tokensuz gecirir
+        # (olculdu 2026-09-23: test_dis_erisim_token_zorunlu kirmizi).
+        import kullanici as kullanici_modulu
+        cerez = _cookie_al(self, kullanici_modulu.cookie_adi())
+        if cerez and kullanici_modulu.oturum_coz(cerez):
+            return True
         if not _ayar("web_dis_erisim", False):
             return True   # localhost: token gerekmez
         beklenen = _ayar("web_token", "")
