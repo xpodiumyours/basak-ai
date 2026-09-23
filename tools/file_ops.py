@@ -70,6 +70,25 @@ YASAK_DOSYA_KALIPLARI = (
     "ayarlar.json",  # acik API anahtarlari var
 )
 
+def _bulut_mu():
+    """Bulutta/uretimde miyiz? (Vercel ya da BASAK_URETIM)"""
+    return bool(os.environ.get("VERCEL") or os.environ.get("BASAK_URETIM"))
+
+
+def _bulut_izinli_kokler():
+    """Bulutta okunmasina izin verilen kokler — beyaz liste.
+
+    Uygulamanin kendi klasoru (kod + knowledge) ve durum klasoru.
+    Baska hicbir mutlak yol okunmaz.
+    """
+    kok = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    kokler = [kok]
+    durum = os.environ.get("BASAK_STATE_DIR")
+    if durum:
+        kokler.append(durum)
+    return kokler
+
+
 def _yasak_mi(mutlak_yol):
     """Verilen yol kara listede mi? Buyuk/kucuk harf duyarsiz kontrol."""
     yol_norm = os.path.normcase(os.path.realpath(mutlak_yol))
@@ -154,6 +173,22 @@ def _guvenli_yolu_coz(yol, base_dir):
         yol_str = str(yol).strip()
         if os.path.isabs(yol_str):
             mutlak = os.path.realpath(yol_str)
+            # BULUTTA KURAL TERSINE DONER (2026-09-23, olculdu):
+            # Asagidaki "kara listede degilse oku" kurali Casper'in KENDI
+            # bilgisayari icin yazildi. Bulutta (Vercel/Linux) kara liste
+            # bos kalir — icindeki yollarin hepsi Windows yolu (C:\Windows,
+            # C:\Program Files, ~/.ssh). Yani orada kural "sunucunun her
+            # yerini oku" demeye gelir: /etc, /proc, /var/task serbest.
+            # Bulutta beyaz liste uygulanir: yalniz uygulama kokü ve durum
+            # klasoru. Disi okunmaz. (OWASP: karar verilemiyorsa reddet.)
+            if _bulut_mu():
+                for kok in _bulut_izinli_kokler():
+                    if _altinda_mi(mutlak, os.path.realpath(kok)):
+                        break
+                else:
+                    return (False,
+                            "Bulutta yalniz uygulama ve veri klasoru "
+                            "okunur; bu yol disarida.", None)
             # Kara liste: OKUMA bile yasak
             if _yasak_mi(mutlak):
                 return False, "Bu yol kara listede — okuma yasak.", None
