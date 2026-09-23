@@ -30,7 +30,34 @@ def gorevler_dosyasi():
     chat paketinden once yuklenebiliyor, dairesel import riski var.
     """
     from chat.kimlik import durum_yolu
-    return GOREVLER_FILE or os.path.join(durum_yolu(), "gorevler.json")
+    if GOREVLER_FILE:
+        return GOREVLER_FILE
+    yeni_yol = os.path.join(durum_yolu(), "gorevler.json")
+    _eski_gorevleri_tasi(yeni_yol)
+    return yeni_yol
+
+
+def _eski_gorevleri_tasi(yeni_yol):
+    """Depo kokundeki eski gorevler.json'u bir kez yeni koke tasir.
+
+    2026-09-23: gorev listesi depo kokune yaziliyordu; dagitimda o klasor
+    salt okunur oldugu icin bulutta hic calismiyordu. Yol degisti ama eski
+    dosyada kayit kalmis olabilir — SILINMEZ, tasinir. Yeni dosya varsa
+    dokunulmaz (eskisi zaten tasinmis demektir).
+    """
+    eski_yol = os.path.join(BASE, "gorevler.json")
+    if not os.path.exists(eski_yol) or os.path.exists(yeni_yol):
+        return
+    try:
+        os.makedirs(os.path.dirname(yeni_yol), exist_ok=True)
+        # KOPYALANIR, TASINMAZ. Tasima denendi ve zararli cikti: test
+        # paketi kostugunda gercek depo dosyasi gecici klasore tasinip
+        # silindi (2026-09-23). Kopya guvenli: eski dosya yerinde kalir,
+        # yalnizca artik okunmaz.
+        import shutil
+        shutil.copy2(eski_yol, yeni_yol)
+    except OSError:
+        pass  # kopya basarisizsa eski dosya yerinde kalir, veri kaybi yok
 
 
 def calistir(tool_name, args):

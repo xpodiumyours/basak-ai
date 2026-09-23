@@ -216,5 +216,20 @@ class TestGorevListesi:
         """Eski yer BASE/gorevler.json idi; dağıtımda yazılamıyordu."""
         kok = tmp_path / "durum"
         monkeypatch.setenv("BASAK_STATE_DIR", str(kok))
+        # Gercek depo dosyasina BAKILMAZ: testin kumu disindaki bir
+        # dosyanin varligi/yoklugu uzerinden hukum vermek, test paketini
+        # gercek veriye bagimli kilar (2026-09-23'te tam bu yuzden gercek
+        # gorev dosyasi tasinip kayboldu). Olculen sey: cagri depo kokunde
+        # yeni bir dosya YARATMIYOR / var olani DEGISTIRMIYOR.
+        kok_dosya = os.path.join(kimlik.BASE, "gorevler.json")
+        onceki = (os.path.exists(kok_dosya),
+                  os.path.getmtime(kok_dosya)
+                  if os.path.exists(kok_dosya) else None)
+
         tools_paket.calistir("add_task", {"text": "deneme"})
-        assert not os.path.exists(os.path.join(kimlik.BASE, "gorevler.json"))
+
+        sonraki = (os.path.exists(kok_dosya),
+                   os.path.getmtime(kok_dosya)
+                   if os.path.exists(kok_dosya) else None)
+        assert onceki == sonraki, "depo kokundeki dosya degisti"
+        assert (kok / "gorevler.json").exists(), "gorev yeni koke yazilmadi"
