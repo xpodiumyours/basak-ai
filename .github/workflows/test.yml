@@ -23,9 +23,19 @@ name: testler
 
 on:
   push:
-    branches: ["**"]
+    branches: [sadelestirme]
   pull_request:
   workflow_dispatch:
+
+# 2026-09-23: depo gizli oldu; gizli depoda Actions dakikasi bedava
+# degil (Free plan: aylik 2.000 dk). Iki israf kesildi:
+#   1) push her dala kosuyordu VE ayni is PR'da tekrar kosuyordu.
+#      Artik push yalniz ana dalda; dallar PR uzerinden olculur.
+#   2) Ust uste push'ta eski kosu bosuna devam ediyordu.
+# Olculen taban (2026-09-23): kosu ortalamasi 3,3 dk, 29 saatte 20 kosu.
+concurrency:
+  group: testler-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   pytest:
