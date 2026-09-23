@@ -226,9 +226,10 @@ icin kural:
 
 ## 10. DAL KURALI (2026-09-21, Casper karari — baglayici)
 
-- Ana dal `sadelestirme`dir (GitHub varsayilani). `master` aynadir:
-  calisilmaz, is bitince `sadelestirme` ile esitlenir.
-- Her is kisa dalda (`sadelestirme`den acilir), bitince ana dala
+- Ana dal `main`dir (GitHub varsayilani). `sadelestirme` ve `master`
+  eski adlardir: yedek olarak kalir, uzerine calisilmaz; is bitince
+  `main` ile esitlenir.
+- Her is kisa dalda (`main`den acilir), bitince ana dala
   birlesir, dal silinir. Uzun yasayan ikinci ana dal YASAKTIR.
 - Ajan yeni ana dal, varsayilan degisikligi veya korumali-alan
   degisikligi ONEREMEZ; gerekirse Casper'a tek cumleyle sorar.

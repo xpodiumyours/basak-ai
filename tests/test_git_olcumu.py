@@ -48,7 +48,7 @@ class TestGecmis:
 
 class TestDegisenler:
     def test_basak_degisenler_kosar(self):
-        r = olcum.git_degisenler("basak", taban="sadelestirme")
+        r = olcum.git_degisenler("basak", taban="main")
         assert isinstance(r, dict)
         assert "result" in r or "error" in r
 
@@ -63,5 +63,5 @@ class TestDegisenler:
         r = calistir("git_gecmis", {"proje": "basak", "adet": 2})
         assert "result" in r, r
         r = calistir("git_degisenler",
-                     {"proje": "basak", "taban": "sadelestirme"})
+                     {"proje": "basak", "taban": "main"})
         assert isinstance(r, dict)

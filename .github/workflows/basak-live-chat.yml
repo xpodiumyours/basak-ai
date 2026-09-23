@@ -21,7 +21,7 @@ jobs:
       - name: Basak kodunu al
         uses: actions/checkout@v4
         with:
-          ref: sadelestirme
+          ref: main
 
       - name: Python 3.12 kur
         uses: actions/setup-python@v5

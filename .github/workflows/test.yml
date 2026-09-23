@@ -23,7 +23,7 @@ name: testler
 
 on:
   push:
-    branches: [sadelestirme]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
