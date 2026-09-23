@@ -1,0 +1,69 @@
+{
+  "olcum": "2026-09-23T22:15:54",
+  "toplam_tur": 8,
+  "thought_var_sayisi": 0,
+  "saglayici_kirilimi": {
+    "groq": {
+      "tur": 8,
+      "thought_var": 0
+    }
+  },
+  "sonuclar": [
+    {
+      "soru": "Merhaba, nasilsin? Tek kelime cevap ver.",
+      "kaynak": "groq",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "İyiyim"
+    },
+    {
+      "soru": "Ankara'nin nufusu yaklasik kac? Tek sayi yaz, aciklama yazma.",
+      "kaynak": "groq",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "5,779,001"
+    },
+    {
+      "soru": "Yapay zekayi 3 cumlede, lise seviyesinde acikla.",
+      "kaynak": "groq",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "Yapay zeka, bilgisayarların ve robotların insan gibi düşünerek kararlar almasını ve problemleri çözm"
+    },
+    {
+      "soru": "Bugun yapabilecegim 5 pratik ev isi listele. Sadece madde madde.",
+      "kaynak": "groq",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "- Çamaşırları ayırıp yıkamak ve kurutmak  \n- Mutfak tezgahını, ocak ve lavaboyu temizlemek  \n- Evdek"
+    },
+    {
+      "soru": "Isverene gonderilecek kisa bir mesaj yaz: yarin 1 saat gec gelecegim, trafik yogun. Nazik ve kisa olsun.",
+      "kaynak": "groq",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "Sayın [İsim],\n\nYarın trafik yoğunluğu nedeniyle bir saat geç geleceğim. Anlayışınız için teşekkür ed"
+    },
+    {
+      "soru": "Bir urun %20 indirimli 240 TL. Indirimden onceki fiyat neydi? Sadece sayi yaz.",
+      "kaynak": "groq",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "300"
+    },
+    {
+      "soru": "Su an hava durumu araci varsa Istanbul icin bugunun ozetini al; yoksa 'arac yok' de.",
+      "kaynak": "groq",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "arac yok"
+    },
+    {
+      "soru": "Fotosentez denklemini yaz ve kisaca ne oldugunu acikla.",
+      "kaynak": "groq",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "**Fotosentez denklemi**\n\n\\[\n6 \\text{CO}_2 \\;+\\; 6 \\text{H}_2\\text{O} \\;+\\; \\text{ışık enerjisi} \\;\\x"
+    }
+  ]
+}

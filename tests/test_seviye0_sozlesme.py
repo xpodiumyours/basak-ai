@@ -165,8 +165,8 @@ def test_52_arac_uchalida_birebir():
     kaynak = open("tools/__init__.py", encoding="utf-8").read()
     dallar = set(re.findall(r"tool_name == \"([a-z_]+)\"", kaynak))
 
-    assert len(sema) == 52
-    assert len(TANINMIS_TOOLLAR) == 52
+    assert len(sema) == 53
+    assert len(TANINMIS_TOOLLAR) == 53
     assert sema == dallar, ("sema/dal farki", sema ^ dallar)
     eksik_etiket = sema - set(DURUM_METNI)
     assert not eksik_etiket, ("etiketsiz arac", eksik_etiket)
@@ -179,7 +179,7 @@ def test_yetenek_katalogu_52_gercek_araci_kapsar():
     gercek = {t["function"]["name"] for t in TOOLS}
     katalog = {ad for grup in YETENEK_ALANLARI.values() for ad in grup}
     assert katalog == gercek
-    assert len(katalog) == 52
+    assert len(katalog) == 53
 
 
 def test_katalog_daki_her_arac_gercekten_kosabilir():
@@ -405,7 +405,7 @@ def test_matris_kosucu_52_semaya_bagli_tek_kaynak():
     from tools import TANINMIS_TOOLLAR
 
     assert set(kosucu.SEMALAR.keys()) == set(TANINMIS_TOOLLAR)
-    assert len(kosucu.SEMALAR) == 52
+    assert len(kosucu.SEMALAR) == 53
 
 
 def test_matris_kosucu_hucre_kaydi_yapisi(tmp_path, monkeypatch):
@@ -543,7 +543,7 @@ def test_matris_kapsami_elde_anahtari_olan_yedi_saglayici():
     assert matris_kosucu.KAPSAM == (
         "groq", "gemini", "kilo", "nvidia", "glm", "openrouter",
         "mistral")
-    assert len(matris_kosucu.KAPSAM) * 52 == 364     # 8x52=416 degil
+    assert len(matris_kosucu.KAPSAM) * 53 == 371     # 7x53=371 (eski 7x52=364)
     assert "cloudflare" not in matris_kosucu.KAPSAM
     assert "cohere" not in matris_kosucu.KAPSAM
     beklenen = tuple(ad for ad in registry.VARSAYILAN_SIRA

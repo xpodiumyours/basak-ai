@@ -68,11 +68,12 @@ DURUM_METNI = {
     "yayin_paketi": "Yayın paketi denetleniyor",
     "cikti_oku": "Çıktı okunuyor",
     "sirket_ara": "Şirket bilgisi araştırılıyor",
+    "hava_durumu": "Hava durumu okunuyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.
 DURUM_ALANI = ("query", "url", "path", "folder", "proje", "text",
-               "task_id")
+               "task_id", "sehir")
 
 
 def _j(obj):

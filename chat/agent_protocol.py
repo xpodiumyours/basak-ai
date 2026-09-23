@@ -8,14 +8,14 @@ sonra o alanin gercek araclarindan birini veya daha fazlasini kendi secer.
 SON_CEVAP_ADI = "son_cevap"
 YETENEK_AC_ADI = "yetenek_ac"
 
-# 52 gercek arac tek ve benzersiz bir yetenek alaninda yer alir. Bu tablo
+# 53 gercek arac tek ve benzersiz bir yetenek alaninda yer alir. Bu tablo
 # kullanici metnini yorumlamaz; yalniz modelin sectigi alan adini gercek
 # arac semalarina ceviren katalogdur.
 YETENEK_ALANLARI = {
     "internet": (
         "web_search", "haber_ara", "zamanli_ara", "site_ara",
         "gorsel_ara", "kitap_ara", "derin_oku", "sayfa_oku",
-        "adres_kontrol", "sirket_ara",
+        "adres_kontrol", "sirket_ara", "hava_durumu",
     ),
     "dosyalar": (
         "read_file", "list_files", "belge_ara", "dosya_bilgi",
@@ -45,7 +45,7 @@ YETENEK_ALANLARI = {
 }
 
 ALAN_ACIKLAMALARI = {
-    "internet": "harici web, haber, site, sayfa, URL ve sirket arastirmasi",
+    "internet": "harici web, haber, site, sayfa, URL, sirket ve hava durumu arastirmasi",
     "dosyalar": "bilgisayardaki dosya/klasor ve proje icerigi; knowledge yazma",
     "projeler": "Git, GitHub, CI, test ve proje hat sagligi",
     "gorevler": "yerel gorevler, hatirlatmalar ve cihazdan dogrulanan su anki tarih/saat",

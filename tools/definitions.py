@@ -8,7 +8,8 @@ model karar verir.
 
 Dokuz + dort + bes + dokuz arac: okuyanlar serbest, etkisi olanlar
 dar tablolarda (dosya/gorev/tablo yazma, sabit komut, beyaz liste).
-(2026-09-15: toplam 52; ara-toplam formulu bayat oldugu icin kaldirildi.)
+(2026-09-15: toplam 52; ara-toplam formulu bayat oldugu icin kaldirildi.
+2026-09-23: hava_durumu eklendi — toplam 53.)
 """
 
 
@@ -493,6 +494,15 @@ CIKTI_OKU = _arac(
     ["is_id", "dosya"],
 )
 
+HAVA_DURUMU = _arac(
+    "hava_durumu",
+    "Sehir icin anlik hava durumunu Open-Meteo'dan okur. Doner: sicaklik, "
+    "hava etiketi,ruzgar, saat + kaynak. Secili sehir bulunamazsa hata "
+    "doner; anahtar gerekmez.",
+    {"sehir": {"type": "string", "description": "Sehir adi (orn. Ankara)"}},
+    ["sehir"],
+)
+
 SIRKET_ARA = _arac(
     "sirket_ara",
     "Markanın resmi sitesini ve iletişim/vergi bilgilerini arar; "
@@ -512,7 +522,7 @@ TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
          MATRIS_AC, MATRIS_LISTE, SATIR_EKLE, KANIT_EKLE,
          SATIR_KAPAT, SATIR_AC, SATIR_SIL, SATIR_TASI,
          MATRIS_DURUM, GORSEL_URET, SAGLIK_RAPORU, SATIR_DUZENLE,
-         SIMDI, HESAPLA, HAFIZA_ARA, SIRKET_ARA,
+          SIMDI, HESAPLA, HAFIZA_ARA, SIRKET_ARA, HAVA_DURUMU,
          FATURA_OKU, KATALOG_KUR, KATALOG_GETIR, KATALOG_LISTELE,
          KATALOG_FIYAT, KATALOG_ONAYLA, YETKI_BELGESI, URUN_ESLESTIR,
          YAYIN_PAKETI, CIKTI_OKU]

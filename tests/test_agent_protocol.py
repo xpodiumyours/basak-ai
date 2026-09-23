@@ -20,10 +20,10 @@ def test_52_aracin_tamami_tek_yetenek_alaninda():
 
     gercek = [t["function"]["name"] for t in TOOLS]
     katalog = [ad for grup in YETENEK_ALANLARI.values() for ad in grup]
-    assert len(gercek) == 52
-    assert len(TANINMIS_TOOLLAR) == 52
-    assert len(katalog) == 52
-    assert len(set(katalog)) == 52
+    assert len(gercek) == 53
+    assert len(TANINMIS_TOOLLAR) == 53
+    assert len(katalog) == 53
+    assert len(set(katalog)) == 53
     assert set(katalog) == set(gercek)
 
 
@@ -42,8 +42,8 @@ def test_tek_alan_en_faz_12_sema_tasir():
 
     for alan in YETENEK_ALANLARI:
         secilen = alan_araclari(TOOLS, alan)
-        # En buyuk alan 10 gercek arac + alan degistirme kapisi.
-        assert len(secilen) <= 11, (alan, len(secilen))
+        # En buyuk alan 11 gercek arac + alan degistirme kapisi.
+        assert len(secilen) <= 12, (alan, len(secilen))
 
 
 def test_ajan_sozlesmesi_kelime_routeri_degildir():
@@ -456,7 +456,7 @@ def test_52_arac_dort_yuz_atmis_sekiz_saglayici_arac_yolunda_erisebilir():
             assert cevap == "tamam"
             sayac += 1
 
-    assert sayac == 9 * 52
+    assert sayac == 9 * 53
 
 
 
@@ -583,8 +583,8 @@ def test_52_aracin_semasi_eksiksiz_ve_tutarlı():
         required = p.get("required") or []
         assert set(required).issubset(set(props)), (ad, required, props)
 
-    assert len(adlar) == 52
-    assert len(set(adlar)) == 52
+    assert len(adlar) == 53
+    assert len(set(adlar)) == 53
 
 
 def test_52_aracin_dispatcher_dali_birebir_var():
@@ -615,7 +615,7 @@ def test_52_aracin_dispatcher_dali_birebir_var():
             dallar.add(sol.value)
 
     assert dallar == set(TANINMIS_TOOLLAR)
-    assert len(dallar) == 52
+    assert len(dallar) == 53
 
 
 def test_10_yetenek_alani_52_araci_eksiksiz_tasir():
@@ -624,8 +624,8 @@ def test_10_yetenek_alani_52_araci_eksiksiz_tasir():
 
     assert len(YETENEK_ALANLARI) == 10
     duz = [ad for araclar in YETENEK_ALANLARI.values() for ad in araclar]
-    assert len(duz) == 52
-    assert len(set(duz)) == 52
+    assert len(duz) == 53
+    assert len(set(duz)) == 53
     assert set(duz) == set(TANINMIS_TOOLLAR)
 
 
