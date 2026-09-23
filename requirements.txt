@@ -33,6 +33,10 @@ sqlite-vec==0.1.9
 # pyannote zaten win32 kosullu, Linux'a inmez.
 numpy==2.5.3
 
+# ── Bulut kalici hafiza (Neon/Postgres; Vercel Marketplace) ─────────
+# PyPI 2026-09-18: psycopg 3.3.6; binary extra kendi eslesen wheel'ini kurar.
+psycopg[binary]==3.3.6
+
 # ── Ses: TTS (metin->ses) + STT (ses->metin) + konusmaci tanima ────
 # DIKKAT: piper-tts paketi ses MODELINI icermez. tr_TR-dfki-medium.onnx
 # ayri indirilir — README "Ses modeli" bolumune bak.
