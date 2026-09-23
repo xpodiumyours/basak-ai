@@ -177,3 +177,22 @@ def test_giris_zorunlu_mu(monkeypatch, tmp_path):
     assert kullanici_modulu.kullanici_ekle("ayse", "S3ifre!") == "ayse"
     assert kullanici_modulu.giris_zorunlu_mu() is True, \
         "ilk kullanıcı eklenince giriş zorunlu"
+
+
+# ── 9. ASCII dışı çerez sunucuyu çökertmez ──────────────────────────
+
+def test_bozuk_cerez_cokmez(monkeypatch, tmp_path):
+    """İmzası Türkçe harf içeren çerez 500 değil, geçersiz sayılmalı.
+
+    Ölçüm (2026-09-23, canlı): X-Basak-Token: "Başak123" → HTTP 500.
+    Sebep: hmac.compare_digest ASCII dışı str'de TypeError fırlatır.
+    """
+    _izole(monkeypatch, tmp_path)
+
+    assert kullanici_modulu.oturum_coz("YWJj.şşş") is None
+    assert kullanici_modulu.oturum_coz("YWJj.Başak123") is None
+
+    # Geçerli yol bozulmadı.
+    kullanici_modulu.kullanici_ekle("ayse", "S3ifre!")
+    token = kullanici_modulu.oturum_tokeni_uret("ayse")
+    assert kullanici_modulu.oturum_coz(token) == "ayse"
