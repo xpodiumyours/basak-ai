@@ -54,10 +54,13 @@ class TestNvidiaListe:
 
     def test_genis_havuz_korunanlari_icerir(self):
         from brain.nvidia import GENIS_HAVUZ
-        # Faz 2/2b probe: hizli hat + kanitli canli aday havuzda kalmali
+        # Faz 2/2b/5 probe: hizli hat + kanitli canli aday havuzda kalmali
         for zorunlu in (
             "nvidia/nemotron-3.5-lightning-30b-a3b",
             "nvidia/nemotron-3-super-120b-a12b",
             "meta/llama-3.2-11b-vision-instruct",
+            "mistralai/mistral-nemotron",
+            "poolside/laguna-xs-2.1",
+            "z-ai/glm-5.3",
         ):
             assert zorunlu in GENIS_HAVUZ, zorunlu

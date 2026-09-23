@@ -1,0 +1,84 @@
+{
+  "olcum": "2026-09-23T18:38:17.533284+00:00",
+  "not": "Faz5b: Gemini gecici tekrar + filtre disi; NV sonucu probe3-nv-stdout",
+  "nvidia_not": "onceki stdout: canli=glm-5.3,poolside,mistral-nemotron,ultra; 404=filtre-disi ornekleri",
+  "gemini": [
+    {
+      "durum": "canli",
+      "sn": 0.81,
+      "kisa": "OK",
+      "model": "gemini-2.5-flash",
+      "grup": "gecici"
+    },
+    {
+      "durum": "hata",
+      "sn": 0.78,
+      "http": 503,
+      "model": "gemini-3.5-flash",
+      "grup": "gecici"
+    },
+    {
+      "durum": "hata",
+      "sn": 1.28,
+      "http": 503,
+      "model": "gemini-3.1-flash-lite",
+      "grup": "gecici"
+    },
+    {
+      "durum": "hata",
+      "sn": 1.31,
+      "http": 503,
+      "model": "gemini-3.8-flash",
+      "grup": "gecici"
+    },
+    {
+      "durum": "hata",
+      "sn": 1.31,
+      "http": 503,
+      "model": "gemini-3.7-flash",
+      "grup": "gecici"
+    },
+    {
+      "durum": "hata",
+      "sn": 1.77,
+      "http": 503,
+      "model": "gemini-flash-latest",
+      "grup": "gecici"
+    },
+    {
+      "durum": "yavas",
+      "sn": 14.06,
+      "kisa": "OK",
+      "model": "gemini-3.1-flash-lite-preview",
+      "grup": "gecici"
+    },
+    {
+      "durum": "hata",
+      "sn": 0.62,
+      "http": 500,
+      "model": "gemma-4-31b-it",
+      "grup": "filtre-disi"
+    },
+    {
+      "durum": "canli",
+      "sn": 1.98,
+      "kisa": "<thought>The user wants me to reply with",
+      "model": "gemma-4-26b-a4b-it",
+      "grup": "filtre-disi"
+    },
+    {
+      "durum": "kota",
+      "sn": 0.31,
+      "http": 429,
+      "model": "gemini-omni-flash-preview",
+      "grup": "filtre-disi"
+    },
+    {
+      "durum": "kota",
+      "sn": 0.25,
+      "http": 429,
+      "model": "gemini-omni-1.1-flash",
+      "grup": "filtre-disi"
+    }
+  ]
+}

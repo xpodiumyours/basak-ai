@@ -35,24 +35,30 @@ BASE_URL = "https://integrate.api.nvidia.com/v1"
 # 2026-09-23 (Faz 3 genis havuz): models.list 82 model; probe ile
 # 404/410 oluler TERCIH_SIRASI'ndan cikti; kanitli canli aday eklendi.
 TERCIH_SIRASI = [
-    # HIZLI HAT — ilk 4, _ICI_YEDEK_SAYISI kapsar
+    # HIZLI HAT — ilk 6, _ICI_YEDEK_SAYISI kapsar
     "openai/gpt-oss-20b",                    # hizli
     "nvidia/nemotron-3.5-lightning-30b-a3b",  # hizli
     "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",  # TURKCE + multimodal
     "nvidia/nemotron-3-super-120b-a12b",     # 120b
-    # --- Yavas yedekler: hizli hat duserse denenir ---
-    "moonshotai/kimi-k3",                    # yavas ama canli (27.9s)
+    "mistralai/mistral-nemotron",            # 2026-09-23 Faz5 canli ~0.5s
+    "poolside/laguna-xs-2.1",                # 2026-09-23 Faz5 canli ~0.4s
+    # --- Orta/yavas yedekler ---
+    "z-ai/glm-5.3",                          # 2026-09-23 Faz5 canli ~6s
     "meta/llama-3.2-11b-vision-instruct",    # 2026-09-23 probe canli ~0.3s
+    "moonshotai/kimi-k3",                    # yavas ama canli
     # --- Yedekler (olcu, en sonda denenir) ---
     "nvidia/nemotron-3-ultra-550b-a55b",     # 550b dev, en son yedek
 ]
-# 2026-09-23 probe: TERCIH_SIRASI tukendikten sonra denenir (katalogda
+# 2026-09-23 Faz5: TERCIH_SIRASI tukendikten sonra denenir (katalogda
 # gorunup chat'te yasayan adaylar). Oluler buraya almaz.
 GENIS_HAVUZ = [
     "meta/llama-3.2-11b-vision-instruct",
     "nvidia/nemotron-3.5-lightning-30b-a3b",
     "nvidia/nemotron-3-super-120b-a12b",
     "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    "mistralai/mistral-nemotron",
+    "poolside/laguna-xs-2.1",
+    "z-ai/glm-5.3",
 ]
 # 2026-09-23 canli probe: katalogda var ama chat 404/410 — listeye
 # geri gelmez; _model_bul bunlari atlar.
@@ -64,7 +70,7 @@ KARA_LISTE = {
 # Model-ici geri donus adedi: secili + listedeki ilk adaylar denenir.
 # 4 degeri 2026-09 gozleminden (ilk 4 CANLI + yedek kapsar); buyutme
 # her basarisizlikta kota/zaman yer. Faz 3: genis havuz icin 6.
-_ICI_YEDEK_SAYISI = 6
+_ICI_YEDEK_SAYISI = 8
 # OLU (10.09.2026): katalog disi veya chat 410 Gone —
 # meta/muse-glimmer-30b (katalogda gorunup 410 veriyor),
 # nvidia-nemotron-nano-9b-v2, step-3.7-flash, inkling,
@@ -82,6 +88,9 @@ MODELLER = {
     "omni": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
     "kimi": "moonshotai/kimi-k3",
     "llama11b": "meta/llama-3.2-11b-vision-instruct",
+    "nemotron": "mistralai/mistral-nemotron",
+    "laguna": "poolside/laguna-xs-2.1",
+    "glm53": "z-ai/glm-5.3",
     "deepseek": DEEPSEEK_MODEL,  # dusunen model; cok yavas (~90-180 sn)
 }
 

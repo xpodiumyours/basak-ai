@@ -42,6 +42,9 @@ def test_nvidia_cevapla_sirasi_genis_havuzu_icerir():
     assert "meta/llama-3.2-11b-vision-instruct" in sirali
     assert "nvidia/nemotron-4-340b-instruct" not in sirali
     assert "nvidia/nemotron-3.5-lightning-30b-a3b" in sirali
+    assert "mistralai/mistral-nemotron" in sirali
+    assert "poolside/laguna-xs-2.1" in sirali
+    assert "z-ai/glm-5.3" in sirali
 
 
 def test_gemini_yadek_sirasi_korur():
@@ -50,6 +53,7 @@ def test_gemini_yadek_sirasi_korur():
     assert YADEK_SIRASI[0] == "gemini-3-flash-preview"
     assert "gemini-2.5-flash" in YADEK_SIRASI
     assert "gemini-flash-lite-latest" in YADEK_SIRASI
+    assert "gemma-4-26b-a4b-it" in YADEK_SIRASI
     # olumu/429 adaylar yedekte yok
     assert "gemini-2.5-pro" not in YADEK_SIRASI
     assert "gemini-pro-latest" not in YADEK_SIRASI

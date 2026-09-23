@@ -1,0 +1,140 @@
+{
+  "olcum": "2026-09-23T18:37:27.955423+00:00",
+  "not": "Faz5 NV gecici+filtre-disi (stdout kaydi)",
+  "nvidia": [
+    {
+      "grup": "gecici",
+      "durum": "yavas",
+      "sn": 21.6,
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "kisa": "OK"
+    },
+    {
+      "grup": "gecici",
+      "durum": "yavas",
+      "sn": 25.1,
+      "model": "moonshotai/kimi-k3"
+    },
+    {
+      "grup": "gecici",
+      "durum": "yavas",
+      "sn": 25.2,
+      "model": "openai/gpt-oss-20b"
+    },
+    {
+      "grup": "gecici",
+      "durum": "yavas",
+      "sn": 25.2,
+      "model": "deepseek-ai/deepseek-v4.1-flash"
+    },
+    {
+      "grup": "gecici",
+      "durum": "yavas",
+      "sn": 25.2,
+      "model": "google/gemma-4-31b-it"
+    },
+    {
+      "grup": "gecici",
+      "durum": "yavas",
+      "sn": 25.2,
+      "model": "meta/llama-3.2-90b-vision-instruct"
+    },
+    {
+      "grup": "gecici",
+      "durum": "yavas",
+      "sn": 25.2,
+      "model": "z-ai/glm-5.3-flash"
+    },
+    {
+      "grup": "gecici",
+      "durum": "canli",
+      "sn": 6.0,
+      "model": "z-ai/glm-5.3",
+      "kisa": "OK"
+    },
+    {
+      "grup": "gecici",
+      "durum": "canli",
+      "sn": 0.4,
+      "model": "poolside/laguna-xs-2.1",
+      "kisa": "OK"
+    },
+    {
+      "grup": "gecici",
+      "durum": "canli",
+      "sn": 0.5,
+      "model": "mistralai/mistral-nemotron",
+      "kisa": "OK"
+    },
+    {
+      "grup": "gecici",
+      "durum": "hata",
+      "sn": 0.4,
+      "http": 503,
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+    },
+    {
+      "grup": "gecici",
+      "durum": "canli",
+      "sn": 1.6,
+      "model": "nvidia/nemotron-3-ultra-550b-a55b",
+      "kisa": "OK"
+    },
+    {
+      "grup": "filtre-disi",
+      "durum": "olu",
+      "sn": 0.2,
+      "http": 404,
+      "model": "bigcode/starcoder2-15b"
+    },
+    {
+      "grup": "filtre-disi",
+      "durum": "olu",
+      "sn": 0.3,
+      "http": 404,
+      "model": "google/codegemma-7b"
+    },
+    {
+      "grup": "filtre-disi",
+      "durum": "olu",
+      "sn": 0.3,
+      "http": 404,
+      "model": "ibm/granite-34b-code-instruct"
+    },
+    {
+      "grup": "filtre-disi",
+      "durum": "olu",
+      "sn": 0.3,
+      "http": 404,
+      "model": "meta/llama2-70b"
+    },
+    {
+      "grup": "filtre-disi",
+      "durum": "olu",
+      "sn": 0.3,
+      "http": 404,
+      "model": "microsoft/kosmos-2"
+    },
+    {
+      "grup": "filtre-disi",
+      "durum": "olu",
+      "sn": 0.3,
+      "http": 404,
+      "model": "nvidia/llama3-chatqa-1.5-70b"
+    },
+    {
+      "grup": "filtre-disi",
+      "durum": "olu",
+      "sn": 0.3,
+      "http": 404,
+      "model": "writer/palmyra-med-70b"
+    },
+    {
+      "grup": "filtre-disi",
+      "durum": "olu",
+      "sn": 0.3,
+      "http": 404,
+      "model": "writer/palmyra-fin-70b-32k"
+    }
+  ]
+}

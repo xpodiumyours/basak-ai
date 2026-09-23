@@ -26,16 +26,18 @@ MODELLER = {
     "varsayilan": "gemini-3-flash-preview",
     "yedek": "gemini-2.5-flash",
 }
-# 2026-09-23 (Faz 3): canli probe — sirayla denenir; varsayilan basa
-# kalir. 404/503/429 adaylar buraya almaz (probe: model-probe2.json).
+# 2026-09-23 (Faz 3+5): canli probe — sirayla denenir; varsayilan basa
+# kalir. 404/503 kalici oluler buraya almaz (model-probe2/3.json).
 YADEK_SIRASI = [
     "gemini-3-flash-preview",
     "gemini-2.5-flash",
     "gemini-flash-lite-latest",
     "gemini-3.5-flash-lite",
     "gemini-3.6-flash",
+    "gemma-4-26b-a4b-it",                 # 2026-09-23 Faz5 filtre-disi canli ~2s
+    "gemini-3.1-flash-lite-preview",      # 2026-09-23 Faz5 gec geldi ~14s
 ]
-_ICI_YEDEK_SAYISI = 4
+_ICI_YEDEK_SAYISI = 6
 
 
 class GeminiClient:
