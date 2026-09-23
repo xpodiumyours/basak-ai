@@ -157,14 +157,25 @@ class PostgresHafizaMotoru:
                     self._meta_koy_cur(cur, _MIGRASYON_ANAHTARI, True)
                     conn.commit()
                     return
-                cur.execute("SELECT to_regclass('public.memories')")
-                if cur.fetchone()[0] is None:
+                # Kaynak adaylari: 23 Eylul olcum tablosu (basak.anilar)
+                # ve public.memories (eski SQLite bicimi).
+                kaynak_schema = kaynak_tablo = None
+                for sch, tab in (("basak", "anilar"), ("public", "memories")):
+                    cur.execute(
+                        "SELECT to_regclass(%s)",
+                        ("%s.%s" % (sch, tab),),
+                    )
+                    if cur.fetchone()[0] is not None:
+                        kaynak_schema, kaynak_tablo = sch, tab
+                        break
+                if kaynak_tablo is None:
                     self._meta_koy_cur(cur, _MIGRASYON_ANAHTARI, True)
                     conn.commit()
                     return
                 cur.execute(
                     "SELECT column_name, data_type FROM information_schema.columns "
-                    "WHERE table_schema='public' AND table_name='memories'"
+                    "WHERE table_schema=%s AND table_name=%s",
+                    (kaynak_schema, kaynak_tablo),
                 )
                 kolonlar = {ad: tur for ad, tur in cur.fetchall()}
                 if "kind" not in kolonlar or "text" not in kolonlar:
@@ -197,10 +208,27 @@ class PostgresHafizaMotoru:
                     "(user_id, kind, text, source, created_at, speaker, onem, embedding) "
                     "SELECT %s, kind, text, " + kaynak + ", " + zaman + ", "
                     + speaker + ", " + onem + ", NULL "
-                    "FROM memories ORDER BY " + sirala
+                    'FROM "' + kaynak_schema + '"."' + kaynak_tablo + '" '
+                    "ORDER BY " + sirala
                 )
                 cur.execute(sql, (self.kullanici_id,))
+                cur.execute(
+                    "SELECT COUNT(*) FROM basak_memories WHERE user_id=%s",
+                    (self.kullanici_id,),
+                )
+                tasinan = int(cur.fetchone()[0])
+                if tasinan <= 0:
+                    logger.warning(
+                        "Legacy tasima bos sonuclandi (%s.%s)",
+                        kaynak_schema, kaynak_tablo,
+                    )
+                    conn.rollback()
+                    return
                 self._meta_koy_cur(cur, _MIGRASYON_ANAHTARI, True)
+                logger.info(
+                    "Legacy tasima: %s kayit %s.%s -> basak_memories",
+                    tasinan, kaynak_schema, kaynak_tablo,
+                )
             conn.commit()
 
     def _embed(self, metin, gorev="RETRIEVAL_DOCUMENT"):

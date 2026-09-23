@@ -83,7 +83,7 @@ def test_veri_sorgulari_kullanici_kimligini_tasir(monkeypatch):
             durum["calls"].append((q, params))
             if "SELECT COUNT(*) FROM basak_memories WHERE user_id=%s" in q:
                 self.rows = [(1,)]
-            elif "SELECT to_regclass('public.memories')" in q:
+            elif "SELECT to_regclass(%s)" in q:
                 self.rows = [(None,)]
             elif "SELECT deger FROM basak_memory_meta" in q:
                 self.rows = []
@@ -120,5 +120,71 @@ def test_veri_sorgulari_kullanici_kimligini_tasir(monkeypatch):
     veri = [(q, p) for q, p in durum["calls"]
             if "basak_memories" in q and q.startswith(("SELECT", "INSERT", "UPDATE", "DELETE"))]
     assert veri
-    assert all((p is None) or ("ayse" in p) or ("public.memories" in q)
+    assert all((p is None) or ("ayse" in p)
                for q, p in veri)
+
+
+def test_tasima_kaynagi_basak_anilar_oncelikli(monkeypatch):
+    """23 Eylul olcum tablosu basak.anilar'dadir; public.memories'den once bakilir."""
+    import sys
+    import types
+
+    gorulen = {"regclass": [], "insert": []}
+    durum = {"kopya_sonrasi": False}
+
+    class Cursor:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def execute(self, sql, params=None):
+            q = " ".join(sql.split())
+            if "SELECT to_regclass(%s)" in q:
+                ad = params[0] if params else ""
+                gorulen["regclass"].append(ad)
+                # yalniz basak.anilar var
+                self.rows = [("basak.anilar",)
+                             if ad == "basak.anilar" else (None,)]
+            elif q.startswith("SELECT column_name"):
+                self.rows = [
+                    ("kind", "text"), ("text", "text"),
+                    ("speaker", "text"), ("onem", "integer"),
+                    ("created_at", "double precision"), ("id", "integer"),
+                ]
+            elif q.startswith("INSERT INTO basak_memories"):
+                gorulen["insert"].append(q)
+                durum["kopya_sonrasi"] = True
+                self.rows = []
+            elif "SELECT COUNT(*) FROM basak_memories" in q:
+                self.rows = [(61 if durum["kopya_sonrasi"] else 0,)]
+            elif "SELECT deger FROM basak_memory_meta" in q:
+                self.rows = []
+            else:
+                self.rows = []
+        def fetchone(self):
+            return self.rows[0] if self.rows else None
+        def fetchall(self):
+            return list(self.rows)
+
+    class Conn:
+        prepare_threshold = 5
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def cursor(self):
+            return Cursor()
+        def commit(self):
+            pass
+        def rollback(self):
+            pass
+
+    sahte = types.ModuleType("psycopg")
+    sahte.connect = lambda *a, **k: Conn()
+    monkeypatch.setitem(sys.modules, "psycopg", sahte)
+
+    motor = PostgresHafizaMotoru("postgresql://fake", "casper", embed_fn=None)
+    assert gorulen["regclass"] == ["basak.anilar"]
+    assert gorulen["insert"], "tasima INSERT'i calismadi"
+    assert '"basak"."anilar"' in gorulen["insert"][0]
+    assert motor is not None
