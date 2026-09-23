@@ -121,6 +121,20 @@ def _giris_engeli():
     return JSONResponse({"error": "giris gerekli"}, status_code=401)
 
 
+
+def _oturum_cerezi(resp, kid):
+    """Kimliği JS'nin okuyamadığı imzalı çerezle saklar."""
+    import kullanici as kullanici_modulu
+
+    token = kullanici_modulu.oturum_tokeni_uret(kid, omur_sn=365 * 24 * 3600)
+    resp.set_cookie(
+        kullanici_modulu.cookie_adi(), token,
+        max_age=365 * 24 * 3600, path="/", httponly=True,
+        secure=kullanici_modulu.uretim_mi(), samesite="lax",
+    )
+    return resp
+
+
 class _OlayToplayici:
     def __init__(self, istek):
         self.istek = istek
@@ -195,6 +209,41 @@ def _gorsel_kaydet(ek):
         "tur": "image",
         "path": yol,
     }
+
+
+
+@app.post("/api/kimlik")
+async def kimlik_hazirla(request: Request):
+    """Kayıt/giriş olmadan tarayıcıya ayrı Başak ID verir.
+
+    Eski özel/test `casper` kimliği halka açık web'e taşınmaz; bu
+    kullanıcı da temiz bir anonim kimlikle yeniden başlar.
+    """
+    import kullanici as kullanici_modulu
+    from chat.kimlik import VARSAYILAN_KULLANICI, kullanici_kur
+
+    kid = _kimlik(request)
+    if kid == VARSAYILAN_KULLANICI:
+        kid = None
+    if kid is None:
+        if not _uretim_kapisi_hazir():
+            return _giris_engeli()
+        try:
+            kid = kullanici_modulu.yeni_anonim_kimlik()
+            kullanici_kur(kid)
+        except RuntimeError:
+            return _giris_engeli()
+
+    try:
+        resp = JSONResponse({
+            "ok": True,
+            "kullanici": kid,
+            "basak_id": kullanici_modulu.gorunur_kimlik(kid),
+            "kayit_gerekli": False,
+        }, headers={"Cache-Control": "no-store"})
+        return _oturum_cerezi(resp, kid)
+    except RuntimeError:
+        return _giris_engeli()
 
 
 @app.get("/api/durum")

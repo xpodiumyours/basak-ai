@@ -1,6 +1,7 @@
 """Postgres hafiza adaptoru — kota/ag kullanmayan sozlesme testleri."""
 
 import os
+import json
 
 import pytest
 
@@ -124,13 +125,12 @@ def test_veri_sorgulari_kullanici_kimligini_tasir(monkeypatch):
                for q, p in veri)
 
 
-def test_tasima_kaynagi_basak_anilar_oncelikli(monkeypatch):
-    """23 Eylul olcum tablosu basak.anilar'dadir; public.memories'den once bakilir."""
+def test_temiz_baslangic_eski_anilari_bir_kez_siler(monkeypatch):
+    """61 eski kayıt ve mevcut hafıza silinir; ikinci açılış tekrar silmez."""
     import sys
     import types
 
-    gorulen = {"regclass": [], "insert": []}
-    durum = {"kopya_sonrasi": False}
+    durum = {"marker": False, "memory_deleted": 0, "legacy_deleted": 0}
 
     class Cursor:
         def __enter__(self):
@@ -139,26 +139,22 @@ def test_tasima_kaynagi_basak_anilar_oncelikli(monkeypatch):
             return False
         def execute(self, sql, params=None):
             q = " ".join(sql.split())
-            if "SELECT to_regclass(%s)" in q:
-                ad = params[0] if params else ""
-                gorulen["regclass"].append(ad)
-                # yalniz basak.anilar var
-                self.rows = [("basak.anilar",)
-                             if ad == "basak.anilar" else (None,)]
-            elif q.startswith("SELECT column_name"):
-                self.rows = [
-                    ("kind", "text"), ("text", "text"),
-                    ("speaker", "text"), ("onem", "integer"),
-                    ("created_at", "double precision"), ("id", "integer"),
-                ]
-            elif q.startswith("INSERT INTO basak_memories"):
-                gorulen["insert"].append(q)
-                durum["kopya_sonrasi"] = True
+            if "SELECT deger FROM basak_memory_meta" in q:
+                self.rows = [(json.dumps(True),)] if durum["marker"] else []
+            elif "SELECT to_regclass(%s)" in q:
+                ad = params[0]
+                self.rows = [(ad if ad == "basak.anilar" else None,)]
+            elif q == "DELETE FROM basak_memories":
+                durum["memory_deleted"] += 1
+                self.rows = []
+            elif q == 'DELETE FROM "basak"."anilar"':
+                durum["legacy_deleted"] += 1
+                self.rows = []
+            elif q.startswith("INSERT INTO basak_memory_meta") and params and params[0] == "__system__":
+                durum["marker"] = True
                 self.rows = []
             elif "SELECT COUNT(*) FROM basak_memories" in q:
-                self.rows = [(61 if durum["kopya_sonrasi"] else 0,)]
-            elif "SELECT deger FROM basak_memory_meta" in q:
-                self.rows = []
+                self.rows = [(0,)]
             else:
                 self.rows = []
         def fetchone(self):
@@ -183,8 +179,11 @@ def test_tasima_kaynagi_basak_anilar_oncelikli(monkeypatch):
     sahte.connect = lambda *a, **k: Conn()
     monkeypatch.setitem(sys.modules, "psycopg", sahte)
 
-    motor = PostgresHafizaMotoru("postgresql://fake", "casper", embed_fn=None)
-    assert gorulen["regclass"] == ["basak.anilar"]
-    assert gorulen["insert"], "tasima INSERT'i calismadi"
-    assert '"basak"."anilar"' in gorulen["insert"][0]
-    assert motor is not None
+    PostgresHafizaMotoru("postgresql://fake", "u1111111111111111", embed_fn=None)
+    assert durum["memory_deleted"] == 1
+    assert durum["legacy_deleted"] == 1
+    assert durum["marker"] is True
+
+    PostgresHafizaMotoru("postgresql://fake", "u2222222222222222", embed_fn=None)
+    assert durum["memory_deleted"] == 1
+    assert durum["legacy_deleted"] == 1

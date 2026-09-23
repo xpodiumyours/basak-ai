@@ -1,120 +1,26 @@
 <!doctype html>
-<html lang="tr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#fbfbfc">
-<title>Başak — Sohbet</title>
-<link rel="stylesheet" href="/chat.css?v=2">
-</head>
-<body>
+<html lang="tr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fbfbfc"><title>Başak — Sohbet</title>
+<link rel="stylesheet" href="/chat.css?v=3"></head><body>
 <div class="app-shell">
-  <aside id="sidebar" class="sidebar" aria-label="Sohbet geçmişi">
-    <div class="sidebar-brand">
-      <a class="brand" href="/" aria-label="Başak ana sayfa">
-        <span class="brand-mark">B</span>
-        <span class="brand-copy">
-          <strong>Başak</strong>
-          <small>Sohbet · Görsel · Ses</small>
-        </span>
-      </a>
-    </div>
-
-    <button id="yeniSide" class="sidebar-new" type="button">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-      <span>Yeni sohbet</span>
-    </button>
-
-    <div class="history-head">
-      <span>Sohbetler</span>
-    </div>
-    <div id="historyList" class="history-list"></div>
-    <div id="historyEmpty" class="history-empty">Henüz kayıtlı sohbet yok.</div>
-
-    <div class="sidebar-foot">
-      <div id="kimlikSatir" hidden style="margin-bottom:4px;">
-        <span id="kullaniciAd" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
-        <button id="cikisYap" type="button" style="border:0;background:transparent;color:inherit;font-size:inherit;padding:0;cursor:pointer;text-decoration:underline;">Çıkış</button>
-      </div>
-      Bu tarayıcıdaki sohbetler
-    </div>
-  </aside>
-
-  <div id="sidebarBackdrop" class="sidebar-backdrop" hidden></div>
-
-  <div class="main-panel">
-    <header class="topbar">
-      <button id="sidebarToggle" class="menu-button" type="button" aria-label="Sohbet geçmişini aç">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4 7h16M4 12h16M4 17h16"/>
-        </svg>
-      </button>
-
-      <div class="topbar-title">
-        <strong>Başak</strong>
-        <span class="ready-inline"><span id="healthDot" class="status-dot"></span><span>Hazır</span></span>
-      </div>
-    </header>
-
-    <main class="chat-main">
-      <section id="chatScroll" class="conversation" aria-label="Başak sohbeti">
-        <div class="conversation-inner">
-          <section id="hero" class="hero">
-            <h1>Başak’a sor.</h1>
-            <p>Yaz, fotoğraf ekle veya sesle anlat.</p>
-
-            <div class="quick-actions" aria-label="Hızlı başlangıçlar">
-              <button class="quick-chip ornek" type="button">Bu fotoğraftaki ürünleri çıkar</button>
-              <button class="quick-chip ornek" type="button">Bunu araştır ve kısa özetle</button>
-              <button class="quick-chip ornek" type="button">Bunu daha anlaşılır yaz</button>
-            </div>
-          </section>
-
-          <div id="chat" class="messages" aria-live="polite" aria-relevant="additions text"></div>
-        </div>
-      </section>
-
-      <section class="composer-dock" aria-label="Mesaj gönderme alanı">
-        <div class="composer-wrap">
-          <div id="attachmentPreview" class="attachment-preview" hidden>
-            <img id="attachmentThumb" alt="">
-            <div class="attachment-copy">
-              <strong>Fotoğraf</strong>
-              <span id="imageName"></span>
-            </div>
-            <button id="removeImage" class="remove-attachment" type="button" aria-label="Fotoğrafı kaldır">×</button>
-          </div>
-
-          <div class="composer">
-            <label id="imagePick" class="icon-button attach-button" hidden title="Fotoğraf ekle" aria-label="Fotoğraf ekle">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-              <input id="image" type="file" accept="image/*" hidden>
-            </label>
-
-            <textarea id="message" maxlength="4000" rows="1" placeholder="Başak’a yaz..." aria-label="Başak'a mesaj yaz"></textarea>
-
-            <div class="composer-actions">
-              <button id="micButton" class="icon-button" type="button" title="Sesle yaz" aria-label="Sesle yaz">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <rect x="9" y="3" width="6" height="11" rx="3"/>
-                  <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/>
-                </svg>
-              </button>
-
-              <button id="send" class="send-button" type="button" aria-label="Gönder" title="Gönder" disabled>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></svg>
-              </button>
-            </div>
-          </div>
-
-          <p id="composerNote" class="composer-note">Enter gönderir · Shift+Enter yeni satır</p>
-        </div>
-      </section>
-    </main>
-  </div>
-</div>
-
-<script src="/common.js?v=4"></script>
-<script src="/app.js?v=4"></script>
-</body>
-</html>
+<aside id="sidebar" class="sidebar" aria-label="Sohbet geçmişi">
+<div class="sidebar-brand"><a class="brand" href="/" aria-label="Başak ana sayfa"><span class="brand-mark">B</span><span class="brand-copy"><strong>Başak</strong><small>Sohbet · Görsel · Ses</small></span></a></div>
+<button id="yeniSide" class="sidebar-new" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Yeni sohbet</span></button>
+<div class="history-head"><span>Sohbetler</span></div><div id="historyList" class="history-list"></div><div id="historyEmpty" class="history-empty">Henüz kayıtlı sohbet yok.</div>
+<div class="sidebar-foot"><div id="kimlikSatir" class="identity-row" hidden><span id="kullaniciAd"></span></div><div class="sidebar-links"><a href="/bilgilendirme.html">Kullanım ve veri bilgisi</a></div><div>Bu tarayıcıdaki sohbetler yalnız bu Başak ID ile gösterilir.</div></div>
+</aside><div id="sidebarBackdrop" class="sidebar-backdrop" hidden></div>
+<div class="main-panel"><header class="topbar"><button id="sidebarToggle" class="menu-button" type="button" aria-label="Sohbet geçmişini aç"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><div class="topbar-title"><strong>Başak</strong><span class="ready-inline"><span id="healthDot" class="status-dot"></span><span>Hazır</span></span></div></header>
+<main class="chat-main"><section id="chatScroll" class="conversation" aria-label="Başak sohbeti"><div class="conversation-inner">
+<section id="hero" class="hero"><h1>Başak’a sor.</h1><p>Yaz, fotoğraf ekle veya sesle anlat.</p>
+<div class="ai-notice" role="note"><strong>Başak bir yapay zekâ sistemidir.</strong> Yanıtları yanlış veya eksik olabilir. Önemli bilgileri bağımsız kaynaklardan doğrulayın; sağlık, hukuk, finans ve güvenlikle ilgili önemli kararlarda yalnızca Başak’ın yanıtına dayanmayın. Gereksiz kişisel veya hassas bilgi paylaşmayın. <a href="/bilgilendirme.html">Ayrıntılar</a></div>
+<div class="quick-actions" aria-label="Hızlı başlangıçlar"><button class="quick-chip ornek" type="button">Bu fotoğraftaki ürünleri çıkar</button><button class="quick-chip ornek" type="button">Bunu araştır ve kısa özetle</button><button class="quick-chip ornek" type="button">Bunu daha anlaşılır yaz</button></div></section>
+<div id="chat" class="messages" aria-live="polite" aria-relevant="additions text"></div></div></section>
+<section class="composer-dock" aria-label="Mesaj gönderme alanı"><div class="composer-wrap">
+<div id="attachmentPreview" class="attachment-preview" hidden><img id="attachmentThumb" alt=""><div class="attachment-copy"><strong>Fotoğraf</strong><span id="imageName"></span></div><button id="removeImage" class="remove-attachment" type="button" aria-label="Fotoğrafı kaldır">×</button></div>
+<div class="composer"><label id="imagePick" class="icon-button attach-button" hidden title="Fotoğraf ekle" aria-label="Fotoğraf ekle"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><input id="image" type="file" accept="image/*" hidden></label>
+<textarea id="message" maxlength="4000" rows="1" placeholder="Başak’a yaz..." aria-label="Başak'a mesaj yaz"></textarea>
+<div class="composer-actions"><button id="micButton" class="icon-button" type="button" title="Sesle yaz" aria-label="Sesle yaz"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg></button><button id="send" class="send-button" type="button" aria-label="Gönder" title="Gönder" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></svg></button></div></div>
+<p id="composerNote" class="composer-note">Başak hata yapabilir. Önemli bilgileri doğrulayın. <a href="/bilgilendirme.html">Bilgi</a></p>
+</div></section></main></div></div>
+<script src="/common.js?v=5"></script><script src="/app.js?v=5"></script></body></html>
