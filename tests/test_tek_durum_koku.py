@@ -138,10 +138,16 @@ class TestDenetimKaydi:
 
         brain.brain.AUDIT_DOSYASI'yı conftest geçici dosyaya yamıyor
         (gerçek ölçüm korunuyor), bu yüzden karşılaştırma yamanmayan
-        kökten yapılır: bb.STATE_DIR + audit/audit.log.
+        kökten yapılır: bb.state_dir() + audit/audit.log.
+
+        2026-09-23: eskiden bb.STATE_DIR sabiti okunuyordu. O sabit modül
+        yüklenirken donuyordu; kök sonradan değişince beyin eski yere
+        yazıyor, sağlık yeni yerden okuyordu. Sabit None'a çevrildi, yol
+        çağrı anında çözülüyor — test de artık fonksiyonu çağırıyor.
         """
         monkeypatch.delenv("BASAK_STATE_DIR", raising=False)
-        yazan = os.path.join(bb.STATE_DIR, "audit", "audit.log")
+        monkeypatch.setattr(bb, "AUDIT_DOSYASI", None, raising=False)
+        yazan = os.path.join(bb.state_dir(), "audit", "audit.log")
         okuyan = saglik.audit_dosyasi()
         assert os.path.abspath(okuyan) == os.path.abspath(yazan)
 
