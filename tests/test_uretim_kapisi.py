@@ -32,6 +32,9 @@ def _uretim(monkeypatch):
     """Uretim modunu acar (Vercel'in kendi bayragiyla)."""
     monkeypatch.setenv("VERCEL", "1")
     monkeypatch.delenv("BASAK_URETIM", raising=False)
+    monkeypatch.setattr(app_modulu, "_hafizayi_bir_kez_sifirla", lambda: True)
+    # Temiz baslangic DB'ye bagli; test ortaminda DB yok -> 503 olmasin.
+    monkeypatch.setattr(app_modulu, "_hafizayi_bir_kez_sifirla", lambda: True)
 
 
 def _yerel(monkeypatch):
@@ -173,7 +176,7 @@ def test_durum_ucu_kimliksiz_okunamaz(monkeypatch, tmp_path):
     monkeypatch.setenv("BASAK_URETIM", "1")
     monkeypatch.setenv("BASAK_STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("BASAK_WEB_TOKEN", "gizli123")
-    import app as app_modulu
+    monkeypatch.setattr(app_modulu, "_hafizayi_bir_kez_sifirla", lambda: True)
 
     istemci = TestClient(app_modulu.app)
     assert istemci.get("/api/durum").status_code == 401
