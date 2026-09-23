@@ -26,6 +26,16 @@ MODELLER = {
     "varsayilan": "gemini-3-flash-preview",
     "yedek": "gemini-2.5-flash",
 }
+# 2026-09-23 (Faz 3): canli probe — sirayla denenir; varsayilan basa
+# kalir. 404/503/429 adaylar buraya almaz (probe: model-probe2.json).
+YADEK_SIRASI = [
+    "gemini-3-flash-preview",
+    "gemini-2.5-flash",
+    "gemini-flash-lite-latest",
+    "gemini-3.5-flash-lite",
+    "gemini-3.6-flash",
+]
+_ICI_YEDEK_SAYISI = 4
 
 
 class GeminiClient:
@@ -63,8 +73,32 @@ class GeminiClient:
         if not self.client:
             raise RuntimeError("Gemini bağlı değil")
 
+        # Secili model basarisizsa yedek zincire dusen tek seferlik
+        # geri donus (nvidia.cevapla ile ayni kalip — Faz 3).
+        ilk = getattr(self, "model", None) or MODELLER["varsayilan"]
+        sirali = []
+        for m in [ilk] + YADEK_SIRASI:
+            if m and m not in sirali:
+                sirali.append(m)
+
+        son_hata = None
+        for model_adi in sirali[:_ICI_YEDEK_SAYISI]:
+            try:
+                yanit = self._cagri_ata(model_adi, messages, tools,
+                                        tool_choice=tool_choice)
+                self.model = model_adi
+                return yanit
+            except Exception as e:
+                son_hata = e
+                logger.warning(
+                    "Gemini %s hatasi, siradaki modele dusuluyor: %s",
+                    model_adi, str(e))
+        raise RuntimeError("Gemini tüm modeller başarısız") from son_hata
+
+    def _cagri_ata(self, model_adi: str, messages: list, tools: list = None,
+                   tool_choice=None) -> dict:
         kwargs = {
-            "model": self.model,
+            "model": model_adi,
             "messages": messages,
             "max_tokens": 4096,
         }

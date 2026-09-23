@@ -291,6 +291,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
                      misafir=misafir, onbellekle=True)
                 return
+            # Bos yanit brain.cevapla'da siradaki saglayiciya duserdi;
+            # buraya geldiyse zincir tukendi.
             js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")")
             return
 

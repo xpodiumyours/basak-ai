@@ -355,8 +355,37 @@ async def durum(request: Request):
     modeller = []
     try:
         from brain import registry
+        from brain.stats import model_stats_al
+        istat = model_stats_al()
         for ad, istemci in zincir:
             kart = registry.kart(ad)
+            kullan = {}
+            try:
+                giris_saat = istat.istek_sayisi(ad, "saat")
+                istek_gun = istat.istek_sayisi(ad, "gun")
+                istek_ay = istat.istek_sayisi(ad, "ay")
+                tin, tout = istat.token_bugun(ad)
+                kullan = {
+                    "saatlik_istek": giris_saat,
+                    "gunluk_istek": istek_gun,
+                    "aylik_istek": istek_ay,
+                    "gunluk_token_giris": tin,
+                    "gunluk_token_cikis": tout,
+                    "kalan_saatlik_istek": (
+                        None if kart.get("saatlik_istek") is None
+                        else max(0, int(kart["saatlik_istek"]) - giris_saat)),
+                    "kalan_gunluk_istek": (
+                        None if kart.get("gunluk_istek") is None
+                        else max(0, int(kart["gunluk_istek"]) - istek_gun)),
+                    "kalan_aylik_istek": (
+                        None if kart.get("aylik_istek") is None
+                        else max(0, int(kart["aylik_istek"]) - istek_ay)),
+                    "kalan_gunluk_token": (
+                        None if not kart.get("gunluk_token")
+                        else max(0, int(kart["gunluk_token"]) - tin - tout)),
+                }
+            except Exception:
+                kullan = {}
             modeller.append({
                 "ad": ad,
                 "model": getattr(istemci, "model", None) or "dogrulanamadi",
@@ -367,7 +396,7 @@ async def durum(request: Request):
                     "aylik_istek": kart.get("aylik_istek"),
                     "gunluk_token": kart.get("gunluk_token"),
                 },
-                "kullanim": {},
+                "kullanim": kullan,
             })
     except Exception:
         pass

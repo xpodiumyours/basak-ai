@@ -475,6 +475,17 @@ class Brain:
                     if not araclar:
                         raise RuntimeError(
                             "ajan protokolu: saglayici tool-call dondurmedi")
+                # Faz 4: tools gonderildiyse bos yanit basari degildir —
+                # siradaki saglayici denenir (aptallasma kapisi; icerik
+                # siniflandirmasi yok, yalniz bosluk denetimi).
+                if tools:
+                    araclar = (yanit.get("tool_calls")
+                               if isinstance(yanit, dict) else None)
+                    icerik = (yanit.get("content") or ""
+                              if isinstance(yanit, dict) else str(yanit or ""))
+                    if not araclar and not icerik.strip():
+                        raise RuntimeError(
+                            "bos yanit (ne tool-call ne metin)")
                 sure = time.time() - t0
                 _audit("OK kaynak=%s | %.1f sn | tools=%s | %s" %
                        (ad, sure, bool(tools), gerekce))
@@ -547,6 +558,13 @@ class Brain:
             istemci = istemciler.get(ad)
             if istemci is None:
                 continue
+            # Faz 4: akis yolunda da yerel kota korumasi (tam yolla ayni).
+            istat = model_stats_al()
+            kota_nedeni = _yerel_kota_doldu(ad, istat)
+            if kota_nedeni:
+                logger.info("%s akis %s, atlandi", ad, kota_nedeni)
+                _audit("KOTA akis kaynak=%s | %s" % (ad, kota_nedeni))
+                continue
             if _cooldown_kaldi(ad) > 0:
                 continue
             try:
@@ -556,9 +574,15 @@ class Brain:
                     continue
                 uretici = akit(ham, model, messages, tools=tools)
                 basladi = False  # akis ortasi kopma takibi
+                token_out = 0
                 for parca in uretici:
                     basladi = True
+                    token_out += max(1, len(parca) // 4)
                     yield ad, parca
+                if basladi:
+                    # Akis basarisi + yaklasik cikis token'i yaz (butce).
+                    istat.kaydet(ad, 0.0, basarili=True, tools=bool(tools),
+                                 token_in=0, token_out=token_out)
                 _audit("OK kaynak=%s | akis | %s" % (ad, gerekce))
                 return
             except _Arac:
@@ -571,7 +595,9 @@ class Brain:
                     _audit("AKIS KOPTU kaynak=%s: %s" % (ad, hata))
                     raise SonHata("cevap yolda kesildi (%s)" % ad)
                 logger.warning("%s akis hatasi: %s", ad, hata)
-                hatalar.append("%s: %s" % (ad, hata))
+                hatalar.append("%s: %s" % (ad, str(e)))
+                istat.kaydet(ad, 0.0, basarili=False, hata=str(e),
+                             tools=bool(tools))
                 if _rate_limit_mi(e):
                     _cooldown_ekle(ad, sure=_bekleme_suresi(e))
                 elif _zaman_asimi_mi(e):
