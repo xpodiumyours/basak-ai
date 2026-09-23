@@ -85,3 +85,4 @@ data/yetki/
 # Ajan oturum durumu (kod değil, yerel kalır)
 .freebuff/
 .vercel
+.env*
