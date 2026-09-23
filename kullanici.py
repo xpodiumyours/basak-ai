@@ -27,6 +27,7 @@ KULLANICI_DOSYA = None  # None = state_kok()/kullanicilar.json (test patch edebi
 _PBKDF2_TUR = "pbkdf2-sha256"
 _PBKDF2_TUR_SAYISI = 200000
 _OTURUM_OMUR = 7 * 24 * 3600  # 7 gün
+_ANONIM_RAKAM = 16
 _OTURUM_COOKIE = "basak_oturum"
 
 
@@ -124,6 +125,24 @@ def kullanici_ekle(ad, sifre, varsa_guncelle=False):
     veri[slug] = {"hash": hash_le(sifre), "ad": str(ad or "").strip()}
     _kaydet(veri)
     return slug
+
+
+def yeni_anonim_kimlik():
+    """Kayıt gerektirmeyen web kullanıcısı için rastgele kimlik üretir.
+
+    Kimlik tek başına oturum açmaz; erişim imzalı HttpOnly çerez ile
+    doğrulanır. `casper` hiçbir zaman otomatik üretilmez.
+    """
+    return "u" + "".join(str(secrets.randbelow(10)) for _ in range(_ANONIM_RAKAM))
+
+
+def gorunur_kimlik(kid):
+    """Anonim kimliği kullanıcıya okunabilir gruplar halinde gösterir."""
+    ham = str(kid or "")
+    if ham.startswith("u") and ham[1:].isdigit():
+        rakam = ham[1:]
+        return " ".join(rakam[i:i + 4] for i in range(0, len(rakam), 4))
+    return ham
 
 
 # ── Oturum jetonu (imzalı cookie — bellek tutmaz, Vercel'de çalışır) ──

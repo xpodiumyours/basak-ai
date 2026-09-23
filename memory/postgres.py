@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 _TABLO = "basak_memories"
 _META = "basak_memory_meta"
-_MIGRASYON_ANAHTARI = "legacy_memories_v1"
+_TEMIZ_BASLANGIC_ANAHTARI = "memory_clean_start_v2"
 
 _STOP_WORDS = {
     "ve", "veya", "ile", "icin", "için", "olan", "olmasi", "olması",
@@ -118,27 +118,25 @@ class PostgresHafizaMotoru:
                     "ON basak_memories USING hnsw (embedding vector_cosine_ops)"
                 )
             conn.commit()
-        self._eski_anilari_tasi()
+        self._temiz_baslangic_sagla()
 
-    def _eski_anilari_tasi(self):
-        """23 Eylul Neon olcumundeki legacy `memories` tablosunu korur.
+    def _temiz_baslangic_sagla(self):
+        """2026-09-23 temiz başlangıcını veritabanında yalnız bir kez uygular.
 
-        Yalniz casper icin, tek transaction ve tek sefer. Eski olcum
-        vektorleri bilincli olarak tasinmaz; gercek vektorler normal
-        geri-doldurma yolunda yeniden uretilir. Advisory lock, iki soguk
-        baslangicin ayni 61 kaydi iki kez tasimasini engeller.
+        Önceki çoklu-oturum denemesindeki tüm kalıcı hafıza kayıtları ve
+        61 kayıtlık legacy kaynak silinir. Sonraki soğuk başlangıçlarda
+        sistem işareti görülür ve yeni kullanıcı hafızalarına dokunulmaz.
+        Advisory lock eşzamanlı Vercel başlangıçlarını tek işleme indirir.
         """
-        if self.kullanici_id != "casper":
-            return
         with self._baglan() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT pg_advisory_xact_lock(hashtext("
-                    "'basak_legacy_memories_v1'))")
+                    "'basak_memory_clean_start_v2'))")
                 cur.execute(
                     "SELECT deger FROM basak_memory_meta "
                     "WHERE user_id=%s AND anahtar=%s",
-                    (self.kullanici_id, _MIGRASYON_ANAHTARI),
+                    ("__system__", _TEMIZ_BASLANGIC_ANAHTARI),
                 )
                 marker = cur.fetchone()
                 if marker is not None:
@@ -149,87 +147,25 @@ class PostgresHafizaMotoru:
                     except (json.JSONDecodeError, TypeError):
                         pass
 
-                cur.execute(
-                    "SELECT COUNT(*) FROM basak_memories WHERE user_id=%s",
-                    (self.kullanici_id,),
-                )
-                if int(cur.fetchone()[0]) > 0:
-                    self._meta_koy_cur(cur, _MIGRASYON_ANAHTARI, True)
-                    conn.commit()
-                    return
-                # Kaynak adaylari: 23 Eylul olcum tablosu (basak.anilar)
-                # ve public.memories (eski SQLite bicimi).
-                kaynak_schema = kaynak_tablo = None
-                for sch, tab in (("basak", "anilar"), ("public", "memories")):
-                    cur.execute(
-                        "SELECT to_regclass(%s)",
-                        ("%s.%s" % (sch, tab),),
-                    )
+                cur.execute("DELETE FROM basak_memories")
+                cur.execute("DELETE FROM basak_memory_meta")
+
+                for tablo in ("basak.anilar", "public.memories"):
+                    cur.execute("SELECT to_regclass(%s)", (tablo,))
                     if cur.fetchone()[0] is not None:
-                        kaynak_schema, kaynak_tablo = sch, tab
-                        break
-                if kaynak_tablo is None:
-                    self._meta_koy_cur(cur, _MIGRASYON_ANAHTARI, True)
-                    conn.commit()
-                    return
-                cur.execute(
-                    "SELECT column_name, data_type FROM information_schema.columns "
-                    "WHERE table_schema=%s AND table_name=%s",
-                    (kaynak_schema, kaynak_tablo),
-                )
-                kolonlar = {ad: tur for ad, tur in cur.fetchall()}
-                if "kind" not in kolonlar or "text" not in kolonlar:
-                    logger.warning("Legacy memories semasi taninmadi; tasima atlandi")
-                    conn.rollback()
-                    return
+                        if tablo == "basak.anilar":
+                            cur.execute('DELETE FROM "basak"."anilar"')
+                        else:
+                            cur.execute('DELETE FROM "public"."memories"')
 
-                kaynak = "COALESCE(source, '')" if "source" in kolonlar else "''"
-                speaker = "COALESCE(speaker, '')" if "speaker" in kolonlar else "''"
-                onem = "COALESCE(onem, 1)" if "onem" in kolonlar else "1"
-                if "created_at" in kolonlar:
-                    tur = (kolonlar.get("created_at") or "").lower()
-                    if "timestamp" in tur:
-                        zaman = "EXTRACT(EPOCH FROM created_at)"
-                    else:
-                        zaman = "created_at::double precision"
-                else:
-                    zaman = "EXTRACT(EPOCH FROM now())"
-
-                if "id" in kolonlar:
-                    sirala = "id"
-                elif "created_at" in kolonlar:
-                    sirala = "created_at"
-                else:
-                    sirala = "text"
-                # Bu parcalar kullanicidan gelmez; yalniz information_schema
-                # icinden onceden izinli kolon adlarina gore secilir.
-                sql = (
-                    "INSERT INTO basak_memories "
-                    "(user_id, kind, text, source, created_at, speaker, onem, embedding) "
-                    "SELECT %s, kind, text, " + kaynak + ", " + zaman + ", "
-                    + speaker + ", " + onem + ", NULL "
-                    'FROM "' + kaynak_schema + '"."' + kaynak_tablo + '" '
-                    "ORDER BY " + sirala
-                )
-                cur.execute(sql, (self.kullanici_id,))
                 cur.execute(
-                    "SELECT COUNT(*) FROM basak_memories WHERE user_id=%s",
-                    (self.kullanici_id,),
-                )
-                tasinan = int(cur.fetchone()[0])
-                if tasinan <= 0:
-                    logger.warning(
-                        "Legacy tasima bos sonuclandi (%s.%s)",
-                        kaynak_schema, kaynak_tablo,
-                    )
-                    conn.rollback()
-                    return
-                self._meta_koy_cur(cur, _MIGRASYON_ANAHTARI, True)
-                logger.info(
-                    "Legacy tasima: %s kayit %s.%s -> basak_memories",
-                    tasinan, kaynak_schema, kaynak_tablo,
+                    "INSERT INTO basak_memory_meta (user_id, anahtar, deger) "
+                    "VALUES (%s,%s,%s)",
+                    ("__system__", _TEMIZ_BASLANGIC_ANAHTARI,
+                     json.dumps(True, ensure_ascii=False)),
                 )
             conn.commit()
+        logger.info("Basak hafizasi temiz baslangic v2 ile sifirlandi")
 
     def _embed(self, metin, gorev="RETRIEVAL_DOCUMENT"):
         if self._embed_fn is None:
