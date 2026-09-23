@@ -18,8 +18,29 @@ logger = logging.getLogger(__name__)
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SETTINGS_FILE = os.path.join(BASE, "ayarlar.json")
-STATE_DIR = os.environ.get("BASAK_STATE_DIR") or os.path.join(BASE, "data")
-AUDIT_DOSYASI = os.path.join(STATE_DIR, "audit", "audit.log")
+# 2026-09-23: bu iki yol modul yuklenirken SABITLENIYORDU. BASAK_STATE_DIR
+# surec ortasinda degisince (Vercel'de app.py istek oncesi kuruyor, testler
+# her testte baskasina isaret ediyor) beyin ESKI koke yazmaya devam ediyor,
+# tools/saglik.py ise YENI kokten okuyordu — saglik raporu gercek denetim
+# kaydini gormuyordu. Artik cagri aninda cozuluyor.
+# Eski adlar duruyor: 30'dan fazla test bunlari monkeypatch ediyor; None
+# birakilip fonksiyondan turetiliyor (deponun kendi deseni, bkz. kullanici.py).
+STATE_DIR = None
+AUDIT_DOSYASI = None
+
+
+def state_dir():
+    """Durum koku — cagri aninda cozulur, modul yuklenirken degil."""
+    if STATE_DIR:
+        return STATE_DIR
+    return os.environ.get("BASAK_STATE_DIR") or os.path.join(BASE, "data")
+
+
+def audit_dosyasi():
+    """Denetim kaydi dosyasi — tools/saglik.py ile ayni yol."""
+    if AUDIT_DOSYASI:
+        return AUDIT_DOSYASI
+    return os.path.join(state_dir(), "audit", "audit.log")
 
 
 def _audit(mesaj: str):
@@ -29,9 +50,9 @@ def _audit(mesaj: str):
     Bu log modelden etkilenmez — Policy Core prensibi.
     """
     try:
-        os.makedirs(os.path.dirname(AUDIT_DOSYASI), exist_ok=True)
+        os.makedirs(os.path.dirname(audit_dosyasi()), exist_ok=True)
         zaman = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(AUDIT_DOSYASI, "a", encoding="utf-8") as f:
+        with open(audit_dosyasi(), "a", encoding="utf-8") as f:
             f.write(f"{zaman} | {mesaj}\n")
     except OSError as e:
         logger.warning("Audit yazilamadi: %s", e)
