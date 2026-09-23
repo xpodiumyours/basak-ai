@@ -78,6 +78,89 @@ def _uretim_kapisi_hazir():
                 or (os.environ.get("BASAK_WEB_TOKEN") or "").strip())
 
 
+
+_HAFIZA_SIFIRLAMA_ANAHTARI = "clean_start_20260923_v1"
+
+
+def _hafizayi_bir_kez_sifirla():
+    """Canlı hafızayı bir kez tamamen boşaltır ve eski 61 testi geri getirmez.
+
+    Kullanıcı isteğiyle 23 Eylül 2026'da temiz başlangıç kararı alındı.
+    İşlem üretimde advisory lock ile tek kez yapılır. Eski ölçüm kaynakları
+    da temizlenir; böylece memory/postgres.py içindeki eski taşıma yolu
+    daha sonra 61 kaydı yeniden içeri alamaz.
+    """
+    import kullanici as kullanici_modulu
+
+    if not kullanici_modulu.uretim_mi():
+        return True
+
+    dsn = ""
+    for ad in ("DATABASE_URL", "POSTGRES_URL", "NEON_DATABASE_URL"):
+        dsn = (os.environ.get(ad) or "").strip()
+        if dsn:
+            break
+    if not dsn:
+        return False
+
+    try:
+        import psycopg
+        with psycopg.connect(
+            dsn, autocommit=False, connect_timeout=10
+        ) as conn:
+            try:
+                conn.prepare_threshold = None
+            except Exception:
+                pass
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT pg_advisory_xact_lock(hashtext("
+                    "'basak_clean_start_20260923_v1'))"
+                )
+                cur.execute(
+                    "CREATE TABLE IF NOT EXISTS basak_memory_meta ("
+                    " user_id TEXT NOT NULL,"
+                    " anahtar TEXT NOT NULL,"
+                    " deger TEXT NOT NULL,"
+                    " PRIMARY KEY (user_id, anahtar)"
+                    ")"
+                )
+                cur.execute(
+                    "SELECT deger FROM basak_memory_meta "
+                    "WHERE user_id=%s AND anahtar=%s",
+                    ("__system__", _HAFIZA_SIFIRLAMA_ANAHTARI),
+                )
+                satir = cur.fetchone()
+                if satir is not None and str(satir[0]).strip().lower() == "true":
+                    conn.commit()
+                    return True
+
+                # Aktif kullanıcı hafızası.
+                cur.execute("SELECT to_regclass(%s)", ("public.basak_memories",))
+                if cur.fetchone()[0] is not None:
+                    cur.execute("DELETE FROM public.basak_memories")
+
+                # 61 deneme anısının geldiği eski kaynaklar.
+                cur.execute("SELECT to_regclass(%s)", ("basak.anilar",))
+                if cur.fetchone()[0] is not None:
+                    cur.execute('DELETE FROM "basak"."anilar"')
+                cur.execute("SELECT to_regclass(%s)", ("public.memories",))
+                if cur.fetchone()[0] is not None:
+                    cur.execute("DELETE FROM public.memories")
+
+                # Eski kişi/meta işaretleri de yeni başlangıca taşınmaz.
+                cur.execute("DELETE FROM basak_memory_meta")
+                cur.execute(
+                    "INSERT INTO basak_memory_meta "
+                    "(user_id, anahtar, deger) VALUES (%s,%s,%s)",
+                    ("__system__", _HAFIZA_SIFIRLAMA_ANAHTARI, "true"),
+                )
+            conn.commit()
+        return True
+    except Exception:
+        return False
+
+
 def _kimlik(request: Request):
     """Istegin kisi kimligi; None = 401/503 gerekir.
 
@@ -90,6 +173,9 @@ def _kimlik(request: Request):
     """
     import kullanici as kullanici_modulu
     from chat.kimlik import VARSAYILAN_KULLANICI, kullanici_kur
+
+    if kullanici_modulu.uretim_mi() and not _hafizayi_bir_kez_sifirla():
+        return None
 
     token = request.cookies.get(kullanici_modulu.cookie_adi()) or ""
     try:
@@ -111,7 +197,13 @@ def _kimlik(request: Request):
 
 
 def _giris_engeli():
-    """401 — ama uretimde hic anahtar/token yoksa karar verilemez: 503."""
+    """Kimlik veya temiz başlangıç hazır değilse güvenli biçimde dur."""
+    import kullanici as kullanici_modulu
+    if kullanici_modulu.uretim_mi() and not _hafizayi_bir_kez_sifirla():
+        return JSONResponse(
+            {"error": "kalici hafiza temiz baslangica hazirlanamadi"},
+            status_code=503,
+        )
     if not _uretim_kapisi_hazir():
         return JSONResponse(
             {"error": "sunucu kimlik dogrulayamiyor: BASAK_OTURUM_ANAHTARI "
@@ -195,6 +287,56 @@ def _gorsel_kaydet(ek):
         "tur": "image",
         "path": yol,
     }
+
+
+
+def _oturum_cerezi(resp, kid):
+    """Kimliği JS'nin okuyamadığı imzalı çerezde bir yıl korur."""
+    import kullanici as kullanici_modulu
+
+    token = kullanici_modulu.oturum_tokeni_uret(
+        kid, omur_sn=365 * 24 * 3600
+    )
+    resp.set_cookie(
+        kullanici_modulu.cookie_adi(), token,
+        max_age=365 * 24 * 3600,
+        path="/",
+        httponly=True,
+        secure=kullanici_modulu.uretim_mi(),
+        samesite="lax",
+    )
+    return resp
+
+
+@app.post("/api/kimlik")
+async def kimlik_hazirla(request: Request):
+    """Kayıt/giriş olmadan tarayıcıya ayrı ve kalıcı Başak ID verir."""
+    import kullanici as kullanici_modulu
+    from chat.kimlik import kullanici_kur
+
+    if kullanici_modulu.uretim_mi() and not _hafizayi_bir_kez_sifirla():
+        return _giris_engeli()
+
+    kid = _kimlik(request)
+    if kid is None:
+        if not _uretim_kapisi_hazir():
+            return _giris_engeli()
+        try:
+            kid = kullanici_modulu.yeni_anonim_kimlik()
+            kullanici_kur(kid)
+        except RuntimeError:
+            return _giris_engeli()
+
+    try:
+        resp = JSONResponse({
+            "ok": True,
+            "kullanici": kid,
+            "basak_id": kullanici_modulu.gorunur_kimlik(kid),
+            "kayit_gerekli": False,
+        }, headers={"Cache-Control": "no-store"})
+        return _oturum_cerezi(resp, kid)
+    except RuntimeError:
+        return _giris_engeli()
 
 
 @app.get("/api/durum")
@@ -373,7 +515,8 @@ async def cikis():
         {"ok": True}, headers={"Cache-Control": "no-store"})
     resp.set_cookie(
         kullanici_modulu.cookie_adi(), "",
-        max_age=0, path="/", httponly=True, samesite="lax",
+        max_age=0, path="/", httponly=True,
+        secure=kullanici_modulu.uretim_mi(), samesite="lax",
     )
     return resp
 

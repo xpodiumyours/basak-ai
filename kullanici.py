@@ -128,6 +128,25 @@ def kullanici_ekle(ad, sifre, varsa_guncelle=False):
 
 # ── Oturum jetonu (imzalı cookie — bellek tutmaz, Vercel'de çalışır) ──
 
+
+def yeni_anonim_kimlik():
+    """Kayıt gerektirmeyen web kullanıcısı için rastgele kimlik üretir.
+
+    Görünen ID yetkilendirme anahtarı değildir; erişim imzalı HttpOnly
+    çerez ile doğrulanır. "casper" hiçbir zaman otomatik üretilmez.
+    """
+    return "u" + "".join(str(secrets.randbelow(10)) for _ in range(16))
+
+
+def gorunur_kimlik(kid):
+    """Anonim kimliği kullanıcıya okunabilir gruplar halinde gösterir."""
+    ham = str(kid or "")
+    if ham.startswith("u") and ham[1:].isdigit():
+        rakam = ham[1:]
+        return " ".join(rakam[i:i + 4] for i in range(0, len(rakam), 4))
+    return ham
+
+
 def env_anahtari():
     """Ortamdan gelen oturum anahtarı (yoksa boş metin)."""
     return (os.environ.get("BASAK_OTURUM_ANAHTARI")

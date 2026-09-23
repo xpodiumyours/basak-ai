@@ -20,12 +20,19 @@ const sidebarToggleEl = document.getElementById("sidebarToggle");
 const sidebarBackdropEl = document.getElementById("sidebarBackdrop");
 const kimlikSatirEl = document.getElementById("kimlikSatir");
 const kullaniciAdEl = document.getElementById("kullaniciAd");
-const cikisButonEl = document.getElementById("cikisYap");
 
-const CHATS_KEY = "basak_cloud_chats_v1";
-const ACTIVE_KEY = "basak_cloud_active_chat";
-const LEGACY_KEY = "basak_cloud_history";
-const KIMLIK_ANAHTAR = "basak_kullanici";
+const CHATS_BASE = "basak_cloud_chats_v2";
+const ACTIVE_BASE = "basak_cloud_active_chat_v2";
+const UYARI_NOTU = "Başak hata yapabilir. Önemli bilgileri doğrulayın.";
+
+function kimlikDegeri() {
+  return String(window.basakKimlik?.kullanici || "").trim();
+}
+function depoAnahtari(taban) {
+  const kid = kimlikDegeri();
+  if (!kid) throw new Error("Başak kimliği hazır değil");
+  return taban + ":" + kid;
+}
 
 let seciliGorsel = null;
 let onizlemeUrl = "";
@@ -46,31 +53,18 @@ function sohbetBasligi(messages) {
 }
 
 function depoyuYukle() {
+  chats = [];
+  activeChatId = "";
+  bulutGecmisi = [];
   try {
-    const kayitli = JSON.parse(localStorage.getItem(CHATS_KEY) || "[]");
+    const kayitli = JSON.parse(
+      localStorage.getItem(depoAnahtari(CHATS_BASE)) || "[]"
+    );
     if (Array.isArray(kayitli)) chats = kayitli;
-  } catch {
-    chats = [];
-  }
-
-  activeChatId = localStorage.getItem(ACTIVE_KEY) || "";
-
-  if (!chats.length) {
-    try {
-      const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || "[]");
-      if (Array.isArray(legacy) && legacy.length) {
-        const id = sohbetId();
-        chats = [{
-          id,
-          title: sohbetBasligi(legacy),
-          messages: legacy,
-          updatedAt: Date.now(),
-        }];
-        activeChatId = id;
-        depoyuKaydet();
-      }
-    } catch {}
-  }
+  } catch {}
+  try {
+    activeChatId = localStorage.getItem(depoAnahtari(ACTIVE_BASE)) || "";
+  } catch {}
 
   const aktif = chats.find((c) => c.id === activeChatId);
   if (aktif && Array.isArray(aktif.messages)) {
@@ -83,10 +77,12 @@ function depoyuYukle() {
 
 function depoyuKaydet() {
   try {
-    localStorage.setItem(CHATS_KEY, JSON.stringify(chats));
-    if (activeChatId) localStorage.setItem(ACTIVE_KEY, activeChatId);
-    else localStorage.removeItem(ACTIVE_KEY);
-    localStorage.setItem(LEGACY_KEY, JSON.stringify(bulutGecmisi));
+    localStorage.setItem(depoAnahtari(CHATS_BASE), JSON.stringify(chats));
+    if (activeChatId) {
+      localStorage.setItem(depoAnahtari(ACTIVE_BASE), activeChatId);
+    } else {
+      localStorage.removeItem(depoAnahtari(ACTIVE_BASE));
+    }
   } catch {}
 }
 
@@ -433,7 +429,7 @@ async function yeniSohbet() {
   onizlemeTemizle();
   msgEl.value = "";
   msgEl.style.height = "auto";
-  notYaz("Enter gönderir · Shift+Enter yeni satır");
+  notYaz(UYARI_NOTU);
   gonderimDurumu();
   sidebarKapat();
   msgEl.focus();
@@ -507,7 +503,7 @@ async function send() {
     bubble("assistant", "Bir sorun oluştu: " + (err.message || err));
   } finally {
     gonderiliyor = false;
-    notYaz("Enter gönderir · Shift+Enter yeni satır");
+    notYaz(UYARI_NOTU);
     gonderimDurumu();
     msgEl.focus();
   }
@@ -557,7 +553,7 @@ function sesleYaz() {
   r.onend = () => {
     micEl.classList.remove("listening");
     if (composerNoteEl?.textContent === "Dinliyorum…") {
-      notYaz("Enter gönderir · Shift+Enter yeni satır");
+      notYaz(UYARI_NOTU);
     }
     msgEl.focus();
   };
@@ -582,27 +578,26 @@ if (sidebarToggleEl) sidebarToggleEl.addEventListener("click", sidebarAc);
 if (sidebarBackdropEl) sidebarBackdropEl.addEventListener("click", sidebarKapat);
 
 function kimligiCiz() {
-  let ad = "";
-  try { ad = localStorage.getItem(KIMLIK_ANAHTAR) || ""; } catch {}
-  if (!ad || !kimlikSatirEl || !kullaniciAdEl) return;
-  kullaniciAdEl.textContent = ad;
+  const d = window.basakKimlik;
+  if (!d || !kimlikSatirEl || !kullaniciAdEl) return;
+  kullaniciAdEl.textContent = "Başak ID · " + (d.basak_id || d.kullanici);
   kimlikSatirEl.hidden = false;
 }
 
-async function oturumuKapat() {
+async function baslat() {
   try {
-    await window.basakFetch("/api/cikis", { method: "POST" });
-  } catch {}
-  try { localStorage.removeItem(KIMLIK_ANAHTAR); } catch {}
-  location.href = "/giris.html";
+    await window.basakKimlikHazir;
+    depoyuYukle();
+    gecmisCiz();
+    sohbetiCiz();
+    autoResize();
+    gonderimDurumu();
+    kimligiCiz();
+    notYaz(UYARI_NOTU);
+    msgEl.focus();
+  } catch (e) {
+    notYaz("Başak kimliği oluşturulamadı. Sayfayı yenileyin.");
+    sendEl.disabled = true;
+  }
 }
-
-if (cikisButonEl) cikisButonEl.addEventListener("click", oturumuKapat);
-
-depoyuYukle();
-gecmisCiz();
-sohbetiCiz();
-autoResize();
-gonderimDurumu();
-kimligiCiz();
-msgEl.focus();
+baslat();

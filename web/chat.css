@@ -392,3 +392,19 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   .quick-actions{gap:6px}
   .quick-chip{padding:8px 10px}
 }
+
+
+/* Başak anonim ID + yapay zekâ bilgilendirme katmanı */
+.identity-row{margin-bottom:7px;color:#66666d;font-size:10.5px;font-weight:650;letter-spacing:.01em}
+.sidebar-links{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 7px}
+.sidebar-links a{text-decoration:underline;text-underline-offset:2px;color:#77777f}
+.ai-notice{
+  max-width:620px;margin:20px auto 0;padding:12px 14px;
+  border:1px solid rgba(220,220,224,.9);border-radius:14px;
+  background:rgba(255,255,255,.68);color:#696970;
+  font-size:11.5px;line-height:1.5;text-align:left
+}
+.ai-notice strong{color:#47474d}
+.ai-notice a,.composer-note a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.composer-note{line-height:1.35}
+@media(max-width:760px){.ai-notice{margin:16px 8px 0;font-size:11px}}

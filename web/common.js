@@ -1,19 +1,16 @@
-// common.js — saglik bilgisi + token akisi.
-// Dis erisimde (LAN/internet) kopru token ister: bir kez sorar,
-// localStorage'a yazar, sonra her HTTP isteginde tasir.
-// Sormadan kutu cikarmaz: kod yalniz 401'de istenir.
-//
-// NOT: HTTP basliklari yalniz ISO-8859-1 (tek bayt) tasiyabilir.
-// Kullanici Turkce karakter/bosluk yapistirirsa fetch BASLIK OKUMADA
-// patlar ("non ISO-8859-1 code point") — istek hic gitmez, ekranda
-// "Hata: Failed to execute fetch" gorunur. Bu yuzden kod her yazimda
-// ve her okumada suzulur; sadece tek bayt gecerli karakterler kalir.
+// common.js — kayıt zorunluluğu olmadan kullanıcı ayrımı + sağlık bilgisi.
+// İlk ziyarette sunucu rastgele Başak ID üretir. Yetki, ID numarasıyla değil
+// imzalı HttpOnly çerezle doğrulanır.
+
+window.basakKimlik = null;
+window.basakLegacyBridge = false;
+let kimlikPromise = null;
+let basakTokenSoruldu = false;
+
 window.basakTokenTemiz = (s) =>
   String(s || "").split("").filter((c) => c.charCodeAt(0) <= 255).join("");
-
 window.basakToken = () =>
   window.basakTokenTemiz(localStorage.getItem("basak_token") || "");
-
 window.basakKodIste = () => {
   const ham = prompt("Başak köprüsü erişim kodu (token):") || "";
   const t = window.basakTokenTemiz(ham).trim();
@@ -21,42 +18,77 @@ window.basakKodIste = () => {
   return t;
 };
 
-// giris.html'de miyiz? (401 yonlendirmesinde sonsuz dongu korumasi)
-window.basakGirisSayfasi = () => {
-  const parca = location.pathname.split("/").pop() || "";
-  return parca === "giris.html" || parca === "giris";
-};
+async function kimlikHazirla(zorla = false) {
+  if (kimlikPromise && !zorla) return kimlikPromise;
 
-let basakTokenSoruldu = false; // sayfa omrunde koprü token'i bir kez sorulur
+  kimlikPromise = (async () => {
+    const r = await fetch("/api/kimlik", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    let d = {};
+    try { d = await r.json(); } catch {}
+    if (r.status === 404) {
+      // Yerel eski köprü /api/kimlik bilmiyorsa özel yerel oturum korunur.
+      window.basakLegacyBridge = true;
+      d = { ok: true, kullanici: "casper", basak_id: "Yerel / özel oturum", legacy: true };
+    } else if (!r.ok || !d.ok || !d.kullanici) {
+      throw new Error(d.error || "Başak kimliği oluşturulamadı.");
+    }
+    window.basakKimlik = d;
+    try {
+      localStorage.setItem("basak_son_kullanici", String(d.kullanici));
+      localStorage.setItem("basak_son_id", String(d.basak_id || d.kullanici));
+    } catch {}
+    window.dispatchEvent(new CustomEvent("basak:kimlik", { detail: d }));
+    return d;
+  })();
+
+  try {
+    return await kimlikPromise;
+  } catch (e) {
+    kimlikPromise = null;
+    throw e;
+  }
+}
+window.basakKimlikHazir = kimlikHazirla();
 
 window.basakFetch = async (yol, secenek = {}) => {
-  const t = window.basakToken();
-  const basliklar = { ...(secenek.headers || {}) };
-  if (t) basliklar["X-Basak-Token"] = t;
-  let r = await fetch(yol, {
-    credentials: "same-origin", ...secenek, headers: basliklar,
-  });
-  if (r.status === 401) {
-    // Tek 401 akisi: "token gecersiz" → eski localStorage token yolu
-    // (bir kez sor, kaydet, yenile); "giris gerekli" ve diger 401'ler
-    // → giris.html (giris sayfasinda zatenysak yonlendirmeyiz).
-    let hata = "";
-    try { hata = (await r.clone().json()).error || ""; } catch (x) {}
-    if (hata === "token gecersiz" && !basakTokenSoruldu) {
-      basakTokenSoruldu = true;
-      const y = window.basakKodIste();
-      if (y) {
-        location.reload();
-        return r;
-      }
+  if (yol !== "/api/kimlik") await window.basakKimlikHazir;
+
+  const kos = () => {
+    const basliklar = { ...(secenek.headers || {}) };
+    if (window.basakLegacyBridge) {
+      const t = window.basakToken();
+      if (t) basliklar["X-Basak-Token"] = t;
     }
-    if (!window.basakGirisSayfasi()) location.href = "/giris.html";
+    return fetch(yol, { credentials: "same-origin", ...secenek, headers: basliklar });
+  };
+
+  let r = await kos();
+  if (r.status === 401 && yol !== "/api/kimlik") {
+    let hata = "";
+    try { hata = (await r.clone().json()).error || ""; } catch {}
+    if (window.basakLegacyBridge && hata === "token gecersiz" && !basakTokenSoruldu) {
+      basakTokenSoruldu = true;
+      if (window.basakKodIste()) r = await kos();
+      return r;
+    }
+    if (!window.basakLegacyBridge) {
+      window.basakKimlikHazir = kimlikHazirla(true);
+      await window.basakKimlikHazir;
+      r = await kos();
+    }
   }
   return r;
 };
 
 async function basakHealth() {
   try {
+    await window.basakKimlikHazir;
     const r = await window.basakFetch("/api/durum", { cache: "no-store" });
     const dot = document.getElementById("healthDot");
     const text = document.getElementById("healthText");
@@ -67,70 +99,12 @@ async function basakHealth() {
     window.basakRuntime = d.runtime || "local";
     const imagePick = document.getElementById("imagePick");
     if (imagePick) imagePick.hidden = window.basakRuntime !== "vercel";
-    const runtimeNote = document.getElementById("runtimeNote");
-    if (runtimeNote) runtimeNote.firstChild.textContent = window.basakRuntime === "vercel" ?
-      "Bulut Başak çalışıyor; bilgisayarın açık olmak zorunda değil. " :
-      "Yerel Başak köprüsü çalışıyor. ";
     if (text) {
-      if (r.status === 401) {
-        text.textContent = "Kod gerekli";
-      } else if (!ok || !d.ok) {
-        text.textContent = "Köprü hatası";
-      } else {
+      if (!ok || !d.ok) text.textContent = "Köprü hatası";
+      else {
         const sag = (d.saglayicilar || []).join(", ") || "model yok";
         text.textContent = "Hazır · " + sag + " · " +
           (d.arac_sayisi || 0) + " araç · " + (d.commit || "?");
-      }
-    }
-
-    const bar = document.getElementById("modelBarAlt")
-      || document.getElementById("modelBar");
-    if (bar) {
-      bar.textContent = "";
-      for (const m of (d.modeller || [])) {
-        const chip = document.createElement("div");
-        chip.className = "modelchip";
-        const ad = document.createElement("strong");
-        ad.textContent = m.ad;
-        chip.appendChild(ad);
-
-        const model = m.model && m.model !== "dogrulanamadi" ?
-          " · " + m.model : "";
-        const guc = document.createTextNode(
-          model + " · " + ((m.gucleri || []).join("/") || "genel"));
-        chip.appendChild(guc);
-
-        const l = m.limit || {};
-        const k = m.kullanim || {};
-        const parca = [];
-        if (l.saatlik_istek) parca.push((k.saat || 0) + "/" +
-          l.saatlik_istek + " saat");
-        if (l.gunluk_istek) parca.push((k.gun || 0) + "/" +
-          l.gunluk_istek + " gün");
-        if (l.aylik_istek) parca.push((k.ay || 0) + "/" +
-          l.aylik_istek + " ay");
-        if (l.gunluk_token) parca.push((k.bugun_token || 0) + "/" +
-          l.gunluk_token + " token");
-        if (!parca.length) parca.push("kota: sağlayıcı dinamik");
-
-        const q = document.createElement("span");
-        q.className = "quota";
-        q.textContent = parca.join(" · ");
-        chip.appendChild(q);
-        bar.appendChild(chip);
-      }
-      const eksik = d.eksik_saglayicilar || [];
-      if (eksik.length) {
-        const chip = document.createElement("div");
-        chip.className = "modelchip";
-        const ad = document.createElement("strong");
-        ad.textContent = "Bağlı değil";
-        chip.appendChild(ad);
-        const q = document.createElement("span");
-        q.className = "quota";
-        q.textContent = eksik.join(", ");
-        chip.appendChild(q);
-        bar.appendChild(chip);
       }
     }
     return ok && !!d.ok;
@@ -141,8 +115,14 @@ async function basakHealth() {
   }
 }
 window.basakHealth = basakHealth;
-basakHealth();
-setInterval(basakHealth, 30000);
 
-// Ilk yukleme kimlik kapisi: 401 donerse basakFetch giris.html'e yonlendirir.
-window.basakFetch("/api/sohbetler", { cache: "no-store" }).catch(() => {});
+window.basakKimlikHazir
+  .then(() => {
+    basakHealth();
+    setInterval(basakHealth, 30000);
+    return window.basakFetch("/api/sohbetler", { cache: "no-store" });
+  })
+  .catch(() => {
+    const text = document.getElementById("healthText");
+    if (text) text.textContent = "Kimlik oluşturulamadı";
+  });

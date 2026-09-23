@@ -42,6 +42,9 @@ def kisilik_blogu(kid=None, misafir=False):
     ad = gorunur_ad(kid)
     if kid == VARSAYILAN_KULLANICI:
         return "Sen Basak'sin, Casper'in kisisel asistanisin. Turkce konus."
+    ham = str(kid or "")
+    if ham.startswith("u") and ham[1:].isdigit():
+        return "Sen Basak'sin. Bu kullaniciya ait ayri oturumdasin. Turkce konus."
     return "Sen Basak'sin, %s adli kullanicinin kisisel asistanisin. Turkce konus." % ad
 
 
