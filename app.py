@@ -8,6 +8,7 @@ gecer. Vercel'de kalici disk varsayilmaz; tarayici gecmisi istekte tasir.
 import asyncio
 import base64
 import binascii
+import hmac
 import json
 import os
 import tempfile
@@ -44,20 +45,64 @@ def _cekirdek():
     return _BEYIN, _TOOLS
 
 
-def _kimlik(request: Request):
-    """Istegin kisi kimligi; None = 401 gerekir.
+def _token_kimligi(request: Request):
+    """X-Basak-Token dogruysa varsayilan kisi, degilse None.
 
-    Once imzali cookie; gecerliyse chat.kimlik contextvar'ina kurulur.
-    Kullanici tablosu bosken tek-kullanici modu (casper) — eski
-    yerel/test davranisi bozulmaz.
+    Uretimde ad+sifre girisi henuz yok (kullanici tablosu gecici diskte,
+    kalici degil). Bu yuzden ortam tokeni tek gecerli ikinci kapidir.
+    Karsilastirma hmac.compare_digest ile yapilir; gelen deger ASCII disi
+    ise (or. "Basak123" icindeki Turkce s) compare_digest TypeError
+    firlatir ve istek 500 doner — olculdu 2026-09-23. ASCII disi deger
+    zaten gecersizdir: cokme yerine None.
+    """
+    from chat.kimlik import VARSAYILAN_KULLANICI
+
+    beklenen = (os.environ.get("BASAK_WEB_TOKEN") or "").strip()
+    if not beklenen or not beklenen.isascii():
+        return None
+    gelen = (request.headers.get("X-Basak-Token") or "").strip()
+    if not gelen or not gelen.isascii():
+        return None
+    if not hmac.compare_digest(gelen, beklenen):
+        return None
+    return VARSAYILAN_KULLANICI
+
+
+def _uretim_kapisi_hazir():
+    """Uretimde kimlik karari verilebilir mi? (anahtar veya token var mi)"""
+    import kullanici as kullanici_modulu
+
+    if not kullanici_modulu.uretim_mi():
+        return True
+    return bool(kullanici_modulu.env_anahtari()
+                or (os.environ.get("BASAK_WEB_TOKEN") or "").strip())
+
+
+def _kimlik(request: Request):
+    """Istegin kisi kimligi; None = 401/503 gerekir.
+
+    Sira: (1) gecerli imzali oturum cerezi, (2) uretimde dogru
+    X-Basak-Token, (3) yerelde kullanici tablosu bosken tek-kullanici
+    modu (casper — eski yerel/test davranisi bozulmaz).
+
+    Uretimde VARSAYILAN_KULLANICI dususu YOKTUR: tablo bulutta her zaman
+    bos oldugundan o dusus kapiyi herkese aciyordu (olculdu 2026-09-23).
     """
     import kullanici as kullanici_modulu
     from chat.kimlik import VARSAYILAN_KULLANICI, kullanici_kur
 
     token = request.cookies.get(kullanici_modulu.cookie_adi()) or ""
-    kid = kullanici_modulu.oturum_coz(token)
+    try:
+        kid = kullanici_modulu.oturum_coz(token) if token else None
+    except RuntimeError:
+        # Uretimde oturum anahtari yok — imza dogrulanamaz, kabul edilmez.
+        kid = None
     if kid is None:
-        if not kullanici_modulu.giris_zorunlu_mu():
+        if kullanici_modulu.uretim_mi():
+            kid = _token_kimligi(request)
+            if kid is None:
+                return None
+        elif not kullanici_modulu.giris_zorunlu_mu():
             kid = VARSAYILAN_KULLANICI
         else:
             return None
@@ -66,6 +111,13 @@ def _kimlik(request: Request):
 
 
 def _giris_engeli():
+    """401 — ama uretimde hic anahtar/token yoksa karar verilemez: 503."""
+    if not _uretim_kapisi_hazir():
+        return JSONResponse(
+            {"error": "sunucu kimlik dogrulayamiyor: BASAK_OTURUM_ANAHTARI "
+                      "veya BASAK_WEB_TOKEN ortam degiskeni tanimli degil"},
+            status_code=503,
+        )
     return JSONResponse({"error": "giris gerekli"}, status_code=401)
 
 
@@ -147,6 +199,12 @@ def _gorsel_kaydet(ek):
 
 @app.get("/api/durum")
 async def durum(request: Request):
+    # 2026-09-23: bu uc kimliksizdi — saglayici listesi, model adlari,
+    # commit sha ve arac sayisi tokensiz okunabiliyordu. Canlidaki eski
+    # surum (a98ee76) bu ucu koruyordu; kisi-hafiza commit'inde koruma
+    # dustu. Olculdu ve geri konuldu.
+    if _kimlik(request) is None:
+        return _giris_engeli()
     beyin, tools = _cekirdek()
     try:
         zincir = beyin._bulut_zinciri(tools=True)

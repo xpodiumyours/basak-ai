@@ -6,6 +6,10 @@ Kurallar:
 - Oturum: imzalı HttpOnly cookie (Vercel'de de çalışır; bellek tutmaz).
 - Tablo boş/yoksa tek-kullanıcı modu: herkes `casper` (eski davranış);
   ilk kullanıcı eklenince giriş zorunlu olur.
+- ÜRETİM (Vercel/BASAK_URETIM) bunun İSTİSNASIDIR: orada tablo geçici
+  klasörde durur, yani her zaman boştur. Ölçüldü 2026-09-23: tek-kullanıcı
+  modu bulutta kapıyı herkese açıyordu. Üretimde giriş HER ZAMAN zorunlu
+  ve oturum anahtarı ortam değişkeninden gelmek ZORUNDA (fail-closed).
 """
 
 import base64
@@ -24,6 +28,11 @@ _PBKDF2_TUR = "pbkdf2-sha256"
 _PBKDF2_TUR_SAYISI = 200000
 _OTURUM_OMUR = 7 * 24 * 3600  # 7 gün
 _OTURUM_COOKIE = "basak_oturum"
+
+
+def uretim_mi():
+    """Bulutta/üretimde mi çalışıyoruz? (Vercel ya da BASAK_URETIM)"""
+    return bool(os.environ.get("VERCEL") or os.environ.get("BASAK_URETIM"))
 
 
 def kullanici_dosyasi():
@@ -81,7 +90,14 @@ def kullanici_listesi():
 
 
 def giris_zorunlu_mu():
-    """Kayıtlı kullanıcı varsa web girişi zorunlu; yoksa tek-kullanıcı modu."""
+    """Üretimde her zaman zorunlu; yerelde kayıtlı kullanıcı varsa zorunlu.
+
+    Üretimde tablo geçici diskte durduğu için HER ZAMAN boş görünür;
+    "tablo boşsa tek-kullanıcı" kuralı orada kapıyı internete açar
+    (OWASP: karar verilemiyorsa reddet). Yerelde eski davranış aynen.
+    """
+    if uretim_mi():
+        return True
     return bool(kullanici_listesi())
 
 
@@ -112,11 +128,23 @@ def kullanici_ekle(ad, sifre, varsa_guncelle=False):
 
 # ── Oturum jetonu (imzalı cookie — bellek tutmaz, Vercel'de çalışır) ──
 
+def env_anahtari():
+    """Ortamdan gelen oturum anahtarı (yoksa boş metin)."""
+    return (os.environ.get("BASAK_OTURUM_ANAHTARI")
+            or os.environ.get("BASAK_WEB_TOKEN") or "").strip()
+
+
 def _anahtar():
-    anahtar = (os.environ.get("BASAK_OTURUM_ANAHTARI")
-               or os.environ.get("BASAK_WEB_TOKEN") or "").strip()
+    anahtar = env_anahtari()
     if anahtar:
         return anahtar.encode("utf-8")
+    if uretim_mi():
+        # Fail-closed: üretimde dosyaya anahtar ÜRETİLMEZ. Geçici disk her
+        # soğuk başlangıçta sıfırlanır; üretilen anahtar imzayı anlamsız
+        # kılar. Anahtar yoksa karar verilemez -> hata, sessiz açılma yok.
+        raise RuntimeError(
+            "Uretimde oturum anahtari yok: BASAK_OTURUM_ANAHTARI "
+            "(veya BASAK_WEB_TOKEN) ortam degiskeni tanimlanmali.")
     # Yerel: dosyada bir kez üretilir (gitignore'da), Vercel'de env şart.
     yol = os.path.join(state_kok(), "oturum.anahtar")
     try:
