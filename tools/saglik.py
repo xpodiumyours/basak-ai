@@ -10,10 +10,21 @@ import logging
 import os
 from collections import Counter
 
+from chat.kimlik import durum_yolu
+
 logger = logging.getLogger(__name__)
 
-BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-AUDIT_DOSYASI = os.path.join(BASE, "data", "audit", "audit.log")
+# 2026-09-23 olcumu: bu modul BASE/data/audit/audit.log okuyordu,
+# brain/brain.py ise durum koku altina YAZIYORDU — saglik raporu
+# gercek kaydi hic gormuyordu. Artik ikisi ayni yer.
+# None = durum kokunun audit/audit.log dosyasi; test patch edebilir.
+AUDIT_DOSYASI = None
+
+
+def audit_dosyasi():
+    """Denetim gunlugu: brain/brain.py'nin yazdigi dosyanin ta kendisi."""
+    return AUDIT_DOSYASI or os.path.join(durum_yolu("audit"), "audit.log")
+
 
 _GROQ_GUNLUK_JETON = 200000  # olculmus gunluk butce (429 mesajindan)
 
@@ -64,7 +75,7 @@ def saglik_raporu(audit_yolu=None, saat=24):
             min(99, int(giris * 100 / _GROQ_GUNLUK_JETON))))
     except Exception:
         pass
-    hatalar = _hata_ozeti(audit_yolu or AUDIT_DOSYASI)
+    hatalar = _hata_ozeti(audit_yolu or audit_dosyasi())
     if hatalar:
         cikti.append("Hata dagilimi: " + ", ".join(
             "%s=%d" % (k, v) for k, v in sorted(hatalar.items())))
