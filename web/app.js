@@ -195,7 +195,6 @@ function gorselBalonaEkle(b, file) {
 function sohbetiCiz() {
   chatEl.textContent = "";
   balonlar.clear();
-  canliSifirla();
 
   if (!bulutGecmisi.length) {
     if (heroEl) heroEl.hidden = false;
@@ -324,199 +323,25 @@ msgEl.addEventListener("input", () => {
 const balonlar = new Map();
 const uyu = (ms) => new Promise((coz) => setTimeout(coz, ms));
 
-// ── Canlı çalışma durumu (yan panel) ──────────────────────────────────
-// Kural: ekranda UYDURMA ADIM yoktur. Panel yalnız gerçek bir araç olayı
-// (toolStatus) geldiğinde doğar; araç kullanılmayan sıradan sohbette hiç
-// açılmaz. Adımlar çekirdeğin ürettiği olayların AYNISI ve sırasıdır
-// (chat/flow.py: thinking/parca/bitir, chat/tools.py: toolStatus).
-const rail = {
-  el: null, liste: null, baslik: null, sure: null, simdi: null,
-  soru: "", t0: 0, saat: 0, faz: -1, hata: false, cevap: false,
-};
-
-function masaustu() {
-  return window.matchMedia("(min-width: 761px)").matches;
-}
-
-// Araç durum metnini kullanıcıya gösterilecek güvenli etikete indirir.
-// Çekirdek "İnternette aranıyor: <detay>" biçiminde yol/klasör/sorgu
-// taşır (chat/tools.py _durum); detay hiçbir zaman ekrana çıkmaz.
-function guvenliDurum(metin) {
-  const ham = String(metin == null ? "" : metin).trim();
-  if (!ham) return "İşleniyor…";
-  const i = ham.indexOf(": ");
-  const etiket = (i > 0 ? ham.slice(0, i) : ham).replace(/[.…]+$/, "").trim();
-  return etiket || "İşleniyor…";
-}
-
-function sureYaz(ms) {
-  const t = Math.max(0, Math.floor(ms / 1000));
-  return String(Math.floor(t / 60)).padStart(2, "0") + ":" +
-    String(t % 60).padStart(2, "0");
-}
-
-function railKur() {
-  if (rail.el) return rail.el;
-
-  const el = document.createElement("aside");
-  el.className = "rail";
-  el.setAttribute("aria-label", "Başak'ın çalışma durumu");
-  el.innerHTML =
-    '<div class="rail-head">' +
-      '<span class="rail-eyebrow">ARAŞTIRMA</span>' +
-      '<span class="rail-clock">00:00</span>' +
-    '</div>' +
-    '<p class="rail-title"></p>' +
-    '<div class="rail-now">' +
-      '<span class="rail-now-label">ŞU ANDA</span>' +
-      '<span class="rail-now-text">Başak çalışıyor…</span>' +
-    '</div>' +
-    '<ol class="rail-steps"></ol>' +
-    '<div class="rail-phases">' +
-      '<span class="rail-pill" data-faz="0">Araştırma sürüyor</span>' +
-      '<span class="rail-pill" data-faz="1">Cevap geliyor</span>' +
-      '<span class="rail-pill" data-faz="2">Tamamlandı</span>' +
-    '</div>';
-
-  rail.el = el;
-  rail.baslik = el.querySelector(".rail-title");
-  rail.sure = el.querySelector(".rail-clock");
-  rail.simdi = el.querySelector(".rail-now-text");
-  rail.liste = el.querySelector(".rail-steps");
-  rail.baslik.textContent = rail.soru || "Başak çalışıyor";
-
-  if (masaustu()) {
-    const kabuk = document.querySelector(".app-shell");
-    if (kabuk) {
-      kabuk.classList.add("rail-acik");
-      kabuk.appendChild(el);
-    }
-  } else {
-    const dock = document.querySelector(".composer-dock");
-    if (dock) dock.insertBefore(el, dock.firstChild);
-  }
-
-  railFaz(0);
-  if (rail.t0) rail.sure.textContent = sureYaz(Date.now() - rail.t0);
-  return el;
-}
-
-function railFaz(i) {
-  if (!rail.el || rail.faz === i) return;
-  rail.faz = i;
-  rail.el.querySelectorAll(".rail-pill").forEach((p) => {
-    p.classList.toggle("aktif", Number(p.dataset.faz) === i);
-  });
-}
-
-function railAdim(metin) {
-  railKur();
-  const onceki = rail.liste.lastElementChild;
-  if (onceki) {
-    onceki.classList.remove("aktif");
-    onceki.classList.add("gecmis");
-  }
-  const li = document.createElement("li");
-  li.className = "rail-step aktif";
-  const nokta = document.createElement("span");
-  nokta.className = "rail-dot";
-  const yazi = document.createElement("span");
-  yazi.className = "rail-step-text";
-  yazi.textContent = metin;
-  li.appendChild(nokta);
-  li.appendChild(yazi);
-  rail.liste.appendChild(li);
-  rail.simdi.textContent = metin;
-}
-
-function railSaatBasla() {
-  if (rail.saat) return;
-  const tik = () => {
-    if (rail.sure && rail.t0) {
-      rail.sure.textContent = sureYaz(Date.now() - rail.t0);
-    }
-  };
-  tik();
-  rail.saat = setInterval(tik, 1000);
-}
-
-// Süre ilk GERÇEK olayda başlar (gönderim anında değil).
-function ilkOlay() {
-  if (rail.t0) return;
-  rail.t0 = Date.now();
-  railSaatBasla();
-}
-
-function railBitir(hata) {
-  if (rail.saat) {
-    clearInterval(rail.saat);
-    rail.saat = 0;
-  }
-  if (!rail.el) return;
-  rail.el.classList.add(hata ? "hata" : "bitti");
-  rail.liste.querySelectorAll(".rail-step").forEach((li) => {
-    li.classList.remove("aktif");
-    li.classList.add("gecmis");
-  });
-  const son = rail.liste.lastElementChild;
-  if (son && !hata) son.classList.add("basarili");
-  railFaz(2);
-  rail.simdi.textContent = hata ? "Hata" : "Tamamlandı";
-}
-
-function canliSifirla(soru) {
-  if (rail.saat) {
-    clearInterval(rail.saat);
-    rail.saat = 0;
-  }
-  if (rail.el) rail.el.remove();
-  const kabuk = document.querySelector(".app-shell");
-  if (kabuk) kabuk.classList.remove("rail-acik");
-  rail.el = null;
-  rail.liste = null;
-  rail.baslik = null;
-  rail.sure = null;
-  rail.simdi = null;
-  rail.soru = String(soru || "").slice(0, 90);
-  rail.t0 = 0;
-  rail.faz = -1;
-  rail.hata = false;
-  rail.cevap = false;
-}
-
 function olayiIsle(o) {
   const no = o.istek;
 
   if (o.tur === "thinking") {
-    ilkOlay();
-    let b = balonlar.get(no);
-    if (!b) {
-      b = bubble("assistant", "");
-      balonlar.set(no, b);
-    }
-    const ham = b.dataset.ham || "";
-    if (!ham || ham === "Düşünüyorum…" || ham === "…") {
-      icerikYaz(b, "");
-      durumSatiri(b, "İstek değerlendiriliyor");
-    }
+    if (!balonlar.has(no)) balonlar.set(no, bubble("assistant", "Düşünüyorum…"));
     return false;
   }
 
   if (o.tur === "toolStatus") {
-    ilkOlay();
     let b = balonlar.get(no);
     if (!b) {
       b = bubble("assistant", "");
       balonlar.set(no, b);
     }
-    const etiket = guvenliDurum(o.metin);
-    durumSatiri(b, etiket);
-    railAdim(etiket);
+    durumSatiri(b, o.metin || "İşleniyor…");
     return false;
   }
 
   if (o.tur === "parca") {
-    ilkOlay();
     let b = balonlar.get(no);
     if (!b) {
       b = bubble("assistant", "");
@@ -526,11 +351,6 @@ function olayiIsle(o) {
     const ham = b.dataset.ham || "";
     const ilk = !ham || ham === "Düşünüyorum…";
     icerikYaz(b, ilk ? (o.metin || "") : ham + (o.metin || ""));
-    if (rail.el && !rail.cevap) {
-      rail.cevap = true;
-      railFaz(1);
-      railAdim("Yanıt yazılıyor");
-    }
     sohbetAlta();
     return false;
   }
@@ -544,7 +364,6 @@ function olayiIsle(o) {
       if (!ham || ham === "Düşünüyorum…" || ham === "…") icerikYaz(b, o.cevap || "…");
     }
     balonlar.delete(no);
-    railBitir(false);
     sohbetAlta();
     return true;
   }
@@ -557,73 +376,10 @@ function olayiIsle(o) {
     }
     bubble("assistant", "Bir sorun oluştu: " + (o.metin || "Yanıt alınamadı."));
     balonlar.delete(no);
-    rail.hata = true;
-    railBitir(true);
     return true;
   }
 
   return false;
-}
-
-// Cevabı tarayıcı geçmişine yazar; hata turu balonu cevap değildir.
-function cevabiGecmiseYaz(soru) {
-  if (rail.hata) return;
-  const son = chatEl.querySelector(".message-row.assistant:last-child .icerik");
-  const cevap = son ? son.textContent || "" : "";
-  if (!cevap) return;
-  bulutGecmisi.push({role:"user",content:soru});
-  bulutGecmisi.push({role:"assistant",content:cevap});
-  aktifSohbetiKaydet();
-}
-
-// NDJSON akışı: her satır tam bir olaydır. ping satırı canlı tutma içindir,
-// ekrana yazılmaz.
-function satirCoz(satir) {
-  const temiz = String(satir || "").trim();
-  if (!temiz) return null;
-  let o = null;
-  try {
-    o = JSON.parse(temiz);
-  } catch {
-    return null;
-  }
-  if (!o || typeof o !== "object") return null;
-  if (o.tur === "ping") return null;
-  return o;
-}
-
-async function akisiOku(r) {
-  if (!r.body || !r.body.getReader) {
-    const ham = await r.text();
-    for (const satir of ham.split("\n")) {
-      const o = satirCoz(satir);
-      if (o && olayiIsle(o)) return;
-    }
-    return;
-  }
-
-  const okur = r.body.getReader();
-  const cozucu = new TextDecoder("utf-8");
-  let tampon = "";
-  let dur = false;
-
-  while (!dur) {
-    const { value, done } = await okur.read();
-    if (done) break;
-    tampon += cozucu.decode(value, { stream: true });
-    let i;
-    while ((i = tampon.indexOf("\n")) >= 0) {
-      const satir = tampon.slice(0, i);
-      tampon = tampon.slice(i + 1);
-      const o = satirCoz(satir);
-      if (o && olayiIsle(o)) {
-        dur = true;
-        break;
-      }
-    }
-  }
-
-  try { await okur.cancel(); } catch {}
 }
 
 async function jsonOku(r) {
@@ -697,8 +453,7 @@ async function send() {
   msgEl.style.height = "auto";
   gonderiliyor = true;
   gonderimDurumu();
-  canliSifirla(gonderilecekMetin);
-  notYaz("Mesaj Başak’a iletiliyor…");
+  notYaz("Başak yanıtlıyor…");
 
   try {
     let ek = null;
@@ -708,7 +463,7 @@ async function send() {
 
     const r = await window.basakFetch("/api/sohbet", {
       method:"POST",
-      headers:{"content-type":"application/json","accept":"application/x-ndjson"},
+      headers:{"content-type":"application/json"},
       body:JSON.stringify({
         metin:gonderilecekMetin,
         misafir:MISAFIR,
@@ -716,16 +471,6 @@ async function send() {
         ek,
       }),
     });
-
-    // Canlı akış: sunucu olayları satır satır gönderiyorsa ekran olay geldikçe
-    // büyür. Akışı anlamayan sunucu (eski sürüm) JSON dalına düşer.
-    const icerikTuru = (r.headers.get("content-type") || "").toLowerCase();
-    if (r.ok && icerikTuru.indexOf("ndjson") >= 0) {
-      await akisiOku(r);
-      cevabiGecmiseYaz(gonderilecekMetin);
-      onizlemeTemizle();
-      return;
-    }
 
     const d = await jsonOku(r);
 
@@ -743,11 +488,16 @@ async function send() {
     }
 
     if (!r.ok || !d.ok || !d.istek) throw new Error(d.error || "Sohbet isteği başarısız");
-    // Balon burada kurulmaz: ilk GERÇEK olay kursun. Gönderim anında
-    // ekranın kendi uydurduğu bir çalışma metni yoktur.
+    if (!balonlar.has(d.istek)) balonlar.set(d.istek,bubble("assistant","Düşünüyorum…"));
     await olaylariTakipEt(d.istek);
 
-    cevabiGecmiseYaz(gonderilecekMetin);
+    const sonBalon = chatEl.querySelector(".message-row.assistant:last-child .icerik");
+    const cevap = sonBalon ? sonBalon.textContent || "" : "";
+    if (cevap) {
+      bulutGecmisi.push({role:"user",content:gonderilecekMetin});
+      bulutGecmisi.push({role:"assistant",content:cevap});
+      aktifSohbetiKaydet();
+    }
     onizlemeTemizle();
   } catch (err) {
     bubble("assistant", "Bir sorun oluştu: " + (err.message || err));
