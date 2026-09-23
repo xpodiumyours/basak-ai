@@ -217,6 +217,16 @@ def _vektor_uzay_sagla(motor):
     kalir). Metinler asla silinmez; yalniz vektorler yenilenir.
     Donus: (temizlenen, doldurulan) sayilari.
     """
+    # Bulut motoru kendi veritabani ayrintisini kendisi yonetir. SQLite
+    # motorunda bu ozel yordam yok; alttaki mevcut yol aynen calisir.
+    backend_sagla = getattr(motor, "_vektor_uzayi_sagla", None)
+    if callable(backend_sagla):
+        try:
+            return backend_sagla(VEKTOR_UZAYI, _GERI_DOLDURMA_TAVAN)
+        except Exception as e:
+            logger.warning("Bulut vektor uzayi yenilenemedi: %s", e)
+            return (0, 0)
+
     fn = getattr(motor, "_embed_fn", None)
     if fn is None:
         return (0, 0)
