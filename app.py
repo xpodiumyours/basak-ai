@@ -199,6 +199,12 @@ def _gorsel_kaydet(ek):
 
 @app.get("/api/durum")
 async def durum(request: Request):
+    # 2026-09-23: bu uc kimliksizdi — saglayici listesi, model adlari,
+    # commit sha ve arac sayisi tokensiz okunabiliyordu. Canlidaki eski
+    # surum (a98ee76) bu ucu koruyordu; kisi-hafiza commit'inde koruma
+    # dustu. Olculdu ve geri konuldu.
+    if _kimlik(request) is None:
+        return _giris_engeli()
     beyin, tools = _cekirdek()
     try:
         zincir = beyin._bulut_zinciri(tools=True)

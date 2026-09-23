@@ -157,3 +157,29 @@ class TestAnahtarsizUretim503:
         with TestClient(app_modulu.app) as istemci:
             cevap = istemci.get("/api/sohbetler")
         assert cevap.status_code == 401
+
+
+# ── /api/durum kimliksiz okunmamali (2026-09-23 regresyonu) ─────────
+
+def test_durum_ucu_kimliksiz_okunamaz(monkeypatch, tmp_path):
+    """Saglayici/model/commit bilgisi tokensiz sizmamali.
+
+    Canlidaki eski surum (a98ee76) bu ucu _yetki ile koruyordu; kisi
+    hafiza commit'inde koruma dustu ve uc 200 dondu. Olculdu, geri kondu.
+    """
+    import os
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("BASAK_URETIM", "1")
+    monkeypatch.setenv("BASAK_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("BASAK_WEB_TOKEN", "gizli123")
+    import app as app_modulu
+
+    istemci = TestClient(app_modulu.app)
+    assert istemci.get("/api/durum").status_code == 401
+    assert istemci.get(
+        "/api/durum", headers={"X-Basak-Token": "yanlis"}
+    ).status_code == 401
+    assert istemci.get(
+        "/api/durum", headers={"X-Basak-Token": "gizli123"}
+    ).status_code == 200
