@@ -1,0 +1,209 @@
+{
+  "olcum": "2026-09-23T18:13:56.732911+00:00",
+  "not": "Tekrar: 4-6sn gecikme, max_tokens 64/256 (bos token tuzağına karsi)",
+  "nvidia": [
+    {
+      "durum": "canli",
+      "sn": 1.02,
+      "kisa": "OK",
+      "model": "nvidia/nemotron-3-super-120b-a12b",
+      "korunan": true
+    },
+    {
+      "durum": "hata",
+      "sn": 0.31,
+      "http": 503,
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+      "korunan": true
+    },
+    {
+      "durum": "hata",
+      "sn": 0.48,
+      "http": 503,
+      "model": "nvidia/nemotron-3-ultra-550b-a55b",
+      "korunan": true
+    },
+    {
+      "durum": "canli",
+      "sn": 3.17,
+      "kisa": "Here's a thinking process:\n\n1.",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "korunan": true
+    },
+    {
+      "durum": "yavas",
+      "sn": 20.16,
+      "hata": "timeout",
+      "model": "moonshotai/kimi-k3",
+      "korunan": true
+    },
+    {
+      "durum": "yavas",
+      "sn": 20.16,
+      "hata": "timeout",
+      "model": "openai/gpt-oss-20b",
+      "korunan": true
+    },
+    {
+      "durum": "olu",
+      "sn": 0.36,
+      "http": 404,
+      "model": "nvidia/nemotron-4-340b-instruct",
+      "korunan": true
+    },
+    {
+      "durum": "olu",
+      "sn": 0.33,
+      "http": 404,
+      "model": "nvidia/nemotron-nano-3-30b-a3b",
+      "korunan": true
+    },
+    {
+      "durum": "canli",
+      "sn": 0.34,
+      "kisa": "OK",
+      "model": "meta/llama-3.2-11b-vision-instruct",
+      "korunan": false
+    },
+    {
+      "durum": "yavas",
+      "sn": 20.17,
+      "hata": "timeout",
+      "model": "deepseek-ai/deepseek-v4.1-flash",
+      "korunan": false
+    },
+    {
+      "durum": "yavas",
+      "sn": 20.14,
+      "hata": "timeout",
+      "model": "google/gemma-4-31b-it",
+      "korunan": false
+    },
+    {
+      "durum": "yavas",
+      "sn": 20.14,
+      "hata": "timeout",
+      "model": "meta/llama-3.2-90b-vision-instruct",
+      "korunan": false
+    },
+    {
+      "durum": "yavas",
+      "sn": 20.16,
+      "hata": "timeout",
+      "model": "z-ai/glm-5.3-flash",
+      "korunan": false
+    },
+    {
+      "durum": "bos",
+      "sn": 1.2,
+      "model": "z-ai/glm-5.3",
+      "korunan": false
+    },
+    {
+      "durum": "yavas",
+      "sn": 20.14,
+      "hata": "timeout",
+      "model": "poolside/laguna-xs-2.1",
+      "korunan": false
+    },
+    {
+      "durum": "yavas",
+      "sn": 20.17,
+      "hata": "timeout",
+      "model": "mistralai/mistral-nemotron",
+      "korunan": false
+    }
+  ],
+  "gemini": [
+    {
+      "durum": "canli",
+      "sn": 1.42,
+      "kisa": "OK",
+      "model": "gemini-3-flash-preview"
+    },
+    {
+      "durum": "canli",
+      "sn": 0.77,
+      "kisa": "OK",
+      "model": "gemini-2.5-flash"
+    },
+    {
+      "durum": "canli",
+      "sn": 0.72,
+      "kisa": "OK",
+      "model": "gemini-flash-lite-latest"
+    },
+    {
+      "durum": "canli",
+      "sn": 4.92,
+      "kisa": "OK",
+      "model": "gemini-3.5-flash-lite"
+    },
+    {
+      "durum": "canli",
+      "sn": 7.39,
+      "kisa": "OK",
+      "model": "gemini-3.6-flash"
+    },
+    {
+      "durum": "kota",
+      "sn": 0.34,
+      "http": 429,
+      "model": "gemini-pro-latest"
+    },
+    {
+      "durum": "kota",
+      "sn": 0.33,
+      "http": 429,
+      "model": "gemini-3.1-pro-preview"
+    },
+    {
+      "durum": "hata",
+      "sn": 0.5,
+      "http": 503,
+      "model": "gemini-3.5-flash"
+    },
+    {
+      "durum": "hata",
+      "sn": 0.72,
+      "http": 503,
+      "model": "gemini-3.1-flash-lite"
+    },
+    {
+      "durum": "hata",
+      "sn": 3.38,
+      "http": 503,
+      "model": "gemini-3.8-flash"
+    },
+    {
+      "durum": "hata",
+      "sn": 0.91,
+      "http": 503,
+      "model": "gemini-3.7-flash"
+    },
+    {
+      "durum": "hata",
+      "sn": 2.19,
+      "http": 503,
+      "model": "gemini-flash-latest"
+    },
+    {
+      "durum": "hata",
+      "sn": 1.3,
+      "http": 503,
+      "model": "gemini-3.1-flash-lite-preview"
+    },
+    {
+      "durum": "olu",
+      "sn": 0.31,
+      "http": 404,
+      "model": "gemini-2.5-flash-lite"
+    },
+    {
+      "durum": "olu",
+      "sn": 0.27,
+      "http": 404,
+      "model": "gemini-2.5-pro"
+    }
+  ]
+}

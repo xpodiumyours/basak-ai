@@ -1,0 +1,437 @@
+{
+  "olcum": "2026-09-23",
+  "kaynak": "models.list (canli anahtar)",
+  "nvidia": {
+    "toplam": 82,
+    "aday": 43,
+    "ele": 39,
+    "korunan_hizli_hat": [
+      "moonshotai/kimi-k3",
+      "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+      "nvidia/nemotron-3-super-120b-a12b",
+      "nvidia/nemotron-3-ultra-550b-a55b",
+      "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "nvidia/nemotron-4-340b-instruct",
+      "nvidia/nemotron-nano-3-30b-a3b",
+      "openai/gpt-oss-20b"
+    ],
+    "korunan_katalogda_yok": [],
+    "aday_listesi": [
+      "01-ai/yi-large",
+      "adept/fuyu-8b",
+      "ai21labs/jamba-1.5-large-instruct",
+      "aisingapore/sea-lion-7b-instruct",
+      "databricks/dbrx-instruct",
+      "deepseek-ai/deepseek-coder-6.7b-instruct",
+      "deepseek-ai/deepseek-v4.1-flash",
+      "google/gemma-2b",
+      "google/gemma-3-12b-it",
+      "google/gemma-3-4b-it",
+      "google/gemma-4-31b-it",
+      "google/recurrentgemma-2b",
+      "ibm/granite-3.0-3b-a800m-instruct",
+      "ibm/granite-3.0-8b-instruct",
+      "meta/llama-3.2-11b-vision-instruct",
+      "meta/llama-3.2-90b-vision-instruct",
+      "microsoft/phi-3-vision-128k-instruct",
+      "microsoft/phi-3.5-moe-instruct",
+      "mistralai/codestral-22b-instruct-v0.1",
+      "mistralai/mistral-7b-instruct-v0.3",
+      "mistralai/mistral-large",
+      "mistralai/mistral-large-2-instruct",
+      "mistralai/mistral-nemotron",
+      "mistralai/mixtral-8x22b-v0.1",
+      "moonshotai/kimi-k2.6",
+      "moonshotai/kimi-k3",
+      "nv-mistralai/mistral-nemo-12b-instruct",
+      "nvidia/llama-3.1-nemotron-51b-instruct",
+      "nvidia/llama-3.1-nemotron-70b-instruct",
+      "nvidia/llama-3.1-nemotron-ultra-253b-v1",
+      "nvidia/mistral-nemo-minitron-8b-8k-instruct",
+      "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+      "nvidia/nemotron-3-super-120b-a12b",
+      "nvidia/nemotron-3-ultra-550b-a55b",
+      "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "nvidia/nemotron-4-340b-instruct",
+      "nvidia/nemotron-nano-3-30b-a3b",
+      "openai/gpt-oss-20b",
+      "poolside/laguna-xs-2.1",
+      "writer/palmyra-creative-122b",
+      "z-ai/glm-5.3",
+      "z-ai/glm-5.3-flash",
+      "zyphra/zamba2-7b-instruct"
+    ],
+    "ele_listesi": [
+      {
+        "id": "bigcode/starcoder2-15b",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "google/codegemma-1.1-7b",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "google/codegemma-7b",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "google/deplot",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "google/diffusiongemma-26b-a4b-it",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "ibm/granite-34b-code-instruct",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "ibm/granite-8b-code-instruct",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "meta/codellama-70b",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "meta/llama-guard-4-12b",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "meta/llama2-70b",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "meta/muse-glimmer-30b",
+        "sebep": "olu-410"
+      },
+      {
+        "id": "microsoft/kosmos-2",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/ai-synthetic-video-detector",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/cosmos-reason2-8b",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/embed-qa-4",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/ising-calibration-1.5-31b",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/llama-3.1-nemoguard-8b-content-safety",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/llama-3.1-nemoguard-8b-topic-control",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/llama-3.1-nemotron-safety-guard-8b-v3",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/llama-3.2-nv-embedqa-1b-v1",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/llama-nemotron-embed-vl-1b-v2",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/llama3-chatqa-1.5-70b",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/nemotron-3-embed-1b",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/nemotron-3.5-content-safety",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/nemotron-4-340b-reward",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/nemotron-parse",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/nemotron-parse-2.0",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/neva-22b",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/nv-embedqa-mistral-7b-v2",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/nvclip",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/riva-translate-4b-instruct",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/riva-translate-4b-instruct-v1.1",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/riva-translate-4b-instruct-v2",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nvidia/vila",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "snowflake/arctic-embed-l",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "writer/palmyra-fin-70b-32k",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "writer/palmyra-med-70b",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "writer/palmyra-med-70b-32k",
+        "sebep": "sohbet-degil"
+      }
+    ]
+  },
+  "gemini": {
+    "toplam": 61,
+    "aday": 15,
+    "ele": 46,
+    "korunan": [
+      "gemini-2.5-flash",
+      "gemini-3-flash-preview"
+    ],
+    "korunan_katalogda_yok": [],
+    "aday_listesi": [
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-2.5-pro",
+      "gemini-3-flash-preview",
+      "gemini-3.1-flash-lite",
+      "gemini-3.1-flash-lite-preview",
+      "gemini-3.1-pro-preview",
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.6-flash",
+      "gemini-3.7-flash",
+      "gemini-3.8-flash",
+      "gemini-flash-latest",
+      "gemini-flash-lite-latest",
+      "gemini-pro-latest"
+    ],
+    "ele_listesi": [
+      {
+        "id": "antigravity-preview-05-2026",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "antigravity-preview-09-2026",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "antigravity-preview-latest",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "aqa",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "deep-research-max-preview-04-2026",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "deep-research-preview-04-2026",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "deep-research-pro-preview-12-2025",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-2.5-computer-use-preview-10-2025",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-2.5-flash-image",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-2.5-flash-native-audio-latest",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-2.5-flash-native-audio-preview-09-2025",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-2.5-flash-native-audio-preview-12-2025",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-2.5-flash-preview-tts",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-2.5-pro-preview-tts",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3-pro-image",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3-pro-image-preview",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3.1-flash-image",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3.1-flash-image-preview",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3.1-flash-lite-image",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3.1-flash-live-preview",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3.1-flash-tts-preview",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3.1-pro-preview-customtools",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3.5-live-translate-preview",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3.5-transcribe",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3.5-transcribe-live",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3.8-flash-lite-tts",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3.8-flash-tts",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3.8-live",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-3.8-live-extended-thinking",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-embedding-001",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-embedding-2",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-embedding-2-preview",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-omni-1.1-flash",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-omni-flash-preview",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-robotics-er-2-preview",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemini-robotics-er-2-streaming-preview",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemma-4-26b-a4b-it",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "gemma-4-31b-it",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "lyria-3-clip-preview",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "lyria-3-pro-preview",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "lyria-3.5",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "lyria-realtime-exp",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "nano-banana-pro-preview",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "veo-3.1-fast-generate-preview",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "veo-3.1-generate-preview",
+        "sebep": "sohbet-degil"
+      },
+      {
+        "id": "veo-3.1-lite-generate-preview",
+        "sebep": "sohbet-degil"
+      }
+    ]
+  },
+  "not": "Davranis degistirmez. Faz 2 probe oncesi taslak."
+}

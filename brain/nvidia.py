@@ -32,6 +32,8 @@ BASE_URL = "https://integrate.api.nvidia.com/v1"
 # 2026-09-16 (Casper karari): HIZLI HAT once. Etkilesimli kullanimda
 # cevap 90 sn'de ekrana dusmeli; ultra-550b fatura akisinin 4. turunda
 # dakikalardir dusunup ekrani zamanasina soktu. Dusunen devler yedekte.
+# 2026-09-23 (Faz 3 genis havuz): models.list 82 model; probe ile
+# 404/410 oluler TERCIH_SIRASI'ndan cikti; kanitli canli aday eklendi.
 TERCIH_SIRASI = [
     # HIZLI HAT — ilk 4, _ICI_YEDEK_SAYISI kapsar
     "openai/gpt-oss-20b",                    # hizli
@@ -40,19 +42,35 @@ TERCIH_SIRASI = [
     "nvidia/nemotron-3-super-120b-a12b",     # 120b
     # --- Yavas yedekler: hizli hat duserse denenir ---
     "moonshotai/kimi-k3",                    # yavas ama canli (27.9s)
-    # --- Yeni adaylar (katalogda, olculmedi — en sonda denenir) ---
-    "nvidia/nemotron-nano-3-30b-a3b",
-    "nvidia/nemotron-4-340b-instruct",
+    "meta/llama-3.2-11b-vision-instruct",    # 2026-09-23 probe canli ~0.3s
+    # --- Yedekler (olcu, en sonda denenir) ---
     "nvidia/nemotron-3-ultra-550b-a55b",     # 550b dev, en son yedek
 ]
+# 2026-09-23 probe: TERCIH_SIRASI tukendikten sonra denenir (katalogda
+# gorunup chat'te yasayan adaylar). Oluler buraya almaz.
+GENIS_HAVUZ = [
+    "meta/llama-3.2-11b-vision-instruct",
+    "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "nvidia/nemotron-3-super-120b-a12b",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+]
+# 2026-09-23 canli probe: katalogda var ama chat 404/410 — listeye
+# geri gelmez; _model_bul bunlari atlar.
+KARA_LISTE = {
+    "nvidia/nemotron-4-340b-instruct",       # 404 (2026-09-23)
+    "nvidia/nemotron-nano-3-30b-a3b",        # 404 (2026-09-23)
+    "nvidia/nemotron-3-nano-30b-a3b",        # 410 (10.09.2026)
+}
 # Model-ici geri donus adedi: secili + listedeki ilk adaylar denenir.
 # 4 degeri 2026-09 gozleminden (ilk 4 CANLI + yedek kapsar); buyutme
-# her basarisizlikta kota/zaman yer.
-_ICI_YEDEK_SAYISI = 4
+# her basarisizlikta kota/zaman yer. Faz 3: genis havuz icin 6.
+_ICI_YEDEK_SAYISI = 6
 # OLU (10.09.2026): katalog disi veya chat 410 Gone —
 # meta/muse-glimmer-30b (katalogda gorunup 410 veriyor),
 # nvidia-nemotron-nano-9b-v2, step-3.7-flash, inkling,
 # nemotron-3-nano-30b-a3b, minimax-m3. Buraya donme, listeye ekleme.
+# 2026-09-23: nvidia/nemotron-4-340b-instruct + nemotron-nano-3-30b-a3b
+# ayrica 404 — KARA_LISTE + tests/test_nvidia_liste.py OLULER.
 
 DEEPSEEK_MODEL = "deepseek-ai/deepseek-v4-flash-0731"
 GPTOSS_MODEL = "openai/gpt-oss-20b"
@@ -62,8 +80,8 @@ MODELLER = {
     "gptoss": GPTOSS_MODEL,
     "ultra": "nvidia/nemotron-3-ultra-550b-a55b",
     "omni": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
-    "nano3": "nvidia/nemotron-nano-3-30b-a3b",
     "kimi": "moonshotai/kimi-k3",
+    "llama11b": "meta/llama-3.2-11b-vision-instruct",
     "deepseek": DEEPSEEK_MODEL,  # dusunen model; cok yavas (~90-180 sn)
 }
 
@@ -114,23 +132,29 @@ class NvidiaClient:
     def _model_bul(self) -> str:
         """Hesapta kullanilabilir ilk tercih edilen modeli bulur.
 
-        DeepSeek modeli ke sirada denenmez (cok yavas/dusunen model).
-        Manuel secim icin nvidia_model ayari kullanilir.
+        Siras: TERCIH_SIRASI -> GENIS_HAVUZ -> katalogda kara liste
+        disindaki ilk model. DeepSeek modeli ke sirada denenmez
+        (cok yavas/dusunen model). Manuel secim nvidia_model ayaridir.
         """
         try:
             mevcutler = [m.id.lower() for m in self.client.models.list()]
         except Exception as e:
             logger.warning("NVIDIA model listesi alinamadi: %s", e)
             return TERCIH_SIRASI[0]
-        for aday in TERCIH_SIRASI:
+        kara = {k.lower() for k in KARA_LISTE}
+        for aday in list(TERCIH_SIRASI) + list(GENIS_HAVUZ):
+            if aday.lower() in kara:
+                continue
             for m in mevcutler:
-                if m.startswith(aday.lower()):
+                if m.startswith(aday.lower()) and m not in kara:
                     return m
-        # Hi bir tercih yoksa ilk mevcut modeli don (DeepSeek hariç)
+        # Hi bir tercih yoksa kara liste disindaki ilk modeli don
+        # (DeepSeek hariç)
         for m in mevcutler:
-            if 'deepseek' not in m:
-                return m
-        return mevcutler[0] if mevcutler else TERCIH_SIRASI[0]
+            if m in kara or "deepseek" in m:
+                continue
+            return m
+        return TERCIH_SIRASI[0]
 
     def musait(self) -> bool:
         return self.client is not None
@@ -198,10 +222,16 @@ class NvidiaClient:
         if tools and tool_choice is not None:
             sirali = [GPTOSS_MODEL]
         else:
-            sirali = []
+            gorulen = []
             if self.model and self.model not in TERCIH_SIRASI:
-                sirali.append(self.model)
-            sirali += TERCIH_SIRASI
+                gorulen.append(self.model)
+            gorulen += TERCIH_SIRASI + GENIS_HAVUZ
+            kara = {k.lower() for k in KARA_LISTE}
+            sirali = []
+            for m in gorulen:
+                if m.lower() in kara or m in sirali:
+                    continue
+                sirali.append(m)
 
         son_hata = None
         for model_adi in sirali[:_ICI_YEDEK_SAYISI]:

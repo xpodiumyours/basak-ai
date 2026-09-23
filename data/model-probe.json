@@ -1,0 +1,492 @@
+{
+  "olcum": "2026-09-23T18:06:04.268034+00:00",
+  "esik_canli_sn": 8.0,
+  "zaman_asimi_sn": 15.0,
+  "nvidia": {
+    "ozet": {
+      "olu": 29,
+      "yavas": 7,
+      "canli": 4,
+      "hata": 2,
+      "bos": 1
+    },
+    "sonuc": [
+      {
+        "durum": "canli",
+        "sn": 0.81,
+        "kisa": "The user says: \"Reply with exactly: OK\".",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "korunan": true,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "canli",
+        "sn": 1.64,
+        "kisa": "OK",
+        "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+        "korunan": true,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "canli",
+        "sn": 2.08,
+        "kisa": "The user wants me to reply with exactly ",
+        "model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "korunan": true,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "yavas",
+        "sn": 15.16,
+        "hata": "timeout",
+        "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+        "korunan": true,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "yavas",
+        "sn": 15.17,
+        "hata": "timeout",
+        "model": "moonshotai/kimi-k3",
+        "korunan": true,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "yavas",
+        "sn": 15.17,
+        "hata": "timeout",
+        "model": "openai/gpt-oss-20b",
+        "korunan": true,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.36,
+        "http": 404,
+        "model": "nvidia/nemotron-4-340b-instruct",
+        "korunan": true,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.38,
+        "http": 404,
+        "model": "nvidia/nemotron-nano-3-30b-a3b",
+        "korunan": true,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "canli",
+        "sn": 1.86,
+        "kisa": "OK",
+        "model": "meta/llama-3.2-11b-vision-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "yavas",
+        "sn": 15.16,
+        "hata": "timeout",
+        "model": "deepseek-ai/deepseek-v4.1-flash",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "yavas",
+        "sn": 15.16,
+        "hata": "timeout",
+        "model": "google/gemma-4-31b-it",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "yavas",
+        "sn": 15.16,
+        "hata": "timeout",
+        "model": "meta/llama-3.2-90b-vision-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "yavas",
+        "sn": 15.17,
+        "hata": "timeout",
+        "model": "z-ai/glm-5.3-flash",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "bos",
+        "sn": 0.66,
+        "kisa": "",
+        "model": "z-ai/glm-5.3",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "hata",
+        "sn": 0.33,
+        "http": 503,
+        "model": "poolside/laguna-xs-2.1",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "hata",
+        "sn": 9.22,
+        "http": 500,
+        "model": "mistralai/mistral-nemotron",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.31,
+        "http": 404,
+        "model": "adept/fuyu-8b",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.31,
+        "http": 404,
+        "model": "deepseek-ai/deepseek-coder-6.7b-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.31,
+        "http": 404,
+        "model": "ibm/granite-3.0-8b-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.33,
+        "http": 404,
+        "model": "google/gemma-3-12b-it",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.33,
+        "http": 404,
+        "model": "mistralai/codestral-22b-instruct-v0.1",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.34,
+        "http": 404,
+        "model": "ai21labs/jamba-1.5-large-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.34,
+        "http": 404,
+        "model": "aisingapore/sea-lion-7b-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.34,
+        "http": 404,
+        "model": "google/gemma-3-4b-it",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.34,
+        "http": 404,
+        "model": "mistralai/mistral-7b-instruct-v0.3",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.34,
+        "http": 404,
+        "model": "nv-mistralai/mistral-nemo-12b-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.34,
+        "http": 404,
+        "model": "writer/palmyra-creative-122b",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.36,
+        "http": 404,
+        "model": "google/recurrentgemma-2b",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.36,
+        "http": 404,
+        "model": "ibm/granite-3.0-3b-a800m-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.36,
+        "http": 404,
+        "model": "mistralai/mixtral-8x22b-v0.1",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.36,
+        "http": 404,
+        "model": "nvidia/llama-3.1-nemotron-ultra-253b-v1",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.36,
+        "http": 404,
+        "model": "nvidia/mistral-nemo-minitron-8b-8k-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.38,
+        "http": 404,
+        "model": "databricks/dbrx-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.38,
+        "http": 404,
+        "model": "microsoft/phi-3-vision-128k-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.38,
+        "http": 404,
+        "model": "microsoft/phi-3.5-moe-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.38,
+        "http": 404,
+        "model": "mistralai/mistral-large",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.38,
+        "http": 404,
+        "model": "mistralai/mistral-large-2-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.38,
+        "http": 404,
+        "model": "zyphra/zamba2-7b-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.39,
+        "http": 404,
+        "model": "01-ai/yi-large",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.39,
+        "http": 404,
+        "model": "google/gemma-2b",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.39,
+        "http": 404,
+        "model": "nvidia/llama-3.1-nemotron-70b-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.41,
+        "http": 404,
+        "model": "moonshotai/kimi-k2.6",
+        "korunan": false,
+        "saglayici": "nvidia"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.56,
+        "http": 404,
+        "model": "nvidia/llama-3.1-nemotron-51b-instruct",
+        "korunan": false,
+        "saglayici": "nvidia"
+      }
+    ]
+  },
+  "gemini": {
+    "ozet": {
+      "hata": 7,
+      "olu": 2,
+      "bos": 2,
+      "kota": 2,
+      "canli": 2
+    },
+    "sonuc": [
+      {
+        "durum": "bos",
+        "sn": 1.06,
+        "kisa": "",
+        "model": "gemini-3-flash-preview",
+        "korunan": true,
+        "saglayici": "gemini"
+      },
+      {
+        "durum": "hata",
+        "sn": 0.7,
+        "http": 503,
+        "model": "gemini-2.5-flash",
+        "korunan": true,
+        "saglayici": "gemini"
+      },
+      {
+        "durum": "canli",
+        "sn": 1.11,
+        "kisa": "OK",
+        "model": "gemini-flash-lite-latest",
+        "korunan": false,
+        "saglayici": "gemini"
+      },
+      {
+        "durum": "canli",
+        "sn": 7.72,
+        "kisa": "OK",
+        "model": "gemini-3.5-flash-lite",
+        "korunan": false,
+        "saglayici": "gemini"
+      },
+      {
+        "durum": "bos",
+        "sn": 5.62,
+        "kisa": "",
+        "model": "gemini-3.6-flash",
+        "korunan": false,
+        "saglayici": "gemini"
+      },
+      {
+        "durum": "kota",
+        "sn": 0.3,
+        "http": 429,
+        "model": "gemini-pro-latest",
+        "korunan": false,
+        "saglayici": "gemini"
+      },
+      {
+        "durum": "kota",
+        "sn": 0.31,
+        "http": 429,
+        "model": "gemini-3.1-pro-preview",
+        "korunan": false,
+        "saglayici": "gemini"
+      },
+      {
+        "durum": "hata",
+        "sn": 0.55,
+        "http": 503,
+        "model": "gemini-3.5-flash",
+        "korunan": false,
+        "saglayici": "gemini"
+      },
+      {
+        "durum": "hata",
+        "sn": 1.28,
+        "http": 503,
+        "model": "gemini-3.1-flash-lite",
+        "korunan": false,
+        "saglayici": "gemini"
+      },
+      {
+        "durum": "hata",
+        "sn": 1.48,
+        "http": 503,
+        "model": "gemini-3.8-flash",
+        "korunan": false,
+        "saglayici": "gemini"
+      },
+      {
+        "durum": "hata",
+        "sn": 1.53,
+        "http": 503,
+        "model": "gemini-3.7-flash",
+        "korunan": false,
+        "saglayici": "gemini"
+      },
+      {
+        "durum": "hata",
+        "sn": 2.08,
+        "http": 503,
+        "model": "gemini-flash-latest",
+        "korunan": false,
+        "saglayici": "gemini"
+      },
+      {
+        "durum": "hata",
+        "sn": 2.12,
+        "http": 503,
+        "model": "gemini-3.1-flash-lite-preview",
+        "korunan": false,
+        "saglayici": "gemini"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.27,
+        "http": 404,
+        "model": "gemini-2.5-flash-lite",
+        "korunan": false,
+        "saglayici": "gemini"
+      },
+      {
+        "durum": "olu",
+        "sn": 0.41,
+        "http": 404,
+        "model": "gemini-2.5-pro",
+        "korunan": false,
+        "saglayici": "gemini"
+      }
+    ]
+  },
+  "not": "Tek soru probe. Gercek alet/tool testi Faz 3-4."
+}
