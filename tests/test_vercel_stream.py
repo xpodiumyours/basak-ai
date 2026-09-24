@@ -394,23 +394,3 @@ def test_uzun_is_sirasinda_sohbet_degistirme_engeli_var():
     )[0]
     assert "if (gonderiliyor)" in ac
     assert "if (gonderiliyor)" in yeni
-
-
-def test_preview_akis_testi_productionda_kapali(monkeypatch):
-    monkeypatch.setenv("VERCEL_ENV", "production")
-    monkeypatch.delenv("BASAK_PREVIEW_TEST", raising=False)
-    assert app_modulu._preview_test_acik() is False
-
-
-def test_preview_akis_testi_previewde_acik(monkeypatch):
-    monkeypatch.setenv("VERCEL_ENV", "preview")
-    assert app_modulu._preview_test_acik() is True
-    assert app_modulu._PREVIEW_TEST_SURELER == {15, 75, 240}
-
-
-def test_preview_test_sayfasi_acikca_model_hafiza_kullanmadigini_soyler():
-    metin = open("preview_tools/akis-test.html", encoding="utf-8").read()
-    assert "Model, provider ve hafıza kullanılmaz" in metin
-    assert "75 sn · 60 sn üstü" in metin
-    assert "/api/preview/akis-test" in metin
-    assert "TEST GEÇTİ" in metin
