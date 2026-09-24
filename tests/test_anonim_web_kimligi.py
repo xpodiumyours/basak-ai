@@ -138,7 +138,7 @@ def test_preview_sohbeti_normal_basak_akisini_kisitlamaz(monkeypatch, tmp_path):
 
     def _sahte_mesaj_isle(
         metin, beyin, sistem, js_callback, tools=None,
-        misafir=False, gecmis_override=None
+        misafir=False, gecmis_override=None, yonlendirme_baglami=None
     ):
         yakalanan["misafir"] = misafir
         yakalanan["metin"] = metin

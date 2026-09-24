@@ -64,15 +64,24 @@ class TestDonguOzgur:
                                      "arguments": "{}"}}]}, "x"
                 return {"content": "bitti <think>ozet</think>  😀"}, "x"
 
+        gercek_kosum = {"n": 0}
+
+        def degisen_sonuc(ad, args):
+            # Genel tur tavani olmadigini olcerken exact-loop guard'a
+            # takilmamak icin her gercek arac sonucu farklidir.
+            gercek_kosum["n"] += 1
+            return {"result": "tamam-%d" % gercek_kosum["n"]}
+
         cevap, kosan = arac_dongusu(
             [{"id": "c0", "type": "function",
               "function": {"name": "list_tasks", "arguments": "{}"}}],
             [{"role": "user", "content": "sor"}],
             IsrarciBeyin(), None, lambda kod: None,
-            lambda ad, args: {"result": "tamam"},
+            degisen_sonuc,
             tools=[{"type": "function",
                     "function": {"name": "list_tasks"}}])
         assert kosan == 31
+        assert gercek_kosum["n"] == 31
         assert all(g is not None and len(g) == 1 for g in gorulen_araclar)
         assert cevap == "bitti <think>ozet</think>  😀"
 
