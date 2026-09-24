@@ -40,7 +40,7 @@ class SonHata(Exception):
         self.ozet = ozet
 
 
-def akit(openai_client, model, messages, tools=None):
+def akit(openai_client, model, messages, tools=None, tool_choice=None):
     """OpenAI-uyumlu istemciden metin parcasi uretir (generator).
 
     Yields: str parcalar. Arac cagrisi gorurse AracIstegi firlatir.
@@ -55,6 +55,8 @@ def akit(openai_client, model, messages, tools=None):
     modele sormaz; ilk modelin sectigi arac dogrudan calisir.
     """
     ekstra = {"tools": tools} if tools else {}
+    if tools and tool_choice is not None:
+        ekstra["tool_choice"] = tool_choice
     stream = openai_client.chat.completions.create(
         model=model,
         messages=messages,

@@ -525,7 +525,7 @@ class Brain:
         raise RuntimeError(f"Hicbir model calismadi ({detay})")
 
     def cevapla_yayin(self, messages, yerel_model=None, tercih=None,
-                      gorev_tipi=None, tools=None):
+                      gorev_tipi=None, tools=None, tool_choice=None):
         """Akan cevap uretir: yield (kaynak, parca).
 
         Aracsiz duz sohbet icindir (tools=None). Model arac isterse
@@ -572,7 +572,9 @@ class Brain:
                 model = getattr(istemci, "model", None)
                 if ham is None or not model:
                     continue
-                uretici = akit(ham, model, messages, tools=tools)
+                uretici = akit(
+                    ham, model, messages,
+                    tools=tools, tool_choice=tool_choice)
                 basladi = False  # akis ortasi kopma takibi
                 token_out = 0
                 for parca in uretici:

@@ -9,6 +9,7 @@ import asyncio
 import base64
 import binascii
 import hmac
+import hashlib
 import json
 import os
 import tempfile
@@ -21,6 +22,32 @@ from fastapi.staticfiles import StaticFiles
 
 BASE = Path(__file__).resolve().parent
 WEB = BASE / "web"
+
+
+def _p0_preview_test_anahtari():
+    """Yalniz P0-1 preview dalinda gecici oturum anahtari.
+
+    Production'da ve diger preview'larda ASLA devreye girmez. Amaç,
+    Vercel Preview ortaminda production sirlarini kopyalamadan gercek
+    streaming davranisini gozle test edebilmektir. Merge oncesi kaldirilir.
+    """
+    if os.environ.get("VERCEL_ENV") != "preview":
+        return ""
+    if os.environ.get("VERCEL_GIT_COMMIT_REF") != "preview/p0-1-streaming-actual":
+        return ""
+    sha = (os.environ.get("VERCEL_GIT_COMMIT_SHA") or "").strip()
+    if not sha:
+        return ""
+    return hashlib.sha256(
+        ("basak-p0-1-preview:" + sha).encode("utf-8")
+    ).hexdigest()
+
+
+_p0_preview_key = _p0_preview_test_anahtari()
+if (_p0_preview_key
+        and not (os.environ.get("BASAK_OTURUM_ANAHTARI")
+                 or os.environ.get("BASAK_WEB_TOKEN"))):
+    os.environ["BASAK_OTURUM_ANAHTARI"] = _p0_preview_key
 
 if os.environ.get("VERCEL"):
     os.environ.setdefault(

@@ -278,8 +278,13 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         try:
             parcalar = []
             kaynak = ""
-            for kaynak, parca in yayin(
-                    mesajlar, model, tools=akis_tools):
+            if ajan_modu:
+                akis = yayin(
+                    mesajlar, model, tools=akis_tools,
+                    tool_choice="auto")
+            else:
+                akis = yayin(mesajlar, model, tools=akis_tools)
+            for kaynak, parca in akis:
                 parcalar.append(parca)
                 js_callback("BasakUI.parca(" + _j(parca) + ")")
             # Bazi saglayicilar sayi/None parca dondurur — join patlamasin.

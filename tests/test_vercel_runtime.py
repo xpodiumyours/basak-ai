@@ -139,3 +139,20 @@ def test_vercel_web_sse_akisini_aninda_gosterir():
     assert 'durumSatiri(beklemeBalonu, "Çalışıyorum…")' in metin
     assert 'window.basakRuntime === "vercel"' in metin
 
+def test_p0_preview_test_anahtari_yalniz_hedef_previewda(monkeypatch):
+    import app as vercel_app
+
+    monkeypatch.setenv("VERCEL_ENV", "preview")
+    monkeypatch.setenv(
+        "VERCEL_GIT_COMMIT_REF", "preview/p0-1-streaming-actual")
+    monkeypatch.setenv("VERCEL_GIT_COMMIT_SHA", "abc123")
+    anahtar = vercel_app._p0_preview_test_anahtari()
+    assert len(anahtar) == 64
+
+    monkeypatch.setenv("VERCEL_ENV", "production")
+    assert vercel_app._p0_preview_test_anahtari() == ""
+
+    monkeypatch.setenv("VERCEL_ENV", "preview")
+    monkeypatch.setenv("VERCEL_GIT_COMMIT_REF", "baska-dal")
+    assert vercel_app._p0_preview_test_anahtari() == ""
+

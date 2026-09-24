@@ -185,7 +185,9 @@ def test_normal_sohbet_ajan_yolunda_parca_parca_akar(
         def ajan_musait(self):
             return True
 
-        def cevapla_yayin(self, mesajlar, model, tools=None):
+        def cevapla_yayin(self, mesajlar, model, tools=None,
+                           tool_choice=None):
+            gorulen["tool_choice"] = tool_choice
             gorulen["tools"] = [
                 (t.get("function") or {}).get("name")
                 for t in (tools or [])
@@ -208,6 +210,7 @@ def test_normal_sohbet_ajan_yolunda_parca_parca_akar(
     )
 
     assert gorulen["tools"] == ["yetenek_ac"]
+    assert gorulen["tool_choice"] == "auto"
     parcalar = [o for o in olaylar if o.startswith("BasakUI.parca(")]
     assert len(parcalar) == 2
     assert any("Merhaba" in o for o in parcalar)
