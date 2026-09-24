@@ -175,6 +175,9 @@ class TestDerinOku:
             def read(self, n=-1):
                 return govde.encode("utf-8")
 
+            def geturl(self):
+                return "http://ornek.com/uzun"
+
         class Acici:
             def __init__(self, *a, **k):
                 pass
@@ -189,8 +192,20 @@ class TestDerinOku:
                                            ("93.184.216.34", 0))])
         r = ws.derin_oku("http://ornek.com/uzun")
         assert "result" in r, r
-        assert len(r["result"]) > 200000
-        assert "500000" in r["result"]
+        veri = json.loads(r["result"])
+        assert len(veri["metin"]) <= 50000
+        assert veri["meta"]["kaynak_toplam"] == 600000
+        assert veri["meta"]["erisilebilir"] == 500000
+        assert veri["meta"]["kaynak_tavani_asildi"] is True
+        assert veri["meta"]["sonraki_baslangic"] is not None
+
+        r2 = ws.derin_oku(
+            "http://ornek.com/uzun",
+            baslangic=veri["meta"]["sonraki_baslangic"],
+            uzunluk=40000,
+        )
+        veri2 = json.loads(r2["result"])
+        assert veri2["meta"]["baslangic"] == veri["meta"]["sonraki_baslangic"]
 
     def test_calistir_hatti(self, monkeypatch):
         _ddgs(monkeypatch, [{"title": "a", "href": "u", "body": "m"}])

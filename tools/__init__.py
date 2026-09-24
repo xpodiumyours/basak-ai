@@ -105,11 +105,17 @@ def calistir(tool_name, args):
 
         if tool_name == "derin_oku":
             from tools import web_search as ws
-            return ws.derin_oku(str(args.get("url", "")))
+            return ws.derin_oku(
+                str(args.get("url", "")),
+                baslangic=args.get("baslangic", 0),
+                uzunluk=args.get("uzunluk", 40000))
 
         if tool_name == "sayfa_oku":
             from tools import web_search as ws
-            return ws.sayfa_oku(str(args.get("url", "")))
+            return ws.sayfa_oku(
+                str(args.get("url", "")),
+                baslangic=args.get("baslangic", 0),
+                uzunluk=args.get("uzunluk", 30000))
 
         if tool_name == "read_file":
             from tools import file_ops

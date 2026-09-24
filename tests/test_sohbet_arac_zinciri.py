@@ -40,7 +40,16 @@ def test_normal_sohbet_arac_varken_bile_dogal_metinle_biter(
 
     # Normal sohbette resolver gercek arac gerekmiyor diyebilir; ana model
     # meta-arac gormeden dogal metinle biter.
-    monkeypatch.setattr(flow, "araclari_coz", lambda *_a, **_k: [])
+    monkeypatch.setattr(
+        flow, "arac_karari_coz",
+        lambda *_a, **_k: {
+            "tools": [],
+            "tool_required": False,
+            "verified": True,
+            "fail_open": False,
+            "resolver_provider": "groq",
+        },
+    )
     gorulen = {}
 
     class Beyin:

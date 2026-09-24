@@ -92,17 +92,31 @@ KITAP_ARA = _arac(
 
 DERIN_OKU = _arac(
     "derin_oku",
-    "Uzun sayfalar icin sayfa okuma; duz metnini doner (en fazla "
-    "500000 karakter). Yalniz http/https 80/443; ic ag yasak.",
-    {"url": {"type": "string", "description": "Adres"}},
+    "Uzun sayfayi parca/cursor ile okur. Her cagrida en fazla 50000 "
+    "karakter doner; meta.sonraki_baslangic varsa ayni URL'yi o "
+    "baslangicla devam ettir. Kaynak erisim tavani 500000 karakterdir; "
+    "tavan asilirsa meta bunu acikca soyler. Yalniz http/https 80/443.",
+    {
+        "url": {"type": "string", "description": "Adres"},
+        "baslangic": {"type": "integer", "description": "Karakter offseti"},
+        "uzunluk": {"type": "integer",
+                    "description": "1-50000, varsayilan 40000"},
+    },
     ["url"],
 )
 
 SAYFA_OKU = _arac(
     "sayfa_oku",
-    "Sayfayi acar, duz metnini doner (en fazla 200000 karakter). Yalniz "
-    "http/https 80/443; ic ag yasak.",
-    {"url": {"type": "string", "description": "Adres"}},
+    "Sayfayi parca/cursor ile okur. Her cagrida en fazla 50000 karakter "
+    "doner; meta.sonraki_baslangic varsa ayni URL'yi devam ettir. "
+    "Kaynak erisim tavani 200000 karakterdir; tavan asilirsa acik meta "
+    "doner. Yalniz http/https 80/443; ic ag yasak.",
+    {
+        "url": {"type": "string", "description": "Adres"},
+        "baslangic": {"type": "integer", "description": "Karakter offseti"},
+        "uzunluk": {"type": "integer",
+                    "description": "1-50000, varsayilan 30000"},
+    },
     ["url"],
 )
 

@@ -1,4 +1,4 @@
-"""tests/live/matris_kosucu.py — DUZEY 2: 7x52=364 GERCEK canli hucre matrisi.
+"""tests/live/matris_kosucu.py — DUZEY 2: dinamik GERCEK canli hucre matrisi.
 
 Kabul plani (knowledge/kabul-plani-web-gate.md, DUZEY 2):
 - Her hucreye yazilir: saglayici, arac, tur-1 native mi, tur-2 devam mi,
@@ -16,7 +16,7 @@ Kabul plani (knowledge/kabul-plani-web-gate.md, DUZEY 2):
   sapma donemindeki simulasyon kalintilari BURADA YOKTUR.
 
 Kosum:
-  python tests/live/matris_kosucu.py             -> tam 364 hucre (KAPSAM)
+  python tests/live/matris_kosucu.py             -> KAPSAM x guncel arac sayisi
   python tests/live/matris_kosucu.py --pilot     -> 7x8 pilot (56 hucre)
   python tests/live/matris_kosucu.py --temizle   -> KIRMIZI/SKIP sil
   python tests/live/matris_kosucu.py --kapsam-temizle -> kapsam disi sil
@@ -70,12 +70,12 @@ _PACE = {
 # kapsamdan cikarildi, anahtari olan MISTRAL kapsama girdi (zincire
 # 2026-09-22'de girdi ama matris listesi guncellenmemisti).
 #
-# Sayilar: 7 x 52 = 364 hucre (once 8 x 52 = 416 diye yaziliydi).
+# Hucre sayisi sabit yazilmaz: len(KAPSAM) x len(TOOL_SEMALARI).
 KAPSAM = ("groq", "gemini", "kilo", "nvidia", "glm", "openrouter",
           "mistral")
 
 # Pilot 8 temsilci arac: 2 kontrol + 6 temsilci (kapsam sozlesmesi:
-# pilot BU kosuda gecerli; tam 364'e geciste tum 52 arac acilir).
+# pilot BU kosuda gecerli; tam kosuda guncel TOOL_SEMALARI tamami acilir).
 PILOT_ARACLAR = ("simdi", "hesapla", "git_durum", "sayfa_oku",
                  "list_files", "dosya_bilgi", "github_durum", "add_task")
 

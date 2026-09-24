@@ -191,3 +191,11 @@ def test_preview_hafizasi_production_postgrese_gitmez(monkeypatch, tmp_path):
         assert str(tmp_path / "preview-state") in motor.db_yolu
     finally:
         motor.kapat()
+
+
+def test_preview_hafiza_modu_ephemeral_acikca_bildirilir(
+        monkeypatch, tmp_path):
+    import memory
+    _preview(monkeypatch, tmp_path)
+    monkeypatch.delenv("BASAK_PREVIEW_DATABASE_URL", raising=False)
+    assert memory.preview_hafiza_modu() == "sqlite_ephemeral"

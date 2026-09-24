@@ -536,7 +536,9 @@ class Brain:
         Not: akis sirasinda istatistik/token yazilmaz (kismi sayim
         butceyi bozar). Basari/zaman olcumu tam yolda yapilir.
         """
-        from brain.yayin import AracIstegi as _Arac, SonHata, akit
+        from brain.yayin import (
+            AracIstegi as _Arac, CikisKesildi, SonHata, akit,
+        )
         from brain import secici as _secici
 
         zincir = self._bulut_zinciri(tools=bool(tools))
@@ -585,7 +587,7 @@ class Brain:
                                  token_in=0, token_out=token_out)
                 _audit("OK kaynak=%s | akis | %s" % (ad, gerekce))
                 return
-            except _Arac:
+            except (_Arac, CikisKesildi):
                 raise
             except Exception as e:
                 hata = str(e)

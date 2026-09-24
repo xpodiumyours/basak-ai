@@ -210,13 +210,10 @@ def kitap_ara(query: str, adet: int = 10) -> dict:
         return {"error": "Kitap aranamadi: %s" % e}
 
 
-def derin_oku(url: str) -> dict:
-    """Uzun sayfalar icin sayfa okuma (en fazla 500000 karakter).
-
-    sayfa_oku ile ayni guvenli cekme hatti (_guvenli_adres +
-    _GuvenliYonlendirme); yalniz tavan buyuktur. SSRF kurali aynidir.
-    """
-    return _sayfa_oku_genis(url, _MAX_DERIN)
+def derin_oku(url: str, baslangic=0, uzunluk=40000) -> dict:
+    """Uzun sayfayi cursor ile okur; tek tool sonucu baglami sisirmez."""
+    return _sayfa_oku_genis(
+        url, _MAX_DERIN, baslangic=baslangic, uzunluk=uzunluk)
 
 
 # E-2: Sayfa okuma araci — yalnizca GET, 200000 karakter siniri
@@ -282,22 +279,14 @@ class _GuvenliYonlendirme(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def sayfa_oku(url: str) -> dict:
-    """E-2: Bir URL'den sayfa icerigini okur (yalnizca GET).
-
-    HTML icerikten etiketler soyulur, duz metin olarak dondurulur.
-    En fazla 200000 karakter doner (sema ile ayni).
-
-    Args:
-        url: Okunacak URL (http:// veya https://).
-
-    Returns:
-        {"result": str} veya {"error": str}.
-    """
-    return _sayfa_oku_genis(url, _MAX_SAYFA)
+def sayfa_oku(url: str, baslangic=0, uzunluk=30000) -> dict:
+    """Bir URL'yi cursor ile okur; tam metni tek tool sonucuna yigmaz."""
+    return _sayfa_oku_genis(
+        url, _MAX_SAYFA, baslangic=baslangic, uzunluk=uzunluk)
 
 
-def _sayfa_oku_genis(url: str, tavan: int) -> dict:
+def _sayfa_oku_genis(
+        url: str, tavan: int, baslangic=0, uzunluk=30000) -> dict:
     """Guvenli cekme hattinin tavan parametreli govdesi.
 
     sayfa_oku ve derin_oku buradan gecer; SSRF denetimi, yonlendirme
@@ -341,6 +330,7 @@ def _sayfa_oku_genis(url: str, tavan: int) -> dict:
         with opener.open(req, timeout=15) as resp:
             # Icerik turunu kontrol et
             content_type = resp.headers.get("Content-Type", "")
+            son_url = resp.geturl()
             if "text/html" not in content_type and \
                "text/plain" not in content_type:
                 return {"error": "Desteklenen icerik tipi degil: %s"
@@ -379,13 +369,50 @@ def _sayfa_oku_genis(url: str, tavan: int) -> dict:
         # Bosluklari temizle
         temiz = re.sub(r'\s+', ' ', temiz).strip()
 
-        if len(temiz) > tavan:
-            temiz = temiz[:tavan] + "\n...(ilk %d karakter)" % tavan
-
         if not temiz:
             return {"error": "Sayfa icerigi bos"}
 
-        return {"result": temiz}
+        try:
+            baslangic = max(0, int(baslangic or 0))
+        except (TypeError, ValueError):
+            return {"error": "baslangic sayi olmali"}
+        try:
+            uzunluk = int(uzunluk or 30000)
+        except (TypeError, ValueError):
+            return {"error": "uzunluk sayi olmali"}
+        uzunluk = max(1, min(50000, uzunluk))
+
+        kaynak_toplam = len(temiz)
+        erisilebilir = min(kaynak_toplam, int(tavan))
+        if baslangic >= erisilebilir and erisilebilir > 0:
+            return {
+                "error": "baslangic erisilebilir metnin disinda",
+                "result": json.dumps({
+                    "meta": {
+                        "url": son_url,
+                        "kaynak_toplam": kaynak_toplam,
+                        "erisilebilir": erisilebilir,
+                        "kaynak_tavani_asildi": kaynak_toplam > tavan,
+                    }
+                }, ensure_ascii=False),
+            }
+
+        son = min(erisilebilir, baslangic + uzunluk)
+        parca = temiz[baslangic:son]
+        meta = {
+            "url": son_url,
+            "baslangic": baslangic,
+            "son": son,
+            "kaynak_toplam": kaynak_toplam,
+            "erisilebilir": erisilebilir,
+            "devam": son < erisilebilir,
+            "sonraki_baslangic": son if son < erisilebilir else None,
+            "kaynak_tavani_asildi": kaynak_toplam > tavan,
+        }
+        return {
+            "result": json.dumps(
+                {"meta": meta, "metin": parca}, ensure_ascii=False)
+        }
 
     except urllib.error.HTTPError as e:
         return {"error": "HTTP hatasi %d: %s" % (e.code, url)}

@@ -86,6 +86,52 @@ def gecmis_pencere(gecmis, limit=GECMIS_KILO_LIMITI, adet_siniri=MAX_HISTORY):
     return list(gecmis or [])
 
 
+def _yaklasik_token(mesaj):
+    try:
+        ham = json.dumps(mesaj, ensure_ascii=False, separators=(",", ":"))
+    except Exception:
+        ham = str(mesaj or "")
+    return max(1, len(ham) // 4)
+
+
+def gecmis_model_penceresi(gecmis, token_butcesi=None):
+    """Modele giden geçmişi ölçülü tutar; diskteki tam geçmişe dokunmaz."""
+    liste = list(gecmis or [])
+    if token_butcesi is None:
+        try:
+            token_butcesi = int(
+                os.environ.get("BASAK_CONTEXT_TOKEN_BUDGET") or 90000
+            )
+        except ValueError:
+            token_butcesi = 90000
+    token_butcesi = max(16000, int(token_butcesi))
+    toplam = sum(_yaklasik_token(m) for m in liste)
+    if toplam <= token_butcesi:
+        return liste, {
+            "compact": False, "toplam_token": toplam,
+            "modele_giden_token": toplam, "atlanan_mesaj": 0,
+        }
+
+    secilen, kullanilan = [], 0
+    for mesaj in reversed(liste):
+        maliyet = _yaklasik_token(mesaj)
+        if secilen and kullanilan + maliyet > token_butcesi:
+            break
+        if not secilen and maliyet > token_butcesi:
+            break
+        secilen.append(mesaj)
+        kullanilan += maliyet
+    secilen.reverse()
+    while secilen and secilen[0].get("role") == "tool":
+        kullanilan -= _yaklasik_token(secilen.pop(0))
+    return secilen, {
+        "compact": True,
+        "toplam_token": toplam,
+        "modele_giden_token": max(0, kullanilan),
+        "atlanan_mesaj": max(0, len(liste) - len(secilen)),
+    }
+
+
 def temizle_history(gecmis):
     """Geçmiş mesajlarını API biçimine indirger.
 

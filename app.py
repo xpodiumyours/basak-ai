@@ -455,7 +455,10 @@ async def kimlik_hazirla(request: Request):
             "basak_id": "Preview " + kid[-8:],
             "kayit_gerekli": False,
             "preview": True,
-            "kalici_hafiza": False,
+            "kalici_hafiza": (
+                __import__("memory").preview_hafiza_modu()
+                == "postgres_isolated"
+            ),
         }, headers={"Cache-Control": "no-store"})
         return _preview_cerezi(resp, kid)
 
@@ -545,6 +548,12 @@ async def durum(request: Request):
             })
     except Exception:
         pass
+    try:
+        from memory import preview_hafiza_modu
+        hafiza_modu = preview_hafiza_modu()
+    except Exception:
+        hafiza_modu = "dogrulanamadi"
+
     return {
         "ok": bool(zincir),
         "runtime": "vercel",
@@ -555,6 +564,8 @@ async def durum(request: Request):
         "modeller": modeller,
         "arac_sayisi": len(tools),
         "tasima": "canli-ndjson",
+        "hafiza_modu": hafiza_modu,
+        "preview_hafiza_parity": hafiza_modu == "postgres_isolated",
     }
 
 
@@ -618,6 +629,11 @@ async def sohbet(request: Request):
                     tools,
                     misafir=misafir,
                     gecmis_override=_gecmis(body or {}),
+                    yonlendirme_baglami=(
+                        (body or {}).get("yonlendirme_baglami")
+                        if isinstance(
+                            (body or {}).get("yonlendirme_baglami"), dict)
+                        else None),
                 )
             except _AkisIptal:
                 return

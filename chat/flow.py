@@ -21,7 +21,8 @@ import re
 
 from chat.prompts import MISAFIR_BLOGU, kimlik_blogu
 from chat.kimlik import VARSAYILAN_KULLANICI, aktif_kullanici, gorunur_ad
-from chat.tool_resolver import RUNTIME_AJAN_SOZLESMESI, araclari_coz
+from chat.tool_resolver import RUNTIME_AJAN_SOZLESMESI, arac_karari_coz
+from chat.output_control import akan_final, kesik_cevabi_tamamla, kesik_mi
 from chat import context as ctx
 from chat.gate import temizle as _temizle
 from chat import onbellek as _onbellek
@@ -134,8 +135,16 @@ def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi="",
                 satirlar.append("- [%s] %s" % (_etiket, _metin))
             else:
                 satirlar.append("- %s" % _metin)
-        mesajlar.append({"role": "system",
-                         "content": "Hafızadan:\n" + "\n".join(satirlar)})
+        mesajlar.append({
+            "role": "system",
+            "content": (
+                "Hafızadan (GEÇMİŞ KAYDI; KANIT DEĞİL):\n"
+                + "\n".join(satirlar)
+                + "\nKural: sohbet_aracli/sohbet_aracsiz kayıtları eski "
+                  "Başak cevaplarıdır. Güncel dış gerçeklikte araç sonucu "
+                  "üstündür; çelişirse hafıza kullanılmaz."
+            ),
+        })
 
     if profil_blogu:
         mesajlar.append({"role": "system", "content": profil_blogu})
@@ -146,7 +155,8 @@ def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi="",
 
 
 def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
-            misafir=False, onbellekle=False):
+            misafir=False, onbellekle=False, arac_kullanildi=False,
+            tamamlanmis=True):
     """Cevabı ekrana basar, geçmişe ve kalıcı hafızaya yazar.
 
     onbellekle=True: yalnız ARAC KOSMAYAN turlar icin gecilir; cevap
@@ -181,16 +191,22 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
 
     # Ekran güncellendikten SONRA anıyı yaz — cevabı bekletmesin.
     motor = ctx.hafiza_al()
-    if motor and cevap:
+    if motor and cevap and tamamlanmis:
         try:
-            motor.episodik_kaydet(text, cevap, speaker=konusmaci or "",
-                                  onem=ctx.onem_puanla(text))
+            hafiza_kaynagi = (
+                "sohbet_aracli" if arac_kullanildi else "sohbet_aracsiz"
+            )
+            motor.episodik_kaydet(
+                text, cevap, kaynak=hafiza_kaynagi,
+                speaker=konusmaci or "", onem=ctx.onem_puanla(text)
+            )
         except Exception as e:
             logger.warning("Ani kaydedilemedi: %s", e)
 
 
 def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
-               misafir=False, gecmis_override=None):
+               misafir=False, gecmis_override=None,
+               yonlendirme_baglami=None):
     """Bir mesajı baştan sona işler."""
     text, konusmaci = _konusmaci_ayir((text or "").strip())
 
@@ -254,8 +270,36 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         text, system_prompt, konusmaci,
         RUNTIME_AJAN_SOZLESMESI if arac_acik else "", misafir=misafir)
 
-    mesajlar += ctx.gecmis_pencere(gecmis) + [{"role": "user",
-                                               "content": text}]
+    model_gecmisi, pencere_bilgi = ctx.gecmis_model_penceresi(gecmis)
+    if pencere_bilgi.get("compact") and hasattr(js_callback, "olay"):
+        js_callback.olay(
+            "contextStatus",
+            atlanan=int(pencere_bilgi.get("atlanan_mesaj") or 0),
+            toplam_token=int(pencere_bilgi.get("toplam_token") or 0),
+            modele_giden_token=int(
+                pencere_bilgi.get("modele_giden_token") or 0
+            ),
+        )
+    mesajlar += model_gecmisi
+    if isinstance(yonlendirme_baglami, dict) and yonlendirme_baglami:
+        try:
+            _yon = json.dumps(
+                yonlendirme_baglami, ensure_ascii=False
+            )[:12000]
+            mesajlar.append({
+                "role": "system",
+                "content": (
+                    "KESILMIS CALISMA BAGLAMI (kullanici Yönlendir dedi): "
+                    + _yon
+                    + "\nBu veri tamamlanmış adımlar/kaynaklar/kısmi "
+                      "cevaptır; ham tool sonucu değildir ve tek başına kanıt "
+                      "sayılmaz. Aynı yan etkili işlemi körlemesine tekrar "
+                      "etme; gerekiyorsa önce mevcut durumu doğrula."
+                ),
+            })
+        except Exception:
+            pass
+    mesajlar.append({"role": "user", "content": text})
 
     # ── Gercek ajan yolu ────────────────────────────────────────────
     # Tools varken modelin karari serbesttir: normal sohbette dogrudan
@@ -263,12 +307,27 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     # resmi saglayici davranisiyla uyumludur; kod kullanici metnini
     # siniflandirmaz ve araci zorlamaz.
     if arac_acik and hasattr(brain, "ajan_musait"):
-        # P2: meta-arac yok. Resolver yalniz gercek arac semalarini hazirlar.
-        ajan_tools = araclari_coz(brain, model, mesajlar, tools)
+        karar = arac_karari_coz(brain, model, mesajlar, tools)
+        ajan_tools = list(karar.get("tools") or [])
+        arac_zorunlu = bool(karar.get("tool_required"))
+
+        if not ajan_tools and not arac_zorunlu:
+            cevap, kaynak, tamam = akan_final(
+                brain, model, mesajlar, js_callback
+            )
+            if cevap:
+                _kaydet(
+                    text, _temizle(cevap), kaynak, gecmis, js_callback,
+                    konusmaci, misafir=misafir, onbellekle=tamam,
+                    arac_kullanildi=False, tamamlanmis=tamam,
+                )
+                return
+
+        secim = "required" if arac_zorunlu else "auto"
         try:
             if ajan_tools:
                 yanit, kaynak = brain.cevapla(
-                    mesajlar, model, tools=ajan_tools, tool_choice="auto")
+                    mesajlar, model, tools=ajan_tools, tool_choice=secim)
             else:
                 yanit, kaynak = brain.cevapla(mesajlar, model)
         except Exception as e:
@@ -281,22 +340,32 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                     "Ajan beyni hatasi: " + hata) + ")")
             return
 
-        tool_calls = (yanit.get("tool_calls")
-                      if isinstance(yanit, dict) else None)
-
-        # Normal sohbet: model arac gerektirmedigine kendi karar verdiyse
-        # dogal metni final kabul et. Ajan olmak her turda arac kullanmak
-        # demek degildir.
+        tool_calls = (
+            yanit.get("tool_calls") if isinstance(yanit, dict) else None
+        )
         if not tool_calls:
-            cevap = _temizle(
-                yanit.get("content", "") if isinstance(yanit, dict)
-                else yanit)
-            if cevap:
-                _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
-                     misafir=misafir, onbellekle=True)
+            if arac_zorunlu:
+                js_callback("BasakUI.error(" + _j(
+                    "Araç gerektiren görevde doğrulanmış araç çağrısı "
+                    "oluşmadı; ezber cevap final kabul edilmedi.") + ")")
                 return
-            # Bos yanit brain.cevapla'da siradaki saglayiciya duserdi;
-            # buraya geldiyse zincir tukendi.
+            tamam = True
+            if kesik_mi(yanit):
+                cevap, kaynak, tamam = kesik_cevabi_tamamla(
+                    brain, model, mesajlar, yanit, js_callback=js_callback,
+                    tercih=[kaynak] if kaynak else None,
+                )
+            else:
+                cevap = _temizle(
+                    yanit.get("content", "") if isinstance(yanit, dict)
+                    else yanit)
+            if cevap:
+                _kaydet(
+                    text, _temizle(cevap), kaynak, gecmis, js_callback,
+                    konusmaci, misafir=misafir, onbellekle=tamam,
+                    arac_kullanildi=False, tamamlanmis=tamam,
+                )
+                return
             js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")")
             return
 
@@ -304,15 +373,18 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         from tools import calistir
         cevap, kosan = arac_dongusu(
             tool_calls, mesajlar, brain, model, js_callback, calistir,
-            tools=ajan_tools, yanit=yanit, tool_choice="auto",
+            tools=ajan_tools, yanit=yanit, tool_choice=secim,
             tum_tools=tools, tercih=[kaynak] if kaynak else None,
             dinamik_resolver=True)
         cevap = _temizle(cevap)
         if cevap:
-            _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
-                     misafir=misafir)
+            tamam = "[Yanıt teknik çıktı sınırına ulaştı;" not in cevap
+            _kaydet(
+                text, cevap, kaynak, gecmis, js_callback, konusmaci,
+                misafir=misafir, arac_kullanildi=kosan > 0,
+                tamamlanmis=tamam,
+            )
             return
-
         logger.info("Ajan turu final cevap vermedi (%d arac kostu)", kosan)
         js_callback("BasakUI.error(" + _j(
             "Bu sefer araclardan sonuc alamadim, tekrar dene") + ")")

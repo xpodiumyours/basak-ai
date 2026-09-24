@@ -103,10 +103,7 @@ def _durum(tool_name, args):
     return "%s: %s" % (etiket, detay) if detay else etiket + "..."
 
 
-_KAYNAK_ARACLARI = {
-    "web_search", "haber_ara", "zamanli_ara", "site_ara",
-    "kitap_ara", "derin_oku", "sayfa_oku", "adres_kontrol", "sirket_ara",
-}
+_KAYNAK_ARACLARI = {"derin_oku", "sayfa_oku"}
 _URL_RE = re.compile(r"https?://[^\\s<>'\\\"]+", re.IGNORECASE)
 
 
@@ -186,6 +183,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     expanded = list(mesajlar)
     kosan = 0
     tur_sonuclari = []
+    _tekrar = {}
 
     def _muhakeme_al(obj):
         out = {}
@@ -204,7 +202,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     # yere model degistirmesini engeller.
     _tercih_aktif = list(tercih or [])
 
-    def _beyin_devam(acik_tools):
+    def _beyin_devam(acik_tools, secim=None):
         nonlocal _tercih_aktif
         import inspect
 
@@ -214,16 +212,24 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             x.kind == inspect.Parameter.VAR_KEYWORD
             for x in _p.values())
 
-        if tool_choice is not None and (
+        _secim = tool_choice if secim is None else secim
+        if _secim is not None and (
                 "tool_choice" in _p or _kwargs_var):
-            _kw["tool_choice"] = tool_choice
+            _kw["tool_choice"] = _secim
         if _tercih_aktif and ("tercih" in _p or _kwargs_var):
             _kw["tercih"] = list(_tercih_aktif)
 
+        onceki = (_tercih_aktif or [""])[0] if _tercih_aktif else ""
         sonuc = brain.cevapla(expanded, model, **_kw)
         if (isinstance(sonuc, tuple) and len(sonuc) == 2
                 and sonuc[1]):
-            _tercih_aktif = [sonuc[1]]
+            yeni = str(sonuc[1])
+            if onceki and yeni and yeni != onceki:
+                _web_olay(
+                    js_callback, "providerSwitch",
+                    onceki=onceki, yeni=yeni,
+                )
+            _tercih_aktif = [yeni]
         return sonuc
 
     ilk_muhakeme = _muhakeme_al(yanit)
@@ -336,8 +342,35 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 continue
 
             js_callback("BasakUI.toolStatus(" + _j(_durum(ad, args)) + ")")
-            net = sonucu_donustur(calistir(ad, args))
-            basarili = not net.startswith("Hata:")
+            try:
+                _arg_anahtar = json.dumps(
+                    args or {}, ensure_ascii=False, sort_keys=True,
+                    separators=(",", ":"),
+                )
+            except Exception:
+                _arg_anahtar = str(args or {})
+            _tekrar_anahtar = ad + "|" + _arg_anahtar
+            _once = _tekrar.get(_tekrar_anahtar)
+            if _once and int(_once.get("adet") or 0) >= 2:
+                net = (
+                    "Hata: ayni arac, ayni arguman ve ayni sonuc tekrar "
+                    "dongusune girdi; ayni cagri tekrar calistirilmadi."
+                )
+                basarili = False
+                _web_olay(
+                    js_callback, "loopGuard", tool=ad,
+                    tekrar=int(_once.get("adet") or 0) + 1,
+                )
+            else:
+                net = sonucu_donustur(calistir(ad, args))
+                basarili = not net.startswith("Hata:")
+                if _once and _once.get("sonuc") == net:
+                    _tekrar[_tekrar_anahtar] = {
+                        "sonuc": net,
+                        "adet": int(_once.get("adet") or 0) + 1,
+                    }
+                else:
+                    _tekrar[_tekrar_anahtar] = {"sonuc": net, "adet": 1}
             _web_olay(
                 js_callback, "toolDone",
                 id=cagri_id,
@@ -376,20 +409,37 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 "content": sonuc,
             })
 
+        _devam_secimi = tool_choice
+        _karar = None
         if dinamik_resolver and tum_tools is not None:
             try:
-                from chat.tool_resolver import araclari_coz
-                tools = araclari_coz(
+                from chat.tool_resolver import arac_karari_coz
+                _karar = arac_karari_coz(
                     brain, model, expanded, tum_tools,
                     tercih=list(_tercih_aktif or []),
                 )
+                tools = list(_karar.get("tools") or [])
+                _devam_secimi = (
+                    "required" if _karar.get("tool_required") else "auto"
+                )
             except Exception as e:
-                # Resolver kendi icinde fail-open yapar; bu son koruma,
-                # beklenmeyen bir kod hatasinda mevcut arac setini korur.
                 logger.warning("Runtime tool resolver yenilenemedi: %s", e)
 
+        if (dinamik_resolver and _karar is not None
+                and not _karar.get("tool_required") and not tools):
+            try:
+                from chat.output_control import akan_final
+                _akan, _kaynak, _tamam = akan_final(
+                    brain, model, expanded, js_callback,
+                    tercih=list(_tercih_aktif or []),
+                )
+                if _akan:
+                    return temizle(_akan), kosan
+            except Exception as e:
+                logger.warning("Arac sonrasi final stream acilamadi: %s", e)
+
         try:
-            yanit, _kaynak = _beyin_devam(tools)
+            yanit, _kaynak = _beyin_devam(tools, secim=_devam_secimi)
         except Exception as e:
             logger.warning("Arac turu sonrasi cevap alinamadi: %s", e)
             break
@@ -407,6 +457,18 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
 
         cevap = temizle(yanit.get("content", ""))
         if cevap:
+            try:
+                from chat.output_control import (
+                    kesik_cevabi_tamamla, kesik_mi,
+                )
+                if kesik_mi(yanit):
+                    cevap, _kaynak, _tamam = kesik_cevabi_tamamla(
+                        brain, model, expanded, yanit,
+                        js_callback=js_callback,
+                        tercih=list(_tercih_aktif or []),
+                    )
+            except Exception as e:
+                logger.warning("Kesik final kontrolu atlandi: %s", e)
             return cevap, kosan
         break
 

@@ -554,6 +554,22 @@ function araciTamamla(b, olay) {
   }
 }
 
+function yonlendirmeBaglamiOlustur(b, anaMetin) {
+  const kayit = calismaKaydi(b);
+  return {
+    onceki_istek: String(anaMetin || "").slice(0, 2000),
+    tamamlanan_adimlar: (kayit.adimlar || []).slice(-16).map((a) => ({
+      baslik: String(a.baslik || "").slice(0, 160),
+      detay: String(a.detay || "").slice(0, 240),
+      ok: a.ok !== false,
+    })),
+    kullanilan_kaynaklar: (kayit.kaynaklar || []).slice(-16).map(
+      (k) => String(k.url || "").slice(0, 500)
+    ),
+    kismi_cevap: String(b.dataset.ham || "").slice(-5000),
+  };
+}
+
 function durumSatiri(b, metin, tur = "thinking") {
   if (!b) return;
   const kayit = calismaKaydi(b);
@@ -905,6 +921,55 @@ function olayiIsle(o) {
     return false;
   }
 
+  if (o.tur === "contextStatus") {
+    let b = balonlar.get(no);
+    if (!b) {
+      b = bubble("assistant", "");
+      balonlar.set(no, b);
+    }
+    const n = Number(o.atlanan || 0);
+    durumSatiri(
+      b,
+      n > 0
+        ? "Bağlam düzenlendi — " + n + " eski mesaj kalıcı geçmişte korundu"
+        : "Bağlam ölçüldü",
+      "thinking",
+    );
+    return false;
+  }
+
+  if (o.tur === "providerSwitch") {
+    const b = balonlar.get(no);
+    if (b) {
+      const kayit = calismaKaydi(b);
+      kayit.canli.textContent =
+        "Sağlayıcı değişti: " + String(o.onceki || "") +
+        " → " + String(o.yeni || "");
+    }
+    return false;
+  }
+
+  if (o.tur === "loopGuard") {
+    const b = balonlar.get(no);
+    if (b) {
+      durumSatiri(
+        b,
+        "Tekrarlanan araç döngüsü durduruldu — " + String(o.tool || ""),
+        "thinking",
+      );
+    }
+    return false;
+  }
+
+  if (o.tur === "truncated") {
+    const b = balonlar.get(no);
+    if (b) {
+      const kayit = calismaKaydi(b);
+      kayit.canli.textContent = "Yanıt teknik çıktı sınırına ulaştı";
+    }
+    return false;
+  }
+
   if (o.tur === "toolStatus") {
     let b = balonlar.get(no);
     if (!b) {
@@ -1124,7 +1189,13 @@ async function send(secenek = {}) {
   calisma.yonlendir.hidden = !!gorsel;
   calisma.yonlendirIstegi = (yon) => {
     if (!gonderiliyor || calisma.bitti) return;
-    yonlendirmeBekliyor = { yon, anaMetin: gonderilecekMetin };
+    yonlendirmeBekliyor = {
+      yon,
+      anaMetin: gonderilecekMetin,
+      baglam: yonlendirmeBaglamiOlustur(
+        bekleyenBalon, gonderilecekMetin
+      ),
+    };
     yonlendirmeIcinDurduruldu = true;
     kullaniciDurdurdu = true;
     if (aktifIstekDenetleyici) aktifIstekDenetleyici.abort();
@@ -1154,6 +1225,7 @@ async function send(secenek = {}) {
         misafir:MISAFIR,
         gecmis:bulutGecmisi,
         ek,
+        yonlendirme_baglami:secenek.yonlendirmeBaglami || null,
       }),
       signal:aktifIstekDenetleyici.signal,
     });
@@ -1232,6 +1304,7 @@ async function send(secenek = {}) {
         send({
           text: devam.yon,
           gorunenMetin: "Yönlendirme: " + devam.yon,
+          yonlendirmeBaglami: devam.baglam || null,
         });
       }, 0);
     } else {

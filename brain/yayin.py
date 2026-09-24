@@ -40,6 +40,14 @@ class SonHata(Exception):
         self.ozet = ozet
 
 
+class CikisKesildi(Exception):
+    """Provider stream'i teknik cikti/context sinirinda bitti."""
+
+    def __init__(self, neden):
+        super().__init__(str(neden or "limit"))
+        self.neden = str(neden or "limit")
+
+
 def akit(openai_client, model, messages, tools=None):
     """OpenAI-uyumlu istemciden metin parcasi uretir (generator).
 
@@ -66,9 +74,14 @@ def akit(openai_client, model, messages, tools=None):
     # Streaming tool_call parcalari (OpenAI delta formati: index bazli).
     _arac_parcalar = {}  # index -> {"id","name","arguments"}
     _muhakeme_parcalar = []
+    _bitis_nedeni = ""
     for chunk in stream:
         try:
-            delta = chunk.choices[0].delta
+            secim = chunk.choices[0]
+            _fr = getattr(secim, "finish_reason", None)
+            if _fr:
+                _bitis_nedeni = str(_fr)
+            delta = secim.delta
         except (AttributeError, IndexError):
             continue
         # Reasoning delta varsa biriktir (GLM/DeepSeek tarzi).
@@ -133,3 +146,7 @@ def akit(openai_client, model, messages, tools=None):
                                         + _txt)
                 muhakeme = _birlesik
             raise AracIstegi(tool_calls=tool_calls, muhakeme=muhakeme)
+
+    if _bitis_nedeni.lower() in (
+            "length", "max_tokens", "model_context_window_exceeded"):
+        raise CikisKesildi(_bitis_nedeni)
