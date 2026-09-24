@@ -259,7 +259,57 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em;
 }
 .message-row.user .icerik code{background:rgba(255,255,255,.15)}
-.status-line{display:block;margin-top:8px;color:#8b8b92;font-size:11px}
+.status-line{display:block;margin-top:8px;color:#68686f;font-size:12px}
+.work-card{
+  margin:2px 0 12px;padding:12px;
+  border:1px solid rgba(218,218,223,.92);
+  border-radius:15px;background:rgba(248,248,250,.88);
+}
+.work-head{display:flex;align-items:center;gap:8px;min-height:24px}
+.work-pulse{
+  width:8px;height:8px;border-radius:999px;flex:0 0 auto;
+  background:#323236;box-shadow:0 0 0 0 rgba(50,50,54,.22);
+  animation:basak-pulse 1.8s ease-out infinite
+}
+.work-title{font-size:13px;line-height:1.3;color:#2f2f34}
+.work-time{
+  margin-left:auto;color:#67676f;font-size:12px;font-weight:650;
+  font-variant-numeric:tabular-nums
+}
+.work-current{display:grid;gap:3px;margin-top:9px}
+.work-current-title{font-size:13.5px;line-height:1.35;color:#34343a}
+.work-current-detail{
+  color:#5f5f67;font-size:12.5px;line-height:1.42;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden
+}
+.work-summary{margin-top:7px;color:#65656d;font-size:12.5px;line-height:1.4}
+.work-actions{display:flex;align-items:center;gap:8px;margin-top:10px}
+.work-action{
+  min-height:34px;padding:6px 10px;border:1px solid #d8d8dd;border-radius:9px;
+  background:#fff;color:#4b4b52;font-size:12px;font-weight:650
+}
+.work-action:hover{background:#f3f3f5}
+.work-action:focus-visible{outline:2px solid #303036;outline-offset:2px}
+.work-stop{margin-left:auto;color:#8b3030}
+.work-details{margin-top:10px;padding-top:9px;border-top:1px solid #e2e2e6}
+.work-steps{display:grid;gap:7px;margin:0;padding:0;list-style:none}
+.work-step{display:grid;grid-template-columns:16px minmax(0,1fr);gap:6px;align-items:start}
+.work-step-mark{font-size:12px;line-height:1.5;color:#777780;text-align:center}
+.work-step.done .work-step-mark{color:#39734d}
+.work-step.active .work-step-mark{color:#33343a}
+.work-step-copy{font-size:12px;line-height:1.45;color:#5c5c64;overflow-wrap:anywhere}
+.work-card.done,.work-card.stopped{padding:10px 12px;background:rgba(250,250,251,.76)}
+.work-card.done .work-pulse{animation:none;background:#39734d;box-shadow:none}
+.work-card.stopped .work-pulse{animation:none;background:#8b3030;box-shadow:none}
+.sr-only{
+  position:absolute!important;width:1px!important;height:1px!important;padding:0!important;
+  margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;
+  white-space:nowrap!important;border:0!important
+}
+@keyframes basak-pulse{
+  0%{box-shadow:0 0 0 0 rgba(50,50,54,.20)}
+  70%,100%{box-shadow:0 0 0 7px rgba(50,50,54,0)}
+}
 .sent-image{
   display:block;
   width:min(280px,100%);
@@ -386,6 +436,11 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   .hero p{padding:0 10px}
   .bubble{max-width:88%}
   .message-row.assistant .bubble{max-width:90%}
+  .work-card{padding:11px;margin-bottom:10px}
+  .work-title{font-size:13.5px}
+  .work-current-title{font-size:14px}
+  .work-current-detail{font-size:13px}
+  .work-action{min-height:40px;padding:8px 11px}
   .composer-dock{padding:8px 8px max(12px,env(safe-area-inset-bottom))}
   .composer{border-radius:21px;padding:8px}
   .icon-button,.send-button{width:38px;height:38px;border-radius:12px}
@@ -408,3 +463,7 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .ai-notice a,.composer-note a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .composer-note{line-height:1.35}
 @media(max-width:760px){.ai-notice{margin:16px 8px 0;font-size:11px}}
+
+@media(prefers-reduced-motion:reduce){
+  .work-pulse{animation:none;box-shadow:none}
+}
