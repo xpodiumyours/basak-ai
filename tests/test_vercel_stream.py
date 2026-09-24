@@ -194,3 +194,154 @@ def test_web_javascript_sozdizimi_gecerli():
         timeout=30,
     )
     assert sonuc.returncode == 0, sonuc.stderr or sonuc.stdout
+
+
+
+def _node_kos(script):
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node.js bu ortamda yok")
+    sonuc = subprocess.run(
+        [node, "-e", script],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert sonuc.returncode == 0, sonuc.stderr or sonuc.stdout
+
+
+def test_web_jsonl_parser_network_parcalarinda_bolunse_de_calismali():
+    ekran = open("web/app.js", encoding="utf-8").read()
+    bas = ekran.index("async function canliYanitiOku")
+    son = ekran.index("\n\nasync function jsonOku", bas)
+    fonksiyon = ekran[bas:son]
+
+    script = r"""
+const olaylar = [];
+function olayiBaslangicBalonunaBagla(_o, _b) {}
+function olayiIsle(o) { olaylar.push(o); }
+""" + fonksiyon + r"""
+(async () => {
+  const metin =
+    '{"istek":"abc","tur":"thinking"}\n' +
+    '{"istek":"abc","tur":"toolStatus","metin":"İnternette aranıyor: deneme"}\n' +
+    '{"istek":"abc","tur":"parca","metin":"Mer"}\n' +
+    '{"istek":"abc","tur":"parca","metin":"haba"}\n' +
+    '{"istek":"abc","tur":"bitir","cevap":"Merhaba","kaynak":"sahte"}\n';
+
+  const tum = new TextEncoder().encode(metin);
+  const sinirlar = [1, 4, 9, 17, 29, 43, 58, 73, 91, 117, 149, tum.length];
+  const parcalar = [];
+  let onceki = 0;
+  for (const s of sinirlar) {
+    const bitis = Math.min(s, tum.length);
+    if (bitis > onceki) parcalar.push(tum.slice(onceki, bitis));
+    onceki = bitis;
+  }
+  if (onceki < tum.length) parcalar.push(tum.slice(onceki));
+
+  let i = 0;
+  const r = {
+    body: {
+      getReader() {
+        return {
+          async read() {
+            if (i >= parcalar.length) return { value: undefined, done: true };
+            return { value: parcalar[i++], done: false };
+          }
+        };
+      }
+    }
+  };
+
+  const sonuc = await canliYanitiOku(r, {});
+  const turler = olaylar.map(o => o.tur).join(",");
+  if (turler !== "thinking,toolStatus,parca,parca,bitir") {
+    throw new Error("olay sirasi bozuk: " + turler);
+  }
+  if (!sonuc.ok || sonuc.cevap !== "Merhaba" || sonuc.kaynak !== "sahte") {
+    throw new Error("final sonuc bozuk: " + JSON.stringify(sonuc));
+  }
+})().catch(e => { console.error(e); process.exit(1); });
+"""
+    _node_kos(script)
+
+
+def test_web_ui_gercek_olaylari_sirasi_ile_gosterir_ve_detayi_gizler():
+    ekran = open("web/app.js", encoding="utf-8").read()
+
+    gb = ekran.index("function guvenliDurum")
+    gs = ekran.index("\n\nfunction autoResize", gb)
+    guvenli = ekran[gb:gs]
+
+    ob = ekran.index("function olayiIsle(o)")
+    os = ekran.index("\n\nfunction olayiBaslangicBalonunaBagla", ob)
+    olay_isle = ekran[ob:os]
+
+    script = r"""
+const balonlar = new Map();
+const durumlar = [];
+const yazilar = [];
+let kapatildi = 0;
+
+function bubble(_role, text) {
+  return {
+    dataset: { ham: String(text || "") },
+    querySelector() { return null; },
+    closest() { return null; },
+    remove() {}
+  };
+}
+function durumSatiri(b, metin) {
+  b.durum = metin;
+  durumlar.push(metin);
+}
+function durumuKapat(b) {
+  delete b.durum;
+  kapatildi += 1;
+}
+function icerikYaz(b, metin) {
+  b.dataset.ham = String(metin || "");
+  yazilar.push(b.dataset.ham);
+}
+function sohbetAlta() {}
+""" + guvenli + "\n" + olay_isle + r"""
+
+const b = bubble("assistant", "");
+balonlar.set("abc", b);
+
+olayiIsle({istek:"abc", tur:"thinking"});
+if (b.durum !== "Düşünüyorum…") {
+  throw new Error("thinking görünmedi: " + b.durum);
+}
+
+olayiIsle({
+  istek:"abc",
+  tur:"toolStatus",
+  metin:"İnternette aranıyor: https://ornek.test/?token=GIZLI"
+});
+if (b.durum !== "İnternette aranıyor…") {
+  throw new Error("toolStatus etiketi yanlış: " + b.durum);
+}
+if (durumlar.some(x => x.includes("GIZLI") || x.includes("ornek.test"))) {
+  throw new Error("ham araç detayı kullanıcıya sızdı");
+}
+
+olayiIsle({istek:"abc", tur:"parca", metin:"Mer"});
+olayiIsle({istek:"abc", tur:"parca", metin:"haba"});
+if (b.dataset.ham !== "Merhaba") {
+  throw new Error("parçalar birleşmedi: " + b.dataset.ham);
+}
+
+olayiIsle({istek:"abc", tur:"bitir", cevap:"Merhaba", kaynak:"sahte"});
+if (b.dataset.ham !== "Merhaba") {
+  throw new Error("bitir cevabı bozdu: " + b.dataset.ham);
+}
+if (balonlar.has("abc")) {
+  throw new Error("bitir sonrası istek balonu temizlenmedi");
+}
+if (kapatildi < 1) {
+  throw new Error("canlı durum finalde kapanmadı");
+}
+"""
+    _node_kos(script)
