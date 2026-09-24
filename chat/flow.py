@@ -257,13 +257,61 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     mesajlar += ctx.gecmis_pencere(gecmis) + [{"role": "user",
                                                "content": text}]
 
-    # ── Gercek akan ajan yolu ───────────────────────────────────────
-    # Ajan modunda modele ilk turda yalniz yetenek_ac/son_cevap kapisi
-    # sunulur. Cevap metinse parca parca akar; arac isterse mevcut
-    # arac_dongusu ayni tool-call'u devralir. Kullanici metniyle routing yok.
-    ajan_modu = arac_acik and hasattr(brain, "ajan_musait")
-    akis_tools = baslangic_araclari() if ajan_modu else tools
-    akis_tool_choice = "auto" if ajan_modu else None
+    # ── Gercek ajan yolu ────────────────────────────────────────────
+    # Tools varken modelin karari serbesttir: normal sohbette dogrudan
+    # metin, gercek veri/eylem gerektiginde native tool_call. tool_choice="auto"
+    # resmi saglayici davranisiyla uyumludur; kod kullanici metnini
+    # siniflandirmaz ve araci zorlamaz.
+    if arac_acik and hasattr(brain, "ajan_musait"):
+        ajan_tools = baslangic_araclari()
+        try:
+            yanit, kaynak = brain.cevapla(
+                mesajlar, model, tools=ajan_tools, tool_choice="auto")
+        except Exception as e:
+            hata = str(e)
+            if "429" in hata or "rate" in hata.lower():
+                js_callback("BasakUI.error(" + _j(
+                    "Cok fazla istek, biraz bekle") + ")")
+            else:
+                js_callback("BasakUI.error(" + _j(
+                    "Ajan beyni hatasi: " + hata) + ")")
+            return
+
+        tool_calls = (yanit.get("tool_calls")
+                      if isinstance(yanit, dict) else None)
+
+        # Normal sohbet: model arac gerektirmedigine kendi karar verdiyse
+        # dogal metni final kabul et. Ajan olmak her turda arac kullanmak
+        # demek degildir.
+        if not tool_calls:
+            cevap = _temizle(
+                yanit.get("content", "") if isinstance(yanit, dict)
+                else yanit)
+            if cevap:
+                _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
+                     misafir=misafir, onbellekle=True)
+                return
+            # Bos yanit brain.cevapla'da siradaki saglayiciya duserdi;
+            # buraya geldiyse zincir tukendi.
+            js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")")
+            return
+
+        from chat.tools import arac_dongusu
+        from tools import calistir
+        cevap, kosan = arac_dongusu(
+            tool_calls, mesajlar, brain, model, js_callback, calistir,
+            tools=ajan_tools, yanit=yanit, tool_choice="auto",
+            tum_tools=tools, tercih=[kaynak] if kaynak else None)
+        cevap = _temizle(cevap)
+        if cevap:
+            _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
+                     misafir=misafir)
+            return
+
+        logger.info("Ajan turu final cevap vermedi (%d arac kostu)", kosan)
+        js_callback("BasakUI.error(" + _j(
+            "Bu sefer araclardan sonuc alamadim, tekrar dene") + ")")
+        return
 
     # ── Akan cevap ──────────────────────────────────────────────────
     # Cevap kelime kelime gelsin ("dondu mu?" hissi olmasın). Akış
@@ -278,13 +326,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         try:
             parcalar = []
             kaynak = ""
-            if ajan_modu:
-                akis = yayin(
-                    mesajlar, model, tools=akis_tools,
-                    tool_choice="auto")
-            else:
-                akis = yayin(mesajlar, model, tools=akis_tools)
-            for kaynak, parca in akis:
+            for kaynak, parca in yayin(mesajlar, model, tools=tools):
                 parcalar.append(parca)
                 js_callback("BasakUI.parca(" + _j(parca) + ")")
             # Bazi saglayicilar sayi/None parca dondurur — join patlamasin.
@@ -304,27 +346,15 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             # Dogrudan calistir, sonucu ayni zincirden devam ettir.
             _tc = getattr(istek, "tool_calls", None) or []
             _muh = getattr(istek, "muhakeme", None) or {}
-            if _tc and akis_tools:
+            if _tc and tools:
                 from chat.tools import arac_dongusu
                 from tools import calistir
                 logger.info("Model akista arac istedi — dogrudan calisiyor")
                 try:
-                    _arac_kw = {
-                        "tools": akis_tools,
-                        "yanit": {"tool_calls": _tc, **_muh},
-                    }
-                    if ajan_modu:
-                        _arac_kw.update({
-                            "tool_choice": "auto",
-                            "tum_tools": tools,
-                        })
-                        _ilk_kaynak = (
-                            getattr(istek, "kaynak", "") or kaynak)
-                        if _ilk_kaynak:
-                            _arac_kw["tercih"] = [_ilk_kaynak]
                     cevap, kosan = arac_dongusu(
                         _tc, mesajlar, brain, model, js_callback,
-                        calistir, **_arac_kw)
+                        calistir, tools=tools,
+                        yanit={"tool_calls": _tc, **_muh})
                 except Exception as e:
                     logger.warning("Akis-arac turu basarisiz: %s", e)
                     cevap, kosan = "", 0
@@ -348,13 +378,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     # Akış hiç açılamadıysa buraya düşülür. Akış açılamadığı için
     # sağlayıcıdan başarılı çağrı gerçekleşmedi — kota yenmedi.
     try:
-        _cevap_kw = {
-            "tools": (akis_tools if arac_acik else None),
-        }
-        if akis_tool_choice is not None:
-            _cevap_kw["tool_choice"] = akis_tool_choice
         yanit, kaynak = brain.cevapla(
-            mesajlar, model, **_cevap_kw)
+            mesajlar, model, tools=(tools if arac_acik else None))
     except Exception as e:
         hata = str(e)
         if "429" in hata or "rate" in hata.lower():
@@ -369,23 +394,12 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     # Model araç istediyse kod çalıştırır, sonucu modele geri verir,
     # model özetler. Beyaz liste dışı ad buraya kadar gelse bile koşmaz.
     tool_calls = yanit.get("tool_calls") if isinstance(yanit, dict) else None
-    if tool_calls and akis_tools:
+    if tool_calls and tools:
         from chat.tools import arac_dongusu
         from tools import calistir
-        _arac_kw = {
-            "tools": akis_tools,
-            "yanit": yanit,
-        }
-        if ajan_modu:
-            _arac_kw.update({
-                "tool_choice": "auto",
-                "tum_tools": tools,
-            })
-            if kaynak:
-                _arac_kw["tercih"] = [kaynak]
         cevap, kosan = arac_dongusu(
             tool_calls, mesajlar, brain, model, js_callback, calistir,
-            **_arac_kw)
+            tools=tools, yanit=yanit)
         cevap = _temizle(cevap)
         if cevap:
             _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,

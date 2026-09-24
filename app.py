@@ -16,12 +16,11 @@ import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 BASE = Path(__file__).resolve().parent
 WEB = BASE / "web"
-
 
 if os.environ.get("VERCEL"):
     os.environ.setdefault(
@@ -215,13 +214,12 @@ def _giris_engeli():
 
 
 class _OlayToplayici:
-    def __init__(self, istek, yayinla=None):
+    def __init__(self, istek):
         self.istek = istek
         self.olaylar = []
         self.cevap = ""
         self.kaynak = ""
         self.hata = ""
-        self._yayinla = yayinla
 
     def __call__(self, kod):
         try:
@@ -242,8 +240,6 @@ class _OlayToplayici:
             if ad == "error":
                 self.hata = olay.get("metin", "")
             self.olaylar.append(olay)
-            if self._yayinla is not None:
-                self._yayinla(olay)
         except Exception:
             return
 
@@ -413,7 +409,7 @@ async def durum(request: Request):
         "eksik_saglayicilar": [],
         "modeller": modeller,
         "arac_sayisi": len(tools),
-        "tasima": "sse-stream",
+        "tasima": "tek-http-cevap",
     }
 
 
@@ -428,7 +424,6 @@ async def sohbet(request: Request):
         return JSONResponse({"error": "Gecersiz JSON"}, status_code=400)
     metin = str((body or {}).get("metin") or "").strip()
     ek_yol = None
-    stream_kuruldu = False
     try:
         ek = _gorsel_kaydet((body or {}).get("ek"))
         if ek:
@@ -444,80 +439,39 @@ async def sohbet(request: Request):
             return JSONResponse({"error": "Bos mesaj"}, status_code=400)
 
         beyin, tools = _cekirdek()
-        istek = uuid.uuid4().hex[:12]
-        loop = asyncio.get_running_loop()
-        kuyruk = asyncio.Queue()
-        bitti = object()
-
-        def _olay_yayinla(olay):
-            try:
-                loop.call_soon_threadsafe(kuyruk.put_nowait, olay)
-            except RuntimeError:
-                # Istemci koptuysa kapanmis event loop'a yazma.
-                pass
-
-        kayit = _OlayToplayici(istek, yayinla=_olay_yayinla)
+        kayit = _OlayToplayici(uuid.uuid4().hex[:12])
 
         def _kos():
             from chat.flow import mesaj_isle
             from chat.kimlik import kullanici_kur
             from chat.prompts import kisilik_blogu
-            try:
-                kullanici_kur(kid)  # thread contextvar'i — kisi izolasyonu
-                misafir = bool((body or {}).get("misafir", False))
-                mesaj_isle(
-                    metin,
-                    beyin,
-                    kisilik_blogu(kid, misafir=misafir),
-                    kayit,
-                    tools,
-                    misafir=misafir,
-                    gecmis_override=_gecmis(body or {}),
-                )
-            except Exception as e:
-                _olay_yayinla({
-                    "istek": istek,
-                    "tur": "error",
-                    "metin": "Basak calistirilamadi: %s" % str(e)[:300],
-                })
-            finally:
-                if ek_yol:
-                    try:
-                        os.remove(ek_yol)
-                    except OSError:
-                        pass
-                _olay_yayinla(bitti)
+            kullanici_kur(kid)  # thread contextvar'i — kisi izolasyonu
+            misafir = bool((body or {}).get("misafir", False))
+            mesaj_isle(
+                metin,
+                beyin,
+                kisilik_blogu(kid, misafir=misafir),
+                kayit,
+                tools,
+                misafir=misafir,
+                gecmis_override=_gecmis(body or {}),
+            )
 
-        async def _akis():
-            gorev = asyncio.create_task(asyncio.to_thread(_kos))
-            try:
-                while True:
-                    olay = await kuyruk.get()
-                    if olay is bitti:
-                        break
-                    veri = json.dumps(
-                        olay,
-                        ensure_ascii=False,
-                        separators=(",", ":"),
-                    )
-                    yield ("data: " + veri + "\n\n").encode("utf-8")
-                await gorev
-            finally:
-                if not gorev.done():
-                    # to_thread iptali calisan Python thread'ini zorla
-                    # durdurmaz; yalniz istemci stream'i kapanir.
-                    gorev.cancel()
-
-        response = StreamingResponse(
-            _akis(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache, no-transform",
-                "X-Content-Type-Options": "nosniff",
-            },
-        )
-        stream_kuruldu = True
-        return response
+        await asyncio.to_thread(_kos)
+        if kayit.hata and not kayit.cevap:
+            return {
+                "ok": False,
+                "istek": kayit.istek,
+                "error": kayit.hata,
+                "olaylar": kayit.olaylar,
+            }
+        return {
+            "ok": bool(kayit.cevap),
+            "istek": kayit.istek,
+            "cevap": kayit.cevap,
+            "kaynak": kayit.kaynak,
+            "olaylar": kayit.olaylar,
+        }
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     except Exception as e:
@@ -526,9 +480,7 @@ async def sohbet(request: Request):
             status_code=500,
         )
     finally:
-        # Streaming yolunda dosyayi worker temizler. Stream kurulmadan
-        # donen hata yanitlarinda ise burada temizlenir.
-        if ek_yol and not stream_kuruldu:
+        if ek_yol:
             try:
                 os.remove(ek_yol)
             except OSError:
