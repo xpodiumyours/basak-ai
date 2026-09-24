@@ -267,7 +267,7 @@ function olayiIsle(o) { olaylar.push(o); }
     _node_kos(script)
 
 
-def test_web_ui_gercek_olaylari_sirasi_ile_gosterir_ve_detayi_gizler():
+def test_web_ui_gercek_olaylari_detayli_gosterir_ve_sirlari_maskeler():
     ekran = open("web/app.js", encoding="utf-8").read()
 
     gb = ekran.index("function guvenliDurum")
@@ -318,13 +318,34 @@ if (b.durum !== "Düşünüyorum…") {
 olayiIsle({
   istek:"abc",
   tur:"toolStatus",
-  metin:"İnternette aranıyor: https://ornek.test/?token=GIZLI"
+  metin:"İnternette aranıyor: GPT-5.6 güncel gelişmeler"
 });
-if (b.durum !== "İnternette aranıyor…") {
-  throw new Error("toolStatus etiketi yanlış: " + b.durum);
+if (b.durum !== "İnternette aranıyor — GPT-5.6 güncel gelişmeler") {
+  throw new Error("arama detayı görünmedi: " + b.durum);
 }
-if (durumlar.some(x => x.includes("GIZLI") || x.includes("ornek.test"))) {
-  throw new Error("ham araç detayı kullanıcıya sızdı");
+
+olayiIsle({
+  istek:"abc",
+  tur:"toolStatus",
+  metin:"Sayfa okunuyor: https://ornek.test/haber/123?token=GIZLI&lang=tr"
+});
+if (b.durum !== "Sayfa okunuyor — ornek.test/haber/123") {
+  throw new Error("sayfa detayı yanlış: " + b.durum);
+}
+if (durumlar.some(x => x.includes("GIZLI"))) {
+  throw new Error("gizli token kullanıcıya sızdı");
+}
+
+olayiIsle({
+  istek:"abc",
+  tur:"toolStatus",
+  metin:"Dosya okunuyor: C:\\\\Users\\\\furkan\\\\proje\\\\rapor.txt"
+});
+if (!b.durum.endsWith("…/proje/rapor.txt")) {
+  throw new Error("dosya bağlamı güvenli gösterilmedi: " + b.durum);
+}
+if (b.durum.includes("Users") || b.durum.includes("furkan")) {
+  throw new Error("tam yerel dosya yolu kullanıcıya sızdı");
 }
 
 olayiIsle({istek:"abc", tur:"parca", metin:"Mer"});
