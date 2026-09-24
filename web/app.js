@@ -391,6 +391,62 @@ async function jsonOku(r) {
   }
 }
 
+async function ndjsonAkisiniOku(r) {
+  if (!r.body || typeof r.body.getReader !== "function") {
+    throw new Error("Tarayıcı canlı yanıt akışını desteklemiyor.");
+  }
+
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let tampon = "";
+  let cevap = "";
+  let kaynak = "";
+  let hata = "";
+  let bitti = false;
+
+  const satiriIsle = (satir) => {
+    if (!satir.trim()) return;
+    let olay;
+    try {
+      olay = JSON.parse(satir);
+    } catch {
+      throw new Error("Sunucudan bozuk canlı yanıt geldi.");
+    }
+    if (!olay || typeof olay !== "object") return;
+
+    olayiIsle(olay);
+    if (olay.tur === "bitir") {
+      cevap = String(olay.cevap || "");
+      kaynak = String(olay.kaynak || "");
+      bitti = true;
+    } else if (olay.tur === "error") {
+      hata = String(olay.metin || "Yanıt alınamadı.");
+      bitti = true;
+    }
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) {
+      tampon += decoder.decode();
+      break;
+    }
+
+    tampon += decoder.decode(value, { stream: true });
+    let satirSonu = tampon.indexOf("\n");
+    while (satirSonu >= 0) {
+      const satir = tampon.slice(0, satirSonu);
+      tampon = tampon.slice(satirSonu + 1);
+      satiriIsle(satir);
+      satirSonu = tampon.indexOf("\n");
+    }
+  }
+
+  if (tampon.trim()) satiriIsle(tampon);
+  if (!bitti) throw new Error("Sohbet akışı tamamlanmadan kesildi.");
+  return { cevap, kaynak, error: hata };
+}
+
 async function olaylariTakipEt(no) {
   let son = 0;
   const baslangic = Date.now();
@@ -472,21 +528,27 @@ async function send() {
       }),
     });
 
-    const d = await jsonOku(r);
+    if (window.basakRuntime === "vercel") {
+      if (!r.ok) {
+        const d = await jsonOku(r);
+        throw new Error(d.error || "Sohbet isteği başarısız");
+      }
 
-    if (Array.isArray(d.olaylar)) {
-      for (const o of d.olaylar) olayiIsle(o);
-      if (!r.ok || !d.ok) throw new Error(d.error || "Sohbet isteği başarısız");
-
-      if (d.cevap) {
+      const akis = await ndjsonAkisiniOku(r);
+      if (akis.error) {
+        onizlemeTemizle();
+        return;
+      }
+      if (akis.cevap) {
         bulutGecmisi.push({role:"user",content:gonderilecekMetin});
-        bulutGecmisi.push({role:"assistant",content:d.cevap});
+        bulutGecmisi.push({role:"assistant",content:akis.cevap});
         aktifSohbetiKaydet();
       }
       onizlemeTemizle();
       return;
     }
 
+    const d = await jsonOku(r);
     if (!r.ok || !d.ok || !d.istek) throw new Error(d.error || "Sohbet isteği başarısız");
     if (!balonlar.has(d.istek)) balonlar.set(d.istek,bubble("assistant","Düşünüyorum…"));
     await olaylariTakipEt(d.istek);
