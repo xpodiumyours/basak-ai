@@ -468,7 +468,6 @@ def test_stream_generator_kapaninca_worker_iptal_bayragi_set_edilir():
         )
         ilk = asyncio.create_task(akis.__anext__())
         await asyncio.sleep(0)
-        await akis.aclose()
         ilk.cancel()
         try:
             await ilk
