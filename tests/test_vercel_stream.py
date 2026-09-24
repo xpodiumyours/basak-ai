@@ -311,6 +311,9 @@ function icerikYaz(b, metin) {
   b.dataset.ham = String(metin || "");
   yazilar.push(b.dataset.ham);
 }
+function akiciMetinEkle(b, metin) { icerikYaz(b, (b.dataset.ham || "") + String(metin || "")); }
+function akiciMetniFinaleTamamla(b, metin) { icerikYaz(b, String(metin || "")); return Promise.resolve(); }
+function akiciMetniDurdur() {}
 function sohbetAlta() {}
 """ + guvenli + "\n" + olay_isle + r"""
 
@@ -361,7 +364,7 @@ if (b.dataset.ham !== "Merhaba") {
   throw new Error("parçalar birleşmedi: " + b.dataset.ham);
 }
 
-olayiIsle({istek:"abc", tur:"bitir", cevap:"Merhaba", kaynak:"sahte"});
+Promise.resolve(olayiIsle({istek:"abc", tur:"bitir", cevap:"Merhaba", kaynak:"sahte"})).then(() => {
 if (b.dataset.ham !== "Merhaba") {
   throw new Error("bitir cevabı bozdu: " + b.dataset.ham);
 }
@@ -371,6 +374,7 @@ if (balonlar.has("abc")) {
 if (kapatildi < 1) {
   throw new Error("canlı durum finalde kapanmadı");
 }
+}).catch(e => { console.error(e); process.exit(1); });
 """
     _node_kos(script)
 
@@ -487,8 +491,8 @@ def test_preview_mobil_dokunmatik_duzen_ve_cache_surumu():
     stil = open("web/chat.css", encoding="utf-8").read()
     html = open("web/index.html", encoding="utf-8").read()
     assert "(hover:none) and (pointer:coarse) and (max-width:1100px)" in stil
-    assert "/chat.css?v=5" in html
-    assert "/app.js?v=7" in html
+    assert "/chat.css?v=6" in html
+    assert "/app.js?v=8" in html
 
 
 def test_preview_calisma_akisi_kutusuz_inline_gorunur():
@@ -519,3 +523,69 @@ def test_preview_calisma_akisi_kutusuz_inline_gorunur():
     assert 'detaylar.hidden = true' in ekran
     assert 'sayi + " adım tamamlandı"' in ekran
     assert 'kayit.ozet.hidden = true' in ekran
+
+
+def test_preview_her_adim_icin_akan_nokta_zinciri_var():
+    stil = open("web/chat.css", encoding="utf-8").read()
+    ekran = open("web/app.js", encoding="utf-8").read()
+
+    assert ".work-details::before{" in stil
+    assert ".work-step-mark{" in stil
+    assert "width:7px;height:7px;border-radius:999px" in stil
+    assert ".work-current::after{" in stil
+    assert ".work-step-title{" in stil
+    assert ".work-step-detail{" in stil
+    assert ".work-card.details-open .work-step-detail:not([hidden])" in stil
+    assert "kart.classList.toggle(\"details-open\", ac)" in ekran
+    assert "panel.hidden = true" not in ekran
+
+
+def test_preview_cevap_parcalari_bir_anda_degil_akici_yazilir():
+    ekran = open("web/app.js", encoding="utf-8").read()
+    assert "const metinAkislari = new Map()" in ekran
+    assert "function akisBirimleri" in ekran
+    assert "function akiciMetinEkle" in ekran
+    assert "function akiciMetniFinaleTamamla" in ekran
+    assert "setTimeout(adim" in ekran
+    assert "akiciMetinEkle(b, o.metin || \"\")" in ekran
+    assert "await uiSonuc" in ekran
+    assert "sohbetAlta(false)" in ekran
+
+
+def test_preview_akici_metin_gercekten_ara_kareler_uretir():
+    ekran = open("web/app.js", encoding="utf-8").read()
+    bas = ekran.index("const metinAkislari = new Map();")
+    son = ekran.index("\n\nfunction olayiIsle(o)", bas)
+    fonksiyonlar = ekran[bas:son]
+
+    script = r"""
+const yazilar = [];
+const window = {
+  matchMedia() { return { matches: false }; }
+};
+function icerikYaz(b, metin) {
+  b.dataset.ham = String(metin || "");
+  yazilar.push(b.dataset.ham);
+}
+function sohbetAlta() {}
+""" + fonksiyonlar + r"""
+(async () => {
+  const b = { dataset: { ham: "" } };
+  const final = "Bu cevap bir anda görünmemeli, kelimeler doğal şekilde ekrana akmalı.";
+  const p = akiciMetniFinaleTamamla(b, final);
+
+  await new Promise(r => setTimeout(r, 42));
+  if (!b.dataset.ham || b.dataset.ham === final) {
+    throw new Error("ara akış karesi oluşmadı: " + b.dataset.ham);
+  }
+
+  await p;
+  if (b.dataset.ham !== final) {
+    throw new Error("final metin eksik: " + b.dataset.ham);
+  }
+  if (yazilar.length < 3) {
+    throw new Error("metin yeterince akmadı: " + yazilar.length);
+  }
+})().catch(e => { console.error(e); process.exit(1); });
+"""
+    _node_kos(script)

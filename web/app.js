@@ -150,8 +150,13 @@ function icerikYaz(b, metin) {
   ic.innerHTML = bicimle(metin || "");
 }
 
-function sohbetAlta() {
-  if (chatScrollEl) chatScrollEl.scrollTop = chatScrollEl.scrollHeight;
+function sohbetAlta(zorla = true) {
+  if (!chatScrollEl) return;
+  const altaMesafe = chatScrollEl.scrollHeight -
+    chatScrollEl.scrollTop - chatScrollEl.clientHeight;
+  if (zorla || altaMesafe < 150) {
+    chatScrollEl.scrollTop = chatScrollEl.scrollHeight;
+  }
 }
 
 function bubble(role, text) {
@@ -332,7 +337,6 @@ function calismaKaydi(b) {
 
   const panel = document.createElement("div");
   panel.className = "work-details";
-  panel.hidden = true;
 
   const liste = document.createElement("ol");
   liste.className = "work-steps";
@@ -344,7 +348,7 @@ function calismaKaydi(b) {
   canli.setAttribute("aria-live", "polite");
   canli.setAttribute("aria-atomic", "true");
 
-  kart.append(ust, mevcut, ozet, eylemler, panel);
+  kart.append(ust, panel, mevcut, ozet, eylemler);
 
   const icerik = b.querySelector(".icerik");
   if (icerik) b.insertBefore(kart, icerik);
@@ -363,8 +367,8 @@ function calismaKaydi(b) {
   };
 
   detaylar.addEventListener("click", () => {
-    const ac = panel.hidden;
-    panel.hidden = !ac;
+    const ac = !kart.classList.contains("details-open");
+    kart.classList.toggle("details-open", ac);
     detaylar.setAttribute("aria-expanded", ac ? "true" : "false");
     detaylar.textContent = ac ? "Gizle" : "Detaylar";
   });
@@ -382,44 +386,39 @@ function calismaKaydi(b) {
 
 function adimlariCiz(kayit) {
   kayit.liste.textContent = "";
+
   for (const adim of kayit.adimlar) {
     const li = document.createElement("li");
     li.className = "work-step done";
+
     const ikon = document.createElement("span");
     ikon.className = "work-step-mark";
-    ikon.textContent = "✓";
-    const metin = document.createElement("span");
-    metin.className = "work-step-copy";
-    metin.textContent = adim.detay
-      ? adim.baslik + " — " + adim.detay
-      : adim.baslik;
-    li.append(ikon, metin);
+    ikon.setAttribute("aria-hidden", "true");
+
+    const govde = document.createElement("span");
+    govde.className = "work-step-body";
+
+    const baslik = document.createElement("span");
+    baslik.className = "work-step-title";
+    baslik.textContent = adim.baslik;
+
+    const detay = document.createElement("span");
+    detay.className = "work-step-detail";
+    detay.textContent = adim.detay || "";
+    detay.hidden = !adim.detay;
+
+    govde.append(baslik, detay);
+    li.append(ikon, govde);
     kayit.liste.appendChild(li);
   }
 
-  if (!kayit.bitti && kayit.aktif && kayit.aktif.tur === "tool") {
-    const li = document.createElement("li");
-    li.className = "work-step active";
-    const ikon = document.createElement("span");
-    ikon.className = "work-step-mark";
-    ikon.textContent = "•";
-    const metin = document.createElement("span");
-    metin.className = "work-step-copy";
-    metin.textContent = kayit.aktif.detay
-      ? kayit.aktif.baslik + " — " + kayit.aktif.detay
-      : kayit.aktif.baslik;
-    li.append(ikon, metin);
-    kayit.liste.appendChild(li);
-  }
-
-  const detayVar = kayit.adimlar.length > 0 ||
-    (!kayit.bitti && kayit.aktif && kayit.aktif.tur === "tool");
-  kayit.detaylar.hidden = !detayVar;
+  const detayVar = kayit.adimlar.some((adim) => !!adim.detay) ||
+    !!(kayit.aktif && kayit.aktif.detay);
+  kayit.detaylar.hidden = !detayVar && kayit.adimlar.length === 0;
 
   if (!kayit.bitti) {
-    const sayi = kayit.adimlar.length;
-    kayit.ozet.hidden = sayi === 0;
-    kayit.ozet.textContent = sayi ? sayi + " adım tamamlandı" : "";
+    kayit.ozet.hidden = true;
+    kayit.ozet.textContent = "";
   }
 }
 
@@ -488,8 +487,8 @@ function calismaBitir(b) {
   kayit.ozet.hidden = true;
   kayit.ozet.textContent = "";
   kayit.durdur.remove();
+  kayit.kart.classList.remove("details-open");
   kayit.detaylar.hidden = sayi === 0;
-  kayit.panel.hidden = true;
   kayit.detaylar.setAttribute("aria-expanded", "false");
   kayit.detaylar.textContent = "Detaylar";
   kayit.canli.textContent = kayit.baslik.textContent;
@@ -499,6 +498,7 @@ function calismaBitir(b) {
 function calismaDurdur(b) {
   const kayit = durumSaatleri.get(b);
   if (!kayit || kayit.bitti) return;
+  akiciMetniDurdur(b);
   kayit.bitti = true;
   if (kayit.zamanlayici) clearInterval(kayit.zamanlayici);
   kayit.zamanlayici = null;
@@ -511,8 +511,8 @@ function calismaDurdur(b) {
     ? kayit.adimlar.length + " adım tamamlandı · Yeni adım başlatılmayacak."
     : "Yeni adım başlatılmayacak.";
   kayit.durdur.remove();
+  kayit.kart.classList.remove("details-open");
   kayit.detaylar.hidden = kayit.adimlar.length === 0;
-  kayit.panel.hidden = true;
   kayit.detaylar.setAttribute("aria-expanded", "false");
   kayit.detaylar.textContent = "Detaylar";
   kayit.canli.textContent = "Başak durduruldu";
@@ -609,7 +609,121 @@ msgEl.addEventListener("input", () => {
 });
 
 const balonlar = new Map();
+const metinAkislari = new Map();
 const uyu = (ms) => new Promise((coz) => setTimeout(coz, ms));
+
+function akisBirimleri(metin) {
+  return String(metin || "").match(/\S+\s*|\s+/g) || [];
+}
+
+function akiciMetinKaydi(b) {
+  let kayit = metinAkislari.get(b);
+  if (kayit) return kayit;
+  kayit = {
+    hedef: "",
+    gosterilen: "",
+    kuyruk: [],
+    zamanlayici: null,
+    bekleyenler: [],
+  };
+  metinAkislari.set(b, kayit);
+  return kayit;
+}
+
+function akiciBekleyenleriCoz(kayit) {
+  if (kayit.kuyruk.length || kayit.zamanlayici) return;
+  const liste = kayit.bekleyenler.splice(0);
+  for (const coz of liste) coz();
+}
+
+function akiciPompayiBaslat(b, kayit) {
+  if (kayit.zamanlayici || !kayit.kuyruk.length) return;
+
+  const azalt = typeof window !== "undefined" &&
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const adim = () => {
+    kayit.zamanlayici = null;
+    if (!kayit.kuyruk.length) {
+      akiciBekleyenleriCoz(kayit);
+      return;
+    }
+
+    const kalan = kayit.kuyruk.length;
+    const adet = azalt ? kalan : (kalan > 100 ? 5 : kalan > 45 ? 3 : kalan > 18 ? 2 : 1);
+    let ek = "";
+    for (let i = 0; i < adet && kayit.kuyruk.length; i += 1) {
+      ek += kayit.kuyruk.shift();
+    }
+
+    kayit.gosterilen += ek;
+    icerikYaz(b, kayit.gosterilen);
+    sohbetAlta(false);
+
+    if (kayit.kuyruk.length) {
+      kayit.zamanlayici = setTimeout(adim, azalt ? 0 : (kalan > 80 ? 16 : 30));
+    } else {
+      akiciBekleyenleriCoz(kayit);
+    }
+  };
+
+  kayit.zamanlayici = setTimeout(adim, azalt ? 0 : 18);
+}
+
+function akiciMetinEkle(b, parca) {
+  const metin = String(parca || "");
+  if (!metin) return;
+  const kayit = akiciMetinKaydi(b);
+  kayit.hedef += metin;
+  kayit.kuyruk.push(...akisBirimleri(metin));
+  akiciPompayiBaslat(b, kayit);
+}
+
+function akiciMetniBekle(b) {
+  const kayit = akiciMetinKaydi(b);
+  if (!kayit.kuyruk.length && !kayit.zamanlayici) return Promise.resolve();
+  return new Promise((coz) => kayit.bekleyenler.push(coz));
+}
+
+function akiciMetniFinaleTamamla(b, finalMetin) {
+  const final = String(finalMetin || "");
+  const kayit = akiciMetinKaydi(b);
+
+  if (final) {
+    if (!kayit.hedef) {
+      akiciMetinEkle(b, final);
+    } else if (final.startsWith(kayit.hedef)) {
+      akiciMetinEkle(b, final.slice(kayit.hedef.length));
+    } else if (final !== kayit.hedef) {
+      // Sağlayıcı final metni parçalardan farklı normalize ettiyse
+      // tekrar yazmak yerine yalnız henüz görünmeyen kısmı güvenli tamamla.
+      if (final.startsWith(kayit.gosterilen)) {
+        kayit.hedef = final;
+        kayit.kuyruk = akisBirimleri(final.slice(kayit.gosterilen.length));
+        akiciPompayiBaslat(b, kayit);
+      } else {
+        kayit.hedef = final;
+        kayit.gosterilen = final;
+        kayit.kuyruk = [];
+        if (kayit.zamanlayici) clearTimeout(kayit.zamanlayici);
+        kayit.zamanlayici = null;
+        icerikYaz(b, final);
+      }
+    }
+  }
+
+  return akiciMetniBekle(b);
+}
+
+function akiciMetniDurdur(b) {
+  const kayit = metinAkislari.get(b);
+  if (!kayit) return;
+  if (kayit.zamanlayici) clearTimeout(kayit.zamanlayici);
+  kayit.zamanlayici = null;
+  kayit.kuyruk = [];
+  akiciBekleyenleriCoz(kayit);
+}
 
 function olayiIsle(o) {
   const no = o.istek;
@@ -643,30 +757,33 @@ function olayiIsle(o) {
       balonlar.set(no, b);
     }
     calismaYanitaGecti(b);
-    const ham = b.dataset.ham || "";
-    icerikYaz(b, ham + (o.metin || ""));
-    sohbetAlta();
+    akiciMetinEkle(b, o.metin || "");
     return false;
   }
 
   if (o.tur === "bitir") {
     let b = balonlar.get(no);
-    if (!b) b = bubble("assistant", o.cevap || "…");
-    else {
-      calismaBitir(b);
-      const ham = b.dataset.ham || "";
-      if (!ham || ham === "Düşünüyorum…" || ham === "…") {
-        icerikYaz(b, o.cevap || "…");
-      }
+    if (!b) {
+      b = bubble("assistant", "");
+      balonlar.set(no, b);
     }
+
+    calismaYanitaGecti(b);
+    const gorunurBitis = akiciMetniFinaleTamamla(b, o.cevap || "…")
+      .then(() => {
+        calismaBitir(b);
+        sohbetAlta(false);
+        return true;
+      });
+
     balonlar.delete(no);
-    sohbetAlta();
-    return true;
+    return gorunurBitis;
   }
 
   if (o.tur === "error") {
     const b = balonlar.get(no);
     if (b) {
+      akiciMetniDurdur(b);
       durumuKapat(b);
       const row = b.closest(".message-row");
       if (row) row.remove(); else b.remove();
@@ -695,7 +812,7 @@ async function canliYanitiOku(r, baslangicBalonu) {
   let tampon = "";
   let sonuc = { ok: false, cevap: "", kaynak: "", hata: "" };
 
-  const satiriIsle = (satir) => {
+  const satiriIsle = async (satir) => {
     if (!satir.trim()) return;
     let o;
     try {
@@ -705,7 +822,10 @@ async function canliYanitiOku(r, baslangicBalonu) {
     }
     if (o.tur === "ping") return;
     olayiBaslangicBalonunaBagla(o, baslangicBalonu);
-    olayiIsle(o);
+    const uiSonuc = olayiIsle(o);
+    if (uiSonuc && typeof uiSonuc.then === "function") {
+      await uiSonuc;
+    }
     if (o.tur === "bitir") {
       sonuc = {
         ok: true,
@@ -740,14 +860,14 @@ async function canliYanitiOku(r, baslangicBalonu) {
     while ((yeniSatir = tampon.indexOf("\n")) >= 0) {
       const satir = tampon.slice(0, yeniSatir);
       tampon = tampon.slice(yeniSatir + 1);
-      satiriIsle(satir);
+      await satiriIsle(satir);
     }
 
     if (done) break;
   }
 
   tampon += cozumleyici.decode();
-  if (tampon.trim()) satiriIsle(tampon);
+  if (tampon.trim()) await satiriIsle(tampon);
 
   if (!sonuc.ok && !sonuc.hata) {
     throw new Error("Başak yanıtı tamamlanmadan bağlantı kapandı.");
@@ -778,7 +898,7 @@ async function olaylariTakipEt(no) {
     if (!r.ok) throw new Error("Sohbet akışı okunamadı (" + r.status + ")");
     const d = await jsonOku(r);
     for (const o of (d.olaylar || [])) {
-      if (olayiIsle(o)) return;
+      if (await olayiIsle(o)) return;
     }
     son = Number.isInteger(d.son) ? d.son : son;
     if (d.bitti) return;
