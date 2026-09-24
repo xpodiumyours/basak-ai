@@ -15,8 +15,8 @@ Kapsananlar (davranisla olculur, yoruma degil):
 5. Saglayici bogulmaz: sicaklik sabiti, dusuk tavan, dusunme kapatma yok.
 6. Yasak modul yok: orkestra/onay/izin/kapasite dosyalari donemez.
 7. Yasak isim yok: kelime tetikleyici tanimlayicilar donemez.
-8. P2 runtime resolver meta-arac sunmaz: ana model yalniz gercek araclari
-   gorur; resolver sabit kelime/niyet tablosu degildir.
+8. Sozlesme zorunluluk tasir: arac gerektiren istekte araci tarif
+   etmek is sayilmaz; baslangic araclari yalniz yetenek_ac'dir.
 """
 
 import ast
@@ -200,27 +200,38 @@ class TestYasakIsimYok:
                     assert yasak not in isim, (yol, isim)
 
 
-class TestRuntimeResolver:
-    """P2 guvencesi: meta-arac yok; gercek araclar runtime'da secilir."""
+class TestSozlesmeZorunlulukTasir:
+    """8. guvence (2026-09-22, Casper karari): sozlesme arac tarifini
+    is sayilmaz der; baslangic araclari yalniz yetenek_ac'dir (model
+    hala serbesttir — required/force YOK, kelime tetikleyici YOK)."""
 
-    def test_sozlesme_meta_arac_istemez(self):
-        from chat.tool_resolver import RUNTIME_AJAN_SOZLESMESI
-        metin = RUNTIME_AJAN_SOZLESMESI.lower()
-        assert "yetenek_ac" not in metin
-        assert "arac_ara" not in metin
-        assert "gercek arac" in metin
+    def test_sozlesme_tarifi_is_yapmaz_der(self):
+        from chat.agent_protocol import AJAN_SOZLESMESI
+        metin = AJAN_SOZLESMESI.lower()
+        assert "yetenek_ac" in metin
+        assert "zorunluluktur" in metin
+        assert "tarif" in metin
+        assert "sayilmaz" in metin
 
-    def test_flow_runtime_resolver_kullanir(self):
+    def test_sozlesme_kelime_tetikleyici_icermaz(self):
+        from chat.agent_protocol import AJAN_SOZLESMESI
+        yasak = ("eger su kelime", "asagidaki kelime", "kelime gecerse",
+                 "if the user says", "su araci ac")
+        metin = AJAN_SOZLESMESI.lower()
+        for cumle in yasak:
+            assert cumle not in metin, cumle
+
+    def test_baslangic_araclari_yalniz_yetenek_ac(self):
+        from chat.agent_protocol import baslangic_araclari, YETENEK_AC_ADI
+        araclar = baslangic_araclari()
+        assert len(araclar) == 1
+        assert araclar[0]["function"]["name"] == YETENEK_AC_ADI
+
+    def test_flow_sozlesmeyi_arac_acikken_gonderir(self):
         import inspect
         from chat import flow
         kaynak = inspect.getsource(flow.mesaj_isle)
-        assert "araclari_coz" in kaynak
-        assert "baslangic_araclari" not in kaynak
-        assert 'dinamik_resolver=True' in kaynak
-
-    def test_resolver_kodu_sabit_kullanici_kelime_routeri_degildir(self):
-        import inspect
-        from chat import tool_resolver
-        kaynak = inspect.getsource(tool_resolver)
-        assert "YETENEK_ALANLARI" not in kaynak
-        assert "baslangic_araclari" not in kaynak
+        assert "AJAN_SOZLESMESI" in kaynak
+        assert "tool_choice=\"auto\"" in kaynak or \
+               "tool_choice='auto'" in kaynak or \
+               'tool_choice="auto"' in kaynak
