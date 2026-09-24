@@ -16,7 +16,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 BASE = Path(__file__).resolve().parent
@@ -589,6 +589,89 @@ async def sohbet(request: Request):
                 os.remove(ek_yol)
             except OSError:
                 pass
+
+
+
+_PREVIEW_TEST_DOSYA = BASE / "preview_tools" / "akis-test.html"
+_PREVIEW_TEST_SURELER = {15, 75, 240}
+
+
+def _preview_test_acik():
+    return (
+        os.environ.get("VERCEL_ENV") == "preview"
+        or os.environ.get("BASAK_PREVIEW_TEST") == "1"
+    )
+
+
+async def _preview_test_olaylari(sure):
+    """Model/hafiza kullanmadan gercek HTTP streaming hattini olcer."""
+    istek = "preview-test-" + uuid.uuid4().hex[:8]
+    adimlar = [
+        (0, {"tur": "thinking"}),
+        (max(1, int(sure * 0.20)), {
+            "tur": "toolStatus", "metin": "İnternette aranıyor: preview-test"
+        }),
+        (max(2, int(sure * 0.45)), {
+            "tur": "toolStatus", "metin": "Sayfa okunuyor: preview-test"
+        }),
+        (max(3, int(sure * 0.70)), {"tur": "parca", "metin": "Canlı "}),
+        (max(4, int(sure * 0.82)), {"tur": "parca", "metin": "akış "}),
+        (sure, {
+            "tur": "bitir",
+            "cevap": "Canlı akış testi tamamlandı.",
+            "kaynak": "preview-test",
+        }),
+    ]
+    siradaki = 0
+    for saniye in range(sure + 1):
+        while siradaki < len(adimlar) and adimlar[siradaki][0] <= saniye:
+            olay = {"istek": istek, **adimlar[siradaki][1]}
+            yield json.dumps(
+                olay, ensure_ascii=False, separators=(",", ":")
+            ) + "\n"
+            siradaki += 1
+        if saniye < sure and saniye and saniye % 5 == 0:
+            yield json.dumps(
+                {"istek": istek, "tur": "ping", "saniye": saniye},
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ) + "\n"
+        if saniye < sure:
+            await asyncio.sleep(1)
+
+
+@app.get("/preview/akis-test")
+async def preview_akis_test_sayfa():
+    if not _preview_test_acik() or not _PREVIEW_TEST_DOSYA.is_file():
+        return JSONResponse({"error": "bulunamadi"}, status_code=404)
+    return FileResponse(
+        _PREVIEW_TEST_DOSYA,
+        media_type="text/html; charset=utf-8",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/api/preview/akis-test")
+async def preview_akis_test(request: Request):
+    if not _preview_test_acik():
+        return JSONResponse({"error": "bulunamadi"}, status_code=404)
+    try:
+        sure = int(request.query_params.get("sure") or 15)
+    except ValueError:
+        sure = 15
+    if sure not in _PREVIEW_TEST_SURELER:
+        return JSONResponse(
+            {"error": "sure yalnizca 15, 75 veya 240 olabilir"},
+            status_code=400,
+        )
+    return StreamingResponse(
+        _preview_test_olaylari(sure),
+        media_type=_AKIS_MIME,
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @app.get("/api/sohbetler")
