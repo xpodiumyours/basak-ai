@@ -405,10 +405,15 @@ async function ndjsonAkisiniOku(r) {
   let bitti = false;
 
   const satiriIsle = (satir) => {
-    if (!satir.trim()) return;
+    const temiz = satir.trim();
+    if (!temiz) return;
+    const veri = temiz.startsWith("data:")
+      ? temiz.slice(5).trimStart()
+      : temiz;
+    if (!veri) return;
     let olay;
     try {
-      olay = JSON.parse(satir);
+      olay = JSON.parse(veri);
     } catch {
       throw new Error("Sunucudan bozuk canlı yanıt geldi.");
     }

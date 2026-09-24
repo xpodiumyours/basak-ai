@@ -412,7 +412,7 @@ async def durum(request: Request):
         "eksik_saglayicilar": [],
         "modeller": modeller,
         "arac_sayisi": len(tools),
-        "tasima": "ndjson-stream",
+        "tasima": "sse-stream",
     }
 
 
@@ -498,11 +498,11 @@ async def sohbet(request: Request):
                     if olay is bitti:
                         break
                     yield (
-                        json.dumps(
+                        "data: " + json.dumps(
                             olay,
                             ensure_ascii=False,
                             separators=(",", ":"),
-                        ) + "\n"
+                        ) + "\n\n"
                     ).encode("utf-8")
                 await gorev
             finally:
@@ -513,9 +513,10 @@ async def sohbet(request: Request):
 
         return StreamingResponse(
             _akis(),
-            media_type="application/x-ndjson",
+            media_type="text/event-stream",
             headers={
-                "Cache-Control": "no-store",
+                "Cache-Control": "no-cache, no-transform",
+                "Connection": "keep-alive",
                 "X-Content-Type-Options": "nosniff",
             },
         )

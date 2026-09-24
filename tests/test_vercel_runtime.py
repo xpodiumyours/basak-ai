@@ -103,11 +103,13 @@ def test_vercel_sohbet_bitir_beklemeden_stream_eder(monkeypatch):
     async def _senaryo():
         response = await vercel_app.sohbet(request)
         assert isinstance(response, StreamingResponse)
-        assert response.media_type == "application/x-ndjson"
+        assert response.media_type == "text/event-stream"
 
         iterator = response.body_iterator
         ilk = await asyncio.wait_for(anext(iterator), timeout=1)
-        ilk_olay = json.loads(ilk.decode("utf-8").strip())
+        ilk_metin = ilk.decode("utf-8").strip()
+        assert ilk_metin.startswith("data: ")
+        ilk_olay = json.loads(ilk_metin[6:])
 
         # Sahte model halen bloklu: ilk olay bitis beklenmeden geldi.
         assert not devam.is_set()
@@ -118,7 +120,7 @@ def test_vercel_sohbet_bitir_beklemeden_stream_eder(monkeypatch):
         async for parca in iterator:
             parcalar.append(parca)
         return [
-            json.loads(parca.decode("utf-8").strip())
+            json.loads(parca.decode("utf-8").strip()[6:])
             for parca in parcalar
             if parca.strip()
         ]
