@@ -206,3 +206,194 @@ def test_live_matris_arac_sayisini_koddan_alir():
     from tools import TOOLS
     assert len(matris_kosucu._hedef_araclar(False)) == len(TOOLS)
     assert len(TOOLS) == 53
+
+
+def test_unverified_resolver_duz_ezber_finali_reddeder():
+    from chat.flow import mesaj_isle
+    from tools import TOOLS
+
+    class Beyin:
+        def __init__(self):
+            self.n = 0
+
+        def bulut_musait(self):
+            return True
+
+        def ajan_musait(self):
+            return True
+
+        def cevapla(self, mesajlar, model, tools=None, **kwargs):
+            self.n += 1
+            if self.n == 1:
+                # Resolver teknik olarak gecerli karar uretemedi.
+                return {"content": "json degil"}, "groq"
+            assert tools and len(tools) == len(TOOLS)
+            return {"content": "Ezberden uydurma final"}, "groq"
+
+    olaylar = []
+    mesaj_isle(
+        "bugunku dis gercegi soyle",
+        Beyin(),
+        "test",
+        olaylar.append,
+        TOOLS,
+        misafir=True,
+        gecmis_override=[],
+    )
+    assert not any(x.startswith("BasakUI.bitir(") for x in olaylar)
+    assert any(
+        "final kabul edilmedi" in x
+        for x in olaylar if x.startswith("BasakUI.error(")
+    )
+
+
+def test_cache_resolverdan_once_cevap_veremez():
+    import inspect
+    from chat import flow
+
+    kaynak = inspect.getsource(flow.mesaj_isle)
+    karar = kaynak.index("karar = arac_karari_coz")
+    cache = kaynak.index(
+        "and _onbellekten_don()", karar
+    )
+    assert cache > karar
+    assert "karar_dogrulandi" in kaynak[karar:cache + 80]
+
+
+def test_required_ilk_tur_sonrasi_auto_final_kabul_edilir(monkeypatch):
+    from chat.tools import arac_dongusu
+    from chat import tool_resolver
+
+    ilk = {
+        "id": "c1", "type": "function",
+        "function": {"name": "list_tasks", "arguments": "{}"},
+    }
+
+    monkeypatch.setattr(
+        tool_resolver,
+        "arac_karari_coz",
+        lambda *a, **k: {
+            "tools": [],
+            "tool_required": False,
+            "verified": True,
+            "fail_open": False,
+            "resolver_provider": "groq",
+        },
+    )
+
+    class Beyin:
+        def cevapla_yayin(self, *a, **k):
+            from brain.yayin import SonHata
+            raise SonHata("testte stream yok")
+            yield
+
+        def cevapla(self, mesajlar, model, tools=None, **kwargs):
+            return {"content": "arac sonrasi dogrulanmis final"}, "groq"
+
+    cevap, kosan = arac_dongusu(
+        [ilk],
+        [{"role": "user", "content": "gorevi yap"}],
+        Beyin(), None, lambda _x: None,
+        lambda *_a: {"result": "ok"},
+        tools=[_tool("list_tasks")],
+        tool_choice="required",
+        tum_tools=[_tool("list_tasks")],
+        dinamik_resolver=True,
+        tercih=["groq"],
+    )
+    assert kosan == 1
+    assert cevap == "arac sonrasi dogrulanmis final"
+
+
+def test_optional_agent_stream_native_tool_calli_kaybetmez():
+    from chat.output_control import akan_ajan_adimi
+    from brain.yayin import AracIstegi
+
+    tc = {
+        "id": "c1", "type": "function",
+        "function": {"name": "web_search", "arguments": '{"query":"x"}'},
+    }
+
+    class Beyin:
+        def cevapla_yayin(self, *a, **k):
+            def _g():
+                raise AracIstegi([tc], {"reasoning": "r"}, kaynak="gemini")
+                yield
+            return _g()
+
+    yanit, kaynak, ok = akan_ajan_adimi(
+        Beyin(), None, [{"role": "user", "content": "x"}],
+        lambda _x: None, [_tool("web_search")],
+    )
+    assert ok is True
+    assert kaynak == "gemini"
+    assert yanit["tool_calls"] == [tc]
+    assert yanit["reasoning"] == "r"
+
+
+def test_provider_ozel_gemini_imzasi_failoverda_temizlenir():
+    from brain.message_utils import mesajlari_temizle
+
+    mesaj = {
+        "role": "assistant",
+        "content": "",
+        "_provider": "gemini",
+        "reasoning": "provider-ozel",
+        "tool_calls": [{
+            "id": "c1",
+            "type": "function",
+            "function": {"name": "web_search", "arguments": "{}"},
+            "extra_content": {"google": {"thought_signature": "imza"}},
+        }],
+    }
+
+    gemini = mesajlari_temizle([mesaj], provider="gemini")[0]
+    assert gemini["tool_calls"][0]["extra_content"]["google"][
+        "thought_signature"
+    ] == "imza"
+    assert gemini["reasoning"] == "provider-ozel"
+    assert "_provider" not in gemini
+
+    groq = mesajlari_temizle([mesaj], provider="groq")[0]
+    assert "extra_content" not in groq["tool_calls"][0]
+    assert "reasoning" not in groq
+    assert groq["tool_calls"][0]["function"]["name"] == "web_search"
+
+
+def test_preview_ayni_db_farkli_kullanici_ve_default_portla_da_reddedilir(
+        monkeypatch):
+    import memory
+
+    monkeypatch.setenv("VERCEL_ENV", "preview")
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv(
+        "DATABASE_URL", "postgresql://prod_user:s1@db.example.com/prod"
+    )
+    monkeypatch.setenv(
+        "BASAK_PREVIEW_DATABASE_URL",
+        "postgres://preview_user:s2@db.example.com:5432/prod",
+    )
+    assert memory.preview_hafiza_modu() == (
+        "preview_dsn_rejected_same_as_production"
+    )
+
+
+def test_yonlendir_ui_resume_iddiasi_yapmaz():
+    ekran = open("web/app.js", encoding="utf-8").read()
+    assert (
+        "Mevcut çalışma durduruldu · yeni yönle yeniden başlatılıyor."
+        in ekran
+    )
+
+
+def test_full_test_p2_gercekten_p2_refini_hedefler():
+    akis = open(
+        ".github/workflows/basak-full-acceptance.yml", encoding="utf-8"
+    ).read()
+    assert "FULL TEST P2" in akis
+    assert "preview/p2-arac-ara-profesyonel" in akis
+    assert "MISTRAL_API_KEY" in akis
+
+    from tests.live import github_full_acceptance as full
+    from tests.live import matris_kosucu
+    assert tuple(full.SAGLAYICILAR) == tuple(matris_kosucu.KAPSAM)

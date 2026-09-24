@@ -101,3 +101,63 @@ def akan_final(brain, model, mesajlar, js_callback, tercih=None):
     except SonHata as e:
         logger.info("Gercek final akisi acilamadi: %s", e.ozet)
         return "", "", False
+
+
+def akan_ajan_adimi(brain, model, mesajlar, js_callback, tools,
+                    tercih=None):
+    """Optional-tool ajan adimini gercek provider stream'i ile calistirir.
+
+    Duz metin gelirse parcalar UI'ya aninda gider. Native tool_call gelirse
+    AracIstegi icindeki gercek cagri + reasoning kaybolmadan ortak donguye
+    doner. Teknik olarak akis acilamazsa (None, "", False) doner ve cagiran
+    mevcut tek-seferlik Brain yoluna duser.
+    """
+    from brain.yayin import AracIstegi, CikisKesildi, SonHata
+
+    yayin = getattr(brain, "cevapla_yayin", None)
+    if not callable(yayin):
+        return None, "", False
+
+    parcalar = []
+    kaynak = ""
+    try:
+        for kaynak, parca in yayin(
+                mesajlar, model, tercih=tercih, tools=tools):
+            parca = parca if isinstance(parca, str) else str(parca or "")
+            if not parca:
+                continue
+            parcalar.append(parca)
+            js_callback("BasakUI.parca(" + _j(parca) + ")")
+        return {
+            "content": "".join(parcalar),
+            "_streamed": True,
+            "_tamam": True,
+        }, kaynak or "bulut", True
+    except AracIstegi as e:
+        kaynak = getattr(e, "kaynak", "") or kaynak
+        yanit = {
+            "content": "".join(parcalar),
+            "tool_calls": list(e.tool_calls or []),
+            "_streamed": True,
+            "_tamam": True,
+        }
+        yanit.update(dict(e.muhakeme or {}))
+        return yanit, kaynak, True
+    except CikisKesildi as e:
+        kaynak = getattr(e, "kaynak", "") or kaynak
+        ham = {
+            "content": "".join(parcalar),
+            "_finish_reason": e.neden,
+        }
+        tam, kaynak, tamam = kesik_cevabi_tamamla(
+            brain, model, mesajlar, ham, js_callback=js_callback,
+            tercih=[kaynak] if kaynak else tercih,
+        )
+        return {
+            "content": tam,
+            "_streamed": True,
+            "_tamam": tamam,
+        }, kaynak, True
+    except SonHata as e:
+        logger.info("Optional ajan stream acilamadi: %s", e.ozet)
+        return None, "", False

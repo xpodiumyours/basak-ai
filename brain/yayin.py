@@ -26,10 +26,11 @@ class AracIstegi(Exception):
     dusundurmeden dogrudan calistirir.
     """
 
-    def __init__(self, tool_calls=None, muhakeme=None):
+    def __init__(self, tool_calls=None, muhakeme=None, kaynak=""):
         super().__init__("arac-istegi")
         self.tool_calls = tool_calls or []
         self.muhakeme = muhakeme or {}
+        self.kaynak = str(kaynak or "")
 
 
 class SonHata(Exception):
@@ -43,9 +44,10 @@ class SonHata(Exception):
 class CikisKesildi(Exception):
     """Provider stream'i teknik cikti/context sinirinda bitti."""
 
-    def __init__(self, neden):
+    def __init__(self, neden, kaynak=""):
         super().__init__(str(neden or "limit"))
         self.neden = str(neden or "limit")
+        self.kaynak = str(kaynak or "")
 
 
 def akit(openai_client, model, messages, tools=None):

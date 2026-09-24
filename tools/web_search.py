@@ -210,7 +210,7 @@ def kitap_ara(query: str, adet: int = 10) -> dict:
         return {"error": "Kitap aranamadi: %s" % e}
 
 
-def derin_oku(url: str, baslangic=0, uzunluk=40000) -> dict:
+def derin_oku(url: str, baslangic=0, uzunluk=None) -> dict:
     """Uzun sayfayi cursor ile okur; tek tool sonucu baglami sisirmez."""
     return _sayfa_oku_genis(
         url, _MAX_DERIN, baslangic=baslangic, uzunluk=uzunluk)
@@ -279,14 +279,14 @@ class _GuvenliYonlendirme(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def sayfa_oku(url: str, baslangic=0, uzunluk=30000) -> dict:
+def sayfa_oku(url: str, baslangic=0, uzunluk=None) -> dict:
     """Bir URL'yi cursor ile okur; tam metni tek tool sonucuna yigmaz."""
     return _sayfa_oku_genis(
         url, _MAX_SAYFA, baslangic=baslangic, uzunluk=uzunluk)
 
 
 def _sayfa_oku_genis(
-        url: str, tavan: int, baslangic=0, uzunluk=30000) -> dict:
+        url: str, tavan: int, baslangic=0, uzunluk=None) -> dict:
     """Guvenli cekme hattinin tavan parametreli govdesi.
 
     sayfa_oku ve derin_oku buradan gecer; SSRF denetimi, yonlendirme
@@ -376,25 +376,34 @@ def _sayfa_oku_genis(
             baslangic = max(0, int(baslangic or 0))
         except (TypeError, ValueError):
             return {"error": "baslangic sayi olmali"}
+
+        kaynak_toplam = len(temiz)
+        erisilebilir = min(kaynak_toplam, int(tavan))
+
+        # Geriye uyumluluk: tools/katalog.py gibi Python ic tuketiciler
+        # sayfa_oku(url) cagrısından duz metin bekler. Agent dispatcher ise
+        # uzunluk parametresini ACIKCA verir ve cursor/meta moduna girer.
+        if uzunluk is None and baslangic == 0:
+            duz = temiz[:erisilebilir]
+            if kaynak_toplam > tavan:
+                duz += "\n...(ilk %d karakter)" % tavan
+            return {"result": duz}
+
         try:
             uzunluk = int(uzunluk or 30000)
         except (TypeError, ValueError):
             return {"error": "uzunluk sayi olmali"}
         uzunluk = max(1, min(50000, uzunluk))
 
-        kaynak_toplam = len(temiz)
-        erisilebilir = min(kaynak_toplam, int(tavan))
         if baslangic >= erisilebilir and erisilebilir > 0:
             return {
                 "error": "baslangic erisilebilir metnin disinda",
-                "result": json.dumps({
-                    "meta": {
-                        "url": son_url,
-                        "kaynak_toplam": kaynak_toplam,
-                        "erisilebilir": erisilebilir,
-                        "kaynak_tavani_asildi": kaynak_toplam > tavan,
-                    }
-                }, ensure_ascii=False),
+                "meta": {
+                    "url": son_url,
+                    "kaynak_toplam": kaynak_toplam,
+                    "erisilebilir": erisilebilir,
+                    "kaynak_tavani_asildi": kaynak_toplam > tavan,
+                },
             }
 
         son = min(erisilebilir, baslangic + uzunluk)
@@ -409,10 +418,7 @@ def _sayfa_oku_genis(
             "sonraki_baslangic": son if son < erisilebilir else None,
             "kaynak_tavani_asildi": kaynak_toplam > tavan,
         }
-        return {
-            "result": json.dumps(
-                {"meta": meta, "metin": parca}, ensure_ascii=False)
-        }
+        return {"result": parca, "meta": meta}
 
     except urllib.error.HTTPError as e:
         return {"error": "HTTP hatasi %d: %s" % (e.code, url)}

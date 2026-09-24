@@ -155,10 +155,19 @@ def _kaynaklari_cikar(tool_name, args, net):
 
 
 def sonucu_donustur(sonuc):
-    """Araç dönüşünü modele verilecek düz metne çevirir."""
+    """Araç dönüşünü modele verilecek düz metne çevirir.
+
+    Cursor kullanan araçlarda Python iç kullanıcıları için result düz metin
+    kalır; model ise meta + metni birlikte görür.
+    """
     if isinstance(sonuc, dict):
         if sonuc.get("error"):
             return "Hata: %s" % sonuc["error"]
+        if isinstance(sonuc.get("meta"), dict):
+            return json.dumps({
+                "meta": sonuc["meta"],
+                "metin": str(sonuc.get("result", "")),
+            }, ensure_ascii=False)
         return str(sonuc.get("result", ""))
     return str(sonuc)
 
@@ -201,6 +210,8 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     # tercih olur. Bu, cok turlu muhakeme ve provider-ozel durumun gereksiz
     # yere model degistirmesini engeller.
     _tercih_aktif = list(tercih or [])
+    _son_secim = tool_choice
+    _resolver_dogrulandi = True
 
     def _beyin_devam(acik_tools, secim=None):
         nonlocal _tercih_aktif
@@ -399,6 +410,8 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
         # cagri icin tool sonucu -> modelin bir sonraki karari.
         _asistan = {"role": "assistant", "content": "",
                     "tool_calls": tool_calls}
+        if _tercih_aktif:
+            _asistan["_provider"] = str(_tercih_aktif[0] or "")
         _asistan.update(ilk_muhakeme)
         expanded = expanded + [_asistan]
         for ad, sonuc, cagri_id in tur_sonuclari:
@@ -411,6 +424,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
 
         _devam_secimi = tool_choice
         _karar = None
+        _resolver_dogrulandi = True
         if dinamik_resolver and tum_tools is not None:
             try:
                 from chat.tool_resolver import arac_karari_coz
@@ -419,27 +433,61 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                     tercih=list(_tercih_aktif or []),
                 )
                 tools = list(_karar.get("tools") or [])
+                _resolver_dogrulandi = bool(_karar.get("verified"))
                 _devam_secimi = (
                     "required" if _karar.get("tool_required") else "auto"
                 )
             except Exception as e:
+                _resolver_dogrulandi = False
                 logger.warning("Runtime tool resolver yenilenemedi: %s", e)
 
+        _son_secim = _devam_secimi
+
         if (dinamik_resolver and _karar is not None
-                and not _karar.get("tool_required") and not tools):
+                and _resolver_dogrulandi
+                and not _karar.get("tool_required")):
             try:
-                from chat.output_control import akan_final
-                _akan, _kaynak, _tamam = akan_final(
-                    brain, model, expanded, js_callback,
-                    tercih=list(_tercih_aktif or []),
-                )
-                if _akan:
-                    return temizle(_akan), kosan
+                if tools:
+                    from chat.output_control import akan_ajan_adimi
+                    _syanit, _skaynak, _sok = akan_ajan_adimi(
+                        brain, model, expanded, js_callback, tools,
+                        tercih=list(_tercih_aktif or []),
+                    )
+                    if _sok and _syanit is not None:
+                        _onceki = (
+                            (_tercih_aktif or [""])[0]
+                            if _tercih_aktif else ""
+                        )
+                        if _skaynak:
+                            if _onceki and _skaynak != _onceki:
+                                _web_olay(
+                                    js_callback, "providerSwitch",
+                                    onceki=_onceki, yeni=_skaynak,
+                                )
+                            _tercih_aktif = [_skaynak]
+                        _yeni = _syanit.get("tool_calls")
+                        if _yeni:
+                            tool_calls = _yeni
+                            ilk_muhakeme = _muhakeme_al(_syanit)
+                            continue
+                        _cevap = temizle(_syanit.get("content", ""))
+                        if _cevap:
+                            return _cevap, kosan
+                else:
+                    from chat.output_control import akan_final
+                    _akan, _kaynak, _tamam = akan_final(
+                        brain, model, expanded, js_callback,
+                        tercih=list(_tercih_aktif or []),
+                    )
+                    if _akan:
+                        return temizle(_akan), kosan
             except Exception as e:
                 logger.warning("Arac sonrasi final stream acilamadi: %s", e)
 
         try:
-            yanit, _kaynak = _beyin_devam(tools, secim=_devam_secimi)
+            yanit, _kaynak = _beyin_devam(
+                tools, secim=_devam_secimi
+            )
         except Exception as e:
             logger.warning("Arac turu sonrasi cevap alinamadi: %s", e)
             break
@@ -450,9 +498,9 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             ilk_muhakeme = _muhakeme_al(yanit)
             continue
 
-        if tool_choice == "required":
+        if _devam_secimi == "required" or not _resolver_dogrulandi:
             logger.warning(
-                "Zorunlu ajan turu tool call olmadan duz metin dondurdu")
+                "Ajan turu dogrulanmis final yerine duz metin dondurdu")
             break
 
         cevap = temizle(yanit.get("content", ""))
@@ -472,7 +520,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             return cevap, kosan
         break
 
-    if tool_choice == "required":
+    if _son_secim == "required" or not _resolver_dogrulandi:
         return "", kosan
 
     ham = "\n".join(net for _ad, net, _id in tur_sonuclari if net)

@@ -33,18 +33,29 @@ def _postgres_motor(dsn, embed_fn):
 
 
 def _dsn_hedefi(dsn):
-    """Sifre/query olmadan veritabani hedefini karsilastir."""
+    """Kimlik bilgisinden bagimsiz GERCEK veritabani hedefini karsilastir.
+
+    Farkli kullanici/sifre ayni host+port+database hedefine baglanabilir;
+    Preview bunu "ayri DB" sanamaz. postgres/postgresql ve varsayilan 5432
+    de ayni hedef sayilir.
+    """
     dsn = (dsn or "").strip()
     if not dsn:
         return None
     try:
         p = urlsplit(dsn)
+        sema = (p.scheme or "").lower()
+        if sema in ("postgres", "postgresql"):
+            sema = "postgres"
+        port = p.port
+        if sema == "postgres" and port is None:
+            port = 5432
+        yol = (p.path or "/").rstrip("/") or "/"
         return (
-            (p.scheme or "").lower(),
+            sema,
             (p.hostname or "").lower(),
-            p.port,
-            p.username or "",
-            p.path or "",
+            port,
+            yol,
         )
     except Exception:
         return ("raw", dsn)

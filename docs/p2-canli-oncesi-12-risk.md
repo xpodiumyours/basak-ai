@@ -36,3 +36,27 @@ sayılmaz. CI, provider pilotu ve gerçek Preview testi ayrı ayrı kaydedilir.
 5. Ancak yeni açık onaydan sonra production değerlendirmesi.
 
 Production/main bu P2 çalışmasının hedefi değildir.
+
+
+## P2 son cerrahi denetim — aktif kabul kurallari
+
+Bu denetim, testlerin yesil olmasini tek basina yeterli kabul etmez.
+
+- Resolver karari dogrulanamadiysa tam katalog gorunur kalir; ancak ana
+  modelin toolsuz duz cevabi final kabul edilmez.
+- Kisa cevap onbellegi resolver kararindan once calisamaz.
+- Ajanin her turundaki current tool_choice esas alinir; ilk turun required
+  olmasi sonraki dogrulanmis finali bloke etmez.
+- Optional gercek arac adaylari varken ana modelin normal cevabi provider
+  token stream'inden akar; native tool_call gelirse ayni cagri donguye tasinir.
+- Provider degisiminde standard tool-call korunur, provider-ozel reasoning /
+  nested metadata yalniz kendi provider'ina tasinir.
+- sayfa_oku/derin_oku agent yolunda cursor/meta kullanir; bunlari dogrudan
+  kullanan katalog/esnaf Python akisi duz result sozlesmesini korur.
+- Preview DB esdegerligi kimlik bilgisinden degil host+port+database
+  hedefinden kontrol edilir.
+- Yönlendir gercek thread-resume degildir: mevcut is durur, tamamlanan
+  baglam korunarak yeni yonle yeniden baslar; UI bunu aynen soyler.
+- `FULL TEST` varsayilan olarak main'i olcer. `FULL TEST P2` yalniz
+  `preview/p2-arac-ara-profesyonel` dalini olcer. Canli provider kabul
+  kosusu acik tetik olmadan otomatik calismaz.

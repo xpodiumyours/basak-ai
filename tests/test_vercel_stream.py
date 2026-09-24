@@ -496,7 +496,7 @@ def test_preview_mobil_dokunmatik_duzen_ve_cache_surumu():
     html = open("web/index.html", encoding="utf-8").read()
     assert "(hover:none) and (pointer:coarse) and (max-width:1100px)" in stil
     assert "/chat.css?v=7" in html
-    assert "/app.js?v=10" in html
+    assert "/app.js?v=11" in html
 
 
 def test_preview_calisma_akisi_kutusuz_inline_gorunur():

@@ -19,10 +19,10 @@ import tempfile
 import types
 
 SONUC_DOSYASI = "github-full-acceptance.md"
-SAGLAYICILAR = (
-    "groq", "gemini", "openrouter", "glm",
-    "cloudflare", "cohere", "kilo", "nvidia",
-)
+from tests.live import matris_kosucu as _matris_kosucu
+
+# Tek kapsam kaynagi: gercek canli matrisin bugun olctugu saglayicilar.
+SAGLAYICILAR = tuple(_matris_kosucu.KAPSAM)
 
 ALAN_SORULARI = {
     "internet": "İnternette OpenAI resmi sitesini araştır ve uygun aracı seç.",
@@ -148,7 +148,7 @@ def _tek_mesaj(beyin, provider, mesaj, beklenen_arac):
 
 
 def _alan_sema_testi(beyin, provider, istemci):
-    """10 alanda 52 semayi gercek provider API'sinden gecir.
+    """10 alanda guncel semalari gercek provider API'sinden gecir.
 
     Araclari calistirmaz; amac provider/modelin Basak'in gercek JSON
     semalarini kabul edip o alandan bir tool_call uretebilmesidir.
@@ -350,8 +350,8 @@ def main():
         "|---|---|---:|---:|---|---|---|",
         *satirlar,
         "",
-        "**Canlı sağlayıcı özeti:** %d/8 tam geçti · %d eksik · %d kaldı"
-        % (tam_gecen, eksik, kalan),
+        "**Canlı sağlayıcı özeti:** %d/%d tam geçti · %d eksik · %d kaldı"
+        % (tam_gecen, len(SAGLAYICILAR), eksik, kalan),
         "",
         "#### 3) Ne gerçekten çalıştırıldı?",
         "",

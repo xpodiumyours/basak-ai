@@ -78,14 +78,17 @@ class CohereClient:
             elif role == "assistant":
                 _asistan = {"role": "assistant",
                             "content": content or ""}
-                # Reasoning zinciri (P0): onceki turun muhakemesi
-                # native assistant mesajiyla birlikte korunur.
-                for _alan in ("reasoning_content", "reasoning",
-                              "reasoning_details", "thinking",
-                              "reasoning_text"):
-                    if _alan in m:
-                        _asistan[_alan] = m[_alan]
-                _plan = m.get("tool_plan")
+                _kaynak_provider = str(m.get("_provider") or "")
+                _ayni_provider = (
+                    not _kaynak_provider or _kaynak_provider == "cohere"
+                )
+                if _ayni_provider:
+                    for _alan in ("reasoning_content", "reasoning",
+                                  "reasoning_details", "thinking",
+                                  "reasoning_text"):
+                        if _alan in m:
+                            _asistan[_alan] = m[_alan]
+                _plan = m.get("tool_plan") if _ayni_provider else None
                 if _plan not in (None, ""):
                     _asistan["tool_plan"] = _plan
                 _tc = m.get("tool_calls")

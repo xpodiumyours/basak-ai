@@ -644,12 +644,14 @@ function calismaDurdur(b, neden = "durdur") {
   if (kayit.zamanlayici) clearInterval(kayit.zamanlayici);
   kayit.zamanlayici = null;
   kayit.kart.classList.add("stopped");
-  kayit.baslik.textContent = neden === "yonlendir" ? "Yönlendiriliyor" : "Durduruldu";
+  kayit.baslik.textContent = neden === "yonlendir"
+    ? "Yeni yönle yeniden başlatılıyor"
+    : "Durduruldu";
   kayit.sure.textContent = sureMetni(Date.now() - kayit.baslangic);
   kayit.mevcut.hidden = true;
   kayit.ozet.hidden = false;
   kayit.ozet.textContent = neden === "yonlendir"
-    ? "Yeni talimat aynı sohbet bağlamıyla gönderiliyor."
+    ? "Mevcut çalışma durduruldu · yeni yönle yeniden başlatılıyor."
     : (kayit.adimlar.length
       ? kayit.adimlar.length + " adım tamamlandı · Yeni adım başlatılmayacak."
       : "Yeni adım başlatılmayacak.");

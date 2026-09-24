@@ -359,7 +359,7 @@ class Brain:
         # bilgisini bekler. Generic OpenAI temizleyicisi bunu bilerek
         # tasimaz; Cohere kendi native donusumunu yapar.
         if ad != "cohere":
-            messages = mesajlari_temizle(messages)
+            messages = mesajlari_temizle(messages, provider=ad)
         ekstra = {"yapi": yapi_deger} if yapi_deger else {}
         if tool_choice is not None:
             # Basak disarida tek "required" ajan sozlesmesi kullanir;
@@ -587,7 +587,11 @@ class Brain:
                                  token_in=0, token_out=token_out)
                 _audit("OK kaynak=%s | akis | %s" % (ad, gerekce))
                 return
-            except (_Arac, CikisKesildi):
+            except _Arac as e:
+                e.kaynak = ad
+                raise
+            except CikisKesildi as e:
+                e.kaynak = ad
                 raise
             except Exception as e:
                 hata = str(e)

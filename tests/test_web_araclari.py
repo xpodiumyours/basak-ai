@@ -190,22 +190,27 @@ class TestDerinOku:
         monkeypatch.setattr(ws.socket, "getaddrinfo",
                             lambda h, p: [(2, 1, 6, "",
                                            ("93.184.216.34", 0))])
-        r = ws.derin_oku("http://ornek.com/uzun")
-        assert "result" in r, r
-        veri = json.loads(r["result"])
-        assert len(veri["metin"]) <= 50000
-        assert veri["meta"]["kaynak_toplam"] == 600000
-        assert veri["meta"]["erisilebilir"] == 500000
-        assert veri["meta"]["kaynak_tavani_asildi"] is True
-        assert veri["meta"]["sonraki_baslangic"] is not None
+        # Dogrudan Python tuketicisi eski duz-result sozlesmesini korur.
+        legacy = ws.derin_oku("http://ornek.com/uzun")
+        assert "result" in legacy, legacy
+        assert legacy["result"].startswith("x" * 100)
+        assert "500000" in legacy["result"]
+
+        # Agent dispatcher explicit uzunluk verdiginde cursor/meta modudur.
+        r = ws.derin_oku("http://ornek.com/uzun", uzunluk=40000)
+        assert "result" in r and "meta" in r, r
+        assert len(r["result"]) <= 50000
+        assert r["meta"]["kaynak_toplam"] == 600000
+        assert r["meta"]["erisilebilir"] == 500000
+        assert r["meta"]["kaynak_tavani_asildi"] is True
+        assert r["meta"]["sonraki_baslangic"] is not None
 
         r2 = ws.derin_oku(
             "http://ornek.com/uzun",
-            baslangic=veri["meta"]["sonraki_baslangic"],
+            baslangic=r["meta"]["sonraki_baslangic"],
             uzunluk=40000,
         )
-        veri2 = json.loads(r2["result"])
-        assert veri2["meta"]["baslangic"] == veri["meta"]["sonraki_baslangic"]
+        assert r2["meta"]["baslangic"] == r["meta"]["sonraki_baslangic"]
 
     def test_calistir_hatti(self, monkeypatch):
         _ddgs(monkeypatch, [{"title": "a", "href": "u", "body": "m"}])

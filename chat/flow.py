@@ -22,7 +22,7 @@ import re
 from chat.prompts import MISAFIR_BLOGU, kimlik_blogu
 from chat.kimlik import VARSAYILAN_KULLANICI, aktif_kullanici, gorunur_ad
 from chat.tool_resolver import RUNTIME_AJAN_SOZLESMESI, arac_karari_coz
-from chat.output_control import akan_final, kesik_cevabi_tamamla, kesik_mi
+from chat.output_control import (\n    akan_ajan_adimi, akan_final, kesik_cevabi_tamamla, kesik_mi,\n)
 from chat import context as ctx
 from chat.gate import temizle as _temizle
 from chat import onbellek as _onbellek
@@ -245,20 +245,21 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             [m for m in ctx.yukle(ctx.gecmis_yolu(), [])
              if m.get("role") != "system"])
 
-    # 2026-09-22: kullanici ayni mesaji kisa sure icinde IKINCI kez
-    # gonderdiyse (cift tiklama/tekrar deneme) ayni cevabi yeniden satin
-    # almayalim. Karar metnin anlamina bakmaz; bir onceki kullanici
-    # mesajinin TAM AYNISI olmasi sarttir (bkz. chat/onbellek.py).
-    # Misafirde onbellek yok — misafir iz birakmaz. Onbellek anahtari
-    # kisiye gore degil (chat/onbellek.py baskasinin dosyasi); yalniz
-    # casper oturumunda okunur/yazilir ki baska kisinin cevabi
-    # baska kisiye donmesin.
-    if not misafir and aktif_kullanici() == VARSAYILAN_KULLANICI:
-        _tekrar = _onbellek.al(text, gecmis)
-        if _tekrar:
-            _kaydet(text, _tekrar, "onbellek", gecmis, js_callback,
-                    konusmaci)
-            return
+    # Tekrar onbellegi resolver'dan ONCE kullanilmaz. Aksi halde daha once
+    # aracsiz uretilmis bir cevap, bugunku gerceklik/arac kararini tamamen
+    # bypass edebilir. Tools kapaliysa veya resolver DOGRULANMIS bicimde
+    # "arac gerekmiyor + aday yok" dediyse asagida okunur.
+    def _onbellekten_don():
+        if misafir or aktif_kullanici() != VARSAYILAN_KULLANICI:
+            return False
+        tekrar = _onbellek.al(text, gecmis)
+        if not tekrar:
+            return False
+        _kaydet(
+            text, tekrar, "onbellek", gecmis, js_callback, konusmaci,
+            arac_kullanildi=False, tamamlanmis=True,
+        )
+        return True
 
     # 2026-09-13 (Casper karari): kelime listesiyle tetikleme KALKTI.
     # O liste, araclarin etrafina sarilmis bir kural katmaniydi — bu
@@ -310,8 +311,15 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         karar = arac_karari_coz(brain, model, mesajlar, tools)
         ajan_tools = list(karar.get("tools") or [])
         arac_zorunlu = bool(karar.get("tool_required"))
+        karar_dogrulandi = bool(karar.get("verified"))
 
-        if not ajan_tools and not arac_zorunlu:
+        # Cache yalniz resolver DOGRULANMIS bicimde gercek araca ihtiyac
+        # olmadigini ve aday da bulunmadigini soyledikten sonra devreye girer.
+        if (karar_dogrulandi and not ajan_tools and not arac_zorunlu
+                and _onbellekten_don()):
+            return
+
+        if karar_dogrulandi and not ajan_tools and not arac_zorunlu:
             cevap, kaynak, tamam = akan_final(
                 brain, model, mesajlar, js_callback
             )
@@ -324,11 +332,23 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 return
 
         secim = "required" if arac_zorunlu else "auto"
+        yanit = None
+        kaynak = ""
+
+        # Resolver araci zorunlu gormedi ama gercek adaylar sunduysa,
+        # ana modelin doğal cevabi GERCEK provider stream'inden akar.
+        # Model stream sirasinda tool_call uretirse ayni secim kaybolmadan
+        # normal arac dongusune devredilir.
+        if karar_dogrulandi and ajan_tools and not arac_zorunlu:
+            yanit, kaynak, _akis_acildi = akan_ajan_adimi(
+                brain, model, mesajlar, js_callback, ajan_tools
+            )
+
         try:
-            if ajan_tools:
+            if yanit is None and ajan_tools:
                 yanit, kaynak = brain.cevapla(
                     mesajlar, model, tools=ajan_tools, tool_choice=secim)
-            else:
+            elif yanit is None:
                 yanit, kaynak = brain.cevapla(mesajlar, model)
         except Exception as e:
             hata = str(e)
@@ -344,13 +364,19 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             yanit.get("tool_calls") if isinstance(yanit, dict) else None
         )
         if not tool_calls:
-            if arac_zorunlu:
+            if arac_zorunlu or not karar_dogrulandi:
                 js_callback("BasakUI.error(" + _j(
-                    "Araç gerektiren görevde doğrulanmış araç çağrısı "
-                    "oluşmadı; ezber cevap final kabul edilmedi.") + ")")
+                    "Araç kararı doğrulanamadı veya araç zorunlu görevde "
+                    "gerçek araç çağrısı oluşmadı; ezber cevap final kabul "
+                    "edilmedi.") + ")")
                 return
-            tamam = True
-            if kesik_mi(yanit):
+            tamam = bool(
+                yanit.get("_tamam", True)
+                if isinstance(yanit, dict) else True
+            )
+            if isinstance(yanit, dict) and yanit.get("_streamed"):
+                cevap = _temizle(yanit.get("content", ""))
+            elif kesik_mi(yanit):
                 cevap, kaynak, tamam = kesik_cevabi_tamamla(
                     brain, model, mesajlar, yanit, js_callback=js_callback,
                     tercih=[kaynak] if kaynak else None,
@@ -388,6 +414,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         logger.info("Ajan turu final cevap vermedi (%d arac kostu)", kosan)
         js_callback("BasakUI.error(" + _j(
             "Bu sefer araclardan sonuc alamadim, tekrar dene") + ")")
+        return
+
+    if not arac_acik and _onbellekten_don():
         return
 
     # ── Akan cevap ──────────────────────────────────────────────────
