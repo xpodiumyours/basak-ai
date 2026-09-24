@@ -12,6 +12,7 @@ import hmac
 import json
 import os
 import tempfile
+import threading
 import uuid
 from pathlib import Path
 
@@ -218,6 +219,10 @@ _AKIS_SESSIZLIK_SN = 10.0
 _AKIS_SON = object()
 
 
+class _AkisIptal(Exception):
+    """İstemci akışı kapattığında kalan Başak adımlarını bırak."""
+
+
 def _canli_akis_isteniyor(request: Request):
     """Yeni web istemcisi canli NDJSON akis istiyor mu?
 
@@ -226,60 +231,73 @@ def _canli_akis_isteniyor(request: Request):
     return _AKIS_MIME in (request.headers.get("accept") or "").lower()
 
 
-async def _canli_olaylar(kuyruk, gorev, istek):
+async def _canli_olaylar(kuyruk, gorev, istek, iptal=None):
     """Worker olaylarini ayni HTTP yanitinda satir satir tasir.
 
     bitir/error ekrana hemen gider; ancak worker tamamen bitmeden stream
-    kapanmaz. Boylece bitir'den sonra yapilan hafiza/kayit islemleri mevcut
-    davranistaki gibi tamamlanma sansini korur.
+    kapanmaz. İstemci bağlantıyı kapatırsa iptal bayrağı worker'a taşınır.
     """
     gorev.add_done_callback(lambda _g: kuyruk.put_nowait(_AKIS_SON))
     terminal_goruldu = False
 
-    while True:
-        try:
-            olay = await asyncio.wait_for(
-                kuyruk.get(), timeout=_AKIS_SESSIZLIK_SN
-            )
-        except asyncio.TimeoutError:
-            yield json.dumps(
-                {"istek": istek, "tur": "ping"},
-                ensure_ascii=False,
-                separators=(",", ":"),
-            ) + "\n"
-            continue
-
-        if olay is _AKIS_SON:
-            if not terminal_goruldu:
+    try:
+        while True:
+            try:
+                olay = await asyncio.wait_for(
+                    kuyruk.get(), timeout=_AKIS_SESSIZLIK_SN
+                )
+            except asyncio.TimeoutError:
                 yield json.dumps(
-                    {
-                        "istek": istek,
-                        "tur": "error",
-                        "metin": "Basak yaniti tamamlanmadan bitti.",
-                    },
+                    {"istek": istek, "tur": "ping"},
                     ensure_ascii=False,
                     separators=(",", ":"),
                 ) + "\n"
-            return
+                continue
 
-        if isinstance(olay, dict) and olay.get("tur") in ("bitir", "error"):
-            terminal_goruldu = True
+            if olay is _AKIS_SON:
+                if not terminal_goruldu:
+                    yield json.dumps(
+                        {
+                            "istek": istek,
+                            "tur": "error",
+                            "metin": "Basak yaniti tamamlanmadan bitti.",
+                        },
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    ) + "\n"
+                return
 
-        yield json.dumps(
-            olay, ensure_ascii=False, separators=(",", ":")
-        ) + "\n"
+            if isinstance(olay, dict) and olay.get("tur") in ("bitir", "error"):
+                terminal_goruldu = True
+
+            yield json.dumps(
+                olay, ensure_ascii=False, separators=(",", ":")
+            ) + "\n"
+    except asyncio.CancelledError:
+        if iptal is not None:
+            iptal.set()
+        raise
+    finally:
+        if iptal is not None and not gorev.done():
+            iptal.set()
 
 
 class _OlayToplayici:
-    def __init__(self, istek, yayinla=None):
+    def __init__(self, istek, yayinla=None, iptal=None):
         self.istek = istek
         self.olaylar = []
         self.cevap = ""
         self.kaynak = ""
         self.hata = ""
         self.yayinla = yayinla
+        self.iptal = iptal
+
+    def iptal_edildi(self):
+        return bool(self.iptal is not None and self.iptal.is_set())
 
     def __call__(self, kod):
+        if self.iptal_edildi():
+            raise _AkisIptal()
         try:
             if not isinstance(kod, str) or not kod.startswith("BasakUI."):
                 return
@@ -303,6 +321,8 @@ class _OlayToplayici:
                     self.yayinla(olay)
                 except Exception:
                     pass
+        except _AkisIptal:
+            raise
         except Exception:
             return
 
@@ -506,6 +526,7 @@ async def sohbet(request: Request):
         akis = _canli_akis_isteniyor(request)
         dongu = asyncio.get_running_loop() if akis else None
         kuyruk = asyncio.Queue() if akis else None
+        iptal = threading.Event() if akis else None
 
         def _yayinla(olay):
             if dongu is not None and kuyruk is not None:
@@ -514,6 +535,7 @@ async def sohbet(request: Request):
         kayit = _OlayToplayici(
             uuid.uuid4().hex[:12],
             yayinla=_yayinla if akis else None,
+            iptal=iptal,
         )
 
         def _kos(akis_hatasi=False, gecici_temizle=False):
@@ -532,6 +554,8 @@ async def sohbet(request: Request):
                     misafir=misafir,
                     gecmis_override=_gecmis(body or {}),
                 )
+            except _AkisIptal:
+                return
             except Exception as e:
                 if not akis_hatasi:
                     raise
@@ -553,7 +577,7 @@ async def sohbet(request: Request):
             )
             akis_kuruldu = True
             return StreamingResponse(
-                _canli_olaylar(kuyruk, gorev, kayit.istek),
+                _canli_olaylar(kuyruk, gorev, kayit.istek, iptal),
                 media_type=_AKIS_MIME,
                 headers={
                     "Cache-Control": "no-cache, no-transform",
