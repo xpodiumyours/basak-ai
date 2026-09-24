@@ -487,5 +487,35 @@ def test_preview_mobil_dokunmatik_duzen_ve_cache_surumu():
     stil = open("web/chat.css", encoding="utf-8").read()
     html = open("web/index.html", encoding="utf-8").read()
     assert "(hover:none) and (pointer:coarse) and (max-width:1100px)" in stil
-    assert "/chat.css?v=4" in html
-    assert "/app.js?v=6" in html
+    assert "/chat.css?v=5" in html
+    assert "/app.js?v=7" in html
+
+
+def test_preview_calisma_akisi_kutusuz_inline_gorunur():
+    stil = open("web/chat.css", encoding="utf-8").read()
+    ekran = open("web/app.js", encoding="utf-8").read()
+
+    a = stil.index(".message-row.assistant .bubble{")
+    b = stil.index("\n}", a) + 2
+    asistan = stil[a:b]
+    assert "background:transparent" in asistan
+    assert "border:0" in asistan
+    assert "box-shadow:none" in asistan
+
+    a = stil.index(".work-card{")
+    b = stil.index("\n}", a) + 2
+    akis = stil[a:b]
+    assert "background:transparent" in akis
+    assert "border:0" in akis
+    assert "border-radius:0" in akis
+
+    assert ".work-current::before{" in stil
+    assert ".work-current::after{" in stil
+    assert ".work-details{" in stil
+    assert "border-left:1px solid #e1e1e5" in stil
+    assert ".work-action{" in stil
+    assert "background:transparent" in stil[stil.index(".work-action{"):stil.index("\n}", stil.index(".work-action{")) + 2]
+
+    assert 'detaylar.hidden = true' in ekran
+    assert 'sayi + " adım tamamlandı"' in ekran
+    assert 'kayit.ozet.hidden = true' in ekran

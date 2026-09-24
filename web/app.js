@@ -320,6 +320,7 @@ function calismaKaydi(b) {
   detaylar.type = "button";
   detaylar.className = "work-action";
   detaylar.textContent = "Detaylar";
+  detaylar.hidden = true;
   detaylar.setAttribute("aria-expanded", "false");
 
   const durdur = document.createElement("button");
@@ -410,6 +411,16 @@ function adimlariCiz(kayit) {
     li.append(ikon, metin);
     kayit.liste.appendChild(li);
   }
+
+  const detayVar = kayit.adimlar.length > 0 ||
+    (!kayit.bitti && kayit.aktif && kayit.aktif.tur === "tool");
+  kayit.detaylar.hidden = !detayVar;
+
+  if (!kayit.bitti) {
+    const sayi = kayit.adimlar.length;
+    kayit.ozet.hidden = sayi === 0;
+    kayit.ozet.textContent = sayi ? sayi + " adım tamamlandı" : "";
+  }
 }
 
 function aktifAdimiTamamla(kayit) {
@@ -474,10 +485,8 @@ function calismaBitir(b) {
     : "Yanıt tamamlandı";
   kayit.sure.textContent = toplamSure;
   kayit.mevcut.hidden = true;
-  kayit.ozet.hidden = false;
-  kayit.ozet.textContent = sayi
-    ? "Başak çalışma adımlarını tamamladı."
-    : "Başak yanıtı tamamladı.";
+  kayit.ozet.hidden = true;
+  kayit.ozet.textContent = "";
   kayit.durdur.remove();
   kayit.detaylar.hidden = sayi === 0;
   kayit.panel.hidden = true;
@@ -498,7 +507,9 @@ function calismaDurdur(b) {
   kayit.sure.textContent = sureMetni(Date.now() - kayit.baslangic);
   kayit.mevcut.hidden = true;
   kayit.ozet.hidden = false;
-  kayit.ozet.textContent = "Başak bu istekte yeni adım başlatmayacak.";
+  kayit.ozet.textContent = kayit.adimlar.length
+    ? kayit.adimlar.length + " adım tamamlandı · Yeni adım başlatılmayacak."
+    : "Yeni adım başlatılmayacak.";
   kayit.durdur.remove();
   kayit.detaylar.hidden = kayit.adimlar.length === 0;
   kayit.panel.hidden = true;
