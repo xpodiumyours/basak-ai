@@ -40,6 +40,8 @@ let gonderiliyor = false;
 let chats = [];
 let activeChatId = "";
 let bulutGecmisi = [];
+let aktifIstekDenetleyici = null;
+let kullaniciDurdurdu = false;
 
 function sohbetId() {
   if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -233,73 +235,285 @@ function sureMetni(ms) {
     String(sn % 60).padStart(2, "0");
 }
 
-function durumSatiri(b, metin) {
-  if (!b) return;
-  let kayit = durumSaatleri.get(b);
-  if (!kayit) {
-    kayit = { baslangic: Date.now(), metin: "", zamanlayici: null };
-    durumSaatleri.set(b, kayit);
-  }
-  kayit.metin = metin || "İşleniyor…";
-
-  const yaz = () => {
-    let s = b.querySelector(".status-line");
-    if (!s) {
-      s = document.createElement("span");
-      s.className = "status-line";
-      b.appendChild(s);
-    }
-    s.textContent = kayit.metin + " · " + sureMetni(Date.now() - kayit.baslangic);
-  };
-
-  yaz();
-  if (!kayit.zamanlayici) kayit.zamanlayici = setInterval(yaz, 1000);
-}
-
-function durumuKapat(b) {
-  if (!b) return;
-  const kayit = durumSaatleri.get(b);
-  if (kayit?.zamanlayici) clearInterval(kayit.zamanlayici);
-  durumSaatleri.delete(b);
-  b.querySelector(".status-line")?.remove();
-}
-
-function guvenliDurum(metin) {
+function guvenliDurumBilgisi(metin) {
   const ham = String(metin || "").trim();
-  if (!ham) return "İşleniyor…";
+  if (!ham) return { baslik: "İşleniyor", detay: "" };
 
   const i = ham.indexOf(": ");
-  const etiket = (i > 0 ? ham.slice(0, i) : ham)
+  const baslik = (i > 0 ? ham.slice(0, i) : ham)
     .replace(/[.…]+$/, "").trim() || "İşleniyor";
-  if (i <= 0) return etiket + "…";
+  if (i <= 0) return { baslik, detay: "" };
 
   let detay = ham.slice(i + 2).trim();
-  if (!detay) return etiket + "…";
+  if (!detay) return { baslik, detay: "" };
 
-  // Açık sırları maskele. Faydalı iş detayını gizleme.
   detay = detay
     .replace(/\b(Bearer)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [gizli]")
     .replace(/\b(sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9_]{12,})\b/g, "[gizli]")
     .replace(/([?&](?:token|api[_-]?key|key|secret|password|auth|authorization)=)[^&#\s]+/gi, "$1[gizli]")
     .replace(/\b(?:token|api[_-]?key|secret|password|authorization)\s*[:=]\s*\S+/gi, "[gizli]");
 
-  // URL'de alan adı + yol kalsın; query/hash içindeki gizli veya gürültülü veri görünmesin.
   if (/^https?:\/\//i.test(detay)) {
     try {
       const u = new URL(detay);
       detay = u.host + u.pathname;
     } catch {}
   } else if (/^[A-Za-z]:\\|^\/Users\/|^\/home\//.test(detay)) {
-    // Tam yerel yolu göstermeden dosya bağlamını koru.
     const parcalar = detay.replace(/\\/g, "/").split("/").filter(Boolean);
     detay = "…/" + parcalar.slice(-2).join("/");
   }
 
   detay = detay.replace(/\s+/g, " ").trim();
   if (detay.length > 120) detay = detay.slice(0, 117) + "…";
-  return etiket + " — " + detay;
+  return { baslik, detay };
 }
 
+function guvenliDurum(metin) {
+  const d = guvenliDurumBilgisi(metin);
+  return d.detay ? d.baslik + " — " + d.detay : d.baslik + "…";
+}
+
+function calismaKaydi(b) {
+  let kayit = durumSaatleri.get(b);
+  if (kayit) return kayit;
+
+  const kart = document.createElement("section");
+  kart.className = "work-card";
+  kart.setAttribute("aria-live", "off");
+
+  const ust = document.createElement("div");
+  ust.className = "work-head";
+
+  const nokta = document.createElement("span");
+  nokta.className = "work-pulse";
+  nokta.setAttribute("aria-hidden", "true");
+
+  const baslik = document.createElement("strong");
+  baslik.className = "work-title";
+  baslik.textContent = "Başak çalışıyor";
+
+  const sure = document.createElement("span");
+  sure.className = "work-time";
+  sure.textContent = "00:00";
+
+  ust.append(nokta, baslik, sure);
+
+  const mevcut = document.createElement("div");
+  mevcut.className = "work-current";
+
+  const mevcutBaslik = document.createElement("strong");
+  mevcutBaslik.className = "work-current-title";
+
+  const mevcutDetay = document.createElement("span");
+  mevcutDetay.className = "work-current-detail";
+
+  mevcut.append(mevcutBaslik, mevcutDetay);
+
+  const ozet = document.createElement("div");
+  ozet.className = "work-summary";
+  ozet.hidden = true;
+
+  const eylemler = document.createElement("div");
+  eylemler.className = "work-actions";
+
+  const detaylar = document.createElement("button");
+  detaylar.type = "button";
+  detaylar.className = "work-action";
+  detaylar.textContent = "Detaylar";
+  detaylar.setAttribute("aria-expanded", "false");
+
+  const durdur = document.createElement("button");
+  durdur.type = "button";
+  durdur.className = "work-action work-stop";
+  durdur.textContent = "Durdur";
+
+  eylemler.append(detaylar, durdur);
+
+  const panel = document.createElement("div");
+  panel.className = "work-details";
+  panel.hidden = true;
+
+  const liste = document.createElement("ol");
+  liste.className = "work-steps";
+  panel.appendChild(liste);
+
+  const canli = document.createElement("span");
+  canli.className = "sr-only";
+  canli.setAttribute("role", "status");
+  canli.setAttribute("aria-live", "polite");
+  canli.setAttribute("aria-atomic", "true");
+
+  kart.append(ust, mevcut, ozet, eylemler, panel);
+
+  const icerik = b.querySelector(".icerik");
+  if (icerik) b.insertBefore(kart, icerik);
+  else b.appendChild(kart);
+  b.appendChild(canli);
+
+  kayit = {
+    baslangic: Date.now(),
+    metin: "",
+    aktif: null,
+    adimlar: [],
+    zamanlayici: null,
+    kart, baslik, sure, mevcut, mevcutBaslik, mevcutDetay,
+    ozet, detaylar, durdur, panel, liste, canli,
+    bitti: false,
+  };
+
+  detaylar.addEventListener("click", () => {
+    const ac = panel.hidden;
+    panel.hidden = !ac;
+    detaylar.setAttribute("aria-expanded", ac ? "true" : "false");
+    detaylar.textContent = ac ? "Gizle" : "Detaylar";
+  });
+
+  durdur.addEventListener("click", () => {
+    if (kayit.bitti) return;
+    kullaniciDurdurdu = true;
+    if (aktifIstekDenetleyici) aktifIstekDenetleyici.abort();
+    calismaDurdur(b);
+  });
+
+  durumSaatleri.set(b, kayit);
+  return kayit;
+}
+
+function adimlariCiz(kayit) {
+  kayit.liste.textContent = "";
+  for (const adim of kayit.adimlar) {
+    const li = document.createElement("li");
+    li.className = "work-step done";
+    const ikon = document.createElement("span");
+    ikon.className = "work-step-mark";
+    ikon.textContent = "✓";
+    const metin = document.createElement("span");
+    metin.className = "work-step-copy";
+    metin.textContent = adim.detay
+      ? adim.baslik + " — " + adim.detay
+      : adim.baslik;
+    li.append(ikon, metin);
+    kayit.liste.appendChild(li);
+  }
+
+  if (!kayit.bitti && kayit.aktif && kayit.aktif.tur === "tool") {
+    const li = document.createElement("li");
+    li.className = "work-step active";
+    const ikon = document.createElement("span");
+    ikon.className = "work-step-mark";
+    ikon.textContent = "•";
+    const metin = document.createElement("span");
+    metin.className = "work-step-copy";
+    metin.textContent = kayit.aktif.detay
+      ? kayit.aktif.baslik + " — " + kayit.aktif.detay
+      : kayit.aktif.baslik;
+    li.append(ikon, metin);
+    kayit.liste.appendChild(li);
+  }
+}
+
+function aktifAdimiTamamla(kayit) {
+  if (!kayit?.aktif || kayit.aktif.tur !== "tool") return;
+  kayit.adimlar.push({
+    baslik: kayit.aktif.baslik,
+    detay: kayit.aktif.detay || "",
+  });
+  kayit.aktif = null;
+  adimlariCiz(kayit);
+}
+
+function durumSatiri(b, metin, tur = "thinking") {
+  if (!b) return;
+  const kayit = calismaKaydi(b);
+  const bilgi = guvenliDurumBilgisi(metin);
+
+  if (tur === "toolStatus") aktifAdimiTamamla(kayit);
+
+  kayit.aktif = {
+    baslik: bilgi.baslik,
+    detay: bilgi.detay,
+    tur: tur === "toolStatus" ? "tool" : tur,
+  };
+  kayit.metin = guvenliDurum(metin);
+  kayit.mevcutBaslik.textContent = bilgi.baslik;
+  kayit.mevcutDetay.textContent = bilgi.detay;
+  kayit.mevcutDetay.hidden = !bilgi.detay;
+  kayit.canli.textContent = kayit.metin;
+  adimlariCiz(kayit);
+
+  const yaz = () => {
+    kayit.sure.textContent = sureMetni(Date.now() - kayit.baslangic);
+  };
+  yaz();
+  if (!kayit.zamanlayici) kayit.zamanlayici = setInterval(yaz, 1000);
+}
+
+function calismaYanitaGecti(b) {
+  const kayit = durumSaatleri.get(b);
+  if (!kayit || kayit.bitti) return;
+  aktifAdimiTamamla(kayit);
+  kayit.aktif = { baslik: "Yanıt yazılıyor", detay: "", tur: "yanit" };
+  kayit.mevcutBaslik.textContent = "Yanıt yazılıyor";
+  kayit.mevcutDetay.hidden = true;
+  kayit.canli.textContent = "Yanıt yazılıyor";
+  adimlariCiz(kayit);
+}
+
+function calismaBitir(b) {
+  const kayit = durumSaatleri.get(b);
+  if (!kayit || kayit.bitti) return;
+  aktifAdimiTamamla(kayit);
+  kayit.bitti = true;
+  if (kayit.zamanlayici) clearInterval(kayit.zamanlayici);
+  kayit.zamanlayici = null;
+  const toplamSure = sureMetni(Date.now() - kayit.baslangic);
+  const sayi = kayit.adimlar.length;
+  kayit.kart.classList.add("done");
+  kayit.baslik.textContent = sayi
+    ? sayi + " adım tamamlandı"
+    : "Yanıt tamamlandı";
+  kayit.sure.textContent = toplamSure;
+  kayit.mevcut.hidden = true;
+  kayit.ozet.hidden = false;
+  kayit.ozet.textContent = sayi
+    ? "Başak çalışma adımlarını tamamladı."
+    : "Başak yanıtı tamamladı.";
+  kayit.durdur.remove();
+  kayit.detaylar.hidden = sayi === 0;
+  kayit.panel.hidden = true;
+  kayit.detaylar.setAttribute("aria-expanded", "false");
+  kayit.detaylar.textContent = "Detaylar";
+  kayit.canli.textContent = kayit.baslik.textContent;
+  adimlariCiz(kayit);
+}
+
+function calismaDurdur(b) {
+  const kayit = durumSaatleri.get(b);
+  if (!kayit || kayit.bitti) return;
+  kayit.bitti = true;
+  if (kayit.zamanlayici) clearInterval(kayit.zamanlayici);
+  kayit.zamanlayici = null;
+  kayit.kart.classList.add("stopped");
+  kayit.baslik.textContent = "Durduruldu";
+  kayit.sure.textContent = sureMetni(Date.now() - kayit.baslangic);
+  kayit.mevcut.hidden = true;
+  kayit.ozet.hidden = false;
+  kayit.ozet.textContent = "Başak bu istekte yeni adım başlatmayacak.";
+  kayit.durdur.remove();
+  kayit.detaylar.hidden = kayit.adimlar.length === 0;
+  kayit.panel.hidden = true;
+  kayit.detaylar.setAttribute("aria-expanded", "false");
+  kayit.detaylar.textContent = "Detaylar";
+  kayit.canli.textContent = "Başak durduruldu";
+  adimlariCiz(kayit);
+}
+
+function durumuKapat(b) {
+  const kayit = durumSaatleri.get(b);
+  if (!kayit) return;
+  if (kayit.zamanlayici) clearInterval(kayit.zamanlayici);
+  kayit.zamanlayici = null;
+}
 function autoResize() {
   msgEl.style.height = "auto";
   msgEl.style.height = Math.min(msgEl.scrollHeight, 160) + "px";
@@ -397,7 +611,7 @@ function olayiIsle(o) {
       b = bubble("assistant", "");
       balonlar.set(no, b);
     }
-    durumSatiri(b, "Düşünüyorum…");
+    durumSatiri(b, "Düşünüyorum…", "thinking");
     return false;
   }
 
@@ -407,7 +621,7 @@ function olayiIsle(o) {
       b = bubble("assistant", "");
       balonlar.set(no, b);
     }
-    durumSatiri(b, guvenliDurum(o.metin));
+    durumSatiri(b, o.metin, "toolStatus");
     return false;
   }
 
@@ -417,7 +631,7 @@ function olayiIsle(o) {
       b = bubble("assistant", "");
       balonlar.set(no, b);
     }
-    durumuKapat(b);
+    calismaYanitaGecti(b);
     const ham = b.dataset.ham || "";
     icerikYaz(b, ham + (o.metin || ""));
     sohbetAlta();
@@ -428,7 +642,7 @@ function olayiIsle(o) {
     let b = balonlar.get(no);
     if (!b) b = bubble("assistant", o.cevap || "…");
     else {
-      durumuKapat(b);
+      calismaBitir(b);
       const ham = b.dataset.ham || "";
       if (!ham || ham === "Düşünüyorum…" || ham === "…") {
         icerikYaz(b, o.cevap || "…");
@@ -603,7 +817,9 @@ async function send() {
   if (gorsel) gorselBalonaEkle(userBubble, gorsel);
 
   const bekleyenBalon = bubble("assistant", "");
-  durumSatiri(bekleyenBalon, "Mesaj Başak’a iletiliyor…");
+  aktifIstekDenetleyici = new AbortController();
+  kullaniciDurdurdu = false;
+  durumSatiri(bekleyenBalon, "Mesaj Başak’a iletiliyor…", "thinking");
 
   msgEl.value = "";
   msgEl.style.height = "auto";
@@ -629,6 +845,7 @@ async function send() {
         gecmis:bulutGecmisi,
         ek,
       }),
+      signal:aktifIstekDenetleyici.signal,
     });
 
     const tur = String(r.headers.get("content-type") || "").toLowerCase();
@@ -679,11 +896,16 @@ async function send() {
     }
     onizlemeTemizle();
   } catch (err) {
-    durumuKapat(bekleyenBalon);
-    const row = bekleyenBalon.closest(".message-row");
-    if (row) row.remove();
-    bubble("assistant", "Bir sorun oluştu: " + (err.message || err));
+    if (kullaniciDurdurdu && err && err.name === "AbortError") {
+      calismaDurdur(bekleyenBalon);
+    } else {
+      durumuKapat(bekleyenBalon);
+      const row = bekleyenBalon.closest(".message-row");
+      if (row) row.remove();
+      bubble("assistant", "Bir sorun oluştu: " + (err.message || err));
+    }
   } finally {
+    aktifIstekDenetleyici = null;
     gonderiliyor = false;
     notYaz(UYARI_NOTU);
     gonderimDurumu();
