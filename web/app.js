@@ -267,10 +267,37 @@ function durumuKapat(b) {
 function guvenliDurum(metin) {
   const ham = String(metin || "").trim();
   if (!ham) return "İşleniyor…";
+
   const i = ham.indexOf(": ");
   const etiket = (i > 0 ? ham.slice(0, i) : ham)
-    .replace(/[.…]+$/, "").trim();
-  return (etiket || "İşleniyor") + "…";
+    .replace(/[.…]+$/, "").trim() || "İşleniyor";
+  if (i <= 0) return etiket + "…";
+
+  let detay = ham.slice(i + 2).trim();
+  if (!detay) return etiket + "…";
+
+  // Açık sırları maskele. Faydalı iş detayını gizleme.
+  detay = detay
+    .replace(/\b(Bearer)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [gizli]")
+    .replace(/\b(sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9_]{12,})\b/g, "[gizli]")
+    .replace(/([?&](?:token|api[_-]?key|key|secret|password|auth|authorization)=)[^&#\s]+/gi, "$1[gizli]")
+    .replace(/\b(?:token|api[_-]?key|secret|password|authorization)\s*[:=]\s*\S+/gi, "[gizli]");
+
+  // URL'de alan adı + yol kalsın; query/hash içindeki gizli veya gürültülü veri görünmesin.
+  if (/^https?:\/\//i.test(detay)) {
+    try {
+      const u = new URL(detay);
+      detay = u.host + u.pathname;
+    } catch {}
+  } else if (/^[A-Za-z]:\\|^\/Users\/|^\/home\//.test(detay)) {
+    // Tam yerel yolu göstermeden dosya bağlamını koru.
+    const parcalar = detay.replace(/\\/g, "/").split("/").filter(Boolean);
+    detay = "…/" + parcalar.slice(-2).join("/");
+  }
+
+  detay = detay.replace(/\s+/g, " ").trim();
+  if (detay.length > 120) detay = detay.slice(0, 117) + "…";
+  return etiket + " — " + detay;
 }
 
 function autoResize() {
