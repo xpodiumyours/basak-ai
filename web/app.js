@@ -323,11 +323,19 @@ msgEl.addEventListener("input", () => {
 const balonlar = new Map();
 const uyu = (ms) => new Promise((coz) => setTimeout(coz, ms));
 
-function olayiIsle(o) {
+function olayiIsle(o, varsayilanBalon = null) {
   const no = o.istek;
+  if (no && varsayilanBalon && !balonlar.has(no)) {
+    balonlar.set(no, varsayilanBalon);
+  }
 
   if (o.tur === "thinking") {
-    if (!balonlar.has(no)) balonlar.set(no, bubble("assistant", "Düşünüyorum…"));
+    let b = balonlar.get(no);
+    if (!b) {
+      b = bubble("assistant", "");
+      balonlar.set(no, b);
+    }
+    durumSatiri(b, "Çalışıyorum…");
     return false;
   }
 
@@ -391,6 +399,63 @@ async function jsonOku(r) {
   }
 }
 
+async function sseAkisiniOku(r, beklemeBalonu) {
+  if (!r.body || typeof r.body.getReader !== "function") {
+    throw new Error("Tarayıcı canlı yanıt akışını desteklemiyor.");
+  }
+
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let tampon = "";
+  let cevap = "";
+  let kaynak = "";
+  let hata = "";
+  let terminal = false;
+
+  const bloguIsle = (blok) => {
+    if (!blok.trim()) return;
+    const veri = blok
+      .split(/\r?\n/)
+      .filter((satir) => satir.startsWith("data:"))
+      .map((satir) => satir.slice(5).trimStart())
+      .join("\n");
+    if (!veri) return;
+
+    let olay;
+    try {
+      olay = JSON.parse(veri);
+    } catch {
+      throw new Error("Sunucudan bozuk canlı yanıt geldi.");
+    }
+
+    olayiIsle(olay, beklemeBalonu);
+    if (olay.tur === "bitir") {
+      cevap = String(olay.cevap || "");
+      kaynak = String(olay.kaynak || "");
+      terminal = true;
+    } else if (olay.tur === "error") {
+      hata = String(olay.metin || "Yanıt alınamadı.");
+      terminal = true;
+    }
+  };
+
+  while (true) {
+    const {value, done} = await reader.read();
+    if (done) {
+      tampon += decoder.decode();
+      break;
+    }
+    tampon += decoder.decode(value, {stream:true});
+    const parcalar = tampon.split(/\r?\n\r?\n/);
+    tampon = parcalar.pop() || "";
+    for (const blok of parcalar) bloguIsle(blok);
+  }
+
+  if (tampon.trim()) bloguIsle(tampon);
+  if (!terminal) throw new Error("Sohbet akışı tamamlanmadan kesildi.");
+  return {cevap, kaynak, error:hata};
+}
+
 async function olaylariTakipEt(no) {
   let son = 0;
   const baslangic = Date.now();
@@ -449,6 +514,11 @@ async function send() {
   const userBubble = bubble("user", text || "Fotoğraf gönderildi");
   if (gorsel) gorselBalonaEkle(userBubble, gorsel);
 
+  // Kimi benzeri bekleme davranisi: ag/model daha cevap vermeden kullanici
+  // bos ekrana bakmaz. Bu ham muhakeme degil, yalniz guvenli durum bilgisidir.
+  const beklemeBalonu = bubble("assistant", "");
+  durumSatiri(beklemeBalonu, "Çalışıyorum…");
+
   msgEl.value = "";
   msgEl.style.height = "auto";
   gonderiliyor = true;
@@ -472,23 +542,29 @@ async function send() {
       }),
     });
 
-    const d = await jsonOku(r);
+    if (window.basakRuntime === "vercel") {
+      if (!r.ok) {
+        const d = await jsonOku(r);
+        throw new Error(d.error || "Sohbet isteği başarısız");
+      }
 
-    if (Array.isArray(d.olaylar)) {
-      for (const o of d.olaylar) olayiIsle(o);
-      if (!r.ok || !d.ok) throw new Error(d.error || "Sohbet isteği başarısız");
-
-      if (d.cevap) {
+      const akis = await sseAkisiniOku(r, beklemeBalonu);
+      if (akis.error) {
+        onizlemeTemizle();
+        return;
+      }
+      if (akis.cevap) {
         bulutGecmisi.push({role:"user",content:gonderilecekMetin});
-        bulutGecmisi.push({role:"assistant",content:d.cevap});
+        bulutGecmisi.push({role:"assistant",content:akis.cevap});
         aktifSohbetiKaydet();
       }
       onizlemeTemizle();
       return;
     }
 
+    const d = await jsonOku(r);
     if (!r.ok || !d.ok || !d.istek) throw new Error(d.error || "Sohbet isteği başarısız");
-    if (!balonlar.has(d.istek)) balonlar.set(d.istek,bubble("assistant","Düşünüyorum…"));
+    balonlar.set(d.istek, beklemeBalonu);
     await olaylariTakipEt(d.istek);
 
     const sonBalon = chatEl.querySelector(".message-row.assistant:last-child .icerik");
@@ -500,6 +576,10 @@ async function send() {
     }
     onizlemeTemizle();
   } catch (err) {
+    if (beklemeBalonu && beklemeBalonu.isConnected) {
+      const row = beklemeBalonu.closest(".message-row");
+      if (row) row.remove(); else beklemeBalonu.remove();
+    }
     bubble("assistant", "Bir sorun oluştu: " + (err.message || err));
   } finally {
     gonderiliyor = false;
