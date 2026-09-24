@@ -32,6 +32,7 @@ app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 _BEYIN = None
 _TOOLS = None
+_PREVIEW_COOKIE = "basak_preview_oturum"
 # Kişilik artık isteğe göre chat.prompts.kisilik_blogu ile üretilir;
 # sabit "Casper'in asistanısın" metni web'de yabancıya sızmaz.
 
@@ -69,10 +70,40 @@ def _token_kimligi(request: Request):
     return VARSAYILAN_KULLANICI
 
 
+def _preview_mi():
+    """Yalniz Vercel Preview deployment'i mi? Production degil."""
+    return (os.environ.get("VERCEL_ENV") or "").strip().lower() == "preview"
+
+
+def _preview_kimligi(request: Request):
+    """Preview'e ozel, kalici veriye yetki vermeyen tarayici kimligi."""
+    kid = (request.cookies.get(_PREVIEW_COOKIE) or "").strip().lower()
+    if len(kid) != 17 or not kid.startswith("p"):
+        return None
+    if any(c not in "0123456789abcdef" for c in kid[1:]):
+        return None
+    return kid
+
+
+def _preview_cerezi(resp, kid):
+    resp.set_cookie(
+        _PREVIEW_COOKIE,
+        kid,
+        max_age=24 * 3600,
+        path="/",
+        httponly=True,
+        secure=True,
+        samesite="lax",
+    )
+    return resp
+
+
 def _uretim_kapisi_hazir():
-    """Uretimde kimlik karari verilebilir mi? (anahtar veya token var mi)"""
+    """Uretimde kimlik karari verilebilir mi? Preview ayri ve izoledir."""
     import kullanici as kullanici_modulu
 
+    if _preview_mi():
+        return True
     if not kullanici_modulu.uretim_mi():
         return True
     return bool(kullanici_modulu.env_anahtari()
@@ -165,15 +196,18 @@ def _hafizayi_bir_kez_sifirla():
 def _kimlik(request: Request):
     """Istegin kisi kimligi; None = 401/503 gerekir.
 
-    Sira: (1) gecerli imzali oturum cerezi, (2) uretimde dogru
-    X-Basak-Token, (3) yerelde kullanici tablosu bosken tek-kullanici
-    modu (casper — eski yerel/test davranisi bozulmaz).
-
-    Uretimde VARSAYILAN_KULLANICI dususu YOKTUR: tablo bulutta her zaman
-    bos oldugundan o dusus kapiyi herkese aciyordu (olculdu 2026-09-23).
+    Preview: Vercel korumasi arkasinda, izole ve kalici hafizasiz test
+    kimligi. Production: imzali cookie/token ve fail-closed kurali.
     """
     import kullanici as kullanici_modulu
     from chat.kimlik import VARSAYILAN_KULLANICI, kullanici_kur
+
+    if _preview_mi():
+        kid = _preview_kimligi(request)
+        if kid is None:
+            return None
+        kullanici_kur(kid)
+        return kid
 
     if kullanici_modulu.uretim_mi() and not _hafizayi_bir_kez_sifirla():
         return None
@@ -200,6 +234,8 @@ def _kimlik(request: Request):
 def _giris_engeli():
     """Kimlik veya temiz başlangıç hazır değilse güvenli biçimde dur."""
     import kullanici as kullanici_modulu
+    if _preview_mi():
+        return JSONResponse({"error": "preview kimligi gerekli"}, status_code=401)
     if kullanici_modulu.uretim_mi() and not _hafizayi_bir_kez_sifirla():
         return JSONResponse(
             {"error": "kalici hafiza temiz baslangica hazirlanamadi"},
@@ -393,9 +429,22 @@ def _oturum_cerezi(resp, kid):
 
 @app.post("/api/kimlik")
 async def kimlik_hazirla(request: Request):
-    """Kayıt/giriş olmadan tarayıcıya ayrı ve kalıcı Başak ID verir."""
+    """Kayıt/giriş olmadan tarayıcıya ayrı Başak ID verir."""
     import kullanici as kullanici_modulu
     from chat.kimlik import kullanici_kur
+
+    if _preview_mi():
+        kid = _preview_kimligi(request) or ("p" + uuid.uuid4().hex[:16])
+        kullanici_kur(kid)
+        resp = JSONResponse({
+            "ok": True,
+            "kullanici": kid,
+            "basak_id": "Preview " + kid[-8:],
+            "kayit_gerekli": False,
+            "preview": True,
+            "kalici_hafiza": False,
+        }, headers={"Cache-Control": "no-store"})
+        return _preview_cerezi(resp, kid)
 
     if kullanici_modulu.uretim_mi() and not _hafizayi_bir_kez_sifirla():
         return _giris_engeli()
@@ -544,7 +593,11 @@ async def sohbet(request: Request):
                 from chat.kimlik import kullanici_kur
                 from chat.prompts import kisilik_blogu
                 kullanici_kur(kid)  # thread contextvar'i — kisi izolasyonu
-                misafir = bool((body or {}).get("misafir", False))
+                # Preview gerçek model/arac akisini test eder ama production
+                # hafizasina/profiline yazmaz ve onlari okumaz.
+                misafir = _preview_mi() or bool(
+                    (body or {}).get("misafir", False)
+                )
                 mesaj_isle(
                     metin,
                     beyin,
