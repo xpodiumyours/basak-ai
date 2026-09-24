@@ -22,7 +22,9 @@ import re
 from chat.prompts import MISAFIR_BLOGU, kimlik_blogu
 from chat.kimlik import VARSAYILAN_KULLANICI, aktif_kullanici, gorunur_ad
 from chat.tool_resolver import RUNTIME_AJAN_SOZLESMESI, arac_karari_coz
-from chat.output_control import (\n    akan_ajan_adimi, akan_final, kesik_cevabi_tamamla, kesik_mi,\n)
+from chat.output_control import (
+    akan_ajan_adimi, akan_final, kesik_cevabi_tamamla, kesik_mi,
+)
 from chat import context as ctx
 from chat.gate import temizle as _temizle
 from chat import onbellek as _onbellek
