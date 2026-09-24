@@ -360,7 +360,7 @@ function olayiIsle(o) { olaylar.push(o); }
 """ + fonksiyon + r"""
 (async () => {
   const veri = new TextEncoder().encode(
-    '{"istek":"abc","tur":"bitir","cevap":"Korunan cevap","kaynak":"sahte"}\\n'
+    '{"istek":"abc","tur":"bitir","cevap":"Korunan cevap","kaynak":"sahte"}\n'
   );
   let sira = 0;
   const r = {
