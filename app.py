@@ -16,7 +16,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 BASE = Path(__file__).resolve().parent
@@ -213,13 +213,71 @@ def _giris_engeli():
     return JSONResponse({"error": "giris gerekli"}, status_code=401)
 
 
+_AKIS_MIME = "application/x-ndjson"
+_AKIS_SESSIZLIK_SN = 10.0
+_AKIS_SON = object()
+
+
+def _canli_akis_isteniyor(request: Request):
+    """Yeni web istemcisi canli NDJSON akis istiyor mu?
+
+    Accept basligi yoksa mevcut toplu JSON davranisi aynen korunur.
+    """
+    return _AKIS_MIME in (request.headers.get("accept") or "").lower()
+
+
+async def _canli_olaylar(kuyruk, gorev, istek):
+    """Worker olaylarini ayni HTTP yanitinda satir satir tasir.
+
+    bitir/error ekrana hemen gider; ancak worker tamamen bitmeden stream
+    kapanmaz. Boylece bitir'den sonra yapilan hafiza/kayit islemleri mevcut
+    davranistaki gibi tamamlanma sansini korur.
+    """
+    gorev.add_done_callback(lambda _g: kuyruk.put_nowait(_AKIS_SON))
+    terminal_goruldu = False
+
+    while True:
+        try:
+            olay = await asyncio.wait_for(
+                kuyruk.get(), timeout=_AKIS_SESSIZLIK_SN
+            )
+        except asyncio.TimeoutError:
+            yield json.dumps(
+                {"istek": istek, "tur": "ping"},
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ) + "\n"
+            continue
+
+        if olay is _AKIS_SON:
+            if not terminal_goruldu:
+                yield json.dumps(
+                    {
+                        "istek": istek,
+                        "tur": "error",
+                        "metin": "Basak yaniti tamamlanmadan bitti.",
+                    },
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ) + "\n"
+            return
+
+        if isinstance(olay, dict) and olay.get("tur") in ("bitir", "error"):
+            terminal_goruldu = True
+
+        yield json.dumps(
+            olay, ensure_ascii=False, separators=(",", ":")
+        ) + "\n"
+
+
 class _OlayToplayici:
-    def __init__(self, istek):
+    def __init__(self, istek, yayinla=None):
         self.istek = istek
         self.olaylar = []
         self.cevap = ""
         self.kaynak = ""
         self.hata = ""
+        self.yayinla = yayinla
 
     def __call__(self, kod):
         try:
@@ -240,6 +298,11 @@ class _OlayToplayici:
             if ad == "error":
                 self.hata = olay.get("metin", "")
             self.olaylar.append(olay)
+            if self.yayinla is not None:
+                try:
+                    self.yayinla(olay)
+                except Exception:
+                    pass
         except Exception:
             return
 
@@ -424,6 +487,7 @@ async def sohbet(request: Request):
         return JSONResponse({"error": "Gecersiz JSON"}, status_code=400)
     metin = str((body or {}).get("metin") or "").strip()
     ek_yol = None
+    akis_kuruldu = False
     try:
         ek = _gorsel_kaydet((body or {}).get("ek"))
         if ek:
@@ -439,22 +503,62 @@ async def sohbet(request: Request):
             return JSONResponse({"error": "Bos mesaj"}, status_code=400)
 
         beyin, tools = _cekirdek()
-        kayit = _OlayToplayici(uuid.uuid4().hex[:12])
+        akis = _canli_akis_isteniyor(request)
+        dongu = asyncio.get_running_loop() if akis else None
+        kuyruk = asyncio.Queue() if akis else None
 
-        def _kos():
-            from chat.flow import mesaj_isle
-            from chat.kimlik import kullanici_kur
-            from chat.prompts import kisilik_blogu
-            kullanici_kur(kid)  # thread contextvar'i — kisi izolasyonu
-            misafir = bool((body or {}).get("misafir", False))
-            mesaj_isle(
-                metin,
-                beyin,
-                kisilik_blogu(kid, misafir=misafir),
-                kayit,
-                tools,
-                misafir=misafir,
-                gecmis_override=_gecmis(body or {}),
+        def _yayinla(olay):
+            if dongu is not None and kuyruk is not None:
+                dongu.call_soon_threadsafe(kuyruk.put_nowait, olay)
+
+        kayit = _OlayToplayici(
+            uuid.uuid4().hex[:12],
+            yayinla=_yayinla if akis else None,
+        )
+
+        def _kos(akis_hatasi=False, gecici_temizle=False):
+            try:
+                from chat.flow import mesaj_isle
+                from chat.kimlik import kullanici_kur
+                from chat.prompts import kisilik_blogu
+                kullanici_kur(kid)  # thread contextvar'i — kisi izolasyonu
+                misafir = bool((body or {}).get("misafir", False))
+                mesaj_isle(
+                    metin,
+                    beyin,
+                    kisilik_blogu(kid, misafir=misafir),
+                    kayit,
+                    tools,
+                    misafir=misafir,
+                    gecmis_override=_gecmis(body or {}),
+                )
+            except Exception as e:
+                if not akis_hatasi:
+                    raise
+                _yayinla({
+                    "istek": kayit.istek,
+                    "tur": "error",
+                    "metin": "Basak calistirilamadi: %s" % str(e)[:300],
+                })
+            finally:
+                if gecici_temizle and ek_yol:
+                    try:
+                        os.remove(ek_yol)
+                    except OSError:
+                        pass
+
+        if akis:
+            gorev = asyncio.create_task(
+                asyncio.to_thread(_kos, True, True)
+            )
+            akis_kuruldu = True
+            return StreamingResponse(
+                _canli_olaylar(kuyruk, gorev, kayit.istek),
+                media_type=_AKIS_MIME,
+                headers={
+                    "Cache-Control": "no-cache, no-transform",
+                    "X-Content-Type-Options": "nosniff",
+                },
             )
 
         await asyncio.to_thread(_kos)
@@ -480,7 +584,7 @@ async def sohbet(request: Request):
             status_code=500,
         )
     finally:
-        if ek_yol:
+        if ek_yol and not akis_kuruldu:
             try:
                 os.remove(ek_yol)
             except OSError:
