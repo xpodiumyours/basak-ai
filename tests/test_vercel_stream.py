@@ -293,12 +293,19 @@ function bubble(_role, text) {
   };
 }
 function durumSatiri(b, metin) {
-  b.durum = metin;
-  durumlar.push(metin);
+  const gorunen = guvenliDurum(metin);
+  b.durum = gorunen;
+  durumlar.push(gorunen);
 }
 function durumuKapat(b) {
   delete b.durum;
   kapatildi += 1;
+}
+function calismaYanitaGecti(b) {
+  durumuKapat(b);
+}
+function calismaBitir(b) {
+  durumuKapat(b);
 }
 function icerikYaz(b, metin) {
   b.dataset.ham = String(metin || "");
