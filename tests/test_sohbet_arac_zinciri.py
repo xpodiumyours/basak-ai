@@ -38,6 +38,9 @@ def test_normal_sohbet_arac_varken_bile_dogal_metinle_biter(
     except Exception:
         pass
 
+    # Normal sohbette resolver gercek arac gerekmiyor diyebilir; ana model
+    # meta-arac gormeden dogal metinle biter.
+    monkeypatch.setattr(flow, "araclari_coz", lambda *_a, **_k: [])
     gorulen = {}
 
     class Beyin:
@@ -50,9 +53,7 @@ def test_normal_sohbet_arac_varken_bile_dogal_metinle_biter(
         def cevapla(self, mesajlar, model, tools=None, tool_choice=None,
                     **kwargs):
             gorulen["tool_choice"] = tool_choice
-            gorulen["tools"] = [
-                (t.get("function") or {}).get("name") for t in (tools or [])
-            ]
+            gorulen["tools"] = tools
             return {"content": "Merhaba, nasil yardimci olayim?"}, "groq"
 
     olaylar = []
@@ -65,8 +66,8 @@ def test_normal_sohbet_arac_varken_bile_dogal_metinle_biter(
                 "function": {"name": "list_tasks"}}],
     )
 
-    assert gorulen["tool_choice"] == "auto"
-    assert gorulen["tools"] == ["yetenek_ac"]
+    assert gorulen["tool_choice"] is None
+    assert gorulen["tools"] is None
     assert any("Merhaba, nasil yardimci olayim?" in o for o in olaylar)
     assert not any("Ajan protokolu bozuldu" in o for o in olaylar)
 

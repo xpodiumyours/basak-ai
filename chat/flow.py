@@ -1,18 +1,18 @@
 """chat/flow.py — Ana sohbet ve ajan akışı.
 
-Kullanıcı mesajını kelime/niyet tablosuyla sınıflandıran bir router yoktur.
-TOOLS verildiginde LLM önce `yetenek_ac` veya `son_cevap` seçer. Bir
-yetenek alanı açılırsa yalnız o alanın gerçek araçları modele sunulur;
-araç sonucunu gören model gerekirse yeni alan/araç seçerek devam eder.
+P2: Kullanıcı mesajını sabit kelime/niyet tablosuyla sınıflandıran router yoktur.
+53 gerçek aracın tamamı da modele yığılmaz. Görünmez runtime tool resolver,
+güncel göreve uygun gerçek araç şemalarını hazırlar; ana model yalnız gerçek
+araçları görür. Araç sonucundan sonra aday seti güncel bağlamla yeniden çözülür.
 
-    mesaj → LLM
-              ├─ salt sohbet → son_cevap → ekran
-              └─ gerçek iş → yetenek_ac → gerçek araç → sonuç → LLM
-                                   ↑                       │
-                                   └──── gerekirse devam ──┘
+    mesaj → görünmez resolver → gerçek araç adayları → ANA MODEL
+                                                     ├─ doğal cevap
+                                                     └─ gerçek araç → sonuç
+                                                            ↑          │
+                                                            └─ resolver┘
 
-Araç/alan kararını kod değil model verir. Sağlayıcı uygunluğu, ücretsiz
-kullanım ve kota/fallback mantığı `brain/` altındadır.
+Sağlayıcı uygunluğu, ücretsiz kullanım ve kota/fallback mantığı `brain/`
+altındadır.
 """
 
 import json
@@ -21,7 +21,7 @@ import re
 
 from chat.prompts import MISAFIR_BLOGU, kimlik_blogu
 from chat.kimlik import VARSAYILAN_KULLANICI, aktif_kullanici, gorunur_ad
-from chat.agent_protocol import AJAN_SOZLESMESI, baslangic_araclari
+from chat.tool_resolver import RUNTIME_AJAN_SOZLESMESI, araclari_coz
 from chat import context as ctx
 from chat.gate import temizle as _temizle
 from chat import onbellek as _onbellek
@@ -252,7 +252,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     arac_acik = bool(tools)
     mesajlar = _baglam_kur(
         text, system_prompt, konusmaci,
-        AJAN_SOZLESMESI if arac_acik else "", misafir=misafir)
+        RUNTIME_AJAN_SOZLESMESI if arac_acik else "", misafir=misafir)
 
     mesajlar += ctx.gecmis_pencere(gecmis) + [{"role": "user",
                                                "content": text}]
@@ -263,10 +263,14 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     # resmi saglayici davranisiyla uyumludur; kod kullanici metnini
     # siniflandirmaz ve araci zorlamaz.
     if arac_acik and hasattr(brain, "ajan_musait"):
-        ajan_tools = baslangic_araclari()
+        # P2: meta-arac yok. Resolver yalniz gercek arac semalarini hazirlar.
+        ajan_tools = araclari_coz(brain, model, mesajlar, tools)
         try:
-            yanit, kaynak = brain.cevapla(
-                mesajlar, model, tools=ajan_tools, tool_choice="auto")
+            if ajan_tools:
+                yanit, kaynak = brain.cevapla(
+                    mesajlar, model, tools=ajan_tools, tool_choice="auto")
+            else:
+                yanit, kaynak = brain.cevapla(mesajlar, model)
         except Exception as e:
             hata = str(e)
             if "429" in hata or "rate" in hata.lower():
@@ -301,7 +305,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         cevap, kosan = arac_dongusu(
             tool_calls, mesajlar, brain, model, js_callback, calistir,
             tools=ajan_tools, yanit=yanit, tool_choice="auto",
-            tum_tools=tools, tercih=[kaynak] if kaynak else None)
+            tum_tools=tools, tercih=[kaynak] if kaynak else None,
+            dinamik_resolver=True)
         cevap = _temizle(cevap)
         if cevap:
             _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,

@@ -168,11 +168,14 @@ def sonucu_donustur(sonuc):
 
 def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                  calistir, tools=None, tur_siniri=None, yanit=None,
-                 tool_choice=None, tum_tools=None, tercih=None):
+                 tool_choice=None, tum_tools=None, tercih=None,
+                 dinamik_resolver=False):
     """Arac sonuclarini modele geri vererek ajan turunu surdurur.
 
-    Gercek arac secimini MODEL yapar. `yetenek_ac` yalniz modelin sectigi
-    alandaki semalari acan katalog kapisidir; kullanici metnine bakmaz.
+    P2 aktif yolunda model yalnız resolver'ın sunduğu GERCEK araçları görür.
+    Her araç turundan sonra dinamik_resolver=True ise güncel bağlamla yeni
+    gerçek araç adayları hazırlanır. Eski yetenek_ac dalları yalnız P1
+    uyumluluk testleri için pasif kalır; P2 akışında modele sunulmaz.
     """
     from chat.gate import temizle
     from chat.agent_protocol import (
@@ -319,12 +322,17 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 continue
 
             if ad not in sunulan_adlar:
-                tur_sonuclari.append((
-                    ad,
-                    "Hata: bu arac su an acik degil; once yetenek_ac ile "
-                    "ilgili alani ac.",
-                    cagri_id,
-                ))
+                if dinamik_resolver:
+                    _mesaj = (
+                        "Hata: bu arac bu adimda sunulan gercek araclar "
+                        "arasinda degil."
+                    )
+                else:
+                    _mesaj = (
+                        "Hata: bu arac su an acik degil; once yetenek_ac ile "
+                        "ilgili alani ac."
+                    )
+                tur_sonuclari.append((ad, _mesaj, cagri_id))
                 continue
 
             js_callback("BasakUI.toolStatus(" + _j(_durum(ad, args)) + ")")
@@ -367,6 +375,18 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 "name": ad,
                 "content": sonuc,
             })
+
+        if dinamik_resolver and tum_tools is not None:
+            try:
+                from chat.tool_resolver import araclari_coz
+                tools = araclari_coz(
+                    brain, model, expanded, tum_tools,
+                    tercih=list(_tercih_aktif or []),
+                )
+            except Exception as e:
+                # Resolver kendi icinde fail-open yapar; bu son koruma,
+                # beklenmeyen bir kod hatasinda mevcut arac setini korur.
+                logger.warning("Runtime tool resolver yenilenemedi: %s", e)
 
         try:
             yanit, _kaynak = _beyin_devam(tools)

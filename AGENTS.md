@@ -6,22 +6,21 @@ Bu dosyayı kod yazan her ajan (Claude Code, Kilo Code, OpenCode) işe başlamad
 
 **Bu kural diğer her şeyin üstündedir. Çiğneyen iş reddedilir.**
 
-Araç seçimini **model yapar**. İlk ajan turunda modele yalnız `yetenek_ac` ve `son_cevap` sunulur; model ihtiyacı olan yetenek alanını seçince sadece o alanın gerçek araç şemaları açılır. **Kod kullanıcı cümlesine bakıp alan veya araç seçmez.**
+Araç seçimini **ana model yapar**. P2'de `yetenek_ac`, `arac_ara` veya başka bir meta-arac modele sunulmaz. Görünmez runtime tool resolver, 53 gerçek aracın ad/açıklama/parametre kataloğunu model tabanlı olarak değerlendirip o adım için uygun gerçek araç şemalarını hazırlar; ana model yalnız bu gerçek araçları görür. Araç sonucu geldikten sonra resolver güncel bağlamla yeniden çalışır.
 
-**Yeni kelime/tetikleyici mantığı YAZILMAZ.** "Şu kelime geçerse şu aracı aç", "şu cümlede şu çağrı" türü hiçbir eşleştirme kurulmaz. Böyle bir liste büyüdükçe sistem akıllanmaz — kural ezberleyen bir chatbot'a döner.
+**Yeni kelime/tetikleyici mantığı YAZILMAZ.** "Şu kelime geçerse şu aracı aç", "şu cümlede şu çağrı" türü hiçbir eşleştirme kurulmaz. Resolver sabit kelime/niyet tablosu değildir; katalogdaki gerçek araçları bir model çağrısıyla adaylaştırır ve dönen adları gerçek katalogla doğrular.
 
-**Araç eklemek dört yerdir, beşincisi yoktur:**
+**Araç eklemek üç yerdir; resolver ayrıca kayıt istemez:**
 
 | # | Nereye | Ne |
 |---|---|---|
-| 1 | `tools/definitions.py` | Araç şeması |
+| 1 | `tools/definitions.py` | Araç şeması + olgusal açıklaması |
 | 2 | `tools/__init__.py` → `calistir()` | Dispatcher dalı |
-| 3 | `chat/agent_protocol.py` → `YETENEK_ALANLARI` | Modelin keşfedebileceği yetenek alanı |
-| 4 | `chat/tools.py` durum metni | Ekranda görünen çalışma durumu |
+| 3 | `chat/tools.py` durum metni | Ekranda görünen çalışma durumu |
 
 **Araç açıklamasına davranış koçluğu yazılmaz.** Açıklama yalnız olguyu söyler: ne yapar, hangi parametreyi alır, **ne döndürür**, sınırı nedir. "Şunu kullanma", "şöyle cevapla", "önce ara sonra konuş" gibi cümleler açıklamaya da prompt'a da girmez.
 
-**Göreve özel/kelimeye bağlı talimat bloğu eklenmez.** `chat/prompts.py` içinde yalnız kimlik bloğu vardır. İstisna: `chat/agent_protocol.py` içindeki `AJAN_SOZLESMESI`, belirli bir kullanıcı niyetini veya aracı seçmez; yalnız resmî tool-calling döngüsünü tanımlar: model alanı/aracı seçer, araç sonucu geri gelir, model yeniden karar verir ve işi `son_cevap` ile bitirir.
+**Göreve özel/kelimeye bağlı talimat bloğu eklenmez.** `chat/prompts.py` içinde yalnız kimlik bloğu vardır. P2 ajan sözleşmesi `chat/tool_resolver.py` içindedir; belirli bir kullanıcı niyetini veya belirli aracı seçmez, yalnız gerçek tool-calling döngüsünü tanımlar.
 
 ### GERİ GETİRİLMESİ KESİNLİKLE YASAK
 
