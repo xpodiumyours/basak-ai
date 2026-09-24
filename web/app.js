@@ -391,6 +391,63 @@ async function jsonOku(r) {
   }
 }
 
+function akisSatiriCoz(satir) {
+  const temiz = String(satir || "").trim();
+  if (!temiz) return null;
+  let olay;
+  try { olay = JSON.parse(temiz); }
+  catch { throw new Error("Sunucudan bozuk canlı yanıt geldi."); }
+  if (!olay || typeof olay !== "object" || olay.tur === "ping") return null;
+  return olay;
+}
+
+async function canliAkisiOku(r) {
+  if (!r.body || typeof r.body.getReader !== "function") {
+    throw new Error("Tarayıcı canlı yanıt akışını desteklemiyor.");
+  }
+
+  const okur = r.body.getReader();
+  const cozucu = new TextDecoder("utf-8");
+  let tampon = "";
+  let cevap = "";
+  let hata = "";
+  let terminal = false;
+
+  const olayIsle = (olay) => {
+    if (!olay) return;
+    olayiIsle(olay);
+    if (olay.tur === "bitir") {
+      cevap = String(olay.cevap || "");
+      terminal = true;
+    } else if (olay.tur === "error") {
+      hata = String(olay.metin || "Yanıt alınamadı.");
+      terminal = true;
+    }
+  };
+
+  while (!terminal) {
+    const { value, done } = await okur.read();
+    if (done) {
+      tampon += cozucu.decode();
+      break;
+    }
+    tampon += cozucu.decode(value, { stream: true });
+
+    let i;
+    while ((i = tampon.indexOf("\n")) >= 0) {
+      const satir = tampon.slice(0, i);
+      tampon = tampon.slice(i + 1);
+      olayIsle(akisSatiriCoz(satir));
+      if (terminal) break;
+    }
+  }
+
+  if (!terminal && tampon.trim()) olayIsle(akisSatiriCoz(tampon));
+  try { await okur.cancel(); } catch {}
+  if (!terminal) throw new Error("Sohbet akışı tamamlanmadan kesildi.");
+  return { cevap, hata };
+}
+
 async function olaylariTakipEt(no) {
   let son = 0;
   const baslangic = Date.now();
@@ -463,7 +520,7 @@ async function send() {
 
     const r = await window.basakFetch("/api/sohbet", {
       method:"POST",
-      headers:{"content-type":"application/json"},
+      headers:{"content-type":"application/json","accept":"application/x-ndjson"},
       body:JSON.stringify({
         metin:gonderilecekMetin,
         misafir:MISAFIR,
@@ -471,6 +528,18 @@ async function send() {
         ek,
       }),
     });
+
+    const icerikTuru = (r.headers.get("content-type") || "").toLowerCase();
+    if (r.ok && icerikTuru.includes("application/x-ndjson")) {
+      const akis = await canliAkisiOku(r);
+      if (!akis.hata && akis.cevap) {
+        bulutGecmisi.push({role:"user",content:gonderilecekMetin});
+        bulutGecmisi.push({role:"assistant",content:akis.cevap});
+        aktifSohbetiKaydet();
+      }
+      onizlemeTemizle();
+      return;
+    }
 
     const d = await jsonOku(r);
 
