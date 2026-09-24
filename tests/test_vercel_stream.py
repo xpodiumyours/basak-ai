@@ -415,3 +415,63 @@ def test_uzun_is_sirasinda_sohbet_degistirme_engeli_var():
     )[0]
     assert "if (gonderiliyor)" in ac
     assert "if (gonderiliyor)" in yeni
+
+
+def test_preview_calisma_karti_sozlesmesi():
+    ekran = open("web/app.js", encoding="utf-8").read()
+    stil = open("web/chat.css", encoding="utf-8").read()
+
+    assert "function calismaKaydi" in ekran
+    assert "function aktifAdimiTamamla" in ekran
+    assert "function calismaBitir" in ekran
+    assert "function calismaDurdur" in ekran
+    assert 'detaylar.textContent = "Detaylar"' in ekran
+    assert 'durdur.textContent = "Durdur"' in ekran
+    assert '" adım tamamlandı"' in ekran
+    assert "new AbortController()" in ekran
+    assert "signal:aktifIstekDenetleyici.signal" in ekran
+
+    assert ".work-card{" in stil
+    assert ".work-current-detail{" in stil
+    assert ".work-details{" in stil
+    assert ".work-stop{" in stil
+    assert "@media(prefers-reduced-motion:reduce)" in stil
+    assert "min-height:40px" in stil
+
+
+def test_preview_durdur_backend_iptal_bayragini_tasir():
+    kaynak = open("app.py", encoding="utf-8").read()
+    assert "class _AkisIptal(Exception)" in kaynak
+    assert "threading.Event() if akis else None" in kaynak
+    assert "if self.iptal_edildi():" in kaynak
+    assert "except _AkisIptal:" in kaynak
+    assert "_canli_olaylar(kuyruk, gorev, kayit.istek, iptal)" in kaynak
+
+
+def test_stream_generator_kapaninca_worker_iptal_bayragi_set_edilir():
+    import asyncio
+    import threading
+
+    async def senaryo():
+        kuyruk = asyncio.Queue()
+        iptal = threading.Event()
+        worker = asyncio.create_task(asyncio.sleep(30))
+        akis = app_modulu._canli_olaylar(
+            kuyruk, worker, "iptal-test", iptal
+        )
+        ilk = asyncio.create_task(akis.__anext__())
+        await asyncio.sleep(0)
+        await akis.aclose()
+        ilk.cancel()
+        try:
+            await ilk
+        except BaseException:
+            pass
+        worker.cancel()
+        try:
+            await worker
+        except BaseException:
+            pass
+        return iptal.is_set()
+
+    assert asyncio.run(senaryo()) is True
