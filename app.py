@@ -331,6 +331,19 @@ class _OlayToplayici:
     def iptal_edildi(self):
         return bool(self.iptal is not None and self.iptal.is_set())
 
+    def olay(self, tur, **veri):
+        if self.iptal_edildi():
+            raise _AkisIptal()
+        olay = {"istek": self.istek, "tur": str(tur)}
+        olay.update(veri)
+        self.olaylar.append(olay)
+        if self.yayinla is not None:
+            try:
+                self.yayinla(olay)
+            except Exception:
+                pass
+        return olay
+
     def __call__(self, kod):
         if self.iptal_edildi():
             raise _AkisIptal()

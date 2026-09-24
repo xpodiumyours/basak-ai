@@ -12,6 +12,8 @@ uydurdugu ad CALISMAZ. DURUM_METNI ekran etiketidir.
 
 import json
 import logging
+import re
+from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +103,60 @@ def _durum(tool_name, args):
     return "%s: %s" % (etiket, detay) if detay else etiket + "..."
 
 
+_KAYNAK_ARACLARI = {
+    "web_search", "haber_ara", "zamanli_ara", "site_ara",
+    "kitap_ara", "derin_oku", "sayfa_oku", "adres_kontrol", "sirket_ara",
+}
+_URL_RE = re.compile(r"https?://[^\\s<>'\\\"]+", re.IGNORECASE)
+
+
+def _durum_detayi(args):
+    for alan in DURUM_ALANI:
+        if (args or {}).get(alan):
+            return str(args[alan])[:120]
+    return ""
+
+
+def _web_olay(js_callback, tur, **veri):
+    """Web taşıyıcısı varsa zengin olay gönder; diğer istemcileri etkileme."""
+    yay = getattr(js_callback, "olay", None)
+    if callable(yay):
+        yay(tur, **veri)
+
+
+def _kaynak_url_temizle(url):
+    """Kullanıcıya gösterilecek kaynakta secret/query/fragment taşıma."""
+    try:
+        ham = str(url or "").strip().rstrip(".,);]}")
+        p = urlsplit(ham)
+        if p.scheme not in ("http", "https") or not p.hostname:
+            return ""
+        # user:pass@host gibi kimlik parçalarını da taşıma.
+        port = (":" + str(p.port)) if p.port and p.port not in (80, 443) else ""
+        netloc = (p.hostname or "") + port
+        return urlunsplit((p.scheme, netloc, p.path or "/", "", ""))
+    except Exception:
+        return ""
+
+
+def _kaynaklari_cikar(tool_name, args, net):
+    if tool_name not in _KAYNAK_ARACLARI:
+        return []
+    adaylar = []
+    if isinstance(args, dict) and args.get("url"):
+        adaylar.append(str(args["url"]))
+    adaylar.extend(_URL_RE.findall(str(net or "")))
+
+    sonuc = []
+    for aday in adaylar:
+        temiz = _kaynak_url_temizle(aday)
+        if temiz and temiz not in sonuc:
+            sonuc.append(temiz)
+        if len(sonuc) >= 12:
+            break
+    return sonuc
+
+
 def sonucu_donustur(sonuc):
     """Araç dönüşünü modele verilecek düz metne çevirir."""
     if isinstance(sonuc, dict):
@@ -173,6 +229,27 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
 
     while tool_calls:
         tur_sonuclari = []
+
+        # Plan frontend tahmini değildir: bu turda modelin GERÇEKTEN
+        # seçtiği gerçek araç çağrılarından çıkar.
+        _plan = []
+        for _pc in tool_calls:
+            if not isinstance(_pc, dict):
+                continue
+            _pf = _pc.get("function") or {}
+            _pa = _pf.get("name", "")
+            if _pa in (YETENEK_AC_ADI, SON_CEVAP_ADI):
+                continue
+            if _pa not in TANINMIS_TOOLLAR:
+                continue
+            _parg = parse_args(_pf.get("arguments", "{}"))
+            _plan.append({
+                "id": _pc.get("id") or ("plan_%d" % len(_plan)),
+                "baslik": DURUM_METNI.get(_pa, "Çalışıyor"),
+                "detay": _durum_detayi(_parg),
+            })
+        if _plan:
+            _web_olay(js_callback, "plan", adimlar=_plan)
 
         _adlar = [
             ((c.get("function") or {}).get("name", ""))
@@ -252,8 +329,26 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
 
             js_callback("BasakUI.toolStatus(" + _j(_durum(ad, args)) + ")")
             net = sonucu_donustur(calistir(ad, args))
+            basarili = not net.startswith("Hata:")
+            _web_olay(
+                js_callback, "toolDone",
+                id=cagri_id,
+                baslik=DURUM_METNI.get(ad, "Çalışıyor"),
+                detay=_durum_detayi(args),
+                ok=basarili,
+            )
+            if basarili:
+                for _url in _kaynaklari_cikar(ad, args, net):
+                    try:
+                        _host = urlsplit(_url).hostname or _url
+                    except Exception:
+                        _host = _url
+                    _web_olay(
+                        js_callback, "source",
+                        url=_url, baslik=_host, tool_id=cagri_id,
+                    )
             tur_sonuclari.append((ad, net, cagri_id))
-            if not net.startswith("Hata:"):
+            if basarili:
                 kosan += 1
 
         if not tur_sonuclari:

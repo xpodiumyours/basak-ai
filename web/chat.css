@@ -517,3 +517,44 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 @media(prefers-reduced-motion:reduce){
   .work-pulse{animation:none;box-shadow:none}
 }
+
+/* Preview: profesyonel ajan akışı — plan, yönlendirme, kaynak kanıtı */
+.work-plan{
+  margin:5px 0 7px 15px;
+  color:#7b7b83;font-size:12px;line-height:1.4;
+  overflow-wrap:anywhere
+}
+.work-step.error .work-step-mark{background:#a23b3b}
+.work-redirect{color:#4f5968}
+.work-redirect-form{
+  display:flex;gap:8px;align-items:center;
+  margin:3px 0 3px 25px;max-width:520px
+}
+.work-redirect-input{
+  min-width:0;flex:1;height:36px;padding:0 10px;
+  border:1px solid #d9d9df;border-radius:9px;background:#fff;
+  color:#242428;font:inherit;font-size:13px
+}
+.work-redirect-input:focus{outline:2px solid #303036;outline-offset:1px}
+.work-redirect-apply{
+  height:36px;padding:0 10px;border:0;border-radius:9px;
+  background:#27272b;color:#fff;font-size:12.5px;font-weight:650
+}
+.answer-sources{
+  margin:14px 0 2px;padding-top:10px;border-top:1px solid #e6e6e9
+}
+.answer-sources-title{
+  display:block;margin-bottom:7px;color:#4f4f56;font-size:12.5px
+}
+.answer-sources-list{display:flex;flex-wrap:wrap;gap:6px 10px}
+.answer-source{
+  color:#5f6670;font-size:12px;text-decoration:none;
+  overflow-wrap:anywhere
+}
+.answer-source:hover{text-decoration:underline}
+@media(max-width:760px), (hover:none) and (pointer:coarse) and (max-width:1100px){
+  .work-plan{margin-left:14px;font-size:12.5px}
+  .work-redirect-form{margin-left:25px}
+  .work-redirect-input,.work-redirect-apply{height:40px}
+  .answer-sources-list{display:grid;gap:8px}
+}

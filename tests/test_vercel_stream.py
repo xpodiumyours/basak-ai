@@ -117,6 +117,10 @@ def test_bitir_gorunur_ama_worker_bitmeden_stream_kapanmaz(monkeypatch):
         assert _json_satir(await anext(it))["tur"] == "thinking"
         bitis = _json_satir(await anext(it))
         assert bitis["tur"] == "bitir"
+        for _ in range(20):
+            if son_is.is_set():
+                break
+            await asyncio.sleep(0.01)
         assert son_is.is_set()
 
         sonraki = asyncio.create_task(anext(it))
@@ -491,8 +495,8 @@ def test_preview_mobil_dokunmatik_duzen_ve_cache_surumu():
     stil = open("web/chat.css", encoding="utf-8").read()
     html = open("web/index.html", encoding="utf-8").read()
     assert "(hover:none) and (pointer:coarse) and (max-width:1100px)" in stil
-    assert "/chat.css?v=6" in html
-    assert "/app.js?v=8" in html
+    assert "/chat.css?v=7" in html
+    assert "/app.js?v=9" in html
 
 
 def test_preview_calisma_akisi_kutusuz_inline_gorunur():
@@ -547,7 +551,7 @@ def test_preview_cevap_parcalari_bir_anda_degil_akici_yazilir():
     assert "function akiciMetinEkle" in ekran
     assert "function akiciMetniFinaleTamamla" in ekran
     assert "setTimeout(adim" in ekran
-    assert "akiciMetinEkle(b, o.metin || \"\")" in ekran
+    assert "akiciMetinEkle(b, o.metin || \"\", true)" in ekran
     assert "await uiSonuc" in ekran
     assert "sohbetAlta(false)" in ekran
 
@@ -589,3 +593,60 @@ function sohbetAlta() {}
 })().catch(e => { console.error(e); process.exit(1); });
 """
     _node_kos(script)
+
+
+def test_preview_profesyonel_ajan_olaylari_kapsami_kisitlamaz():
+    kaynak = open("chat/tools.py", encoding="utf-8").read()
+    app_kaynak = open("app.py", encoding="utf-8").read()
+
+    assert "def _web_olay" in kaynak
+    assert '"plan"' in kaynak
+    assert '"toolDone"' in kaynak
+    assert '"source"' in kaynak
+    assert "def _kaynaklari_cikar" in kaynak
+    assert "def olay(self, tur, **veri)" in app_kaynak
+
+    # Yeni olaylar model/tool secimini degistiren filtre degil, gozlem katmani.
+    assert "_web_olay(js_callback, \"plan\", adimlar=_plan)" in kaynak
+    assert "tool_choice=\"auto\"" not in kaynak  # bu dosya secimi zorlamaz
+
+
+def test_preview_kaynak_url_secret_tasimaz():
+    from chat.tools import _kaynak_url_temizle
+    assert (
+        _kaynak_url_temizle(
+            "https://ornek.test/haber?id=4&token=GIZLI#x"
+        )
+        == "https://ornek.test/haber"
+    )
+    assert _kaynak_url_temizle("file:///etc/passwd") == ""
+
+
+def test_preview_plan_kaynak_yonlendir_ui_sozlesmesi():
+    ekran = open("web/app.js", encoding="utf-8").read()
+    stil = open("web/chat.css", encoding="utf-8").read()
+    html = open("web/index.html", encoding="utf-8").read()
+
+    assert "function planiGuncelle" in ekran
+    assert "function kaynakEkle" in ekran
+    assert 'o.tur === "plan"' in ekran
+    assert 'o.tur === "source"' in ekran
+    assert 'o.tur === "toolDone"' in ekran
+    assert 'yonlendir.textContent = "Yönlendir"' in ekran
+    assert 'yonInput.placeholder = "Yeni yön ver…"' in ekran
+    assert "yonlendirmeBekliyor" in ekran
+    assert '"Yönlendirme: " + devam.yon' in ekran
+
+    assert ".work-plan{" in stil
+    assert ".work-redirect-form{" in stil
+    assert ".answer-sources{" in stil
+    assert "/chat.css?v=7" in html
+    assert "/app.js?v=9" in html
+
+
+def test_preview_gercek_parca_oncelikli_fallback_sonradan():
+    ekran = open("web/app.js", encoding="utf-8").read()
+    assert "function akiciMetinEkle(b, parca, gercekParca = false)" in ekran
+    assert "kayit.gercekParcaGeldi = true" in ekran
+    assert 'akiciMetinEkle(b, o.metin || "", true)' in ekran
+    assert "function akiciMetniFinaleTamamla" in ekran
