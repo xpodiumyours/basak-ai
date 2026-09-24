@@ -345,3 +345,52 @@ if (kapatildi < 1) {
 }
 """
     _node_kos(script)
+
+
+def test_web_bitirden_sonra_baglanti_koparsa_final_cevap_korunur():
+    ekran = open("web/app.js", encoding="utf-8").read()
+    bas = ekran.index("async function canliYanitiOku")
+    son = ekran.index("\n\nasync function jsonOku", bas)
+    fonksiyon = ekran[bas:son]
+
+    script = r"""
+const olaylar = [];
+function olayiBaslangicBalonunaBagla(_o, _b) {}
+function olayiIsle(o) { olaylar.push(o); }
+""" + fonksiyon + r"""
+(async () => {
+  const veri = new TextEncoder().encode(
+    '{"istek":"abc","tur":"bitir","cevap":"Korunan cevap","kaynak":"sahte"}\\n'
+  );
+  let sira = 0;
+  const r = {
+    body: {
+      getReader() {
+        return {
+          async read() {
+            if (sira++ === 0) return { value: veri, done: false };
+            throw new Error("bitir sonrasi baglanti koptu");
+          }
+        };
+      }
+    }
+  };
+  const sonuc = await canliYanitiOku(r, {});
+  if (!sonuc.ok || sonuc.cevap !== "Korunan cevap") {
+    throw new Error("final cevap korunmadi: " + JSON.stringify(sonuc));
+  }
+})().catch(e => { console.error(e); process.exit(1); });
+"""
+    _node_kos(script)
+
+
+def test_uzun_is_sirasinda_sohbet_degistirme_engeli_var():
+    ekran = open("web/app.js", encoding="utf-8").read()
+    ac = ekran.split("function sohbetiAc(id)", 1)[1].split(
+        "\n}\n\nconst durumSaatleri", 1
+    )[0]
+    yeni = ekran.split("async function yeniSohbet()", 1)[1].split(
+        "\n}\n\nfor (const id", 1
+    )[0]
+    assert "if (gonderiliyor)" in ac
+    assert "if (gonderiliyor)" in yeni
