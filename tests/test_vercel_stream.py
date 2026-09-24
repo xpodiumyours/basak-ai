@@ -270,8 +270,8 @@ function olayiIsle(o) { olaylar.push(o); }
 def test_web_ui_gercek_olaylari_detayli_gosterir_ve_sirlari_maskeler():
     ekran = open("web/app.js", encoding="utf-8").read()
 
-    gb = ekran.index("function guvenliDurum")
-    gs = ekran.index("\n\nfunction autoResize", gb)
+    gb = ekran.index("function guvenliDurumBilgisi")
+    gs = ekran.index("\n\nfunction calismaKaydi", gb)
     guvenli = ekran[gb:gs]
 
     ob = ekran.index("function olayiIsle(o)")
