@@ -12,11 +12,12 @@ import hmac
 import json
 import os
 import tempfile
+import threading
 import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 BASE = Path(__file__).resolve().parent
@@ -31,6 +32,7 @@ app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 _BEYIN = None
 _TOOLS = None
+_PREVIEW_COOKIE = "basak_preview_oturum"
 # Kişilik artık isteğe göre chat.prompts.kisilik_blogu ile üretilir;
 # sabit "Casper'in asistanısın" metni web'de yabancıya sızmaz.
 
@@ -68,10 +70,40 @@ def _token_kimligi(request: Request):
     return VARSAYILAN_KULLANICI
 
 
+def _preview_mi():
+    """Yalniz Vercel Preview deployment'i mi? Production degil."""
+    return (os.environ.get("VERCEL_ENV") or "").strip().lower() == "preview"
+
+
+def _preview_kimligi(request: Request):
+    """Preview'e ozel, kalici veriye yetki vermeyen tarayici kimligi."""
+    kid = (request.cookies.get(_PREVIEW_COOKIE) or "").strip().lower()
+    if len(kid) != 17 or not kid.startswith("p"):
+        return None
+    if any(c not in "0123456789abcdef" for c in kid[1:]):
+        return None
+    return kid
+
+
+def _preview_cerezi(resp, kid):
+    resp.set_cookie(
+        _PREVIEW_COOKIE,
+        kid,
+        max_age=24 * 3600,
+        path="/",
+        httponly=True,
+        secure=True,
+        samesite="lax",
+    )
+    return resp
+
+
 def _uretim_kapisi_hazir():
-    """Uretimde kimlik karari verilebilir mi? (anahtar veya token var mi)"""
+    """Uretimde kimlik karari verilebilir mi? Preview ayri ve izoledir."""
     import kullanici as kullanici_modulu
 
+    if _preview_mi():
+        return True
     if not kullanici_modulu.uretim_mi():
         return True
     return bool(kullanici_modulu.env_anahtari()
@@ -164,15 +196,18 @@ def _hafizayi_bir_kez_sifirla():
 def _kimlik(request: Request):
     """Istegin kisi kimligi; None = 401/503 gerekir.
 
-    Sira: (1) gecerli imzali oturum cerezi, (2) uretimde dogru
-    X-Basak-Token, (3) yerelde kullanici tablosu bosken tek-kullanici
-    modu (casper — eski yerel/test davranisi bozulmaz).
-
-    Uretimde VARSAYILAN_KULLANICI dususu YOKTUR: tablo bulutta her zaman
-    bos oldugundan o dusus kapiyi herkese aciyordu (olculdu 2026-09-23).
+    Preview: Vercel korumasi arkasinda, izole ve kalici hafizasiz test
+    kimligi. Production: imzali cookie/token ve fail-closed kurali.
     """
     import kullanici as kullanici_modulu
     from chat.kimlik import VARSAYILAN_KULLANICI, kullanici_kur
+
+    if _preview_mi():
+        kid = _preview_kimligi(request)
+        if kid is None:
+            return None
+        kullanici_kur(kid)
+        return kid
 
     if kullanici_modulu.uretim_mi() and not _hafizayi_bir_kez_sifirla():
         return None
@@ -199,6 +234,8 @@ def _kimlik(request: Request):
 def _giris_engeli():
     """Kimlik veya temiz başlangıç hazır değilse güvenli biçimde dur."""
     import kullanici as kullanici_modulu
+    if _preview_mi():
+        return JSONResponse({"error": "preview kimligi gerekli"}, status_code=401)
     if kullanici_modulu.uretim_mi() and not _hafizayi_bir_kez_sifirla():
         return JSONResponse(
             {"error": "kalici hafiza temiz baslangica hazirlanamadi"},
@@ -213,15 +250,103 @@ def _giris_engeli():
     return JSONResponse({"error": "giris gerekli"}, status_code=401)
 
 
+_AKIS_MIME = "application/x-ndjson"
+_AKIS_SESSIZLIK_SN = 10.0
+_AKIS_SON = object()
+
+
+class _AkisIptal(Exception):
+    """İstemci akışı kapattığında kalan Başak adımlarını bırak."""
+
+
+def _canli_akis_isteniyor(request: Request):
+    """Yeni web istemcisi canli NDJSON akis istiyor mu?
+
+    Accept basligi yoksa mevcut toplu JSON davranisi aynen korunur.
+    """
+    return _AKIS_MIME in (request.headers.get("accept") or "").lower()
+
+
+async def _canli_olaylar(kuyruk, gorev, istek, iptal=None):
+    """Worker olaylarini ayni HTTP yanitinda satir satir tasir.
+
+    bitir/error ekrana hemen gider; ancak worker tamamen bitmeden stream
+    kapanmaz. İstemci bağlantıyı kapatırsa iptal bayrağı worker'a taşınır.
+    """
+    gorev.add_done_callback(lambda _g: kuyruk.put_nowait(_AKIS_SON))
+    terminal_goruldu = False
+
+    try:
+        while True:
+            try:
+                olay = await asyncio.wait_for(
+                    kuyruk.get(), timeout=_AKIS_SESSIZLIK_SN
+                )
+            except asyncio.TimeoutError:
+                yield json.dumps(
+                    {"istek": istek, "tur": "ping"},
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ) + "\n"
+                continue
+
+            if olay is _AKIS_SON:
+                if not terminal_goruldu:
+                    yield json.dumps(
+                        {
+                            "istek": istek,
+                            "tur": "error",
+                            "metin": "Basak yaniti tamamlanmadan bitti.",
+                        },
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    ) + "\n"
+                return
+
+            if isinstance(olay, dict) and olay.get("tur") in ("bitir", "error"):
+                terminal_goruldu = True
+
+            yield json.dumps(
+                olay, ensure_ascii=False, separators=(",", ":")
+            ) + "\n"
+    except asyncio.CancelledError:
+        if iptal is not None:
+            iptal.set()
+        raise
+    finally:
+        if iptal is not None and not gorev.done():
+            iptal.set()
+
+
 class _OlayToplayici:
-    def __init__(self, istek):
+    def __init__(self, istek, yayinla=None, iptal=None):
         self.istek = istek
         self.olaylar = []
         self.cevap = ""
         self.kaynak = ""
         self.hata = ""
+        self.yayinla = yayinla
+        self.iptal = iptal
+
+    def iptal_edildi(self):
+        return bool(self.iptal is not None and self.iptal.is_set())
+
+    def olay(self, tur, **veri):
+        if self.iptal_edildi():
+            raise _AkisIptal()
+        olay = {"istek": self.istek, "tur": str(tur)}
+        olay.update(veri)
+        self.olaylar.append(olay)
+        if self.yayinla is not None:
+            try:
+                self.yayinla(olay)
+            except Exception:
+                pass
+        return olay
 
     def __call__(self, kod):
+        if self.iptal_edildi():
+            raise _AkisIptal()
         try:
             if not isinstance(kod, str) or not kod.startswith("BasakUI."):
                 return
@@ -240,6 +365,13 @@ class _OlayToplayici:
             if ad == "error":
                 self.hata = olay.get("metin", "")
             self.olaylar.append(olay)
+            if self.yayinla is not None:
+                try:
+                    self.yayinla(olay)
+                except Exception:
+                    pass
+        except _AkisIptal:
+            raise
         except Exception:
             return
 
@@ -310,9 +442,22 @@ def _oturum_cerezi(resp, kid):
 
 @app.post("/api/kimlik")
 async def kimlik_hazirla(request: Request):
-    """Kayıt/giriş olmadan tarayıcıya ayrı ve kalıcı Başak ID verir."""
+    """Kayıt/giriş olmadan tarayıcıya ayrı Başak ID verir."""
     import kullanici as kullanici_modulu
     from chat.kimlik import kullanici_kur
+
+    if _preview_mi():
+        kid = _preview_kimligi(request) or ("p" + uuid.uuid4().hex[:16])
+        kullanici_kur(kid)
+        resp = JSONResponse({
+            "ok": True,
+            "kullanici": kid,
+            "basak_id": "Preview " + kid[-8:],
+            "kayit_gerekli": False,
+            "preview": True,
+            "kalici_hafiza": False,
+        }, headers={"Cache-Control": "no-store"})
+        return _preview_cerezi(resp, kid)
 
     if kullanici_modulu.uretim_mi() and not _hafizayi_bir_kez_sifirla():
         return _giris_engeli()
@@ -409,7 +554,7 @@ async def durum(request: Request):
         "eksik_saglayicilar": [],
         "modeller": modeller,
         "arac_sayisi": len(tools),
-        "tasima": "tek-http-cevap",
+        "tasima": "canli-ndjson",
     }
 
 
@@ -424,6 +569,7 @@ async def sohbet(request: Request):
         return JSONResponse({"error": "Gecersiz JSON"}, status_code=400)
     metin = str((body or {}).get("metin") or "").strip()
     ek_yol = None
+    akis_kuruldu = False
     try:
         ek = _gorsel_kaydet((body or {}).get("ek"))
         if ek:
@@ -439,22 +585,69 @@ async def sohbet(request: Request):
             return JSONResponse({"error": "Bos mesaj"}, status_code=400)
 
         beyin, tools = _cekirdek()
-        kayit = _OlayToplayici(uuid.uuid4().hex[:12])
+        akis = _canli_akis_isteniyor(request)
+        dongu = asyncio.get_running_loop() if akis else None
+        kuyruk = asyncio.Queue() if akis else None
+        iptal = threading.Event() if akis else None
 
-        def _kos():
-            from chat.flow import mesaj_isle
-            from chat.kimlik import kullanici_kur
-            from chat.prompts import kisilik_blogu
-            kullanici_kur(kid)  # thread contextvar'i — kisi izolasyonu
-            misafir = bool((body or {}).get("misafir", False))
-            mesaj_isle(
-                metin,
-                beyin,
-                kisilik_blogu(kid, misafir=misafir),
-                kayit,
-                tools,
-                misafir=misafir,
-                gecmis_override=_gecmis(body or {}),
+        def _yayinla(olay):
+            if dongu is not None and kuyruk is not None:
+                dongu.call_soon_threadsafe(kuyruk.put_nowait, olay)
+
+        kayit = _OlayToplayici(
+            uuid.uuid4().hex[:12],
+            yayinla=_yayinla if akis else None,
+            iptal=iptal,
+        )
+
+        def _kos(akis_hatasi=False, gecici_temizle=False):
+            try:
+                from chat.flow import mesaj_isle
+                from chat.kimlik import kullanici_kur
+                from chat.prompts import kisilik_blogu
+                kullanici_kur(kid)  # thread contextvar'i — kisi izolasyonu
+                # Preview normal Başak davranışını çalıştırır. Veri/hafıza
+                # izolasyonu memory katmanında Preview'e özel /tmp SQLite ile
+                # yapılır; davranış misafir moduna zorlanmaz.
+                misafir = bool((body or {}).get("misafir", False))
+                mesaj_isle(
+                    metin,
+                    beyin,
+                    kisilik_blogu(kid, misafir=misafir),
+                    kayit,
+                    tools,
+                    misafir=misafir,
+                    gecmis_override=_gecmis(body or {}),
+                )
+            except _AkisIptal:
+                return
+            except Exception as e:
+                if not akis_hatasi:
+                    raise
+                _yayinla({
+                    "istek": kayit.istek,
+                    "tur": "error",
+                    "metin": "Basak calistirilamadi: %s" % str(e)[:300],
+                })
+            finally:
+                if gecici_temizle and ek_yol:
+                    try:
+                        os.remove(ek_yol)
+                    except OSError:
+                        pass
+
+        if akis:
+            gorev = asyncio.create_task(
+                asyncio.to_thread(_kos, True, True)
+            )
+            akis_kuruldu = True
+            return StreamingResponse(
+                _canli_olaylar(kuyruk, gorev, kayit.istek, iptal),
+                media_type=_AKIS_MIME,
+                headers={
+                    "Cache-Control": "no-cache, no-transform",
+                    "X-Content-Type-Options": "nosniff",
+                },
             )
 
         await asyncio.to_thread(_kos)
@@ -480,7 +673,7 @@ async def sohbet(request: Request):
             status_code=500,
         )
     finally:
-        if ek_yol:
+        if ek_yol and not akis_kuruldu:
             try:
                 os.remove(ek_yol)
             except OSError:

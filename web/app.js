@@ -40,6 +40,10 @@ let gonderiliyor = false;
 let chats = [];
 let activeChatId = "";
 let bulutGecmisi = [];
+let aktifIstekDenetleyici = null;
+let kullaniciDurdurdu = false;
+let yonlendirmeBekliyor = null;
+let yonlendirmeIcinDurduruldu = false;
 
 function sohbetId() {
   if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -148,8 +152,13 @@ function icerikYaz(b, metin) {
   ic.innerHTML = bicimle(metin || "");
 }
 
-function sohbetAlta() {
-  if (chatScrollEl) chatScrollEl.scrollTop = chatScrollEl.scrollHeight;
+function sohbetAlta(zorla = true) {
+  if (!chatScrollEl) return;
+  const altaMesafe = chatScrollEl.scrollHeight -
+    chatScrollEl.scrollTop - chatScrollEl.clientHeight;
+  if (zorla || altaMesafe < 150) {
+    chatScrollEl.scrollTop = chatScrollEl.scrollHeight;
+  }
 }
 
 function bubble(role, text) {
@@ -210,6 +219,10 @@ function sohbetiCiz() {
 }
 
 function sohbetiAc(id) {
+  if (gonderiliyor) {
+    notYaz("Başak yanıtlıyor…");
+    return;
+  }
   const secilen = chats.find((c) => c.id === id);
   if (!secilen) return;
   activeChatId = secilen.id;
@@ -221,22 +234,426 @@ function sohbetiAc(id) {
   msgEl.focus();
 }
 
-function durumSatiri(b, metin) {
-  if (!b) return;
-  let s = b.querySelector(".status-line");
-  if (!s) {
-    s = document.createElement("span");
-    s.className = "status-line";
-    b.appendChild(s);
+const durumSaatleri = new Map();
+
+function sureMetni(ms) {
+  const sn = Math.max(0, Math.floor(ms / 1000));
+  return String(Math.floor(sn / 60)).padStart(2, "0") + ":" +
+    String(sn % 60).padStart(2, "0");
+}
+
+function guvenliDurumBilgisi(metin) {
+  const ham = String(metin || "").trim();
+  if (!ham) return { baslik: "İşleniyor", detay: "" };
+
+  const i = ham.indexOf(": ");
+  const baslik = (i > 0 ? ham.slice(0, i) : ham)
+    .replace(/[.…]+$/, "").trim() || "İşleniyor";
+  if (i <= 0) return { baslik, detay: "" };
+
+  let detay = ham.slice(i + 2).trim();
+  if (!detay) return { baslik, detay: "" };
+
+  detay = detay
+    .replace(/\b(Bearer)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [gizli]")
+    .replace(/\b(sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9_]{12,})\b/g, "[gizli]")
+    .replace(/([?&](?:token|api[_-]?key|key|secret|password|auth|authorization)=)[^&#\s]+/gi, "$1[gizli]")
+    .replace(/\b(?:token|api[_-]?key|secret|password|authorization)\s*[:=]\s*\S+/gi, "[gizli]");
+
+  if (/^https?:\/\//i.test(detay)) {
+    try {
+      const u = new URL(detay);
+      detay = u.host + u.pathname;
+    } catch {}
+  } else if (/^[A-Za-z]:\\|^\/Users\/|^\/home\//.test(detay)) {
+    const parcalar = detay.replace(/\\/g, "/").split("/").filter(Boolean);
+    detay = "…/" + parcalar.slice(-2).join("/");
   }
-  s.textContent = metin || "";
+
+  detay = detay.replace(/\s+/g, " ").trim();
+  if (detay.length > 120) detay = detay.slice(0, 117) + "…";
+  return { baslik, detay };
+}
+
+function guvenliDurum(metin) {
+  const d = guvenliDurumBilgisi(metin);
+  return d.detay ? d.baslik + " — " + d.detay : d.baslik + "…";
+}
+
+function calismaKaydi(b) {
+  let kayit = durumSaatleri.get(b);
+  if (kayit) return kayit;
+
+  const kart = document.createElement("section");
+  kart.className = "work-card";
+  kart.setAttribute("aria-live", "off");
+
+  const ust = document.createElement("div");
+  ust.className = "work-head";
+
+  const nokta = document.createElement("span");
+  nokta.className = "work-pulse";
+  nokta.setAttribute("aria-hidden", "true");
+
+  const baslik = document.createElement("strong");
+  baslik.className = "work-title";
+  baslik.textContent = "Başak çalışıyor";
+
+  const sure = document.createElement("span");
+  sure.className = "work-time";
+  sure.textContent = "00:00";
+
+  ust.append(nokta, baslik, sure);
+
+  const planEl = document.createElement("div");
+  planEl.className = "work-plan";
+  planEl.hidden = true;
+
+  const mevcut = document.createElement("div");
+  mevcut.className = "work-current";
+
+  const mevcutBaslik = document.createElement("strong");
+  mevcutBaslik.className = "work-current-title";
+
+  const mevcutDetay = document.createElement("span");
+  mevcutDetay.className = "work-current-detail";
+
+  mevcut.append(mevcutBaslik, mevcutDetay);
+
+  const ozet = document.createElement("div");
+  ozet.className = "work-summary";
+  ozet.hidden = true;
+
+  const eylemler = document.createElement("div");
+  eylemler.className = "work-actions";
+
+  const detaylar = document.createElement("button");
+  detaylar.type = "button";
+  detaylar.className = "work-action";
+  detaylar.textContent = "Detaylar";
+  detaylar.hidden = true;
+  detaylar.setAttribute("aria-expanded", "false");
+
+  const yonlendir = document.createElement("button");
+  yonlendir.type = "button";
+  yonlendir.className = "work-action work-redirect";
+  yonlendir.textContent = "Yönlendir";
+
+  const durdur = document.createElement("button");
+  durdur.type = "button";
+  durdur.className = "work-action work-stop";
+  durdur.textContent = "Durdur";
+
+  eylemler.append(detaylar, yonlendir, durdur);
+
+  const yonForm = document.createElement("form");
+  yonForm.className = "work-redirect-form";
+  yonForm.hidden = true;
+
+  const yonInput = document.createElement("input");
+  yonInput.type = "text";
+  yonInput.className = "work-redirect-input";
+  yonInput.placeholder = "Yeni yön ver…";
+  yonInput.maxLength = 500;
+
+  const yonUygula = document.createElement("button");
+  yonUygula.type = "submit";
+  yonUygula.className = "work-redirect-apply";
+  yonUygula.textContent = "Uygula";
+
+  yonForm.append(yonInput, yonUygula);
+
+  const panel = document.createElement("div");
+  panel.className = "work-details";
+
+  const liste = document.createElement("ol");
+  liste.className = "work-steps";
+  panel.appendChild(liste);
+
+  const canli = document.createElement("span");
+  canli.className = "sr-only";
+  canli.setAttribute("role", "status");
+  canli.setAttribute("aria-live", "polite");
+  canli.setAttribute("aria-atomic", "true");
+
+  kart.append(ust, planEl, panel, mevcut, ozet, eylemler, yonForm);
+
+  const kaynakBolumu = document.createElement("section");
+  kaynakBolumu.className = "answer-sources";
+  kaynakBolumu.hidden = true;
+
+  const kaynakBaslik = document.createElement("strong");
+  kaynakBaslik.className = "answer-sources-title";
+  kaynakBaslik.textContent = "Kaynaklar";
+
+  const kaynakListe = document.createElement("div");
+  kaynakListe.className = "answer-sources-list";
+  kaynakBolumu.append(kaynakBaslik, kaynakListe);
+
+  const icerik = b.querySelector(".icerik");
+  if (icerik) {
+    b.insertBefore(kart, icerik);
+    b.appendChild(kaynakBolumu);
+  } else {
+    b.append(kart, kaynakBolumu);
+  }
+  b.appendChild(canli);
+
+  kayit = {
+    baslangic: Date.now(),
+    metin: "",
+    aktif: null,
+    adimlar: [],
+    zamanlayici: null,
+    kart, baslik, sure, mevcut, mevcutBaslik, mevcutDetay,
+    ozet, detaylar, yonlendir, durdur, yonForm, yonInput,
+    panel, liste, canli, planEl, kaynakBolumu, kaynakListe,
+    plan: [], kaynaklar: [], yonlendirIstegi: null,
+    bitti: false,
+  };
+
+  detaylar.addEventListener("click", () => {
+    const ac = !kart.classList.contains("details-open");
+    kart.classList.toggle("details-open", ac);
+    detaylar.setAttribute("aria-expanded", ac ? "true" : "false");
+    detaylar.textContent = ac ? "Gizle" : "Detaylar";
+  });
+
+  yonlendir.addEventListener("click", () => {
+    if (kayit.bitti) return;
+    yonForm.hidden = !yonForm.hidden;
+    if (!yonForm.hidden) yonInput.focus();
+  });
+
+  yonForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const yon = yonInput.value.trim();
+    if (!yon || kayit.bitti) return;
+    if (typeof kayit.yonlendirIstegi === "function") {
+      kayit.yonlendirIstegi(yon);
+    }
+  });
+
+  durdur.addEventListener("click", () => {
+    if (kayit.bitti) return;
+    kullaniciDurdurdu = true;
+    if (aktifIstekDenetleyici) aktifIstekDenetleyici.abort();
+    calismaDurdur(b);
+  });
+
+  durumSaatleri.set(b, kayit);
+  return kayit;
+}
+
+function adimlariCiz(kayit) {
+  kayit.liste.textContent = "";
+
+  for (const adim of kayit.adimlar) {
+    const li = document.createElement("li");
+    li.className = "work-step done" + (adim.ok === false ? " error" : "");
+
+    const ikon = document.createElement("span");
+    ikon.className = "work-step-mark";
+    ikon.setAttribute("aria-hidden", "true");
+
+    const govde = document.createElement("span");
+    govde.className = "work-step-body";
+
+    const baslik = document.createElement("span");
+    baslik.className = "work-step-title";
+    baslik.textContent = adim.baslik;
+
+    const detay = document.createElement("span");
+    detay.className = "work-step-detail";
+    detay.textContent = adim.detay || "";
+    detay.hidden = !adim.detay;
+
+    govde.append(baslik, detay);
+    li.append(ikon, govde);
+    kayit.liste.appendChild(li);
+  }
+
+  const detayVar = kayit.adimlar.some((adim) => !!adim.detay) ||
+    !!(kayit.aktif && kayit.aktif.detay);
+  kayit.detaylar.hidden = !detayVar && kayit.adimlar.length === 0;
+
+  if (!kayit.bitti) {
+    kayit.ozet.hidden = true;
+    kayit.ozet.textContent = "";
+  }
+}
+
+function aktifAdimiTamamla(kayit, ok = true) {
+  if (!kayit?.aktif || kayit.aktif.tur !== "tool") return;
+  kayit.adimlar.push({
+    baslik: kayit.aktif.baslik,
+    detay: kayit.aktif.detay || "",
+    ok,
+  });
+  kayit.aktif = null;
+  adimlariCiz(kayit);
+}
+
+function planiGuncelle(b, adimlar) {
+  const kayit = calismaKaydi(b);
+  for (const adim of (Array.isArray(adimlar) ? adimlar : [])) {
+    if (!adim || !adim.baslik) continue;
+    const anahtar = String(adim.id || (adim.baslik + "|" + (adim.detay || "")));
+    if (kayit.plan.some((x) => x.anahtar === anahtar)) continue;
+    kayit.plan.push({
+      anahtar,
+      baslik: String(adim.baslik),
+      detay: String(adim.detay || ""),
+    });
+  }
+  if (!kayit.plan.length) return;
+  const adlar = kayit.plan.map((x) => x.baslik.replace(/[.…]+$/, ""));
+  const gorunen = adlar.slice(0, 4).join(" → ");
+  const kalan = adlar.length > 4 ? " +" + (adlar.length - 4) : "";
+  kayit.planEl.textContent = "Plan · " + gorunen + kalan;
+  kayit.planEl.hidden = false;
+}
+
+function kaynakEkle(b, olay) {
+  const kayit = calismaKaydi(b);
+  let url;
+  try {
+    url = new URL(String(olay?.url || ""));
+  } catch {
+    return;
+  }
+  if (!["http:", "https:"].includes(url.protocol)) return;
+  const temiz = url.origin + url.pathname;
+  if (kayit.kaynaklar.some((x) => x.url === temiz)) return;
+  kayit.kaynaklar.push({
+    url: temiz,
+    baslik: String(olay?.baslik || url.hostname || temiz),
+  });
+
+  kayit.kaynakListe.textContent = "";
+  kayit.kaynaklar.forEach((k, i) => {
+    const a = document.createElement("a");
+    a.className = "answer-source";
+    a.href = k.url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.textContent = (i + 1) + " · " + k.baslik;
+    kayit.kaynakListe.appendChild(a);
+  });
+}
+
+function araciTamamla(b, olay) {
+  const kayit = calismaKaydi(b);
+  aktifAdimiTamamla(kayit, olay?.ok !== false);
+  if (!kayit.bitti) {
+    kayit.aktif = { baslik: "Sonuç değerlendiriliyor", detay: "", tur: "thinking" };
+    kayit.mevcutBaslik.textContent = "Sonuç değerlendiriliyor";
+    kayit.mevcutDetay.hidden = true;
+    kayit.canli.textContent = "Sonuç değerlendiriliyor";
+    adimlariCiz(kayit);
+  }
+}
+
+function durumSatiri(b, metin, tur = "thinking") {
+  if (!b) return;
+  const kayit = calismaKaydi(b);
+  const bilgi = guvenliDurumBilgisi(metin);
+
+  if (tur === "toolStatus") aktifAdimiTamamla(kayit);
+
+  kayit.aktif = {
+    baslik: bilgi.baslik,
+    detay: bilgi.detay,
+    tur: tur === "toolStatus" ? "tool" : tur,
+  };
+  kayit.metin = guvenliDurum(metin);
+  kayit.mevcutBaslik.textContent = bilgi.baslik;
+  kayit.mevcutDetay.textContent = bilgi.detay;
+  kayit.mevcutDetay.hidden = !bilgi.detay;
+  kayit.canli.textContent = kayit.metin;
+  adimlariCiz(kayit);
+
+  const yaz = () => {
+    kayit.sure.textContent = sureMetni(Date.now() - kayit.baslangic);
+  };
+  yaz();
+  if (!kayit.zamanlayici) kayit.zamanlayici = setInterval(yaz, 1000);
+}
+
+function calismaYanitaGecti(b) {
+  const kayit = durumSaatleri.get(b);
+  if (!kayit || kayit.bitti) return;
+  aktifAdimiTamamla(kayit);
+  kayit.aktif = { baslik: "Yanıt yazılıyor", detay: "", tur: "yanit" };
+  kayit.mevcutBaslik.textContent = "Yanıt yazılıyor";
+  kayit.mevcutDetay.hidden = true;
+  kayit.canli.textContent = "Yanıt yazılıyor";
+  adimlariCiz(kayit);
+}
+
+function calismaBitir(b) {
+  const kayit = durumSaatleri.get(b);
+  if (!kayit || kayit.bitti) return;
+  aktifAdimiTamamla(kayit);
+  kayit.bitti = true;
+  if (kayit.zamanlayici) clearInterval(kayit.zamanlayici);
+  kayit.zamanlayici = null;
+  const toplamSure = sureMetni(Date.now() - kayit.baslangic);
+  const sayi = kayit.adimlar.length;
+  kayit.kart.classList.add("done");
+  kayit.baslik.textContent = sayi
+    ? sayi + " adım tamamlandı"
+    : "Yanıt tamamlandı";
+  kayit.sure.textContent = toplamSure;
+  kayit.mevcut.hidden = true;
+  kayit.ozet.hidden = true;
+  kayit.ozet.textContent = "";
+  kayit.durdur.remove();
+  kayit.yonlendir.remove();
+  kayit.yonForm.remove();
+  kayit.kaynakBolumu.hidden = kayit.kaynaklar.length === 0;
+  kayit.kart.classList.remove("details-open");
+  kayit.detaylar.hidden = sayi === 0;
+  kayit.detaylar.setAttribute("aria-expanded", "false");
+  kayit.detaylar.textContent = "Detaylar";
+  kayit.canli.textContent = kayit.baslik.textContent;
+  adimlariCiz(kayit);
+}
+
+function calismaDurdur(b, neden = "durdur") {
+  const kayit = durumSaatleri.get(b);
+  if (!kayit || kayit.bitti) return;
+  akiciMetniDurdur(b);
+  kayit.bitti = true;
+  if (kayit.zamanlayici) clearInterval(kayit.zamanlayici);
+  kayit.zamanlayici = null;
+  kayit.kart.classList.add("stopped");
+  kayit.baslik.textContent = neden === "yonlendir" ? "Yönlendiriliyor" : "Durduruldu";
+  kayit.sure.textContent = sureMetni(Date.now() - kayit.baslangic);
+  kayit.mevcut.hidden = true;
+  kayit.ozet.hidden = false;
+  kayit.ozet.textContent = neden === "yonlendir"
+    ? "Yeni talimat aynı sohbet bağlamıyla gönderiliyor."
+    : (kayit.adimlar.length
+      ? kayit.adimlar.length + " adım tamamlandı · Yeni adım başlatılmayacak."
+      : "Yeni adım başlatılmayacak.");
+  kayit.durdur.remove();
+  if (kayit.yonlendir?.isConnected) kayit.yonlendir.remove();
+  if (kayit.yonForm?.isConnected) kayit.yonForm.remove();
+  kayit.kart.classList.remove("details-open");
+  kayit.detaylar.hidden = kayit.adimlar.length === 0;
+  kayit.detaylar.setAttribute("aria-expanded", "false");
+  kayit.detaylar.textContent = "Detaylar";
+  kayit.canli.textContent = "Başak durduruldu";
+  adimlariCiz(kayit);
 }
 
 function durumuKapat(b) {
-  if (!b) return;
-  b.querySelector(".status-line")?.remove();
+  const kayit = durumSaatleri.get(b);
+  if (!kayit) return;
+  if (kayit.zamanlayici) clearInterval(kayit.zamanlayici);
+  kayit.zamanlayici = null;
 }
-
 function autoResize() {
   msgEl.style.height = "auto";
   msgEl.style.height = Math.min(msgEl.scrollHeight, 160) + "px";
@@ -321,13 +738,170 @@ msgEl.addEventListener("input", () => {
 });
 
 const balonlar = new Map();
+const metinAkislari = new Map();
 const uyu = (ms) => new Promise((coz) => setTimeout(coz, ms));
+
+function akisBirimleri(metin) {
+  return String(metin || "").match(/\S+\s*|\s+/g) || [];
+}
+
+function akiciMetinKaydi(b) {
+  let kayit = metinAkislari.get(b);
+  if (kayit) return kayit;
+  kayit = {
+    hedef: "",
+    gosterilen: "",
+    kuyruk: [],
+    zamanlayici: null,
+    bekleyenler: [],
+    gercekParcaGeldi: false,
+  };
+  metinAkislari.set(b, kayit);
+  return kayit;
+}
+
+function akiciBekleyenleriCoz(kayit) {
+  if (kayit.kuyruk.length || kayit.zamanlayici) return;
+  const liste = kayit.bekleyenler.splice(0);
+  for (const coz of liste) coz();
+}
+
+function akiciPompayiBaslat(b, kayit) {
+  if (kayit.zamanlayici || !kayit.kuyruk.length) return;
+
+  const azalt = typeof window !== "undefined" &&
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const adim = () => {
+    kayit.zamanlayici = null;
+    if (!kayit.kuyruk.length) {
+      akiciBekleyenleriCoz(kayit);
+      return;
+    }
+
+    const kalan = kayit.kuyruk.length;
+    const adet = azalt ? kalan : (kalan > 100 ? 5 : kalan > 45 ? 3 : kalan > 18 ? 2 : 1);
+    let ek = "";
+    for (let i = 0; i < adet && kayit.kuyruk.length; i += 1) {
+      ek += kayit.kuyruk.shift();
+    }
+
+    kayit.gosterilen += ek;
+    icerikYaz(b, kayit.gosterilen);
+    sohbetAlta(false);
+
+    if (kayit.kuyruk.length) {
+      kayit.zamanlayici = setTimeout(adim, azalt ? 0 : (kalan > 80 ? 16 : 30));
+    } else {
+      akiciBekleyenleriCoz(kayit);
+    }
+  };
+
+  kayit.zamanlayici = setTimeout(adim, azalt ? 0 : 18);
+}
+
+function akiciMetinEkle(b, parca, gercekParca = false) {
+  const metin = String(parca || "");
+  if (!metin) return;
+  const kayit = akiciMetinKaydi(b);
+  kayit.hedef += metin;
+
+  if (gercekParca) {
+    kayit.gercekParcaGeldi = true;
+    kayit.gosterilen += metin;
+    icerikYaz(b, kayit.gosterilen);
+    sohbetAlta(false);
+    return;
+  }
+
+  kayit.kuyruk.push(...akisBirimleri(metin));
+  akiciPompayiBaslat(b, kayit);
+}
+
+function akiciMetniBekle(b) {
+  const kayit = akiciMetinKaydi(b);
+  if (!kayit.kuyruk.length && !kayit.zamanlayici) return Promise.resolve();
+  return new Promise((coz) => kayit.bekleyenler.push(coz));
+}
+
+function akiciMetniFinaleTamamla(b, finalMetin) {
+  const final = String(finalMetin || "");
+  const kayit = akiciMetinKaydi(b);
+
+  if (final) {
+    if (!kayit.hedef) {
+      akiciMetinEkle(b, final);
+    } else if (final.startsWith(kayit.hedef)) {
+      akiciMetinEkle(b, final.slice(kayit.hedef.length));
+    } else if (final !== kayit.hedef) {
+      // Sağlayıcı final metni parçalardan farklı normalize ettiyse
+      // tekrar yazmak yerine yalnız henüz görünmeyen kısmı güvenli tamamla.
+      if (final.startsWith(kayit.gosterilen)) {
+        kayit.hedef = final;
+        kayit.kuyruk = akisBirimleri(final.slice(kayit.gosterilen.length));
+        akiciPompayiBaslat(b, kayit);
+      } else {
+        kayit.hedef = final;
+        kayit.gosterilen = final;
+        kayit.kuyruk = [];
+        if (kayit.zamanlayici) clearTimeout(kayit.zamanlayici);
+        kayit.zamanlayici = null;
+        icerikYaz(b, final);
+      }
+    }
+  }
+
+  return akiciMetniBekle(b);
+}
+
+function akiciMetniDurdur(b) {
+  const kayit = metinAkislari.get(b);
+  if (!kayit) return;
+  if (kayit.zamanlayici) clearTimeout(kayit.zamanlayici);
+  kayit.zamanlayici = null;
+  kayit.kuyruk = [];
+  akiciBekleyenleriCoz(kayit);
+}
 
 function olayiIsle(o) {
   const no = o.istek;
 
+  if (o.tur === "ping") return false;
+
   if (o.tur === "thinking") {
-    if (!balonlar.has(no)) balonlar.set(no, bubble("assistant", "Düşünüyorum…"));
+    let b = balonlar.get(no);
+    if (!b) {
+      b = bubble("assistant", "");
+      balonlar.set(no, b);
+    }
+    durumSatiri(b, "Düşünüyorum…", "thinking");
+    return false;
+  }
+
+  if (o.tur === "plan") {
+    let b = balonlar.get(no);
+    if (!b) {
+      b = bubble("assistant", "");
+      balonlar.set(no, b);
+    }
+    planiGuncelle(b, o.adimlar);
+    return false;
+  }
+
+  if (o.tur === "source") {
+    let b = balonlar.get(no);
+    if (!b) {
+      b = bubble("assistant", "");
+      balonlar.set(no, b);
+    }
+    kaynakEkle(b, o);
+    return false;
+  }
+
+  if (o.tur === "toolDone") {
+    const b = balonlar.get(no);
+    if (b) araciTamamla(b, o);
     return false;
   }
 
@@ -337,7 +911,7 @@ function olayiIsle(o) {
       b = bubble("assistant", "");
       balonlar.set(no, b);
     }
-    durumSatiri(b, o.metin || "İşleniyor…");
+    durumSatiri(b, o.metin, "toolStatus");
     return false;
   }
 
@@ -347,30 +921,35 @@ function olayiIsle(o) {
       b = bubble("assistant", "");
       balonlar.set(no, b);
     }
-    durumuKapat(b);
-    const ham = b.dataset.ham || "";
-    const ilk = !ham || ham === "Düşünüyorum…";
-    icerikYaz(b, ilk ? (o.metin || "") : ham + (o.metin || ""));
-    sohbetAlta();
+    calismaYanitaGecti(b);
+    akiciMetinEkle(b, o.metin || "", true);
     return false;
   }
 
   if (o.tur === "bitir") {
     let b = balonlar.get(no);
-    if (!b) b = bubble("assistant", o.cevap || "…");
-    else {
-      durumuKapat(b);
-      const ham = b.dataset.ham || "";
-      if (!ham || ham === "Düşünüyorum…" || ham === "…") icerikYaz(b, o.cevap || "…");
+    if (!b) {
+      b = bubble("assistant", "");
+      balonlar.set(no, b);
     }
+
+    calismaYanitaGecti(b);
+    const gorunurBitis = akiciMetniFinaleTamamla(b, o.cevap || "…")
+      .then(() => {
+        calismaBitir(b);
+        sohbetAlta(false);
+        return true;
+      });
+
     balonlar.delete(no);
-    sohbetAlta();
-    return true;
+    return gorunurBitis;
   }
 
   if (o.tur === "error") {
     const b = balonlar.get(no);
     if (b) {
+      akiciMetniDurdur(b);
+      durumuKapat(b);
       const row = b.closest(".message-row");
       if (row) row.remove(); else b.remove();
     }
@@ -381,6 +960,86 @@ function olayiIsle(o) {
 
   return false;
 }
+
+function olayiBaslangicBalonunaBagla(o, b) {
+  if (b && o && o.istek && !balonlar.has(o.istek)) {
+    balonlar.set(o.istek, b);
+  }
+}
+
+async function canliYanitiOku(r, baslangicBalonu) {
+  if (!r.body || typeof r.body.getReader !== "function") {
+    throw new Error("Tarayıcı canlı yanıt akışını desteklemiyor.");
+  }
+
+  const okuyucu = r.body.getReader();
+  const cozumleyici = new TextDecoder();
+  let tampon = "";
+  let sonuc = { ok: false, cevap: "", kaynak: "", hata: "" };
+
+  const satiriIsle = async (satir) => {
+    if (!satir.trim()) return;
+    let o;
+    try {
+      o = JSON.parse(satir);
+    } catch {
+      throw new Error("Başak canlı akışında geçersiz veri alındı.");
+    }
+    if (o.tur === "ping") return;
+    olayiBaslangicBalonunaBagla(o, baslangicBalonu);
+    const uiSonuc = olayiIsle(o);
+    if (uiSonuc && typeof uiSonuc.then === "function") {
+      await uiSonuc;
+    }
+    if (o.tur === "bitir") {
+      sonuc = {
+        ok: true,
+        cevap: String(o.cevap || ""),
+        kaynak: String(o.kaynak || ""),
+        hata: "",
+      };
+    } else if (o.tur === "error") {
+      sonuc = {
+        ok: false,
+        cevap: "",
+        kaynak: "",
+        hata: String(o.metin || "Yanıt alınamadı."),
+      };
+    }
+  };
+
+  while (true) {
+    let okuma;
+    try {
+      okuma = await okuyucu.read();
+    } catch (e) {
+      // bitir/error zaten geldiyse kullanıcıya gösterilmiş terminal sonucu
+      // sonradan olan bağlantı kapanması yüzünden silme.
+      if (sonuc.ok || sonuc.hata) break;
+      throw e;
+    }
+    const { value, done } = okuma;
+    if (value) tampon += cozumleyici.decode(value, { stream: true });
+
+    let yeniSatir;
+    while ((yeniSatir = tampon.indexOf("\n")) >= 0) {
+      const satir = tampon.slice(0, yeniSatir);
+      tampon = tampon.slice(yeniSatir + 1);
+      await satiriIsle(satir);
+    }
+
+    if (done) break;
+  }
+
+  tampon += cozumleyici.decode();
+  if (tampon.trim()) await satiriIsle(tampon);
+
+  if (!sonuc.ok && !sonuc.hata) {
+    throw new Error("Başak yanıtı tamamlanmadan bağlantı kapandı.");
+  }
+  return sonuc;
+}
+
 
 async function jsonOku(r) {
   const raw = await r.text();
@@ -404,7 +1063,7 @@ async function olaylariTakipEt(no) {
     if (!r.ok) throw new Error("Sohbet akışı okunamadı (" + r.status + ")");
     const d = await jsonOku(r);
     for (const o of (d.olaylar || [])) {
-      if (olayiIsle(o)) return;
+      if (await olayiIsle(o)) return;
     }
     son = Number.isInteger(d.son) ? d.son : son;
     if (d.bitti) return;
@@ -417,6 +1076,10 @@ async function olaylariTakipEt(no) {
 const MISAFIR = new URLSearchParams(location.search).get("misafir") === "1";
 
 async function yeniSohbet() {
+  if (gonderiliyor) {
+    notYaz("Başak yanıtlıyor…");
+    return;
+  }
   try {
     await window.basakFetch("/api/yeni", { method: "POST" });
   } catch {}
@@ -440,14 +1103,33 @@ for (const id of ["yeni", "yeniSide"]) {
   if (el) el.addEventListener("click", yeniSohbet);
 }
 
-async function send() {
-  const text = msgEl.value.trim();
-  const gorsel = seciliGorsel;
+async function send(secenek = {}) {
+  if (secenek && typeof secenek.preventDefault === "function") secenek = {};
+  const text = typeof secenek.text === "string"
+    ? secenek.text.trim()
+    : msgEl.value.trim();
+  const gorsel = secenek.gorsel || seciliGorsel;
   if ((!text && !gorsel) || gonderiliyor) return;
 
   const gonderilecekMetin = text || "Bu görüntüyü açıkla.";
-  const userBubble = bubble("user", text || "Fotoğraf gönderildi");
+  const gorunenMetin = secenek.gorunenMetin || text || "Fotoğraf gönderildi";
+  const userBubble = bubble("user", gorunenMetin);
   if (gorsel) gorselBalonaEkle(userBubble, gorsel);
+
+  const bekleyenBalon = bubble("assistant", "");
+  aktifIstekDenetleyici = new AbortController();
+  kullaniciDurdurdu = false;
+  durumSatiri(bekleyenBalon, "Mesaj Başak’a iletiliyor…", "thinking");
+  const calisma = calismaKaydi(bekleyenBalon);
+  calisma.yonlendir.hidden = !!gorsel;
+  calisma.yonlendirIstegi = (yon) => {
+    if (!gonderiliyor || calisma.bitti) return;
+    yonlendirmeBekliyor = { yon, anaMetin: gonderilecekMetin };
+    yonlendirmeIcinDurduruldu = true;
+    kullaniciDurdurdu = true;
+    if (aktifIstekDenetleyici) aktifIstekDenetleyici.abort();
+    calismaDurdur(bekleyenBalon, "yonlendir");
+  };
 
   msgEl.value = "";
   msgEl.style.height = "auto";
@@ -463,19 +1145,43 @@ async function send() {
 
     const r = await window.basakFetch("/api/sohbet", {
       method:"POST",
-      headers:{"content-type":"application/json"},
+      headers:{
+        "content-type":"application/json",
+        "accept":"application/x-ndjson",
+      },
       body:JSON.stringify({
         metin:gonderilecekMetin,
         misafir:MISAFIR,
         gecmis:bulutGecmisi,
         ek,
       }),
+      signal:aktifIstekDenetleyici.signal,
     });
+
+    const tur = String(r.headers.get("content-type") || "").toLowerCase();
+    if (tur.includes("application/x-ndjson")) {
+      if (!r.ok) throw new Error("Sohbet isteği başarısız (" + r.status + ")");
+      const sonuc = await canliYanitiOku(r, bekleyenBalon);
+      if (!sonuc.ok) {
+        onizlemeTemizle();
+        return;
+      }
+      if (sonuc.cevap) {
+        bulutGecmisi.push({role:"user",content:gonderilecekMetin});
+        bulutGecmisi.push({role:"assistant",content:sonuc.cevap});
+        aktifSohbetiKaydet();
+      }
+      onizlemeTemizle();
+      return;
+    }
 
     const d = await jsonOku(r);
 
     if (Array.isArray(d.olaylar)) {
-      for (const o of d.olaylar) olayiIsle(o);
+      for (const o of d.olaylar) {
+        olayiBaslangicBalonunaBagla(o, bekleyenBalon);
+        olayiIsle(o);
+      }
       if (!r.ok || !d.ok) throw new Error(d.error || "Sohbet isteği başarısız");
 
       if (d.cevap) {
@@ -488,7 +1194,7 @@ async function send() {
     }
 
     if (!r.ok || !d.ok || !d.istek) throw new Error(d.error || "Sohbet isteği başarısız");
-    if (!balonlar.has(d.istek)) balonlar.set(d.istek,bubble("assistant","Düşünüyorum…"));
+    if (!balonlar.has(d.istek)) balonlar.set(d.istek,bekleyenBalon);
     await olaylariTakipEt(d.istek);
 
     const sonBalon = chatEl.querySelector(".message-row.assistant:last-child .icerik");
@@ -500,16 +1206,42 @@ async function send() {
     }
     onizlemeTemizle();
   } catch (err) {
-    bubble("assistant", "Bir sorun oluştu: " + (err.message || err));
+    if (kullaniciDurdurdu && err && err.name === "AbortError") {
+      if (!yonlendirmeIcinDurduruldu) calismaDurdur(bekleyenBalon);
+    } else {
+      durumuKapat(bekleyenBalon);
+      const row = bekleyenBalon.closest(".message-row");
+      if (row) row.remove();
+      bubble("assistant", "Bir sorun oluştu: " + (err.message || err));
+    }
   } finally {
+    const devam = yonlendirmeIcinDurduruldu ? yonlendirmeBekliyor : null;
+    yonlendirmeBekliyor = null;
+    yonlendirmeIcinDurduruldu = false;
+    aktifIstekDenetleyici = null;
     gonderiliyor = false;
     notYaz(UYARI_NOTU);
     gonderimDurumu();
-    msgEl.focus();
+
+    if (devam) {
+      // İlk kullanıcı görevi final almadı; yeni yönün bağlamında yine de
+      // görünür kalsın. Yeni talimat normal kullanıcı mesajı olarak devam eder.
+      bulutGecmisi.push({role:"user", content:gonderilecekMetin});
+      aktifSohbetiKaydet();
+      setTimeout(() => {
+        send({
+          text: devam.yon,
+          gorunenMetin: "Yönlendirme: " + devam.yon,
+        });
+      }, 0);
+    } else {
+      msgEl.focus();
+    }
   }
 }
 
-sendEl.addEventListener("click", send);
+
+sendEl.addEventListener("click", () => send());
 
 document.querySelectorAll(".ornek").forEach((d) => {
   d.addEventListener("click", () => {
