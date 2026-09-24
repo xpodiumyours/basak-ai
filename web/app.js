@@ -210,6 +210,10 @@ function sohbetiCiz() {
 }
 
 function sohbetiAc(id) {
+  if (gonderiliyor) {
+    notYaz("Başak yanıtlıyor…");
+    return;
+  }
   const secilen = chats.find((c) => c.id === id);
   if (!secilen) return;
   activeChatId = secilen.id;
@@ -468,7 +472,16 @@ async function canliYanitiOku(r, baslangicBalonu) {
   };
 
   while (true) {
-    const { value, done } = await okuyucu.read();
+    let okuma;
+    try {
+      okuma = await okuyucu.read();
+    } catch (e) {
+      // bitir/error zaten geldiyse kullanıcıya gösterilmiş terminal sonucu
+      // sonradan olan bağlantı kapanması yüzünden silme.
+      if (sonuc.ok || sonuc.hata) break;
+      throw e;
+    }
+    const { value, done } = okuma;
     if (value) tampon += cozumleyici.decode(value, { stream: true });
 
     let yeniSatir;
@@ -526,6 +539,10 @@ async function olaylariTakipEt(no) {
 const MISAFIR = new URLSearchParams(location.search).get("misafir") === "1";
 
 async function yeniSohbet() {
+  if (gonderiliyor) {
+    notYaz("Başak yanıtlıyor…");
+    return;
+  }
   try {
     await window.basakFetch("/api/yeni", { method: "POST" });
   } catch {}
