@@ -166,6 +166,11 @@ def test_vercel_suresi_300():
     assert veri["functions"]["app.py"]["maxDuration"] == 300
 
 
+def test_vercel_durum_canli_tasimayi_bildirir():
+    metin = open("app.py", encoding="utf-8").read()
+    assert '"tasima": "canli-ndjson"' in metin
+
+
 def test_web_stream_sozlesmesi_ve_gecmis_ham_cevabi_korur():
     ekran = open("web/app.js", encoding="utf-8").read()
     assert '"accept":"application/x-ndjson"' in ekran

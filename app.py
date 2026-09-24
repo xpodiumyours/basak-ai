@@ -472,7 +472,7 @@ async def durum(request: Request):
         "eksik_saglayicilar": [],
         "modeller": modeller,
         "arac_sayisi": len(tools),
-        "tasima": "tek-http-cevap",
+        "tasima": "canli-ndjson",
     }
 
 
