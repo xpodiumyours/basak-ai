@@ -481,3 +481,11 @@ def test_stream_generator_kapaninca_worker_iptal_bayragi_set_edilir():
         return iptal.is_set()
 
     assert asyncio.run(senaryo()) is True
+
+
+def test_preview_mobil_dokunmatik_duzen_ve_cache_surumu():
+    stil = open("web/chat.css", encoding="utf-8").read()
+    html = open("web/index.html", encoding="utf-8").read()
+    assert "(hover:none) and (pointer:coarse) and (max-width:1100px)" in stil
+    assert "/chat.css?v=4" in html
+    assert "/app.js?v=6" in html
