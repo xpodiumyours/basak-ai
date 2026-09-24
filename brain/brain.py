@@ -585,7 +585,10 @@ class Brain:
                                  token_in=0, token_out=token_out)
                 _audit("OK kaynak=%s | akis | %s" % (ad, gerekce))
                 return
-            except _Arac:
+            except _Arac as e:
+                # Streaming tool-call hangi saglayicida basladi bilgisini
+                # zincirin devaminda ayni saglayiciyi oncelemek icin tasi.
+                e.kaynak = ad
                 raise
             except Exception as e:
                 hata = str(e)

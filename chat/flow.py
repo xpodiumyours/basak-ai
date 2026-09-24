@@ -264,6 +264,85 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     # siniflandirmaz ve araci zorlamaz.
     if arac_acik and hasattr(brain, "ajan_musait"):
         ajan_tools = baslangic_araclari()
+
+        # P0-1: ajan kapisi acikken de normal sohbet gercekten aksin.
+        # Yalniz baslangic araci (yetenek_ac) stream'e verilir; model arac
+        # isterse mevcut arac_dongusu aynen devralir. Streaming acilamazsa
+        # asagidaki mevcut tek-seferlik ajan yolu fallback olarak korunur.
+        yayin_ajan = getattr(brain, "cevapla_yayin", None)
+        if callable(yayin_ajan):
+            from brain.yayin import (
+                AracIstegi as _AjanAracIstegi,
+                SonHata as _AjanSonHata,
+            )
+            parcalar_ajan = []
+            kaynak_ajan = ""
+            try:
+                for kaynak_ajan, parca in yayin_ajan(
+                        mesajlar, model, tools=ajan_tools):
+                    parcalar_ajan.append(parca)
+                    js_callback("BasakUI.parca(" + _j(parca) + ")")
+                cevap_ajan = _temizle("".join(
+                    p if isinstance(p, str)
+                    else str(p) if p is not None else ""
+                    for p in parcalar_ajan))
+                if cevap_ajan:
+                    _kaydet(
+                        text, cevap_ajan, kaynak_ajan or "bulut",
+                        gecmis, js_callback, konusmaci,
+                        misafir=misafir, onbellekle=True)
+                    return
+                logger.info(
+                    "Ajan akisi bos dondu, tek seferlik yola dusuluyor")
+            except _AjanAracIstegi as istek:
+                kaynak_ajan = (
+                    getattr(istek, "kaynak", "") or kaynak_ajan)
+                _tc = getattr(istek, "tool_calls", None) or []
+                _muh = getattr(istek, "muhakeme", None) or {}
+                if _tc:
+                    from chat.tools import arac_dongusu
+                    from tools import calistir
+                    cevap, kosan = arac_dongusu(
+                        _tc, mesajlar, brain, model, js_callback, calistir,
+                        tools=ajan_tools,
+                        yanit={"tool_calls": _tc, **_muh},
+                        tool_choice="auto",
+                        tum_tools=tools,
+                        tercih=[kaynak_ajan] if kaynak_ajan else None,
+                    )
+                    cevap = _temizle(cevap)
+                    if cevap:
+                        _kaydet(
+                            text, cevap, kaynak_ajan or "bulut",
+                            gecmis, js_callback, konusmaci,
+                            misafir=misafir)
+                        return
+                    logger.info(
+                        "Ajan akis-arac turu final cevap vermedi "
+                        "(%d arac kostu)", kosan)
+                    js_callback("BasakUI.error(" + _j(
+                        "Bu sefer araclardan sonuc alamadim, tekrar dene")
+                        + ")")
+                    return
+                logger.info(
+                    "Ajan akisi bos arac istegi verdi, tek seferlik yol")
+            except _AjanSonHata as e:
+                if parcalar_ajan:
+                    js_callback("BasakUI.error(" + _j(
+                        "Cevap yolda kesildi: " + e.ozet) + ")")
+                    return
+                logger.info(
+                    "Ajan akisi acilamadi (%s), tek seferlik yol",
+                    e.ozet)
+            except Exception as e:
+                if parcalar_ajan:
+                    js_callback("BasakUI.error(" + _j(
+                        "Cevap yolda kesildi: " + str(e)[:200]) + ")")
+                    return
+                logger.info(
+                    "Ajan akisi kullanilamadi (%s), tek seferlik yol",
+                    str(e)[:200])
+
         try:
             yanit, kaynak = brain.cevapla(
                 mesajlar, model, tools=ajan_tools, tool_choice="auto")
