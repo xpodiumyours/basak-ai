@@ -3,6 +3,10 @@
 import asyncio
 import json
 import threading
+import shutil
+import subprocess
+
+import pytest
 
 from fastapi import Request
 from fastapi.responses import StreamingResponse
@@ -172,3 +176,16 @@ def test_web_stream_sozlesmesi_ve_gecmis_ham_cevabi_korur():
     assert 'content:sonuc.cevap' in ekran
     assert "Mesaj Başak’a iletiliyor…" in ekran
     assert "Düşünüyorum…" in ekran
+
+
+def test_web_javascript_sozdizimi_gecerli():
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node.js bu ortamda yok")
+    sonuc = subprocess.run(
+        [node, "--check", "web/app.js"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert sonuc.returncode == 0, sonuc.stderr or sonuc.stdout
