@@ -117,7 +117,7 @@ def test_preview_anahtarsiz_izole_kimlik_verir(monkeypatch, tmp_path):
         assert durum.status_code == 200
 
 
-def test_preview_sohbeti_misafir_ve_izsiz_calistirir(monkeypatch, tmp_path):
+def test_preview_sohbeti_normal_basak_akisini_kisitlamaz(monkeypatch, tmp_path):
     _preview(monkeypatch, tmp_path)
     monkeypatch.setattr(
         app,
@@ -156,7 +156,7 @@ def test_preview_sohbeti_misafir_ve_izsiz_calistirir(monkeypatch, tmp_path):
         )
         assert r.status_code == 200
         assert '"cevap":"preview-ok"' in r.text
-        assert yakalanan == {"misafir": True, "metin": "test"}
+        assert yakalanan == {"misafir": False, "metin": "test"}
 
 
 def test_production_preview_kuralindan_etkilenmez(monkeypatch, tmp_path):
@@ -171,3 +171,23 @@ def test_production_preview_kuralindan_etkilenmez(monkeypatch, tmp_path):
         r = c.post("/api/kimlik", json={})
         assert r.status_code == 503
         assert "BASAK_OTURUM_ANAHTARI" in r.json()["error"]
+
+
+def test_preview_hafizasi_production_postgrese_gitmez(monkeypatch, tmp_path):
+    import memory
+    from memory.engine import HafizaMotoru as SQLiteHafizaMotoru
+
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("VERCEL_ENV", "preview")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://prod.example.invalid/db")
+    monkeypatch.setenv("BASAK_STATE_DIR", str(tmp_path / "preview-state"))
+
+    motor = memory.HafizaMotoru(
+        db_yolu=str(tmp_path / "preview-state" / "p123" / "memory" / "basak.db"),
+        embed_fn=None,
+    )
+    try:
+        assert isinstance(motor, SQLiteHafizaMotoru)
+        assert str(tmp_path / "preview-state") in motor.db_yolu
+    finally:
+        motor.kapat()

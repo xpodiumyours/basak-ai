@@ -516,7 +516,7 @@ def test_preview_calisma_akisi_kutusuz_inline_gorunur():
     assert ".work-current::before{" in stil
     assert ".work-current::after{" in stil
     assert ".work-details{" in stil
-    assert "border-left:1px solid #e1e1e5" in stil
+    assert ".work-details::before{" in stil
     assert ".work-action{" in stil
     assert "background:transparent" in stil[stil.index(".work-action{"):stil.index("\n}", stil.index(".work-action{")) + 2]
 

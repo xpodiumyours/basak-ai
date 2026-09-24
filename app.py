@@ -593,11 +593,10 @@ async def sohbet(request: Request):
                 from chat.kimlik import kullanici_kur
                 from chat.prompts import kisilik_blogu
                 kullanici_kur(kid)  # thread contextvar'i — kisi izolasyonu
-                # Preview gerçek model/arac akisini test eder ama production
-                # hafizasina/profiline yazmaz ve onlari okumaz.
-                misafir = _preview_mi() or bool(
-                    (body or {}).get("misafir", False)
-                )
+                # Preview normal Başak davranışını çalıştırır. Veri/hafıza
+                # izolasyonu memory katmanında Preview'e özel /tmp SQLite ile
+                # yapılır; davranış misafir moduna zorlanmaz.
+                misafir = bool((body or {}).get("misafir", False))
                 mesaj_isle(
                     metin,
                     beyin,
