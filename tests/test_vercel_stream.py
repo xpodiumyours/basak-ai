@@ -496,7 +496,7 @@ def test_preview_mobil_dokunmatik_duzen_ve_cache_surumu():
     html = open("web/index.html", encoding="utf-8").read()
     assert "(hover:none) and (pointer:coarse) and (max-width:1100px)" in stil
     assert "/chat.css?v=7" in html
-    assert "/app.js?v=12" in html
+    assert "/app.js?v=14" in html
 
 
 def test_preview_calisma_akisi_kutusuz_inline_gorunur():
@@ -641,7 +641,7 @@ def test_preview_plan_kaynak_yonlendir_ui_sozlesmesi():
     assert ".work-redirect-form{" in stil
     assert ".answer-sources{" in stil
     assert "/chat.css?v=7" in html
-    assert "/app.js?v=12" in html
+    assert "/app.js?v=14" in html
 
 
 def test_preview_gercek_parca_oncelikli_fallback_sonradan():
@@ -652,14 +652,34 @@ def test_preview_gercek_parca_oncelikli_fallback_sonradan():
     assert "function akiciMetniFinaleTamamla" in ekran
 
 
-def test_p2_yonlendirme_baglami_ve_runtime_olaylari_ui_da_var():
+def test_p2_yonlendirme_baglami_imzali_ve_kesintisiz_tasinir():
     ekran = open("web/app.js", encoding="utf-8").read()
+    app_kaynak = open("app.py", encoding="utf-8").read()
     html = open("web/index.html", encoding="utf-8").read()
+
     assert "function yonlendirmeBaglamiOlustur" in ekran
+    assert 'schema: "p2-handoff-v1"' in ekran
+    assert "handoffToken" in ekran
+    assert "handoff_token" in ekran
+    assert "tool_policy:toolPolicy" in ekran
     assert "yonlendirme_baglami:secenek.yonlendirmeBaglami || null" in ekran
+
+    # Önceki sürümün sessiz kesmeleri geri gelemez.
+    for yasak in (
+        "onceki_istek: String(anaMetin || \"\").slice",
+        "tamamlanan_adimlar: (kayit.adimlar || []).slice",
+        "kullanilan_kaynaklar: (kayit.kaynaklar || []).slice",
+        "kismi_cevap: String(b.dataset.ham || \"\").slice",
+    ):
+        assert yasak not in ekran
+
+    assert "_yonlendirme_baglami_dogrula" in app_kaynak
+    assert "_handoff_tokeni_coz" in app_kaynak
+    assert "hmac.compare_digest" in app_kaynak
+
     for tur in ("contextStatus", "providerSwitch", "loopGuard", "truncated"):
         assert 'o.tur === "' + tur + '"' in ekran
-    assert "/app.js?v=12" in html
+    assert "/app.js?v=14" in html
 
 
 def test_truncated_durumu_cevap_disinda_ui_state_olarak_gorunur():

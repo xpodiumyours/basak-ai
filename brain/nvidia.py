@@ -4,12 +4,11 @@ OpenAI-uyumlu uc:
 https://integrate.api.nvidia.com/v1
 Anahtar: env NVIDIA_API_KEY veya ayarlar.json -> nvidia_key (nvapi-... ile baslar).
 
-Model secimi:
-- varsayilan: TERCIH_SIRASI'ndaki ilk hesapta acik model (GPT-OSS-20b)
-- ayarlar.json -> "nvidia_model" ile sabit model secilebilir
-  (orn. deepseek-v4-flash). Bu model "thinking" modundadir ve yaniti
-  gecikebilir; o yuzden cevapla() model duzeyinde yedegine dusen
-  (Nemotron'a) geri donus yapar.
+Model seçimi:
+- varsayılan: TERCIH_SIRASI'ndaki ilk hesapta açık model
+- ayarlar.json -> "nvidia_model" ile açık model seçilebilir
+- araç varlığı veya kullanıcı görevi model seçimini değiştirmez
+- yalnız gerçek API/model hatasında teknik yedek zinciri devreye girer.
 
 Arayuz groq.py / gemini.py ile birebir aynidir.
 """
@@ -94,18 +93,6 @@ MODELLER = {
     "deepseek": DEEPSEEK_MODEL,  # dusunen model; cok yavas (~90-180 sn)
 }
 
-# Dev thinking modelleri otomatik SECILMEZ (yavas); ayarlardan secilir.
-# Otomatik secim her zaman hizli Nemotron hattini tercih eder.
-
-# Buyuk modeller: dusunerek cevap verdikleri icin normalden yavastir;
-# model-odakli istisna: dusunen hatta jeton/zaman genis tutulur
-# (ARAC-PLANI S5 cizgisi normal hat icin 4096/20.0).
-# 2026-09-16 (Casper karari): 600 sn ekrani kilitliyordu (UI 90 sn'de
-# pes eder); yedek dev hatta tek hak 180 sn.
-_THINKING_TIMEOUT = 180.0
-_NORMAL_TIMEOUT = 20.0
-
-
 class NvidiaClient:
     """NVIDIA NIM API istemcisi."""
 
@@ -117,18 +104,10 @@ class NvidiaClient:
         self.client = None
         self._kur()
 
-    @staticmethod
-    def _buyuk_model_mi(model_adi: str) -> bool:
-        """Dusunen/buyuk modeller: DeepSeek, MiniMax, Ultra, Inkling."""
-        ad = (model_adi or "").lower()
-        return ("deepseek" in ad or "minimax" in ad
-                or "ultra" in ad or "inkling" in ad)
-
     def _kur(self):
         try:
             self.client = OpenAI(
                 api_key=self.api_key,
-                timeout=_NORMAL_TIMEOUT,
                 max_retries=0,
                 base_url=BASE_URL,
             )
@@ -141,9 +120,8 @@ class NvidiaClient:
     def _model_bul(self) -> str:
         """Hesapta kullanilabilir ilk tercih edilen modeli bulur.
 
-        Siras: TERCIH_SIRASI -> GENIS_HAVUZ -> katalogda kara liste
-        disindaki ilk model. DeepSeek modeli ke sirada denenmez
-        (cok yavas/dusunen model). Manuel secim nvidia_model ayaridir.
+        Sıra: TERCIH_SIRASI -> GENIS_HAVUZ -> katalogda kara liste
+        dışındaki ilk model. Manuel seçim nvidia_model ayarıdır.
         """
         try:
             mevcutler = [m.id.lower() for m in self.client.models.list()]
@@ -157,10 +135,9 @@ class NvidiaClient:
             for m in mevcutler:
                 if m.startswith(aday.lower()) and m not in kara:
                     return m
-        # Hi bir tercih yoksa kara liste disindaki ilk modeli don
-        # (DeepSeek hariç)
+        # Hiçbir tercih yoksa kara liste dışındaki ilk canlı modeli döndür.
         for m in mevcutler:
-            if m in kara or "deepseek" in m:
+            if m in kara:
                 continue
             return m
         return TERCIH_SIRASI[0]
@@ -170,20 +147,12 @@ class NvidiaClient:
 
     def _cagri_ata(self, model_adi: str, messages: list, tools: list = None,
                    tool_choice=None) -> dict:
-        """Tek model icin cagri; buyuk modellerde timeout uzatilir."""
+        """Tek NVIDIA modeline sağlayıcının doğal sınırlarıyla çağrı yap."""
         kwargs = {
             "model": model_adi,
             "messages": messages,
         }
-        if self._buyuk_model_mi(model_adi):
-kwargs["timeout"] = _THINKING_TIMEOUT
-            if "deepseek" in model_adi.lower():
-                # DeepSeek NIM'de dusunme modu acik olarak istenir
-                kwargs["extra_body"] = {
-                    "chat_template_kwargs": {"thinking": True}
-                }
-        else:
-if tools:
+        if tools:
             kwargs["tools"] = tools
             if tool_choice is not None:
                 kwargs["tool_choice"] = tool_choice
@@ -211,6 +180,7 @@ if tools:
 
         return kullanim_ekle({"content": msg.content or "", **muhakeme}, resp)
 
+
     def cevapla(self, messages: list, tools: list = None, yapi=None,
                 tool_choice=None) -> dict:
         """NVIDIA NIM'e mesaj gönderir.
@@ -222,23 +192,19 @@ if tools:
         if not self.client:
             raise RuntimeError("NVIDIA bağlı değil")
 
-        # NVIDIA NIM guncel dokumani required degerini desteklemiyor.
-        # Ajan modunda Brain buraya "auto" gonderir ve duz metni disarida
-        # basari saymaz. Tool-calling'i resmi olarak destekledigi acik olan
-        # GPT-OSS-20B ajan hattinda kullanilir.
-        if tools and tool_choice is not None:
-            sirali = [GPTOSS_MODEL]
-        else:
-            gorulen = []
-            if self.model and self.model not in TERCIH_SIRASI:
-                gorulen.append(self.model)
-            gorulen += TERCIH_SIRASI + GENIS_HAVUZ
-            kara = {k.lower() for k in KARA_LISTE}
-            sirali = []
-            for m in gorulen:
-                if m.lower() in kara or m in sirali:
-                    continue
-                sirali.append(m)
+        # Kullanıcı işi veya tool varlığı modele karar vermez. Seçili model
+        # korunur; yalnız gerçek API/model hatasında sabit teknik yedek zinciri
+        # devreye girer.
+        gorulen = []
+        if self.model:
+            gorulen.append(self.model)
+        gorulen += TERCIH_SIRASI + GENIS_HAVUZ
+        kara = {k.lower() for k in KARA_LISTE}
+        sirali = []
+        for m in gorulen:
+            if m.lower() in kara or m in sirali:
+                continue
+            sirali.append(m)
 
         son_hata = None
         for model_adi in sirali[:_ICI_YEDEK_SAYISI]:

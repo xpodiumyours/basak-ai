@@ -338,6 +338,7 @@ function calismaKaydi(b) {
   yonlendir.type = "button";
   yonlendir.className = "work-action work-redirect";
   yonlendir.textContent = "Yönlendir";
+  yonlendir.disabled = true;
 
   const durdur = document.createElement("button");
   durdur.type = "button";
@@ -409,6 +410,7 @@ function calismaKaydi(b) {
     ozet, detaylar, yonlendir, durdur, yonForm, yonInput,
     panel, liste, canli, planEl, kaynakBolumu, kaynakListe,
     plan: [], kaynaklar: [], yonlendirIstegi: null,
+    handoffToken: "", toolPolicy: "auto",
     kesik: false, kesikNedeni: "",
     bitti: false,
   };
@@ -555,19 +557,11 @@ function araciTamamla(b, olay) {
   }
 }
 
-function yonlendirmeBaglamiOlustur(b, anaMetin) {
+function yonlendirmeBaglamiOlustur(b) {
   const kayit = calismaKaydi(b);
   return {
-    onceki_istek: String(anaMetin || "").slice(0, 2000),
-    tamamlanan_adimlar: (kayit.adimlar || []).slice(-16).map((a) => ({
-      baslik: String(a.baslik || "").slice(0, 160),
-      detay: String(a.detay || "").slice(0, 240),
-      ok: a.ok !== false,
-    })),
-    kullanilan_kaynaklar: (kayit.kaynaklar || []).slice(-16).map(
-      (k) => String(k.url || "").slice(0, 500)
-    ),
-    kismi_cevap: String(b.dataset.ham || "").slice(-5000),
+    schema: "p2-handoff-v1",
+    token: String(kayit.handoffToken || ""),
   };
 }
 
@@ -890,6 +884,17 @@ function olayiIsle(o) {
 
   if (o.tur === "ping") return false;
 
+  if (typeof o.handoff_token === "string" && o.handoff_token) {
+    let handoffBalonu = balonlar.get(no);
+    if (!handoffBalonu) {
+      handoffBalonu = bubble("assistant", "");
+      balonlar.set(no, handoffBalonu);
+    }
+    const handoffKaydi = calismaKaydi(handoffBalonu);
+    handoffKaydi.handoffToken = o.handoff_token;
+    handoffKaydi.yonlendir.disabled = false;
+  }
+
   if (o.tur === "thinking") {
     let b = balonlar.get(no);
     if (!b) {
@@ -1181,6 +1186,9 @@ async function send(secenek = {}) {
     ? secenek.text.trim()
     : msgEl.value.trim();
   const gorsel = secenek.gorsel || seciliGorsel;
+  const toolPolicy = ["auto", "required", "none"].includes(secenek.toolPolicy)
+    ? secenek.toolPolicy
+    : "auto";
   if ((!text && !gorsel) || gonderiliyor) return;
 
   const gonderilecekMetin = text || "Bu görüntüyü açıkla.";
@@ -1193,15 +1201,15 @@ async function send(secenek = {}) {
   kullaniciDurdurdu = false;
   durumSatiri(bekleyenBalon, "Mesaj Başak’a iletiliyor…", "thinking");
   const calisma = calismaKaydi(bekleyenBalon);
+  calisma.toolPolicy = toolPolicy;
   calisma.yonlendir.hidden = !!gorsel;
   calisma.yonlendirIstegi = (yon) => {
     if (!gonderiliyor || calisma.bitti) return;
     yonlendirmeBekliyor = {
       yon,
       anaMetin: gonderilecekMetin,
-      baglam: yonlendirmeBaglamiOlustur(
-        bekleyenBalon, gonderilecekMetin
-      ),
+      baglam: yonlendirmeBaglamiOlustur(bekleyenBalon),
+      toolPolicy,
     };
     yonlendirmeIcinDurduruldu = true;
     kullaniciDurdurdu = true;
@@ -1232,6 +1240,7 @@ async function send(secenek = {}) {
         misafir:MISAFIR,
         gecmis:bulutGecmisi,
         ek,
+        tool_policy:toolPolicy,
         yonlendirme_baglami:secenek.yonlendirmeBaglami || null,
       }),
       signal:aktifIstekDenetleyici.signal,
@@ -1312,6 +1321,7 @@ async function send(secenek = {}) {
           text: devam.yon,
           gorunenMetin: "Yönlendirme: " + devam.yon,
           yonlendirmeBaglami: devam.baglam || null,
+          toolPolicy: devam.toolPolicy || "auto",
         });
       }, 0);
     } else {

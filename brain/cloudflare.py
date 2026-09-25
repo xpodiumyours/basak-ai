@@ -51,7 +51,6 @@ class CloudflareClient:
             self.client = OpenAI(
                 api_key=self.api_token,
                 base_url=base_url,
-                timeout=20.0,
                 max_retries=0,
             )
         except Exception as e:

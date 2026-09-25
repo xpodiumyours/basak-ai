@@ -90,7 +90,6 @@ class KiloClient:
             kwargs = {
                 "api_key": self.api_key or YER_TUTUCU_ANAHTAR,
                 "base_url": BASE_URL,
-                "timeout": 60.0,
                 "max_retries": 0,
                 "default_headers": {
                     "HTTP-Referer": "http://localhost",

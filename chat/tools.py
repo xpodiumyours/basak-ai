@@ -188,6 +188,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     kosan = 0
     tur_sonuclari = []
     _tekrar = {}
+    tur_no = 0
 
     def _muhakeme_al(obj):
         out = {}
@@ -244,6 +245,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
         ilk_muhakeme = _muhakeme_al(mesajlar[-1])
 
     while tool_calls:
+        tur_no += 1
         tur_sonuclari = []
 
         # Plan frontend tahmini değildir: bu turda modelin GERÇEKTEN
@@ -330,9 +332,18 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 baslik=DURUM_METNI.get(ad, "Çalışıyor"),
                 detay=_durum_detayi(args),
                 ok=basarili,
+                _handoff={
+                    "name": ad,
+                    "args": args,
+                    "result": net,
+                    "turn": tur_no,
+                },
             )
             if run_state is not None:
-                run_state.tool_done(ad, cagri_id, basarili, args=args)
+                run_state.tool_done(
+                    ad, cagri_id, basarili, args=args,
+                    result=net, turn=tur_no,
+                )
                 emit_run_state(js_callback, run_state)
             if basarili:
                 for _url in _kaynaklari_cikar(ad, args, net):

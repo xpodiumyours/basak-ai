@@ -10,21 +10,18 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-RUNTIME_VERSION = "p2-provider-neutral-v2"
+RUNTIME_VERSION = "p2-provider-neutral-v3"
 TOOL_POLICIES = frozenset(("auto", "required", "none"))
 
 AGENT_CONTRACT = (
-    "AJAN CALISMA SOZLESMESI:\n"
-    "- Sana sunulan araclar Basak'in GERCEK capability registry'sidir.\n"
-    "- Dis dunya, guncel durum, dosya/proje durumu veya gercek bir eylem "
-    "gerekiyorsa uygun GERCEK araci cagir; arac adini tarif etmek is "
-    "yapilmis sayilmaz.\n"
-    "- Arac sonucunu gordukten sonra ayni ajan dongusunde yeniden karar ver; "
-    "gerekirse baska gercek arac cagir.\n"
-    "- Basarili arac sonucu olmadan bir eylemi yapilmis gibi soyleme.\n"
-    "- Arama sonucu adaydir; okunmus/olculmus kaynak kanittir.\n"
-    "- Hafizadaki eski Basak cevaplari kanit degildir; guncel arac sonucu "
-    "ile celisirse arac sonucu ustundur."
+    "AJAN CALISMA PROTOKOLU:\n"
+    "- Sunulan semalar gercek ve cagrilabilir arac katalogudur.\n"
+    "- Bir tool_call uygulama tarafindan calistirilir ve tool sonucu ayni "
+    "run icinde sana geri verilir.\n"
+    "- Her tool sonucundan sonra sonraki tool_call veya final kararini "
+    "yeniden sen verirsin.\n"
+    "- Basarisiz veya tamamlanmamis tool sonucu basarili eylem kaniti "
+    "degildir."
 )
 
 
@@ -82,12 +79,14 @@ class AgentRunState:
             call_id=str(call_id or ""), args=dict(args or {}),
         )
 
-    def tool_done(self, name, call_id, ok, args=None):
+    def tool_done(self, name, call_id, ok, args=None, result=None, turn=None):
         kayit = {
             "name": str(name or ""),
             "call_id": str(call_id or ""),
             "ok": bool(ok),
             "args": dict(args or {}),
+            "result": "" if result is None else str(result),
+            "turn": int(turn or 0),
         }
         self.tool_calls.append(kayit)
         self._record("tool_done", **kayit)

@@ -12,7 +12,6 @@ politikasidir (auto|required|none).
 
 import json
 import logging
-import re
 
 from chat.prompts import MISAFIR_BLOGU, kimlik_blogu
 from chat.kimlik import VARSAYILAN_KULLANICI, aktif_kullanici, gorunur_ad
@@ -43,39 +42,6 @@ def _konusmaci_ayir(text):
     return text[:eslesme.start()].strip(), eslesme.group(1)
 
 
-def _profil_isle(text, konusmaci):
-    """Kalıcı profili okur. Dönüş: (profil_blogu, ogrenme_notu).
-
-    2026-09-13 sonrasi: ogrenme kapisi stub'dur (memory.profil.ogren
-    hep [], unut hep 0) — cumle profili buyutmez/kucultmez; yalniz
-    kayitli blok baglama tasinir. ogrenme_notu pratikte bostur.
-    """
-    try:
-        from memory.profil import ogren, unut, blok
-        motor = ctx.hafiza_al()
-        if not motor or not text:
-            return "", ""
-
-        silinen = unut(motor, text)
-        if silinen == -1:
-            not_ = ("Not: Casper hakkındaki tüm profil bilgilerini "
-                    "SİLDİN. Bunu doğrula.")
-        elif silinen:
-            not_ = ("Not: profilden %d kayıt sildin (istek: %s). "
-                    "Bunu doğrula." % (silinen, text))
-        else:
-            yeniler = ogren(motor, text, speaker=konusmaci or "")
-            not_ = ""
-            if yeniler:
-                not_ = ("Not: profile yeni bilgi eklendi: %s. Kısaca "
-                        "doğrulayıp sohbete devam et."
-                        % "; ".join("%s=%s" % (a, d) for a, d in yeniler))
-        return blok(motor), not_
-    except Exception as e:
-        logger.warning("Profil islenemedi: %s", e)
-        return "", ""
-
-
 def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi="",
                 misafir=False):
     """Modele gidecek mesaj listesini kurar.
@@ -85,8 +51,8 @@ def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi="",
     yarım kalmış kalıntısıydı. Araç seçimini model yapar; bağlam kurucusu
     ona karışmaz.
 
-    misafir=True ise Casper'a ait hicbir sey eklenmez: isim yok,
-    profil yok, ani yok, gecmis yok. Bayrak URL'den gelir, metne bakilmaz.
+    misafir=True ise varsayılan kullanıcıya ait hiçbir veri eklenmez:
+    isim, profil, anı ve geçmiş taşınmaz. Bayrak URL'den gelir; metne bakılmaz.
     """
     if misafir:
         return [
@@ -94,13 +60,16 @@ def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi="",
             {"role": "system", "content": system_prompt},
         ]
 
-    # 2026-09-23: profil blogu yalniz casper oturumunda system prompt'a
-    # girer — diger web kullanicilarina kisisel bilgi sizmaz.
+    # Profil salt-okunur bağlamdır; kullanıcı cümlesinden gizli
+    # öğrenme/silme kararı çıkarılmaz.
     kid = aktif_kullanici()
+    profil_blogu = ""
     if kid == VARSAYILAN_KULLANICI:
-        profil_blogu, ogrenme_notu = _profil_isle(text, konusmaci)
-    else:
-        profil_blogu, ogrenme_notu = "", ""
+        try:
+            from memory.profil import blok
+            profil_blogu = blok(ctx.hafiza_al())
+        except Exception as e:
+            logger.warning("Profil okunamadi: %s", e)
 
     tam_prompt = system_prompt
     if konusmaci:
@@ -140,16 +109,11 @@ def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi="",
             "content": (
                 "Hafızadan (GEÇMİŞ KAYDI; KANIT DEĞİL):\n"
                 + "\n".join(satirlar)
-                + "\nKural: sohbet_aracli/sohbet_aracsiz kayıtları eski "
-                  "Başak cevaplarıdır. Güncel dış gerçeklikte araç sonucu "
-                  "üstündür; çelişirse hafıza kullanılmaz."
             ),
         })
 
     if profil_blogu:
         mesajlar.append({"role": "system", "content": profil_blogu})
-    if ogrenme_notu:
-        mesajlar.append({"role": "system", "content": ogrenme_notu})
 
     return mesajlar
 
@@ -204,6 +168,116 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
             logger.warning("Ani kaydedilemedi: %s", e)
 
 
+
+def _yonlendirme_mesajlari(baglam, mevcut_mesajlar):
+    """Dogrulanmis onceki run olaylarini provider-neutral mesaja cevir."""
+    if not isinstance(baglam, dict):
+        return []
+    olaylar = baglam.get("olaylar")
+    if not isinstance(olaylar, list):
+        return []
+
+    ek = []
+    run = next(
+        (o for o in olaylar if isinstance(o, dict)
+         and o.get("tur") == "runContext"),
+        {},
+    )
+    onceki_istek = str(run.get("metin") or "")
+    zaten_var = any(
+        isinstance(m, dict)
+        and m.get("role") == "user"
+        and str(m.get("content") or "") == onceki_istek
+        for m in (mevcut_mesajlar or [])
+    )
+    if onceki_istek and not zaten_var:
+        ek.append({"role": "user", "content": onceki_istek})
+
+    turlar = {}
+    for olay in olaylar:
+        if not isinstance(olay, dict) or olay.get("tur") != "toolDone":
+            continue
+        try:
+            tur = int(olay.get("turn") or 0)
+        except (TypeError, ValueError):
+            tur = 0
+        turlar.setdefault(tur, []).append(olay)
+
+    for tur in sorted(turlar):
+        cagrilar = []
+        sonuclar = []
+        for i, olay in enumerate(turlar[tur]):
+            ad = str(olay.get("name") or "")
+            cagri_id = str(olay.get("id") or ("handoff_%s_%s" % (tur, i)))
+            args = olay.get("args")
+            if not isinstance(args, dict):
+                args = {}
+            if not ad:
+                continue
+            cagrilar.append({
+                "id": cagri_id,
+                "type": "function",
+                "function": {
+                    "name": ad,
+                    "arguments": json.dumps(
+                        args, ensure_ascii=False, separators=(",", ":")
+                    ),
+                },
+            })
+            sonuclar.append({
+                "role": "tool",
+                "tool_call_id": cagri_id,
+                "name": ad,
+                "content": str(olay.get("result") or ""),
+            })
+        if cagrilar:
+            ek.append({
+                "role": "assistant",
+                "content": "",
+                "tool_calls": cagrilar,
+            })
+            ek.extend(sonuclar)
+
+    kismi = "".join(
+        str(o.get("metin") or "")
+        for o in olaylar
+        if isinstance(o, dict) and o.get("tur") == "parca"
+    )
+    if kismi:
+        ek.append({"role": "assistant", "content": kismi})
+
+    son_durum = next(
+        (o for o in reversed(olaylar)
+         if isinstance(o, dict) and o.get("tur") == "runState"),
+        None,
+    )
+    kaynaklar = [
+        str(o.get("url") or "")
+        for o in olaylar
+        if isinstance(o, dict) and o.get("tur") == "source" and o.get("url")
+    ]
+    kesilme = next(
+        (str(o.get("reason") or "limit") for o in reversed(olaylar)
+         if isinstance(o, dict) and o.get("tur") == "truncated"),
+        "",
+    )
+    if son_durum or kaynaklar or kesilme:
+        veri = {
+            "schema": "p2-handoff-v1",
+            "onceki_run": str(run.get("istek") or ""),
+            "run_state": son_durum or {},
+            "kaynaklar": kaynaklar,
+            "truncated_reason": kesilme,
+        }
+        ek.append({
+            "role": "system",
+            "content": "YONLENDIRME_DURUMU_JSON:\n" + json.dumps(
+                veri, ensure_ascii=False, separators=(",", ":")
+            ),
+        })
+    return ek
+
+
 def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                misafir=False, gecmis_override=None,
                yonlendirme_baglami=None, tool_policy="auto",
@@ -246,10 +320,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             [m for m in ctx.yukle(ctx.gecmis_yolu(), [])
              if m.get("role") != "system"])
 
-    # Tekrar onbellegi resolver'dan ONCE kullanilmaz. Aksi halde daha once
-    # aracsiz uretilmis bir cevap, bugunku gerceklik/arac kararini tamamen
-    # bypass edebilir. Tools kapaliysa veya resolver DOGRULANMIS bicimde
-    # "arac gerekmiyor + aday yok" dediyse asagida okunur.
+    # Araçlar kapalıysa kısa süreli düz-sohbet önbelleği kullanılabilir.
+    # Araçlı run önbellekle bypass edilmez.
     def _onbellekten_don():
         if misafir or aktif_kullanici() != VARSAYILAN_KULLANICI:
             return False
@@ -288,15 +360,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             ),
         )
     mesajlar += model_gecmisi
-    if isinstance(yonlendirme_baglami, dict) and yonlendirme_baglami:
-        try:
-            _yon = json.dumps(yonlendirme_baglami, ensure_ascii=False)
-            mesajlar.append({
-                "role": "system",
-                "content": "YONLENDIRME_BAGLAMI_JSON:\n" + _yon,
-            })
-        except Exception:
-            pass
+    mesajlar += _yonlendirme_mesajlari(
+        yonlendirme_baglami, mesajlar
+    )
     mesajlar.append({"role": "user", "content": text})
 
     # ── Provider-neutral ajan yolu ───────────────────────────────────

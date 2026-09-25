@@ -380,9 +380,9 @@ class Brain:
         return istemci.cevapla(messages, **ekstra)
 
     def cevapla(self, messages, yerel_model=None, tools=None,
-                tercih=None, gorev_tipi=None, override_model=None, yapi=None,
+                tercih=None, override_model=None, yapi=None,
                 tool_choice=None):
-        """Mesajlara cevap verir — Router v2 (bulut zinciri).
+        """Mesajlara provider-neutral bulut zincirinden cevap verir.
 
         Akis: secici motoru sirayi belirler → deneme; hata verirse siradaki
         devralir; hepsi duserse RuntimeError (yerel yedek YOK — Faz 2).
@@ -414,10 +414,8 @@ class Brain:
             sirali = one_alinan + kalanlar
             gerekce = "acik tercihle siralandi"
         else:
-            # P0 (2026-09-15): gorev_tipi / karne / siniflandirici ana AI
-            # yolundan cikti. Secim yalniz teknik gerceklerle sinirli:
-            # musaitlik (_bulut_zinciri), ucretsiz olma + tool destegi
-            # (registry), rate-limit atlama (cooldown). Yeni router YOK.
+            # Sağlayıcı sırası yalnız teknik registry/fallback sırasıdır;
+            # kullanıcı metni veya görev türü burada yorumlanmaz.
             sirali, gerekce = secici.sec(mevcutlar=mevcutlar)
 
         istemciler = dict(zincir)
@@ -525,7 +523,7 @@ class Brain:
         raise RuntimeError(f"Hicbir model calismadi ({detay})")
 
     def cevapla_yayin(self, messages, yerel_model=None, tercih=None,
-                      gorev_tipi=None, tools=None):
+                      tools=None):
         """Akan cevap uretir: yield (kaynak, parca).
 
         Aracsiz duz sohbet icindir (tools=None). Model arac isterse
@@ -551,7 +549,6 @@ class Brain:
             sirali = one_alinan + [a for a in mevcutlar if a not in tercih]
             gerekce = "acik tercihle siralandi"
         else:
-            # P0: gorev_tipi ana yoldan cikti; yalniz teknik sira.
             sirali, gerekce = _secici.sec(mevcutlar=mevcutlar)
 
         istemciler = dict(zincir)

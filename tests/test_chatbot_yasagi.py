@@ -34,16 +34,13 @@ def _okunan(ad):
 
 
 class TestSeciciTarafsiz:
-    def test_bayraklar_sirayi_degistirmez(self):
+    def test_secici_yalniz_teknik_mevcutlar_listesini_alir(self):
+        import inspect
         from brain import secici, registry
+        assert tuple(inspect.signature(secici.sec).parameters) == ("mevcutlar",)
         beklenen = list(registry.VARSAYILAN_SIRA)
-        for kw in ({"tools": True},
-                   {"karne_kullan": True},
-                   {"cooldown": {"glm": 9999999999}},
-                   {"gorev_tipi": "kod", "tools": True,
-                    "karne_kullan": True}):
-            sirali, _ = secici.sec(mevcutlar=list(beklenen), **kw)
-            assert sirali == beklenen, kw
+        sirali, _ = secici.sec(mevcutlar=list(beklenen))
+        assert sirali == beklenen
 
 
 class TestDonguOzgur:
@@ -175,11 +172,13 @@ class TestYasakModulYok:
 
 
 class TestYasakIsimYok:
-    YASAK = ("ARAC_ISARET", "arac_gerek", "GOREV_KELIME", "TOOL_IYI",
+    YASAK = ("ARAC_ISARET", "arac_gerek", "GOREV_KELIME", "gorev_tipi",
+             "karne_kullan", "TOOL_IYI",
              "dinamik_arac", "aktif_tool", "ham_tool_call",
              "tool_argumani", "raw_tool", "orkestra_aktif", "juri_acik",
              "mod_kapasite", "calistirilabilir", "cikis_kapisi",
              "PROMPT_BLOG", "TUR_SINIRI", "ARAC_SONUC_TAVAN",
+             "GECMIS_KILO_LIMITI", "MAX_HISTORY", "token_butcesi",
              "onay_kuyrugu", "ApprovalSystem", "yetki_tavani")
 
     DOSYALAR = ("brain/secici.py", "brain/brain.py", "chat/flow.py",
@@ -216,9 +215,10 @@ class TestSozlesmeZorunlulukTasir:
     def test_runtime_sozlesmesi_gercek_araci_tanimlar(self):
         from chat.agent_runtime import AGENT_CONTRACT
         metin = AGENT_CONTRACT.lower()
-        assert "gercek capability registry" in metin
-        assert "gercek araci cagir" in metin
-        assert "yapilmis sayilmaz" in metin
+        assert "gercek ve cagrilabilir arac katalogu" in metin
+        assert "tool_call" in metin
+        assert "tool sonucu" in metin
+        assert "kararini yeniden sen verirsin" in metin
 
     def test_runtime_kelime_tetikleyici_icermez(self):
         import inspect
@@ -244,3 +244,14 @@ class TestSozlesmeZorunlulukTasir:
         from chat.agent_runtime import TOOL_POLICIES
         assert TOOL_POLICIES == frozenset(("auto", "required", "none"))
 
+
+
+def test_agents_dosyasi_eski_router_mimarisini_yurutmez():
+    metin = _okunan("AGENTS.md")
+    for yasak in (
+        "P3 Router v2 kod tamamlandı",
+        "OLCU_YONLENDIRME",
+        "secici.sec(karne_kullan=True)",
+        "kelime tetikleyicisi olarak geri geldi",
+    ):
+        assert yasak not in metin

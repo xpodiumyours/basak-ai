@@ -69,7 +69,6 @@ def akit(openai_client, model, messages, tools=None):
         model=model,
         messages=messages,
 stream=True,
-        timeout=20,
         **ekstra
     )
     # Streaming tool_call parcalari (OpenAI delta formati: index bazli).

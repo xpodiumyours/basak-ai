@@ -9,6 +9,7 @@ import asyncio
 import base64
 import binascii
 import hmac
+import hashlib
 import json
 import os
 import tempfile
@@ -250,6 +251,87 @@ def _giris_engeli():
     return JSONResponse({"error": "giris gerekli"}, status_code=401)
 
 
+_HANDOFF_SCHEMA = "p2-handoff-v1"
+_HANDOFF_OLAYLARI = frozenset(
+    ("runContext", "toolDone", "source", "runState", "truncated")
+)
+
+
+def _handoff_anahtari(kid):
+    """Yönlendirme devrini aynı kullanıcı oturumuna kriptografik bağla."""
+    import kullanici as kullanici_modulu
+
+    kok = kullanici_modulu.env_anahtari()
+    if not kok:
+        if not _preview_mi():
+            raise RuntimeError("handoff imzasi icin sunucu anahtari yok")
+        # Preview kimliği 128-bit rastgele, HttpOnly çerezde ve kullanıcıya
+        # tam değeri gösterilmez. Stateless preview çağrıları aynı anahtarı
+        # bu kimlikten yeniden türetebilir.
+        kok = "preview:" + str(kid)
+    alan = ("basak-p2-handoff-v1:" + str(kid)).encode("utf-8")
+    return hmac.new(kok.encode("utf-8"), alan, hashlib.sha256).digest()
+
+
+def _handoff_tokeni(payload, anahtar):
+    """Sunucunun ürettiği run olayını stateless, imzalı tokena çevir."""
+    ham = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    govde = base64.urlsafe_b64encode(ham).decode("ascii").rstrip("=")
+    imza = hmac.new(
+        anahtar, govde.encode("ascii"), hashlib.sha256
+    ).hexdigest()
+    return govde + "." + imza
+
+
+def _handoff_tokeni_coz(token, anahtar):
+    """İmzası doğruysa handoff olayını döndür; aksi halde reddet."""
+    if not isinstance(token, str) or "." not in token:
+        raise ValueError("gecersiz handoff tokeni")
+    govde, imza = token.rsplit(".", 1)
+    if not govde.isascii() or not imza.isascii():
+        raise ValueError("gecersiz handoff tokeni")
+    beklenen = hmac.new(
+        anahtar, govde.encode("ascii"), hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(beklenen, imza):
+        raise ValueError("handoff imzasi dogrulanamadi")
+    try:
+        padding = "=" * (-len(govde) % 4)
+        ham = base64.urlsafe_b64decode(govde + padding).decode("utf-8")
+        olay = json.loads(ham)
+    except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as e:
+        raise ValueError("handoff tokeni cozumlenemedi") from e
+    if not isinstance(olay, dict):
+        raise ValueError("handoff olayi sozluk olmali")
+    return olay
+
+
+def _yonlendirme_baglami_dogrula(raw, anahtar):
+    """Tarayıcıdan dönen handoff yalnız sunucu imzasıyla kabul edilir."""
+    if raw in (None, {}):
+        return None
+    if not isinstance(raw, dict) or raw.get("schema") != _HANDOFF_SCHEMA:
+        raise ValueError("gecersiz yonlendirme baglami")
+    token = raw.get("token")
+    if not isinstance(token, str) or not token:
+        raise ValueError("yonlendirme baglami bos")
+    paket = _handoff_tokeni_coz(token, anahtar)
+    if paket.get("schema") != _HANDOFF_SCHEMA:
+        raise ValueError("yonlendirme snapshot semasi gecersiz")
+    olaylar = paket.get("olaylar")
+    if not isinstance(olaylar, list) or not olaylar:
+        raise ValueError("yonlendirme snapshot bos")
+    runlar = {str(o.get("istek") or "") for o in olaylar
+              if isinstance(o, dict)}
+    if len(runlar) != 1 or "" in runlar:
+        raise ValueError("yonlendirme baglami tek run olmali")
+    if not any(o.get("tur") == "runContext" for o in olaylar):
+        raise ValueError("yonlendirme run baglami eksik")
+    return {"schema": _HANDOFF_SCHEMA, "olaylar": olaylar}
+
+
 _AKIS_MIME = "application/x-ndjson"
 _AKIS_SESSIZLIK_SN = 10.0
 _AKIS_SON = object()
@@ -319,7 +401,7 @@ async def _canli_olaylar(kuyruk, gorev, istek, iptal=None):
 
 
 class _OlayToplayici:
-    def __init__(self, istek, yayinla=None, iptal=None):
+    def __init__(self, istek, yayinla=None, iptal=None, handoff_key=None):
         self.istek = istek
         self.olaylar = []
         self.cevap = ""
@@ -327,6 +409,8 @@ class _OlayToplayici:
         self.hata = ""
         self.yayinla = yayinla
         self.iptal = iptal
+        self.handoff_key = handoff_key
+        self.handoff_olaylar = []
 
     def iptal_edildi(self):
         return bool(self.iptal is not None and self.iptal.is_set())
@@ -334,8 +418,21 @@ class _OlayToplayici:
     def olay(self, tur, **veri):
         if self.iptal_edildi():
             raise _AkisIptal()
+        handoff_ozel = veri.pop("_handoff", None)
         olay = {"istek": self.istek, "tur": str(tur)}
         olay.update(veri)
+        if self.handoff_key and str(tur) in _HANDOFF_OLAYLARI:
+            imzalanacak = dict(olay)
+            if isinstance(handoff_ozel, dict):
+                imzalanacak.update(handoff_ozel)
+            self.handoff_olaylar.append(imzalanacak)
+            olay["handoff_token"] = _handoff_tokeni(
+                {
+                    "schema": _HANDOFF_SCHEMA,
+                    "olaylar": self.handoff_olaylar,
+                },
+                self.handoff_key,
+            )
         self.olaylar.append(olay)
         if self.yayinla is not None:
             try:
@@ -364,6 +461,15 @@ class _OlayToplayici:
                 return
             if ad == "error":
                 self.hata = olay.get("metin", "")
+            if self.handoff_key and ad == "parca":
+                self.handoff_olaylar.append(dict(olay))
+                olay["handoff_token"] = _handoff_tokeni(
+                    {
+                        "schema": _HANDOFF_SCHEMA,
+                        "olaylar": self.handoff_olaylar,
+                    },
+                    self.handoff_key,
+                )
             self.olaylar.append(olay)
             if self.yayinla is not None:
                 try:
@@ -568,7 +674,7 @@ async def durum(request: Request):
         "preview_hafiza_parity": hafiza_modu == "postgres_isolated",
         "tool_policy_default": "auto",
         "tool_discovery": "eager-full-registry",
-        "agent_runtime": "p2-provider-neutral-v2",
+        "agent_runtime": "p2-provider-neutral-v3",
         "checkpoint_resume": False,
     }
 
@@ -583,6 +689,16 @@ async def sohbet(request: Request):
     except Exception:
         return JSONResponse({"error": "Gecersiz JSON"}, status_code=400)
     metin = str((body or {}).get("metin") or "").strip()
+    try:
+        handoff_key = _handoff_anahtari(kid)
+    except RuntimeError as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    try:
+        yonlendirme_baglami = _yonlendirme_baglami_dogrula(
+            (body or {}).get("yonlendirme_baglami"), handoff_key
+        )
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
     ek_yol = None
     akis_kuruldu = False
     try:
@@ -617,6 +733,7 @@ async def sohbet(request: Request):
             uuid.uuid4().hex[:12],
             yayinla=_yayinla if akis else None,
             iptal=iptal,
+            handoff_key=handoff_key,
         )
 
         def _kos(akis_hatasi=False, gecici_temizle=False):
@@ -629,6 +746,10 @@ async def sohbet(request: Request):
                 # izolasyonu memory katmanında Preview'e özel /tmp SQLite ile
                 # yapılır; davranış misafir moduna zorlanmaz.
                 misafir = bool((body or {}).get("misafir", False))
+                kayit.olay(
+                    "runContext",
+                    _handoff={"metin": metin, "tool_policy": tool_policy},
+                )
                 mesaj_isle(
                     metin,
                     beyin,
@@ -637,11 +758,7 @@ async def sohbet(request: Request):
                     tools,
                     misafir=misafir,
                     gecmis_override=_gecmis(body or {}),
-                    yonlendirme_baglami=(
-                        (body or {}).get("yonlendirme_baglami")
-                        if isinstance(
-                            (body or {}).get("yonlendirme_baglami"), dict)
-                        else None),
+                    yonlendirme_baglami=yonlendirme_baglami,
                     tool_policy=tool_policy,
                 )
             except _AkisIptal:

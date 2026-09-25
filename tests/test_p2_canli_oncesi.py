@@ -29,7 +29,7 @@ def test_context_modelden_mesaj_saklamaz():
     from chat import context as ctx
     g = [{"role": "user", "content": "x" * 5000} for _ in range(20)]
     asli = json.loads(json.dumps(g))
-    pencere, bilgi = ctx.gecmis_model_penceresi(g, token_butcesi=16000)
+    pencere, bilgi = ctx.gecmis_model_penceresi(g)
     assert pencere == g
     assert bilgi["compact"] is False
     assert bilgi["atlanan_mesaj"] == 0
@@ -421,7 +421,7 @@ def test_agent_run_state_kesilmeyi_cevaptan_ayri_tasir():
     s.complete("groq")
 
     pub = s.public_snapshot()
-    assert pub["runtime_version"] == "p2-provider-neutral-v2"
+    assert pub["runtime_version"] == "p2-provider-neutral-v3"
     assert pub["status"] == "incomplete"
     assert pub["truncated_reason"] == "length"
     assert pub["tool_count"] == 1
@@ -439,18 +439,62 @@ def test_namespace_metadata_runtime_araclarini_daraltmaz():
     assert len(capability_surface(TOOLS, "auto")) == len(TOOLS) == 53
 
 
-def test_yonlendirme_baglami_sessiz_kirilmaz_ve_modele_kocluk_yapmaz():
+def test_yonlendirme_baglami_ucltan_uca_kesilmez_ve_imzalanir():
     import inspect
+    import app
     from chat import flow
 
-    kaynak = inspect.getsource(flow.mesaj_isle)
-    assert "[:12000]" not in kaynak
-    assert "körlemesine" not in kaynak
-    assert "gerekiyorsa önce" not in kaynak
-    assert "YONLENDIRME_BAGLAMI_JSON" in kaynak
+    flow_kaynak = inspect.getsource(flow)
+    ekran = open("web/app.js", encoding="utf-8").read()
+
+    assert "[:12000]" not in flow_kaynak
+    assert "YONLENDIRME_BAGLAMI_JSON" not in flow_kaynak
+    assert "_yonlendirme_mesajlari" in flow_kaynak
+
+    for yasak in (
+        "onceki_istek: String(anaMetin || \"\").slice",
+        "tamamlanan_adimlar: (kayit.adimlar || []).slice",
+        "kullanilan_kaynaklar: (kayit.kaynaklar || []).slice",
+        "kismi_cevap: String(b.dataset.ham || \"\").slice",
+    ):
+        assert yasak not in ekran
+
+    anahtar = b"x" * 32
+    run = {"istek": "r1", "tur": "runContext", "metin": "ilk is"}
+    tool = {
+        "istek": "r1", "tur": "toolDone", "id": "c1",
+        "name": "web_search", "args": {"query": "x"},
+        "result": "gercek-sonuc", "turn": 1, "ok": True,
+    }
+    token = app._handoff_tokeni(
+        {"schema": "p2-handoff-v1", "olaylar": [run, tool]},
+        anahtar,
+    )
+    baglam = app._yonlendirme_baglami_dogrula(
+        {"schema": "p2-handoff-v1", "token": token},
+        anahtar,
+    )
+    assert baglam["olaylar"][1]["result"] == "gercek-sonuc"
+
+    mesajlar = flow._yonlendirme_mesajlari(baglam, [])
+    assert mesajlar[0] == {"role": "user", "content": "ilk is"}
+    assert mesajlar[1]["role"] == "assistant"
+    assert mesajlar[1]["tool_calls"][0]["function"]["name"] == "web_search"
+    assert mesajlar[2]["role"] == "tool"
+    assert mesajlar[2]["content"] == "gercek-sonuc"
+
+    bozuk = token[:-1] + ("0" if token[-1] != "0" else "1")
+    try:
+        app._yonlendirme_baglami_dogrula(
+            {"schema": "p2-handoff-v1", "token": bozuk},
+            anahtar,
+        )
+        assert False, "bozuk imza kabul edilmemeli"
+    except ValueError:
+        pass
 
 
-def test_provider_cagri_yollarinda_yapay_max_tokens_tavani_yok():
+def test_provider_cagri_yollarinda_yapay_cikti_ve_kisa_timeout_tavani_yok():
     import pathlib
 
     dosyalar = (
@@ -465,3 +509,44 @@ def test_provider_cagri_yollarinda_yapay_max_tokens_tavani_yok():
         assert '"max_tokens"' not in kaynak, yol
         assert "max_tokens=4096" not in kaynak, yol
         assert 'kwargs["max_tokens"]' not in kaynak, yol
+
+    # Provider/model cevabini 8/20/60 saniyede yapay olarak kesen
+    # istemci tavanlari geri gelemez.
+    for yol in dosyalar:
+        kaynak = pathlib.Path(yol).read_text(encoding="utf-8")
+        assert "timeout=8.0" not in kaynak, yol
+        assert "timeout=20.0" not in kaynak, yol
+        assert '"timeout": 60.0' not in kaynak, yol
+
+
+def test_chatbot_akilli_motor_aktif_imza_kalintisi_yok():
+    import inspect
+    from brain import secici
+    from brain import brain as brain_mod
+    from memory import profil
+
+    assert tuple(inspect.signature(secici.sec).parameters) == ("mevcutlar",)
+    assert "gorev_tipi" not in inspect.signature(
+        brain_mod.Brain.cevapla
+    ).parameters
+    assert "gorev_tipi" not in inspect.signature(
+        brain_mod.Brain.cevapla_yayin
+    ).parameters
+    assert not hasattr(profil, "ogren")
+    assert not hasattr(profil, "unut")
+
+
+def test_nvidia_tool_varligi_modeli_zorla_degistirmez():
+    import inspect
+    from brain import nvidia
+
+    kaynak = inspect.getsource(nvidia.NvidiaClient)
+    assert "sirali = [GPTOSS_MODEL]" not in kaynak
+    assert "_buyuk_model_mi" not in kaynak
+    assert 'kwargs["timeout"]' not in kaynak
+
+
+def test_web_gercek_run_politikasini_backend_e_tasir():
+    ekran = open("web/app.js", encoding="utf-8").read()
+    assert "tool_policy:toolPolicy" in ekran
+    assert '["auto", "required", "none"]' in ekran
