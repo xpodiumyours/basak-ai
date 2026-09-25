@@ -335,6 +335,11 @@ def parca_olc(beyin, tum, saglayici, bas, son):
                           lambda _k: None, GOREVLER[bas:son])
 
 
+def _gunluge_yaz(kayit):
+    # Vercel runtime log'una: istek zaman asimina ugrasa da sonuc kaybolmaz.
+    print("DENEY_KAYIT " + json.dumps(kayit, ensure_ascii=False), flush=True)
+
+
 def coklu_olc(beyin, tum, adlar, bas, son, sure_sn):
     """Birden cok saglayici PARALEL, GOREVLER[bas:son], sure sinirli."""
     from concurrent.futures import ThreadPoolExecutor
@@ -349,7 +354,7 @@ def coklu_olc(beyin, tum, adlar, bas, son, sure_sn):
                 continue
             isler[ad] = havuz.submit(
                 _saglayici_kos, beyin, mevcut[ad], ad, tum,
-                lambda _k: None, GOREVLER[bas:son], bitis)
+                _gunluge_yaz, GOREVLER[bas:son], bitis)
         for ad in adlar:
             if ad in isler:
                 kayitlar.extend(isler[ad].result())
