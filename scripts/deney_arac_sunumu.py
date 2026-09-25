@@ -19,7 +19,7 @@ sayisi, giris token'i.
 Gorevler ve "dogru" kumeleri OLCUMDEN ONCE sabitlendi (asagida). Gercek
 araclar CALISTIRILMAZ; olculen yalniz modelin karari.
 
-Kosum: python tests/live/deney_arac_sunumu.py [--sahte]
+Kosum: python scripts/deney_arac_sunumu.py [--sahte]
   --sahte: anahtarsiz, sahte saglayiciyla boru hattini dogrular.
 """
 
@@ -29,8 +29,7 @@ import re
 import sys
 import time
 
-KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
-    __file__))))
+KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if KOK not in sys.path:
     sys.path.insert(0, KOK)
 
@@ -296,12 +295,12 @@ def sinifla(sonuc, beklenen):
 
 
 # ── Kosum ─────────────────────────────────────────────────────────────
-def _saglayici_kos(beyin, istemci, ad, tum, yaz):
+def _saglayici_kos(beyin, istemci, ad, tum, yaz, gorevler=None):
     """Tek saglayici, sirali ve beklemeli (kendi kotasi korunur)."""
     kayitlar = []
     olcer = Olcer(beyin, istemci, ad)
     durdu = ""
-    for gorev, beklenen in GOREVLER:
+    for gorev, beklenen in (gorevler if gorevler is not None else GOREVLER):
         for duzen_adi, fonk in DUZENLER:
             kayit = {"saglayici": ad, "duzen": duzen_adi,
                      "gorev": gorev, "beklenen": sorted(beklenen)}
@@ -320,6 +319,17 @@ def _saglayici_kos(beyin, istemci, ad, tum, yaz):
             kayitlar.append(kayit)
             yaz(kayit)
     return kayitlar
+
+
+def parca_olc(beyin, tum, saglayici, bas, son):
+    """Tek saglayici, GOREVLER[bas:son] — Vercel istek suresine sigsin diye.
+
+    Donus: kayit listesi. Istemci yoksa tek 'istemci-yok' kaydi."""
+    mevcut = dict(beyin._bulut_zinciri(tools=True))
+    if saglayici not in mevcut:
+        return [{"saglayici": saglayici, "durum": "istemci-yok"}]
+    return _saglayici_kos(beyin, mevcut[saglayici], saglayici, tum,
+                          lambda _k: None, GOREVLER[bas:son])
 
 
 def kos(beyin, mevcut, tum):

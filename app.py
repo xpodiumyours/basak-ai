@@ -753,4 +753,27 @@ class _Statik(StaticFiles):
         return yanit
 
 
+@app.get("/api/deney-arac")
+def deney_arac(saglayici: str = "", bas: int = 0, son: int = 3):
+    """GECICI olcum ucu (Claude dali, arac sunumu deneyi).
+
+    Yalniz Vercel Preview'de calisir (anahtarlar orada); canlida 404.
+    Gercek araclari CALISTIRMAZ; modelin arac secimini olcer.
+    Deney bitince bu uc silinir.
+    """
+    if not _preview_mi():
+        return JSONResponse({"error": "yok"}, status_code=404)
+    import importlib.util
+    yol = BASE / "scripts" / "deney_arac_sunumu.py"
+    spec = importlib.util.spec_from_file_location("deney_arac_sunumu", yol)
+    deney = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(deney)
+    beyin, tools = _cekirdek()
+    bas = max(0, int(bas))
+    son = max(bas, min(int(son), len(deney.GOREVLER)))
+    kayitlar = deney.parca_olc(beyin, tools, saglayici, bas, son)
+    return JSONResponse({"kayitlar": kayitlar},
+                        headers={"Cache-Control": "no-store"})
+
+
 app.mount("/", _Statik(directory=str(WEB), html=True), name="web")
