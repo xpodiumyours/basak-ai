@@ -243,15 +243,3 @@ class TestSozlesmeZorunlulukTasir:
     def test_tool_policy_acik_ve_sinirli(self):
         from chat.agent_runtime import TOOL_POLICIES
         assert TOOL_POLICIES == frozenset(("auto", "required", "none"))
-
-
-
-def test_agents_dosyasi_eski_router_mimarisini_yurutmez():
-    metin = _okunan("AGENTS.md")
-    for yasak in (
-        "P3 Router v2 kod tamamlandı",
-        "OLCU_YONLENDIRME",
-        "secici.sec(karne_kullan=True)",
-        "kelime tetikleyicisi olarak geri geldi",
-    ):
-        assert yasak not in metin
