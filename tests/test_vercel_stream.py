@@ -495,8 +495,8 @@ def test_preview_mobil_dokunmatik_duzen_ve_cache_surumu():
     stil = open("web/chat.css", encoding="utf-8").read()
     html = open("web/index.html", encoding="utf-8").read()
     assert "(hover:none) and (pointer:coarse) and (max-width:1100px)" in stil
-    assert "/chat.css?v=7" in html
-    assert "/app.js?v=9" in html
+    assert "/chat.css?v=9" in html
+    assert "/app.js?v=13" in html
 
 
 def test_preview_calisma_akisi_kutusuz_inline_gorunur():
@@ -640,8 +640,8 @@ def test_preview_plan_kaynak_yonlendir_ui_sozlesmesi():
     assert ".work-plan{" in stil
     assert ".work-redirect-form{" in stil
     assert ".answer-sources{" in stil
-    assert "/chat.css?v=7" in html
-    assert "/app.js?v=9" in html
+    assert "/chat.css?v=9" in html
+    assert "/app.js?v=13" in html
 
 
 def test_preview_gercek_parca_oncelikli_fallback_sonradan():

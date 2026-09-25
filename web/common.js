@@ -86,12 +86,20 @@ window.basakFetch = async (yol, secenek = {}) => {
   return r;
 };
 
+// Ust durum yalniz sorun varken gorunur; saglikliyken calisma durumunu
+// zaten calisma karti gosterir, ikinci bir "Hazır" yazisi yaniltir.
+function saglikGoster(sorun) {
+  const kutu = document.getElementById("healthStatus");
+  const text = document.getElementById("healthText");
+  if (text) text.textContent = sorun || "";
+  if (kutu) kutu.hidden = !sorun;
+}
+
 async function basakHealth() {
   try {
     await window.basakKimlikHazir;
     const r = await window.basakFetch("/api/durum", { cache: "no-store" });
     const dot = document.getElementById("healthDot");
-    const text = document.getElementById("healthText");
     const ok = r.ok;
     let d = {};
     try { d = await r.json(); } catch {}
@@ -99,18 +107,10 @@ async function basakHealth() {
     window.basakRuntime = d.runtime || "local";
     const imagePick = document.getElementById("imagePick");
     if (imagePick) imagePick.hidden = window.basakRuntime !== "vercel";
-    if (text) {
-      if (!ok || !d.ok) text.textContent = "Köprü hatası";
-      else {
-        const sag = (d.saglayicilar || []).join(", ") || "model yok";
-        text.textContent = "Hazır · " + sag + " · " +
-          (d.arac_sayisi || 0) + " araç · " + (d.commit || "?");
-      }
-    }
+    saglikGoster(ok && d.ok ? "" : "Bağlantı sorunu");
     return ok && !!d.ok;
   } catch (e) {
-    const text = document.getElementById("healthText");
-    if (text) text.textContent = "Bağlantı yok";
+    saglikGoster("Bağlantı yok");
     return false;
   }
 }
@@ -123,6 +123,5 @@ window.basakKimlikHazir
     return window.basakFetch("/api/sohbetler", { cache: "no-store" });
   })
   .catch(() => {
-    const text = document.getElementById("healthText");
-    if (text) text.textContent = "Kimlik oluşturulamadı";
+    saglikGoster("Kimlik oluşturulamadı");
   });
