@@ -754,7 +754,8 @@ class _Statik(StaticFiles):
 
 
 @app.get("/api/deney-arac")
-def deney_arac(saglayici: str = "", bas: int = 0, son: int = 3):
+def deney_arac(saglayici: str = "", bas: int = 0, son: int = 3,
+               sure: int = 240):
     """GECICI olcum ucu (Claude dali, arac sunumu deneyi).
 
     Yalniz Vercel Preview'de calisir (anahtarlar orada); canlida 404.
@@ -771,7 +772,9 @@ def deney_arac(saglayici: str = "", bas: int = 0, son: int = 3):
     beyin, tools = _cekirdek()
     bas = max(0, int(bas))
     son = max(bas, min(int(son), len(deney.GOREVLER)))
-    kayitlar = deney.parca_olc(beyin, tools, saglayici, bas, son)
+    adlar = [a.strip() for a in saglayici.split(",") if a.strip()]
+    sure = max(10, min(int(sure), 270))
+    kayitlar = deney.coklu_olc(beyin, tools, adlar, bas, son, sure)
     return JSONResponse({"kayitlar": kayitlar},
                         headers={"Cache-Control": "no-store"})
 

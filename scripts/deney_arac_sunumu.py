@@ -168,14 +168,17 @@ class KotaDoldu(Exception):
 
 
 class Olcer:
-    def __init__(self, beyin, istemci, ad):
+    def __init__(self, beyin, istemci, ad, bitis=None):
         self.beyin, self.istemci, self.ad = beyin, istemci, ad
         self.cagri = 0
         self.tavan = CAGRI_TAVANI.get(ad, VARSAYILAN_TAVAN)
+        self.bitis = bitis
 
     def cagir(self, mesajlar, araclar):
         if self.cagri >= self.tavan:
             raise KotaDoldu("kota-tavani")
+        if self.bitis and time.time() > self.bitis:
+            raise KotaDoldu("sure-siniri")
         self.cagri += 1
         if BEKLEME_SN:
             time.sleep(BEKLEME_SN)
@@ -295,10 +298,10 @@ def sinifla(sonuc, beklenen):
 
 
 # ── Kosum ─────────────────────────────────────────────────────────────
-def _saglayici_kos(beyin, istemci, ad, tum, yaz, gorevler=None):
+def _saglayici_kos(beyin, istemci, ad, tum, yaz, gorevler=None, bitis=None):
     """Tek saglayici, sirali ve beklemeli (kendi kotasi korunur)."""
     kayitlar = []
-    olcer = Olcer(beyin, istemci, ad)
+    olcer = Olcer(beyin, istemci, ad, bitis)
     durdu = ""
     for gorev, beklenen in (gorevler if gorevler is not None else GOREVLER):
         for duzen_adi, fonk in DUZENLER:
@@ -330,6 +333,27 @@ def parca_olc(beyin, tum, saglayici, bas, son):
         return [{"saglayici": saglayici, "durum": "istemci-yok"}]
     return _saglayici_kos(beyin, mevcut[saglayici], saglayici, tum,
                           lambda _k: None, GOREVLER[bas:son])
+
+
+def coklu_olc(beyin, tum, adlar, bas, son, sure_sn):
+    """Birden cok saglayici PARALEL, GOREVLER[bas:son], sure sinirli."""
+    from concurrent.futures import ThreadPoolExecutor
+    mevcut = dict(beyin._bulut_zinciri(tools=True))
+    bitis = time.time() + sure_sn
+    kayitlar = []
+    isler = {}
+    with ThreadPoolExecutor(max_workers=max(1, len(adlar))) as havuz:
+        for ad in adlar:
+            if ad not in mevcut:
+                kayitlar.append({"saglayici": ad, "durum": "istemci-yok"})
+                continue
+            isler[ad] = havuz.submit(
+                _saglayici_kos, beyin, mevcut[ad], ad, tum,
+                lambda _k: None, GOREVLER[bas:son], bitis)
+        for ad in adlar:
+            if ad in isler:
+                kayitlar.extend(isler[ad].result())
+    return kayitlar
 
 
 def kos(beyin, mevcut, tum):
