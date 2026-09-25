@@ -409,6 +409,7 @@ function calismaKaydi(b) {
     ozet, detaylar, yonlendir, durdur, yonForm, yonInput,
     panel, liste, canli, planEl, kaynakBolumu, kaynakListe,
     plan: [], kaynaklar: [], yonlendirIstegi: null,
+    kesik: false, kesikNedeni: "",
     bitti: false,
   };
 
@@ -617,13 +618,15 @@ function calismaBitir(b) {
   const toplamSure = sureMetni(Date.now() - kayit.baslangic);
   const sayi = kayit.adimlar.length;
   kayit.kart.classList.add("done");
-  kayit.baslik.textContent = sayi
-    ? sayi + " adım tamamlandı"
-    : "Yanıt tamamlandı";
+  kayit.baslik.textContent = kayit.kesik
+    ? "Yanıt tamamlanmadan durdu"
+    : (sayi ? sayi + " adım tamamlandı" : "Yanıt tamamlandı");
   kayit.sure.textContent = toplamSure;
   kayit.mevcut.hidden = true;
-  kayit.ozet.hidden = true;
-  kayit.ozet.textContent = "";
+  kayit.ozet.hidden = !kayit.kesik;
+  kayit.ozet.textContent = kayit.kesik
+    ? "Sağlayıcı çıktı sınırında durdu; cevap metni değiştirilmedi."
+    : "";
   kayit.durdur.remove();
   kayit.yonlendir.remove();
   kayit.yonForm.remove();
@@ -967,7 +970,9 @@ function olayiIsle(o) {
     const b = balonlar.get(no);
     if (b) {
       const kayit = calismaKaydi(b);
-      kayit.canli.textContent = "Yanıt teknik çıktı sınırına ulaştı";
+      kayit.kesik = true;
+      kayit.kesikNedeni = String(o.reason || "limit");
+      kayit.canli.textContent = "Yanıt tamamlanmadan durdu";
     }
     return false;
   }

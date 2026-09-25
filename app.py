@@ -568,6 +568,8 @@ async def durum(request: Request):
         "preview_hafiza_parity": hafiza_modu == "postgres_isolated",
         "tool_policy_default": "auto",
         "tool_discovery": "eager-full-registry",
+        "agent_runtime": "p2-provider-neutral-v2",
+        "checkpoint_resume": False,
     }
 
 

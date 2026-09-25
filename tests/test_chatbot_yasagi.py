@@ -16,7 +16,7 @@ Kapsananlar (davranisla olculur, yoruma degil):
 6. Yasak modul yok: orkestra/onay/izin/kapasite dosyalari donemez.
 7. Yasak isim yok: kelime tetikleyici tanimlayicilar donemez.
 8. Sozlesme zorunluluk tasir: arac gerektiren istekte araci tarif
-   etmek is sayilmaz; baslangic araclari yalniz yetenek_ac'dir.
+   etmek is sayilmaz; auto|required politikasinda tam gercek katalog aciktir.
 """
 
 import ast
@@ -169,6 +169,7 @@ class TestYasakModulYok:
     def test_donen_dosya_yok(self):
         import importlib.util
         for mod in ("brain.orkestra", "brain.kapasite", "chat.approval",
+                    "chat.tool_resolver", "chat.agent_protocol",
                     "tools.executor", "tools.permissions"):
             assert importlib.util.find_spec(mod) is None, mod
 

@@ -1,19 +1,16 @@
-"""P2 ortak ajan runtime sozlesmesi.
+"""P2 provider-neutral ajan runtime sozlesmesi.
 
-Bu modul OpenAI/Anthropic/Gemini/LangGraph ortak desenlerinin Basak'taki
-provider-neutral karsiligidir:
-
-- Capability = arac katalogu. Yetkiyi gizli resolver daraltmaz.
-- tool_policy acik run politikasidir: auto | required | none.
-- Deferred/native tool-search bir OPTIMIZASYON katmanidir; kabiliyet kapisi
-  degildir. Desteklenmeyen provider tam katalogu gorur.
-- Calisma durumu tek AgentRunState icinde izlenir; UI olayi ile run state
-  birbirine karistirilmaz.
+- Capability = gercek arac katalogu; gizli resolver daraltmaz.
+- tool_policy = acik run politikasi: auto | required | none.
+- Run state, UI olayindan ayridir ve disaridan denetlenebilir.
+- Kesilme model cevabina metin eklenmeden state olarak tasinir.
+- Gercek checkpoint/resume henuz uygulanmadi; state bunu acikca bildirir.
 """
 
 from dataclasses import dataclass, field
 from typing import Any
 
+RUNTIME_VERSION = "p2-provider-neutral-v2"
 TOOL_POLICIES = frozenset(("auto", "required", "none"))
 
 AGENT_CONTRACT = (
@@ -32,22 +29,14 @@ AGENT_CONTRACT = (
 
 
 def normalize_tool_policy(value):
-    """Acik run politikasini dogrula; kullanici metninden tahmin ETME."""
     policy = str(value or "auto").strip().lower()
     if policy not in TOOL_POLICIES:
-        raise ValueError(
-            "tool_policy auto, required veya none olmali"
-        )
+        raise ValueError("tool_policy auto, required veya none olmali")
     return policy
 
 
 def capability_surface(tools, policy):
-    """Provider'a verilecek capability yuzeyi.
-
-    P2 ortak tabani eager/full-catalog'dur. Native deferred tool-search daha
-    sonra provider capability'si olarak eklenebilir ama bu fonksiyon hicbir
-    araci semantik olarak gizlemez.
-    """
+    """none disinda tam gercek katalog. Semantik/kelime filtresi YOK."""
     policy = normalize_tool_policy(policy)
     if policy == "none":
         return []
@@ -59,48 +48,108 @@ class AgentRunState:
     run_id: str
     tool_policy: str = "auto"
     status: str = "running"
+    phase: str = "model"
     provider: str = ""
+    truncated_reason: str = ""
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     evidence: list[dict[str, Any]] = field(default_factory=list)
+    trace: list[dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self):
         self.tool_policy = normalize_tool_policy(self.tool_policy)
+        self._record("run_started", tool_policy=self.tool_policy)
+
+    def _record(self, event, **data):
+        self.trace.append({"event": str(event), **data})
+
+    def phase_set(self, phase):
+        phase = str(phase or "")
+        if phase and phase != self.phase:
+            self.phase = phase
+            self._record("phase", phase=phase)
 
     def provider_set(self, provider):
-        if provider:
-            self.provider = str(provider)
+        provider = str(provider or "")
+        if provider and provider != self.provider:
+            onceki = self.provider
+            self.provider = provider
+            self._record("provider", onceki=onceki, yeni=provider)
+
+    def tool_started(self, name, call_id, args=None):
+        self.phase_set("tools")
+        self._record(
+            "tool_started", name=str(name or ""),
+            call_id=str(call_id or ""), args=dict(args or {}),
+        )
 
     def tool_done(self, name, call_id, ok, args=None):
-        self.tool_calls.append({
+        kayit = {
             "name": str(name or ""),
             "call_id": str(call_id or ""),
             "ok": bool(ok),
             "args": dict(args or {}),
-        })
+        }
+        self.tool_calls.append(kayit)
+        self._record("tool_done", **kayit)
 
     def evidence_add(self, url, tool="", call_id=""):
         url = str(url or "")
         if not url or any(x.get("url") == url for x in self.evidence):
             return
-        self.evidence.append({
-            "url": url,
-            "tool": str(tool or ""),
+        item = {
+            "url": url, "tool": str(tool or ""),
             "call_id": str(call_id or ""),
-        })
+        }
+        self.evidence.append(item)
+        self._record("evidence", **item)
+
+    def truncate(self, reason="limit"):
+        self.truncated_reason = str(reason or "limit")
+        self.status = "incomplete"
+        self.phase = "incomplete"
+        self._record("run_truncated", reason=self.truncated_reason)
 
     def complete(self, provider=""):
         self.provider_set(provider)
-        self.status = "completed"
+        if self.truncated_reason:
+            self.status = "incomplete"
+            self.phase = "incomplete"
+        else:
+            self.status = "completed"
+            self.phase = "completed"
+        self._record("run_finished", status=self.status)
 
     def fail(self):
         self.status = "error"
+        self.phase = "error"
+        self._record("run_failed")
 
     def public_snapshot(self):
         return {
+            "runtime_version": RUNTIME_VERSION,
             "run_id": self.run_id,
             "tool_policy": self.tool_policy,
             "status": self.status,
+            "phase": self.phase,
             "provider": self.provider,
             "tool_count": len(self.tool_calls),
             "evidence_count": len(self.evidence),
+            "truncated_reason": self.truncated_reason,
+            "resumable": False,
         }
+
+    def trace_snapshot(self):
+        return {
+            **self.public_snapshot(),
+            "tool_calls": list(self.tool_calls),
+            "evidence": list(self.evidence),
+            "trace": list(self.trace),
+        }
+
+
+def emit_run_state(js_callback, state):
+    if state is None:
+        return
+    yay = getattr(js_callback, "olay", None)
+    if callable(yay):
+        yay("runState", **state.public_snapshot())

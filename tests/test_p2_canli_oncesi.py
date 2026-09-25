@@ -80,25 +80,24 @@ def test_output_marker_sessiz_kesilmeyi_engeller():
     assert not kesik_mi({"_finish_reason": "stop"})
 
 
-def test_kesik_final_teknik_olarak_devam_eder():
-    from chat.output_control import kesik_cevabi_tamamla
+def test_kesik_final_ham_kalir_ve_yapisal_durum_bildirir():
+    from chat.output_control import kesik_cevabi_bildir
 
-    class Beyin:
-        def cevapla(self, mesajlar, model, **kwargs):
-            return {
-                "content": " ikinci",
-                "_finish_reason": "stop",
-            }, "groq"
+    olaylar = []
 
-    cevap, kaynak, tamam = kesik_cevabi_tamamla(
-        Beyin(), None, [{"role": "user", "content": "uzun yaz"}],
+    class Js:
+        def olay(self, tur, **veri):
+            olaylar.append((tur, veri))
+
+    cevap, kaynak, tamam = kesik_cevabi_bildir(
         {"content": "birinci", "_finish_reason": "length"},
+        js_callback=Js(),
         tercih=["groq"],
     )
-    assert cevap == "birinci ikinci"
+    assert cevap == "birinci"
     assert kaynak == "groq"
-    assert tamam is True
-
+    assert tamam is False
+    assert olaylar == [("truncated", {"reason": "length"})]
 
 def test_gercek_provider_parcalari_ui_ya_aynen_akar():
     from chat.output_control import akan_final
@@ -380,3 +379,60 @@ def test_tool_policy_kelime_routeri_degil_acik_run_politikasidir():
         assert False
     except ValueError:
         pass
+
+
+def test_output_control_model_cevabina_metin_eklemez_sahte_devam_yapmaz():
+    import inspect
+    from chat import output_control
+
+    kaynak = inspect.getsource(output_control)
+    assert "TEKNIK DEVAM" not in kaynak
+    assert "Yanıt teknik çıktı sınırına ulaştı; tamamı üretilemedi" not in kaynak
+    assert "brain.cevapla(" not in kaynak
+    assert "kesik_cevabi_tamamla" not in kaynak
+
+
+def test_gizli_arac_secici_ve_meta_kapi_dosyalari_yok():
+    import pathlib
+
+    assert not pathlib.Path("chat/tool_resolver.py").exists()
+    assert not pathlib.Path("chat/agent_protocol.py").exists()
+
+    tools_kaynak = pathlib.Path("chat/tools.py").read_text(encoding="utf-8")
+    flow_kaynak = pathlib.Path("chat/flow.py").read_text(encoding="utf-8")
+    for yasak in (
+        "dinamik_resolver", "arac_karari_coz", "YETENEK_AC_ADI",
+        "SON_CEVAP_ADI", "alan_araclari",
+    ):
+        assert yasak not in tools_kaynak
+        assert yasak not in flow_kaynak
+
+
+def test_agent_run_state_kesilmeyi_cevaptan_ayri_tasir():
+    from chat.agent_runtime import AgentRunState
+
+    s = AgentRunState("r1")
+    s.provider_set("groq")
+    s.tool_started("web_search", "c1", {"query": "x"})
+    s.tool_done("web_search", "c1", True, {"query": "x"})
+    s.evidence_add("https://ornek.test/x", "sayfa_oku", "c2")
+    s.truncate("length")
+    s.complete("groq")
+
+    pub = s.public_snapshot()
+    assert pub["runtime_version"] == "p2-provider-neutral-v2"
+    assert pub["status"] == "incomplete"
+    assert pub["truncated_reason"] == "length"
+    assert pub["tool_count"] == 1
+    assert pub["evidence_count"] == 1
+    assert pub["resumable"] is False
+
+
+def test_namespace_metadata_runtime_araclarini_daraltmaz():
+    from chat.agent_runtime import capability_surface
+    from tools.capabilities import CAPABILITY_NAMESPACES, validate_registry
+    from tools import TOOLS
+
+    assert validate_registry(TOOLS)["ok"] is True
+    assert len(CAPABILITY_NAMESPACES) == 10
+    assert len(capability_surface(TOOLS, "auto")) == len(TOOLS) == 53

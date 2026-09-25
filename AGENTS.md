@@ -6,22 +6,26 @@ Bu dosyayı kod yazan her ajan (Claude Code, Kilo Code, OpenCode) işe başlamad
 
 **Bu kural diğer her şeyin üstündedir. Çiğneyen iş reddedilir.**
 
-Araç seçimini **model yapar**. İlk ajan turunda modele yalnız `yetenek_ac` ve `son_cevap` sunulur; model ihtiyacı olan yetenek alanını seçince sadece o alanın gerçek araç şemaları açılır. **Kod kullanıcı cümlesine bakıp alan veya araç seçmez.**
+Araç seçimini **model yapar**. P2 ortak mimaride `auto|required` çalışma politikasında **53 gerçek araç kataloğu modele açıktır**. `yetenek_ac`, `son_cevap`, gizli resolver veya kategori kapısı aktif mimarinin parçası değildir. Kod kullanıcı cümlesine bakıp alan veya araç seçmez.
 
 **Yeni kelime/tetikleyici mantığı YAZILMAZ.** "Şu kelime geçerse şu aracı aç", "şu cümlede şu çağrı" türü hiçbir eşleştirme kurulmaz. Böyle bir liste büyüdükçe sistem akıllanmaz — kural ezberleyen bir chatbot'a döner.
 
-**Araç eklemek dört yerdir, beşincisi yoktur:**
+**Araç eklemek dört yerdir:**
 
 | # | Nereye | Ne |
 |---|---|---|
-| 1 | `tools/definitions.py` | Araç şeması |
+| 1 | `tools/definitions.py` | Gerçek araç şeması |
 | 2 | `tools/__init__.py` → `calistir()` | Dispatcher dalı |
-| 3 | `chat/agent_protocol.py` → `YETENEK_ALANLARI` | Modelin keşfedebileceği yetenek alanı |
+| 3 | `tools/capabilities.py` | Yalnız test/native-discovery metadata'sı; runtime filtresi DEĞİL |
 | 4 | `chat/tools.py` durum metni | Ekranda görünen çalışma durumu |
 
 **Araç açıklamasına davranış koçluğu yazılmaz.** Açıklama yalnız olguyu söyler: ne yapar, hangi parametreyi alır, **ne döndürür**, sınırı nedir. "Şunu kullanma", "şöyle cevapla", "önce ara sonra konuş" gibi cümleler açıklamaya da prompt'a da girmez.
 
-**Göreve özel/kelimeye bağlı talimat bloğu eklenmez.** `chat/prompts.py` içinde yalnız kimlik bloğu vardır. İstisna: `chat/agent_protocol.py` içindeki `AJAN_SOZLESMESI`, belirli bir kullanıcı niyetini veya aracı seçmez; yalnız resmî tool-calling döngüsünü tanımlar: model alanı/aracı seçer, araç sonucu geri gelir, model yeniden karar verir ve işi `son_cevap` ile bitirir.
+**Göreve özel/kelimeye bağlı talimat bloğu eklenmez.** Provider-neutral ajan çalışma sözleşmesi `chat/agent_runtime.py` içindedir; belirli niyet/aracı seçmez, yalnız gerçek tool-call → gerçek tool-result → aynı ajan döngüsü → final düzenini tanımlar.
+
+**Kesilmiş cevap uygulama tarafından tamamlanmış gibi gösterilmez.** Provider bitiş nedeni ayrı çalışma durumu/olayıdır. Kod model cevabına açıklama satırı EKLEMEZ ve modele gizli "devam et / araç çağırma" system mesajı YOLLAMAZ.
+
+**Temizlik = silme:** kapalı ikinci karar motoru tutulmaz. `chat/tool_resolver.py` ve `chat/agent_protocol.py` P2 mimarisinde bulunamaz; test bunu dosya düzeyinde kilitler.
 
 ### GERİ GETİRİLMESİ KESİNLİKLE YASAK
 

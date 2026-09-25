@@ -18,10 +18,10 @@ from chat.prompts import MISAFIR_BLOGU, kimlik_blogu
 from chat.kimlik import VARSAYILAN_KULLANICI, aktif_kullanici, gorunur_ad
 from chat.agent_runtime import (
     AGENT_CONTRACT, AgentRunState, capability_surface,
-    normalize_tool_policy,
+    emit_run_state, normalize_tool_policy,
 )
 from chat.output_control import (
-    akan_ajan_adimi, akan_final, kesik_cevabi_tamamla, kesik_mi,
+    akan_ajan_adimi, akan_final, kesik_cevabi_bildir, kesik_mi,
 )
 from chat import context as ctx
 from chat.gate import temizle as _temizle
@@ -272,6 +272,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         run_id=str(getattr(js_callback, "istek", "") or ctx.OTURUM_ID),
         tool_policy=tool_policy,
     )
+    emit_run_state(js_callback, state)
     mesajlar = _baglam_kur(
         text, system_prompt, konusmaci,
         AGENT_CONTRACT if arac_acik else "", misafir=misafir)
@@ -328,6 +329,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                     mesajlar, model, tools=ajan_tools, tool_choice=secim)
         except Exception as e:
             state.fail()
+            emit_run_state(js_callback, state)
             hata = str(e)
             if "429" in hata or "rate" in hata.lower():
                 js_callback("BasakUI.error(" + _j(
@@ -345,6 +347,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         if not tool_calls:
             if secim == "required":
                 state.fail()
+                emit_run_state(js_callback, state)
                 js_callback("BasakUI.error(" + _j(
                     "Bu run required modunda fakat gercek arac cagrisi "
                     "olusmadi; duz cevap final kabul edilmedi.") + ")")
@@ -357,16 +360,22 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             if isinstance(yanit, dict) and yanit.get("_streamed"):
                 cevap = _temizle(yanit.get("content", ""))
             elif kesik_mi(yanit):
-                cevap, kaynak, tamam = kesik_cevabi_tamamla(
-                    brain, model, mesajlar, yanit, js_callback=js_callback,
+                cevap, kaynak, tamam = kesik_cevabi_bildir(
+                    yanit, js_callback=js_callback,
                     tercih=[kaynak] if kaynak else None,
                 )
+                if not tamam:
+                    state.truncate(
+                        yanit.get("_finish_reason") or "limit"
+                    )
+                    emit_run_state(js_callback, state)
             else:
                 cevap = _temizle(
                     yanit.get("content", "") if isinstance(yanit, dict)
                     else yanit)
             if cevap:
                 state.complete(kaynak)
+                emit_run_state(js_callback, state)
                 _kaydet(
                     text, _temizle(cevap), kaynak, gecmis, js_callback,
                     konusmaci, misafir=misafir, onbellekle=False,
@@ -374,7 +383,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 )
                 return
             state.fail()
-            js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")")
+            emit_run_state(js_callback, state)
+            js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")"
             return
 
         from chat.tools import arac_dongusu
@@ -382,15 +392,17 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         # Ilk required kararinin isi ilk tool-call'i garanti etmektir.
         # Tool sonucu sonraki model turu compositional olarak AUTO devam eder;
         # aksi halde final cevap vermesi sonsuza kadar yasaklanmis olur.
+        state.phase_set("tools")
+        emit_run_state(js_callback, state)
         cevap, kosan = arac_dongusu(
             tool_calls, mesajlar, brain, model, js_callback, calistir,
             tools=ajan_tools, yanit=yanit, tool_choice="auto",
-            tum_tools=ajan_tools, tercih=[kaynak] if kaynak else None,
-            dinamik_resolver=False, run_state=state)
+            tercih=[kaynak] if kaynak else None, run_state=state)
         cevap = _temizle(cevap)
         if cevap:
-            tamam = "[Yanıt teknik çıktı sınırına ulaştı;" not in cevap
+            tamam = not bool(state.truncated_reason)
             state.complete(state.provider or kaynak)
+            emit_run_state(js_callback, state)
             _kaydet(
                 text, cevap, state.provider or kaynak, gecmis, js_callback,
                 konusmaci, misafir=misafir, arac_kullanildi=kosan > 0,
@@ -399,6 +411,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             return
 
         state.fail()
+        emit_run_state(js_callback, state)
         logger.info("Ajan turu final cevap vermedi (%d arac kostu)", kosan)
         js_callback("BasakUI.error(" + _j(
             "Bu sefer araclardan sonuc alamadim, tekrar dene") + ")")

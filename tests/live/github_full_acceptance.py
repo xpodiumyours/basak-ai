@@ -153,7 +153,7 @@ def _alan_sema_testi(beyin, provider, istemci):
     Araclari calistirmaz; amac provider/modelin Basak'in gercek JSON
     semalarini kabul edip o alandan bir tool_call uretebilmesidir.
     """
-    from chat.agent_protocol import YETENEK_ALANLARI
+    from tools.capabilities import CAPABILITY_NAMESPACES
     from tools import TOOLS
 
     tum = {
@@ -163,7 +163,7 @@ def _alan_sema_testi(beyin, provider, istemci):
     sonuclar = {}
     toplam_sema = 0
 
-    for alan, adlar in YETENEK_ALANLARI.items():
+    for alan, adlar in CAPABILITY_NAMESPACES.items():
         semalar = [tum[ad] for ad in adlar]
         toplam_sema += len(semalar)
         soru = ALAN_SORULARI[alan]

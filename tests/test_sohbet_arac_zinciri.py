@@ -81,51 +81,33 @@ def test_normal_sohbet_arac_varken_bile_dogal_metinle_biter(
 
 def test_arac_zinciri_baslayan_saglayiciyi_once_tutar_ve_fallbacki_devralir():
     from chat.tools import arac_dongusu
-    from chat.agent_protocol import YETENEK_AC_ADI, baslangic_araclari
-
     tercihler = []
     turlar = {"n": 0}
-
+    arac = {"type": "function", "function": {
+        "name": "list_tasks", "description": "Gorevleri listeler",
+        "parameters": {"type": "object", "properties": {}}}}
     class Beyin:
-        def cevapla(self, mesajlar, model, tools=None, tool_choice=None,
-                    tercih=None):
+        def cevapla_yayin(self, *a, **k):
+            from brain.yayin import SonHata
+            raise SonHata("testte stream yok")
+            yield
+        def cevapla(self, mesajlar, model, tools=None, tool_choice=None, tercih=None):
             tercihler.append(list(tercih or []))
             assert tool_choice == "auto"
             turlar["n"] += 1
             if turlar["n"] == 1:
-                # Ilk tercih gemini; Brain teknik nedenle nvidia'da basarmis
-                # gibi davranir. Sonraki tur nvidia'yi oncelemeli.
-                return {"tool_calls": [
-                    _call("list_tasks", "{}", "c2")
-                ]}, "nvidia"
+                return {"tool_calls": [_call("list_tasks", "{}", "c2")]}, "nvidia"
             return {"content": "1 gorev var."}, "nvidia"
-
-    tum_tools = [{
-        "type": "function",
-        "function": {
-            "name": "list_tasks",
-            "description": "Gorevleri listeler",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    }]
-
     cevap, kosan = arac_dongusu(
-        [_call(YETENEK_AC_ADI, '{"alan":"gorevler"}', "c1")],
+        [_call("list_tasks", "{}", "c1")],
         [{"role": "user", "content": "gorevlerime bak"}],
-        Beyin(),
-        None,
-        lambda kod: None,
+        Beyin(), None, lambda kod: None,
         lambda ad, args: {"result": "1: sut al"},
-        tools=baslangic_araclari(),
-        tool_choice="auto",
-        tum_tools=tum_tools,
-        tercih=["gemini"],
+        tools=[arac], tool_choice="auto", tercih=["gemini"],
     )
-
     assert cevap == "1 gorev var."
-    assert kosan == 1
+    assert kosan == 2
     assert tercihler == [["gemini"], ["nvidia"]]
-
 
 def test_openrouter_arac_istegi_parametre_destekli_uclara_gider():
     from brain.openrouter import OpenRouterClient

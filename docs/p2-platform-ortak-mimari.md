@@ -93,3 +93,16 @@ Kod + unit test yeterli degildir. Ayrica:
 6. Provider failover.
 7. Staging DB checkpoint/resume.
 8. Preview mobil/desktop E2E.
+
+
+## 2026-09-25 — provider-neutral runtime v2
+
+- 53 gerçek araç tek runtime capability yüzeyidir.
+- Gizli ikinci araç seçici ve eski meta-kapı dosyaları silinir.
+- 10 namespace yalnız kabul/native discovery metadata'sıdır; araç gizlemez.
+- Tool sonucu aynı run içinde modele döner; sonraki final/tool-call gerçek
+  provider stream yolundan devam eder.
+- Provider `length/max_tokens` ile durursa ham cevap değiştirilmez.
+  `truncated` + run state `incomplete` olarak ayrı taşınır.
+- Uygulama modele sahte teknik devam system mesajı göndermez.
+- `resumable=false`: gerçek checkpoint/resume yapılmadan varmış gibi davranılmaz.
