@@ -115,13 +115,18 @@ def test_run_yuzeyinde_olmayan_gercek_arac_calistirilmaz():
     assert kosan == 0
     assert cevap == "reddedildi"
 
-def test_required_ajan_duz_metni_final_saymaz():
+def test_required_ilk_aractan_sonra_auto_finale_izin_verir():
     from chat.tools import arac_dongusu
 
     class Beyin:
+        def cevapla_yayin(self, *a, **k):
+            from brain.yayin import SonHata
+            raise SonHata("testte stream yok")
+            yield
+
         def cevapla(self, mesajlar, model, tools=None, tool_choice=None):
-            assert tool_choice == "required"
-            return {"content": "Araci kullandim, bitti."}, "groq"
+            assert tool_choice == "auto"
+            return {"content": "Arac sonucu degerlendirildi."}, "groq"
 
     cevap, kosan = arac_dongusu(
         [_call("list_tasks")],
@@ -133,7 +138,7 @@ def test_required_ajan_duz_metni_final_saymaz():
         tool_choice="required",
     )
     assert kosan == 1
-    assert cevap == ""
+    assert cevap == "Arac sonucu degerlendirildi."
 
 
 # 2026-09-22: Mistral eklendi (Yol 1). glhf ayni gun olu ciktigi (HTTP

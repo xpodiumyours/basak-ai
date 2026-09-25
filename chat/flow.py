@@ -384,7 +384,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 return
             state.fail()
             emit_run_state(js_callback, state)
-            js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")"
+            js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")")
             return
 
         from chat.tools import arac_dongusu
