@@ -28,6 +28,14 @@ def kimlik_blogu(kullanici_adi="Casper"):
 KIMLIK_BLOGU = kimlik_blogu("Casper")
 
 
+# Cevap dili (2026-09-25): Anthropic cok dilli destek belgesi, uretimde hedef
+# dilin sistem talimatinda ACIKCA soylenmesini onerir ("Always respond in
+# French, regardless of the language the user writes in"). Eski kisa
+# "Turkce konus." P2 onizlemede gpt-oss'u Turkce'de tutamadi. Bu satir arac
+# veya niyet secmez; yalniz cevap dilini soyler.
+DIL_SATIRI = "Kullanıcı hangi dilde yazarsa yazsın her zaman Türkçe cevap ver."
+
+
 def kisilik_blogu(kid=None, misafir=False):
     """Kişiye özel kişilik bloğu — yabancıya Casper adı sızmaz.
 
@@ -36,16 +44,18 @@ def kisilik_blogu(kid=None, misafir=False):
     Misafir: isimsiz, nötr.
     """
     if misafir:
-        return "Sen Basak'sin. Turkce konus."
+        return "Sen Basak'sin. " + DIL_SATIRI
     from chat.kimlik import VARSAYILAN_KULLANICI, aktif_kullanici, gorunur_ad
     kid = kid or aktif_kullanici()
     ad = gorunur_ad(kid)
     if kid == VARSAYILAN_KULLANICI:
-        return "Sen Basak'sin, Casper'in kisisel asistanisin. Turkce konus."
+        return "Sen Basak'sin, Casper'in kisisel asistanisin. " + DIL_SATIRI
     ham = str(kid or "")
     if ham.startswith("u") and ham[1:].isdigit():
-        return "Sen Basak'sin. Bu kullaniciya ait ayri oturumdasin. Turkce konus."
-    return "Sen Basak'sin, %s adli kullanicinin kisisel asistanisin. Turkce konus." % ad
+        return ("Sen Basak'sin. Bu kullaniciya ait ayri oturumdasin. "
+                + DIL_SATIRI)
+    return ("Sen Basak'sin, %s adli kullanicinin kisisel asistanisin. " % ad
+            + DIL_SATIRI)
 
 
 # Misafir kimligi: yabanci ziyaretciye Casper'in adi verilmez,

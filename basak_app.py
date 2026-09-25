@@ -60,8 +60,10 @@ def _gecmis_yolu():
     from chat.kimlik import kullanici_koku
     return os.path.join(kullanici_koku(), "gecmis.json")
 
+from chat.prompts import DIL_SATIRI
+
 KISILIK = (
-    "Sen Basak'sin, Casper'in kisisel asistanisin. Turkce konus."
+    "Sen Basak'sin, Casper'in kisisel asistanisin. " + DIL_SATIRI
 )
 
 
