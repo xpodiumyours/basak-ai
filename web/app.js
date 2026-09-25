@@ -412,6 +412,7 @@ function calismaKaydi(b) {
     plan: [], kaynaklar: [], yonlendirIstegi: null,
     handoffToken: "", toolPolicy: "auto",
     kesik: false, kesikNedeni: "",
+    mola: false,
     bitti: false,
   };
 
@@ -631,6 +632,79 @@ function calismaBitir(b) {
   kayit.detaylar.textContent = "Detaylar";
   kayit.canli.textContent = kayit.baslik.textContent;
   adimlariCiz(kayit);
+}
+
+// Sunucu süresi dolmadan Başak mola verir; iş kendiliğinden sürmez, karar
+// kullanıcıdadır. Yapılan adımların sonuçları imzalı devam kaydında kalır.
+function calismaMolaVer(b) {
+  const kayit = durumSaatleri.get(b);
+  if (!kayit || kayit.bitti || kayit.mola) return;
+  aktifAdimiTamamla(kayit);
+  kayit.mola = true;
+  if (kayit.zamanlayici) clearInterval(kayit.zamanlayici);
+  kayit.zamanlayici = null;
+  kayit.kart.classList.add("paused");
+  const sure = sureMetni(Date.now() - kayit.baslangic);
+  const sayi = kayit.adimlar.length;
+  kayit.baslik.textContent = "Mola · " + sayi + " adım tamamlandı";
+  kayit.sure.textContent = sure;
+  kayit.mevcut.hidden = true;
+  kayit.ozet.hidden = false;
+  kayit.ozet.textContent =
+    "Başak " + sure + " süredir çalışıyor. Bulunanlar saklandı; nasıl devam edelim?";
+  if (kayit.durdur?.isConnected) kayit.durdur.remove();
+
+  const devam = document.createElement("button");
+  devam.type = "button";
+  devam.className = "work-action work-continue";
+  devam.textContent = "Devam et";
+
+  const cevapla = document.createElement("button");
+  cevapla.type = "button";
+  cevapla.className = "work-action work-answer";
+  cevapla.textContent = "Bulduklarınla cevap ver";
+
+  kayit.yonlendir.parentNode.insertBefore(devam, kayit.yonlendir);
+  kayit.yonlendir.parentNode.insertBefore(cevapla, kayit.yonlendir);
+  kayit.yonlendir.disabled = false;
+  kayit.yonlendir.hidden = false;
+
+  const sec = (secenek) => {
+    if (kayit.bitti) return;
+    kayit.bitti = true;
+    devam.remove();
+    cevapla.remove();
+    if (kayit.yonlendir?.isConnected) kayit.yonlendir.remove();
+    if (kayit.yonForm?.isConnected) kayit.yonForm.remove();
+    kayit.ozet.textContent = sayi + " adım tamamlandı · seçiminle sürüyor.";
+    // Devam kaydı tıklama anında okunur: en son imzalı durum taşınır.
+    molaSonrasiGonder({ ...secenek, yonlendirmeBaglami: yonlendirmeBaglamiOlustur(b) });
+  };
+
+  devam.addEventListener("click", () => sec({
+    text: "Kaldığın yerden devam et.",
+    gorunenMetin: "Devam et",
+  }));
+  cevapla.addEventListener("click", () => sec({
+    text: "Şimdiye kadar bulduklarınla cevap ver.",
+    gorunenMetin: "Bulduklarınla cevap ver",
+  }));
+  kayit.yonlendirIstegi = (yon) => sec({
+    text: yon,
+    gorunenMetin: "Yönlendirme: " + yon,
+  });
+
+  kayit.canli.textContent = kayit.ozet.textContent;
+  adimlariCiz(kayit);
+}
+
+function molaSonrasiGonder(secenek) {
+  // Mola olayını getiren istek kapanana kadar bekle; sonra yeni istek aç.
+  const dene = () => {
+    if (gonderiliyor) { setTimeout(dene, 150); return; }
+    send(secenek);
+  };
+  dene();
 }
 
 function calismaDurdur(b, neden = "durdur") {
@@ -971,6 +1045,12 @@ function olayiIsle(o) {
     return false;
   }
 
+  if (o.tur === "checkpoint") {
+    const b = balonlar.get(no);
+    if (b) calismaMolaVer(b);
+    return false;
+  }
+
   if (o.tur === "truncated") {
     const b = balonlar.get(no);
     if (b) {
@@ -1086,6 +1166,8 @@ async function canliYanitiOku(r, baslangicBalonu) {
         kaynak: String(o.kaynak || ""),
         hata: "",
       };
+    } else if (o.tur === "checkpoint") {
+      sonuc = { ok: false, mola: true, cevap: "", kaynak: "", hata: "" };
     } else if (o.tur === "error") {
       sonuc = {
         ok: false,
@@ -1103,7 +1185,7 @@ async function canliYanitiOku(r, baslangicBalonu) {
     } catch (e) {
       // bitir/error zaten geldiyse kullanıcıya gösterilmiş terminal sonucu
       // sonradan olan bağlantı kapanması yüzünden silme.
-      if (sonuc.ok || sonuc.hata) break;
+      if (sonuc.ok || sonuc.hata || sonuc.mola) break;
       // Durdur/Yönlendir kasıtlı keser; o yol kendi davranışını korur.
       if (e && e.name === "AbortError") throw e;
       throw kesilmeHatasi();
@@ -1130,7 +1212,7 @@ async function canliYanitiOku(r, baslangicBalonu) {
     if (tamSatir) await satiriIsle(tampon);
   }
 
-  if (!sonuc.ok && !sonuc.hata) {
+  if (!sonuc.ok && !sonuc.hata && !sonuc.mola) {
     throw kesilmeHatasi();
   }
   return sonuc;
@@ -1288,6 +1370,10 @@ async function send(secenek = {}) {
       for (const o of d.olaylar) {
         olayiBaslangicBalonunaBagla(o, bekleyenBalon);
         olayiIsle(o);
+      }
+      if (d.olaylar.some((o) => o && o.tur === "checkpoint")) {
+        onizlemeTemizle();
+        return;
       }
       if (!r.ok || !d.ok) throw new Error(d.error || "Sohbet isteği başarısız");
 

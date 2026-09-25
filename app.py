@@ -14,6 +14,7 @@ import json
 import os
 import tempfile
 import threading
+import time
 import uuid
 from pathlib import Path
 
@@ -323,16 +324,25 @@ def _yonlendirme_baglami_dogrula(raw, anahtar):
     olaylar = paket.get("olaylar")
     if not isinstance(olaylar, list) or not olaylar:
         raise ValueError("yonlendirme snapshot bos")
+    # Mola sonrasi devam zincirinde birden fazla run olabilir; her run
+    # kendi runContext'ini tasimali. Icerik zaten sunucu imzasiyla dogrulu.
     runlar = {str(o.get("istek") or "") for o in olaylar
               if isinstance(o, dict)}
-    if len(runlar) != 1 or "" in runlar:
-        raise ValueError("yonlendirme baglami tek run olmali")
-    if not any(o.get("tur") == "runContext" for o in olaylar):
+    if not runlar or "" in runlar:
+        raise ValueError("yonlendirme baglami run kimligi eksik")
+    baglamli = {str(o.get("istek") or "") for o in olaylar
+                if isinstance(o, dict) and o.get("tur") == "runContext"}
+    if baglamli != runlar:
         raise ValueError("yonlendirme run baglami eksik")
     return {"schema": _HANDOFF_SCHEMA, "olaylar": olaylar}
 
 
 _AKIS_MIME = "application/x-ndjson"
+
+# Vercel bir istege en fazla 300 sn verir (vercel.json maxDuration). Arac
+# turu bu sureden once bitince run duraklar ve karar kullaniciya kalir;
+# kalan pay bir model cagrisi + bir arac turuna yeter. Is kesilmez.
+_MOLA_SN = 180
 _AKIS_SESSIZLIK_SN = 10.0
 _AKIS_SON = object()
 
@@ -735,6 +745,11 @@ async def sohbet(request: Request):
             iptal=iptal,
             handoff_key=handoff_key,
         )
+        if yonlendirme_baglami:
+            # Devam zincirinde onceki runlarin dogrulanmis olaylari yeni
+            # handoff'ta da kalir; ikinci moladan sonra ilk sonuclar kaybolmaz.
+            kayit.handoff_olaylar = list(yonlendirme_baglami["olaylar"])
+        mola_zamani = time.monotonic() + _MOLA_SN
 
         def _kos(akis_hatasi=False, gecici_temizle=False):
             try:
@@ -760,6 +775,7 @@ async def sohbet(request: Request):
                     gecmis_override=_gecmis(body or {}),
                     yonlendirme_baglami=yonlendirme_baglami,
                     tool_policy=tool_policy,
+                    mola_zamani=mola_zamani,
                 )
             except _AkisIptal:
                 return

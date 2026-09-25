@@ -5,7 +5,8 @@
 - tool_policy = acik run politikasi: auto | required | none.
 - Run state, UI olayindan ayridir ve disaridan denetlenebilir.
 - Kesilme model cevabina metin eklenmeden state olarak tasinir.
-- Gercek checkpoint/resume henuz uygulanmadi; state bunu acikca bildirir.
+- Sunucu suresi dolmadan run "paused" durumuna gecer; kullanici devam,
+  cevap veya yeni yon secer. Devam, imzali handoff ile yeni istekte surer.
 """
 
 from dataclasses import dataclass, field
@@ -123,6 +124,12 @@ class AgentRunState:
         self.phase = "incomplete"
         self._record("run_truncated", reason=self.truncated_reason)
 
+    def pause(self, reason="sure"):
+        """Is bitmeden kullaniciya karar birakilir; hicbir sonuc atilmaz."""
+        self.status = "paused"
+        self.phase = "paused"
+        self._record("run_paused", reason=str(reason or "sure"))
+
     def complete(self, provider=""):
         self.provider_set(provider)
         if self.truncated_reason:
@@ -149,7 +156,7 @@ class AgentRunState:
             "tool_count": len(self.tool_calls),
             "evidence_count": len(self.evidence),
             "truncated_reason": self.truncated_reason,
-            "resumable": False,
+            "resumable": self.status == "paused",
         }
 
     def trace_snapshot(self):

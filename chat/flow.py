@@ -171,81 +171,105 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
 
 
 def _yonlendirme_mesajlari(baglam, mevcut_mesajlar):
-    """Dogrulanmis onceki run olaylarini provider-neutral mesaja cevir."""
+    """Dogrulanmis onceki run olaylarini provider-neutral mesaja cevir.
+
+    Mola sonrasi devamda handoff birden fazla run tasir (ilk soru, "devam",
+    "yon"...). Her run kendi sirasiyla yeniden kurulur: kullanici metni,
+    arac cagrilari + gercek sonuclari, varsa yarim metin. Cagri kimlikleri
+    runlar arasinda cakismaz.
+    """
     if not isinstance(baglam, dict):
         return []
     olaylar = baglam.get("olaylar")
     if not isinstance(olaylar, list):
         return []
 
+    run_sirasi = []
+    run_olaylari = {}
+    for olay in olaylar:
+        if not isinstance(olay, dict):
+            continue
+        istek = str(olay.get("istek") or "")
+        if istek not in run_olaylari:
+            run_sirasi.append(istek)
+            run_olaylari[istek] = []
+        run_olaylari[istek].append(olay)
+
     ek = []
+    gorulen_idler = set()
+    for istek in run_sirasi:
+        run_ol = run_olaylari[istek]
+        run = next((o for o in run_ol if o.get("tur") == "runContext"), {})
+        onceki_istek = str(run.get("metin") or "")
+        zaten_var = any(
+            isinstance(m, dict)
+            and m.get("role") == "user"
+            and str(m.get("content") or "") == onceki_istek
+            for m in list(mevcut_mesajlar or []) + ek
+        )
+        if onceki_istek and not zaten_var:
+            ek.append({"role": "user", "content": onceki_istek})
+
+        turlar = {}
+        for olay in run_ol:
+            if olay.get("tur") != "toolDone":
+                continue
+            try:
+                tur = int(olay.get("turn") or 0)
+            except (TypeError, ValueError):
+                tur = 0
+            turlar.setdefault(tur, []).append(olay)
+
+        for tur in sorted(turlar):
+            cagrilar = []
+            sonuclar = []
+            for i, olay in enumerate(turlar[tur]):
+                ad = str(olay.get("name") or "")
+                if not ad:
+                    continue
+                cagri_id = str(olay.get("id") or ("handoff_%s_%s" % (tur, i)))
+                if cagri_id in gorulen_idler:
+                    cagri_id = "%s_%s" % (istek or "run", cagri_id)
+                gorulen_idler.add(cagri_id)
+                args = olay.get("args")
+                if not isinstance(args, dict):
+                    args = {}
+                cagrilar.append({
+                    "id": cagri_id,
+                    "type": "function",
+                    "function": {
+                        "name": ad,
+                        "arguments": json.dumps(
+                            args, ensure_ascii=False, separators=(",", ":")
+                        ),
+                    },
+                })
+                sonuclar.append({
+                    "role": "tool",
+                    "tool_call_id": cagri_id,
+                    "name": ad,
+                    "content": str(olay.get("result") or ""),
+                })
+            if cagrilar:
+                ek.append({
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": cagrilar,
+                })
+                ek.extend(sonuclar)
+
+        kismi = "".join(
+            str(o.get("metin") or "")
+            for o in run_ol if o.get("tur") == "parca"
+        )
+        if kismi:
+            ek.append({"role": "assistant", "content": kismi})
+
     run = next(
         (o for o in olaylar if isinstance(o, dict)
          and o.get("tur") == "runContext"),
         {},
     )
-    onceki_istek = str(run.get("metin") or "")
-    zaten_var = any(
-        isinstance(m, dict)
-        and m.get("role") == "user"
-        and str(m.get("content") or "") == onceki_istek
-        for m in (mevcut_mesajlar or [])
-    )
-    if onceki_istek and not zaten_var:
-        ek.append({"role": "user", "content": onceki_istek})
-
-    turlar = {}
-    for olay in olaylar:
-        if not isinstance(olay, dict) or olay.get("tur") != "toolDone":
-            continue
-        try:
-            tur = int(olay.get("turn") or 0)
-        except (TypeError, ValueError):
-            tur = 0
-        turlar.setdefault(tur, []).append(olay)
-
-    for tur in sorted(turlar):
-        cagrilar = []
-        sonuclar = []
-        for i, olay in enumerate(turlar[tur]):
-            ad = str(olay.get("name") or "")
-            cagri_id = str(olay.get("id") or ("handoff_%s_%s" % (tur, i)))
-            args = olay.get("args")
-            if not isinstance(args, dict):
-                args = {}
-            if not ad:
-                continue
-            cagrilar.append({
-                "id": cagri_id,
-                "type": "function",
-                "function": {
-                    "name": ad,
-                    "arguments": json.dumps(
-                        args, ensure_ascii=False, separators=(",", ":")
-                    ),
-                },
-            })
-            sonuclar.append({
-                "role": "tool",
-                "tool_call_id": cagri_id,
-                "name": ad,
-                "content": str(olay.get("result") or ""),
-            })
-        if cagrilar:
-            ek.append({
-                "role": "assistant",
-                "content": "",
-                "tool_calls": cagrilar,
-            })
-            ek.extend(sonuclar)
-
-    kismi = "".join(
-        str(o.get("metin") or "")
-        for o in olaylar
-        if isinstance(o, dict) and o.get("tur") == "parca"
-    )
-    if kismi:
-        ek.append({"role": "assistant", "content": kismi})
 
     son_durum = next(
         (o for o in reversed(olaylar)
@@ -301,7 +325,7 @@ def _beyin_hata_mesaji(hata, onek):
 def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                misafir=False, gecmis_override=None,
                yonlendirme_baglami=None, tool_policy="auto",
-               run_state=None):
+               run_state=None, mola_zamani=None):
     """Bir mesajı baştan sona işler."""
     text, konusmaci = _konusmaci_ayir((text or "").strip())
 
@@ -472,7 +496,10 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             tool_calls, mesajlar, brain, model, js_callback, calistir,
             tools=ajan_tools, yanit=yanit, tool_choice="auto",
             tercih=[kaynak] if kaynak else None, run_state=state,
-            katalog=katalog)
+            katalog=katalog, mola_zamani=mola_zamani)
+        if state.status == "paused":
+            # Karar kullanicida: devam / cevap / yon. Hata degil.
+            return
         cevap = _temizle(cevap)
         if cevap:
             tamam = not bool(state.truncated_reason)

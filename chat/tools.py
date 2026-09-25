@@ -176,13 +176,19 @@ def sonucu_donustur(sonuc):
 def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                  calistir, tools=None, yanit=None,
                  tool_choice=None, tercih=None, run_state=None,
-                 katalog=None):
+                 katalog=None, mola_zamani=None):
     """Arac sonuclarini modele geri vererek ajan turunu surdurur.
 
     Gercek arac secimini MODEL yapar. `yetenek_ac` modelin sectigi
     alan(lar)in gercek semalarini `katalog`tan acar; acilan alanlar run
     boyunca acik kalir. Kod kullanici metnine bakmaz.
+
+    mola_zamani: sunucu suresi (Vercel maxDuration) dolmadan once, bir arac
+    turu bittikten sonra run duraklatilir ("checkpoint" olayi, run_state
+    paused). Is kesilmez: sonuclar imzali handoff'ta kalir, kullanici devam
+    eder, cevap ister veya yon verir. Masaustunde verilmez.
     """
+    import time as _zaman
     from chat.gate import temizle
     from chat.agent_protocol import (
         YETENEK_AC_ADI, YETENEK_ALANLARI, acik_alan_araclari,
@@ -424,6 +430,15 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 "name": ad,
                 "content": sonuc,
             })
+
+        # Sure dolmak uzereyse yeni model turu baslatma; karari kullaniciya
+        # birak. Bu tur arac sonuclari handoff'a zaten yazildi.
+        if mola_zamani is not None and _zaman.monotonic() >= mola_zamani:
+            _web_olay(js_callback, "checkpoint", adim=kosan, turn=tur_no)
+            if run_state is not None:
+                run_state.pause("sure")
+                emit_run_state(js_callback, run_state)
+            return "", kosan
 
         # Gercek tool-result ayni run icinde modele geri gider.
         if run_state is not None:

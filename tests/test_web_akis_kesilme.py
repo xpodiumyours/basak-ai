@@ -105,3 +105,10 @@ def test_durdur_iptali_aynen_iletilir():
     s = _kos(['{"tur":"ping"}\n'], abort=True)
     assert s["ok"] is False
     assert s["ad"] == "AbortError"
+
+
+def test_mola_olayi_hata_degil_karar_bekler():
+    s = _kos(['{"tur":"ping"}\n', '{"tur":"checkpoint","adim":3}\n'])
+    assert s["ok"] is True
+    assert s["sonuc"]["mola"] is True
+    assert s["sonuc"]["ok"] is False

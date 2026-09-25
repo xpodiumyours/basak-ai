@@ -351,6 +351,13 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .work-card.stopped .work-details::before{bottom:8px}
 .work-card.done .work-pulse{animation:none;background:#39734d;box-shadow:none}
 .work-card.stopped .work-pulse{animation:none;background:#8b3030;box-shadow:none}
+/* Mola: sunucu süresi dolmadan karar kullanıcıya bırakılır. */
+.work-card.paused .work-pulse{animation:none;background:#4f5968;box-shadow:none}
+.work-continue{
+  min-height:36px;padding:0 12px;border-radius:9px;
+  background:#27272b;color:#fff
+}
+.work-continue:hover{background:#171719;color:#fff}
 .sr-only{
   position:absolute!important;width:1px!important;height:1px!important;padding:0!important;
   margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;
