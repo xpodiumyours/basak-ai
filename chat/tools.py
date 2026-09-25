@@ -71,6 +71,7 @@ DURUM_METNI = {
     "cikti_oku": "Çıktı okunuyor",
     "sirket_ara": "Şirket bilgisi araştırılıyor",
     "hava_durumu": "Hava durumu okunuyor",
+    "yetenek_ac": "Araçlar açılıyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.
@@ -174,15 +175,23 @@ def sonucu_donustur(sonuc):
 
 def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                  calistir, tools=None, yanit=None,
-                 tool_choice=None, tercih=None, run_state=None):
+                 tool_choice=None, tercih=None, run_state=None,
+                 katalog=None):
     """Arac sonuclarini modele geri vererek ajan turunu surdurur.
 
-    P2 aktif yolunda full capability registry modele aciktir; model native
-    function calling ile GERCEK araci secer. Meta yetenek kapisi yoktur.
+    Gercek arac secimini MODEL yapar. `yetenek_ac` modelin sectigi
+    alan(lar)in gercek semalarini `katalog`tan acar; acilan alanlar run
+    boyunca acik kalir. Kod kullanici metnine bakmaz.
     """
     from chat.gate import temizle
+    from chat.agent_protocol import (
+        YETENEK_AC_ADI, YETENEK_ALANLARI, acik_alan_araclari,
+        istenen_alanlar,
+    )
     from chat.agent_runtime import emit_run_state
     from tools.definitions import TANINMIS_TOOLLAR
+
+    acik_alanlar = []  # run boyunca acik kalan yetenek alanlari
 
     expanded = list(mesajlar)
     kosan = 0
@@ -280,6 +289,38 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             args = parse_args(func.get("arguments", "{}"))
             cagri_id = call.get("id") or "call_%d" % len(tur_sonuclari)
 
+            if ad == YETENEK_AC_ADI:
+                istenen = istenen_alanlar(args)
+                bilinmeyen = [a for a in istenen if a not in YETENEK_ALANLARI]
+                if ad not in sunulan_adlar:
+                    net = "Hata: yetenek_ac bu turda sunulmadi."
+                elif katalog is None:
+                    net = "Hata: gercek arac katalogu bu akista yok."
+                elif not istenen or bilinmeyen:
+                    net = "Hata: bilinmeyen yetenek alani: %s. Gecerli: %s" % (
+                        ", ".join(bilinmeyen) or "-",
+                        ", ".join(YETENEK_ALANLARI))
+                else:
+                    for alan in istenen:
+                        if alan not in acik_alanlar:
+                            acik_alanlar.append(alan)
+                    tools = acik_alan_araclari(katalog, acik_alanlar)
+                    net = json.dumps({
+                        "acik_alanlar": list(acik_alanlar),
+                        "kullanilabilir_araclar": [
+                            (t.get("function") or {}).get("name")
+                            for t in tools
+                            if (t.get("function") or {}).get("name")
+                            != YETENEK_AC_ADI
+                        ],
+                    }, ensure_ascii=False)
+                    js_callback("BasakUI.toolStatus(" + _j(
+                        "Araçlar açılıyor: " + ", ".join(istenen)) + ")")
+                    if run_state is not None:
+                        run_state.capability_opened(istenen, cagri_id)
+                tur_sonuclari.append((ad, net, cagri_id))
+                continue
+
             if ad not in TANINMIS_TOOLLAR:
                 tur_sonuclari.append((
                     ad, "Hata: bilinmeyen arac.", cagri_id))
@@ -288,7 +329,8 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             if ad not in sunulan_adlar:
                 tur_sonuclari.append((
                     ad,
-                    "Hata: bu arac bu run'in capability yuzeyinde yok.",
+                    "Hata: bu arac su an acik degil; once yetenek_ac ile "
+                    "ilgili alani ac.",
                     cagri_id,
                 ))
                 continue

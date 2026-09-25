@@ -1,6 +1,7 @@
 """P2 provider-neutral ajan runtime sozlesmesi.
 
-- Capability = gercek arac katalogu; gizli resolver daraltmaz.
+- Capability = gercek arac katalogu; model yetenek_ac ile alan acar,
+  gizli resolver/kelime filtresi yoktur.
 - tool_policy = acik run politikasi: auto | required | none.
 - Run state, UI olayindan ayridir ve disaridan denetlenebilir.
 - Kesilme model cevabina metin eklenmeden state olarak tasinir.
@@ -15,7 +16,10 @@ TOOL_POLICIES = frozenset(("auto", "required", "none"))
 
 AGENT_CONTRACT = (
     "AJAN CALISMA PROTOKOLU:\n"
-    "- Sunulan semalar gercek ve cagrilabilir arac katalogudur.\n"
+    "- Ilk turda yalniz yetenek_ac sunulur; bir veya birkac yetenek "
+    "alanini acar. Acilan alanlarin semalari gercek ve cagrilabilir arac "
+    "katalogudur ve run boyunca acik kalir.\n"
+    "- Arac gerekmiyorsa dogrudan metinle cevap verilebilir.\n"
     "- Bir tool_call uygulama tarafindan calistirilir ve tool sonucu ayni "
     "run icinde sana geri verilir.\n"
     "- Her tool sonucundan sonra sonraki tool_call veya final kararini "
@@ -33,7 +37,12 @@ def normalize_tool_policy(value):
 
 
 def capability_surface(tools, policy):
-    """none disinda tam gercek katalog. Semantik/kelime filtresi YOK."""
+    """Run'in gercek arac katalogu: none disinda tamami, kelime filtresi YOK.
+
+    Katalog modele tek seferde dokulmez; model yetenek_ac ile alan acar
+    (chat.agent_protocol). Bu fonksiyon yalniz hangi katalogdan
+    acilabilecegini belirler.
+    """
     policy = normalize_tool_policy(policy)
     if policy == "none":
         return []
@@ -77,6 +86,12 @@ class AgentRunState:
         self._record(
             "tool_started", name=str(name or ""),
             call_id=str(call_id or ""), args=dict(args or {}),
+        )
+
+    def capability_opened(self, alanlar, call_id=""):
+        self._record(
+            "capability_opened", alanlar=list(alanlar or []),
+            call_id=str(call_id or ""),
         )
 
     def tool_done(self, name, call_id, ok, args=None, result=None, turn=None):

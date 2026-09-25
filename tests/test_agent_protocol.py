@@ -19,7 +19,7 @@ def test_53_arac_namespace_metadata_tam_katalogu_kapsar():
     from tools.definitions import TOOLS, TANINMIS_TOOLLAR
     sonuc = validate_registry(TOOLS)
     assert sonuc == {
-        "ok": True, "tool_count": 53, "namespace_count": 10,
+        "ok": True, "tool_count": 53, "namespace_count": 13,
         "missing": [], "unknown": [], "duplicates": [],
     }
     assert len(TANINMIS_TOOLLAR) == 53
@@ -31,12 +31,13 @@ def test_auto_policy_tam_53_gercek_araci_modele_verir():
     assert capability_surface(TOOLS, "required") == TOOLS
     assert capability_surface(TOOLS, "none") == []
 
-def test_namespace_metadata_runtime_kapisi_degildir():
+def test_her_yetenek_alani_ondan_az_arac_tasir():
+    # OpenAI tool search onerisi: grup basina 10'dan az arac.
     from chat.agent_runtime import capability_surface
     from tools.capabilities import CAPABILITY_NAMESPACES, namespace_schemas
     from tools.definitions import TOOLS
-    assert max(len(x) for x in CAPABILITY_NAMESPACES.values()) <= 11
-    assert len(namespace_schemas("internet", TOOLS)) == 11
+    assert max(len(x) for x in CAPABILITY_NAMESPACES.values()) < 10
+    assert len(namespace_schemas("internet_ara", TOOLS)) == 8
     assert len(capability_surface(TOOLS, "auto")) == 53
 
 def test_ajan_sozlesmesi_kelime_routeri_degildir():
@@ -578,10 +579,10 @@ def test_52_aracin_dispatcher_dali_birebir_var():
     assert len(dallar) == 53
 
 
-def test_10_namespace_53_araci_eksiksiz_tasir():
+def test_13_namespace_53_araci_eksiksiz_tasir():
     from tools.capabilities import CAPABILITY_NAMESPACES
     from tools.definitions import TANINMIS_TOOLLAR
-    assert len(CAPABILITY_NAMESPACES) == 10
+    assert len(CAPABILITY_NAMESPACES) == 13
     duz = [ad for araclar in CAPABILITY_NAMESPACES.values() for ad in araclar]
     assert len(duz) == 53
     assert len(set(duz)) == 53

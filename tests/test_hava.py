@@ -25,7 +25,7 @@ class TestUcYer:
 
     def test_yetenek_alaninda_internet(self):
         from tools.capabilities import CAPABILITY_NAMESPACES
-        assert "hava_durumu" in CAPABILITY_NAMESPACES["internet"]
+        assert "hava_durumu" in CAPABILITY_NAMESPACES["internet_ara"]
 
     def test_sema_zorunlu_sehir(self):
         from tools.definitions import TOOLS

@@ -312,7 +312,9 @@ def test_p2_aktif_flow_hidden_resolver_kullanmaz():
     assert "ajan_tools = list(etkin_tools)" in kaynak
 
 
-def test_auto_policy_tam_gercek_katalogu_modele_verir():
+def test_auto_policy_ilk_turda_yalniz_yetenek_ac_sunar():
+    # AGENTS §0: katalog modele tek seferde dokulmez; model alani acar.
+    from chat.agent_protocol import baslangic_araclari
     from chat.flow import mesaj_isle
     from tools import TOOLS
 
@@ -326,7 +328,7 @@ def test_auto_policy_tam_gercek_katalogu_modele_verir():
         def cevapla(self, mesajlar, model, tools=None,
                     tool_choice=None, **kwargs):
             assert tool_choice == "auto"
-            assert len(tools or []) == len(TOOLS) == 53
+            assert tools == baslangic_araclari()
             return {"content": "dogal final"}, "groq"
 
     olaylar = []
@@ -338,6 +340,7 @@ def test_auto_policy_tam_gercek_katalogu_modele_verir():
 
 
 def test_required_policy_tool_call_olmadan_finali_reddeder():
+    from chat.agent_protocol import baslangic_araclari
     from chat.flow import mesaj_isle
     from tools import TOOLS
 
@@ -347,7 +350,7 @@ def test_required_policy_tool_call_olmadan_finali_reddeder():
         def cevapla(self, mesajlar, model, tools=None,
                     tool_choice=None, **kwargs):
             assert tool_choice == "required"
-            assert len(tools or []) == len(TOOLS)
+            assert tools == baslangic_araclari()
             return {"content": "aracsiz final"}, "groq"
 
     olaylar = []
@@ -393,17 +396,17 @@ def test_output_control_model_cevabina_metin_eklemez_sahte_devam_yapmaz():
     assert "kesik_cevabi_tamamla" not in kaynak
 
 
-def test_gizli_arac_secici_ve_meta_kapi_dosyalari_yok():
+def test_gizli_arac_secici_dosyasi_yok():
+    # Yetenek alanlarini MODEL acar (chat/agent_protocol.py, AGENTS §0);
+    # kullanici metnine bakip arac secen resolver yoktur.
     import pathlib
 
     assert not pathlib.Path("chat/tool_resolver.py").exists()
-    assert not pathlib.Path("chat/agent_protocol.py").exists()
 
     tools_kaynak = pathlib.Path("chat/tools.py").read_text(encoding="utf-8")
     flow_kaynak = pathlib.Path("chat/flow.py").read_text(encoding="utf-8")
     for yasak in (
-        "dinamik_resolver", "arac_karari_coz", "YETENEK_AC_ADI",
-        "SON_CEVAP_ADI", "alan_araclari",
+        "dinamik_resolver", "arac_karari_coz", "SON_CEVAP_ADI",
     ):
         assert yasak not in tools_kaynak
         assert yasak not in flow_kaynak
@@ -435,7 +438,9 @@ def test_namespace_metadata_runtime_araclarini_daraltmaz():
     from tools import TOOLS
 
     assert validate_registry(TOOLS)["ok"] is True
-    assert len(CAPABILITY_NAMESPACES) == 10
+    assert len(CAPABILITY_NAMESPACES) == 13
+    # OpenAI tool search onerisi: grup basina 10'dan az arac.
+    assert max(len(x) for x in CAPABILITY_NAMESPACES.values()) < 10
     assert len(capability_surface(TOOLS, "auto")) == len(TOOLS) == 53
 
 

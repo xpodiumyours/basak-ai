@@ -97,9 +97,12 @@ Kod + unit test yeterli degildir. Ayrica:
 
 ## 2026-09-25 — provider-neutral runtime v2
 
-- 53 gerçek araç tek runtime capability yüzeyidir.
-- Gizli ikinci araç seçici ve eski meta-kapı dosyaları silinir.
-- 10 namespace yalnız kabul/native discovery metadata'sıdır; araç gizlemez.
+- 53 gerçek araç tek runtime capability kataloğudur.
+- Gizli ikinci araç seçici silinir.
+- 2026-09-25 (Casper kararı, AGENTS.md §0): katalog modele tek seferde
+  dökülmez. İlk turda yalnız `yetenek_ac` sunulur; model bir veya birkaç
+  alanı açar, açılan alan run boyunca açık kalır. 13 alan, her biri 10'dan az
+  araç (OpenAI tool search/namespace ve Anthropic tool search önerileri).
 - Tool sonucu aynı run içinde modele döner; sonraki final/tool-call gerçek
   provider stream yolundan devam eder.
 - Provider `length/max_tokens` ile durursa ham cevap değiştirilmez.

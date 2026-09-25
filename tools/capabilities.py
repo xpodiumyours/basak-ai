@@ -1,45 +1,15 @@
 """Basak gercek capability registry metadata'si.
 
 53 gercek arac icin tek runtime kaynak tools.definitions.TOOLS'tur.
-Bu namespace'ler arac SECMEZ; kullanici metnini SINIFLANDIRMAZ ve runtime
-capability yuzeyini DARALTAMAZ. Yalniz test/kabul/dokumantasyon ve gelecekte
-provider-native deferred/tool-search metadata'si icindir.
+Namespace'ler kullanici metnini SINIFLANDIRMAZ; modelin yetenek_ac ile
+sectigi alan adini gercek arac semalarina ceviren katalogdur.
 """
 
 from tools.definitions import TOOLS
+from chat.agent_protocol import YETENEK_ALANLARI
 
-CAPABILITY_NAMESPACES = {
-    "internet": (
-        "web_search", "haber_ara", "zamanli_ara", "site_ara",
-        "gorsel_ara", "kitap_ara", "derin_oku", "sayfa_oku",
-        "adres_kontrol", "sirket_ara", "hava_durumu",
-    ),
-    "dosyalar": (
-        "read_file", "list_files", "belge_ara", "dosya_bilgi",
-        "icerik_ara", "write_file_tool",
-    ),
-    "projeler": (
-        "git_durum", "github_durum", "git_gecmis", "git_degisenler",
-        "testleri_kos", "saglik_raporu",
-    ),
-    "gorevler": (
-        "get_reminders", "add_task", "list_tasks", "complete_task", "simdi",
-    ),
-    "hafiza": ("hafiza_ara",),
-    "gorsel": ("image_analyze", "gorsel_uret"),
-    "katalog": (
-        "fatura_oku", "katalog_kur", "katalog_getir", "katalog_liste",
-        "katalog_fiyat_guncelle", "katalog_onayla", "yetki_belgesi_ekle",
-        "urun_eslestir", "yayin_paketi", "cikti_oku",
-    ),
-    "matris": (
-        "matris_ac", "matris_liste", "satir_ekle", "kanit_ekle",
-        "satir_kapat", "satir_ac", "satir_sil", "satir_tasi",
-        "matris_durum", "satir_duzenle",
-    ),
-    "masaustu": ("ac_uygulama",),
-    "hesap": ("hesapla",),
-}
+# Tek kaynak: chat.agent_protocol.YETENEK_ALANLARI (AGENTS.md §0, madde 3).
+CAPABILITY_NAMESPACES = YETENEK_ALANLARI
 
 
 def tool_names(tools=None):

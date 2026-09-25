@@ -2,7 +2,7 @@
 
 Kaniti uc ayri katmanda raporlar:
 1) Kotasiz: guncel arac semasi + dispatcher + saglayici-arac baglanti yolu.
-2) Canli protokol: saglayicilar 10 yetenek alanindaki guncel
+2) Canli protokol: saglayicilar 13 yetenek alanindaki guncel
    gercek arac semalarini kendi gercek API'sinde kabul edip tool-call
    dondurur mu?
 3) Canli uctan uca: her saglayici salt sohbeti ve gercek `simdi`
@@ -331,7 +331,7 @@ def main():
         "**Sonuç:** " + pytest_ozet,
         "",
         (
-            "✅ %d/%d araç şeması + dispatcher + 10 yetenek alanı "
+            "✅ %d/%d araç şeması + dispatcher + 13 yetenek alanı "
             "+ dinamik sağlayıcı-arac bağlantı yolu test paketinden geçti."
             % (arac_sayisi, arac_sayisi)
             if kotasiz_ok else
@@ -343,7 +343,7 @@ def main():
         "",
         "#### 2) Gerçek sağlayıcı + gerçek API protokolü",
         "",
-        "Her hazır sağlayıcı 10 yetenek alanında güncel gerçek Başak araç "
+        "Her hazır sağlayıcı 13 yetenek alanında güncel gerçek Başak araç "
         "şemalarını kendi API'sine alır ve o alandan tool_call üretmek zorundadır.",
         "",
         "| Sağlayıcı | Sonuç | Alan | Şema | Salt sohbet | Gerçek simdi | Not |",

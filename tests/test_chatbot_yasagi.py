@@ -166,7 +166,7 @@ class TestYasakModulYok:
     def test_donen_dosya_yok(self):
         import importlib.util
         for mod in ("brain.orkestra", "brain.kapasite", "chat.approval",
-                    "chat.tool_resolver", "chat.agent_protocol",
+                    "chat.tool_resolver",
                     "tools.executor", "tools.permissions"):
             assert importlib.util.find_spec(mod) is None, mod
 

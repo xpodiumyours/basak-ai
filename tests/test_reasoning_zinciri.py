@@ -182,8 +182,12 @@ class TestCiftDusunmeYok:
         from chat import flow as _flow
         from chat import context as _ctx
         from brain.yayin import AracIstegi
-        karar = [{"id": "c9", "type": "function",
-                  "function": {"name": "list_tasks", "arguments": "{}"}}]
+        # AGENTS §0: ilk turda yalniz yetenek_ac acik; model once alani acar.
+        karar = [{"id": "c1", "type": "function",
+                  "function": {"name": "yetenek_ac",
+                               "arguments": '{"alanlar": ["gorevler"]}'}}]
+        ikinci = [{"id": "c9", "type": "function",
+                   "function": {"name": "list_tasks", "arguments": "{}"}}]
 
         # Gercek gecmis/hafiza kullanma (yavas + kirilgan).
         monkeypatch.setattr(_ctx, "HISTORY_FILE", str(tmp_path / "g.json"))
@@ -210,17 +214,18 @@ class TestCiftDusunmeYok:
                                  muhakeme={"reasoning_content": "m"})
 
             def cevapla(self, mesajlar, model, tools=None):
-                # Arac sonucu sonrasi devam (ozet) — karar icin ikinci
-                # dusunme DEGIL, zincirin devami.
+                # Arac sonucu sonrasi devam — karar icin ikinci dusunme
+                # DEGIL, zincirin devami. Akistaki muhakeme korunur.
                 asistanlar = [m for m in mesajlar
                               if m.get("role") == "assistant"
                               and m.get("tool_calls")]
                 assert asistanlar, "tool_calls tasiyan assistant yok"
-                asistan = asistanlar[-1]
-                assert asistan.get("tool_calls") == karar
-                assert asistan.get("reasoning_content") == "m"
+                assert asistanlar[0].get("tool_calls") == karar
+                assert asistanlar[0].get("reasoning_content") == "m"
                 tool = [m for m in mesajlar if m.get("role") == "tool"]
-                assert tool and tool[-1]["tool_call_id"] == "c9"
+                if tool[-1]["tool_call_id"] == "c1":
+                    return {"tool_calls": ikinci}, "glm"
+                assert tool[-1]["tool_call_id"] == "c9"
                 return {"content": "ozet"}, "glm"
 
         cagrilar = []

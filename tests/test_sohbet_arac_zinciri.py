@@ -71,10 +71,11 @@ def test_normal_sohbet_arac_varken_bile_dogal_metinle_biter(
         tool_policy="auto",
     )
 
-    # Ortak platform mimarisi: capability gizlenmez; auto modunda model
-    # ister tool-call, ister dogal final üretir.
+    # AGENTS §0: ilk turda yalniz yetenek_ac sunulur; auto modunda model
+    # ister alan acar, ister dogal final üretir.
+    from chat.agent_protocol import baslangic_araclari
     assert gorulen["tool_choice"] == "auto"
-    assert gorulen["tools"] == [arac]
+    assert gorulen["tools"] == baslangic_araclari()
     assert any("Merhaba, nasil yardimci olayim?" in o for o in olaylar)
 
 
