@@ -291,8 +291,14 @@ def test_web_ui_gercek_olaylari_detayli_gosterir_ve_sirlari_maskeler():
     os = ekran.index("\n\nfunction olayiBaslangicBalonunaBagla", ob)
     olay_isle = ekran[ob:os]
 
+    # Arac isareti olayiIsle'nin bitir dalindan cagrilir: taklit degil,
+    # gercek kod betige girer.
+    ab = ekran.index("function aracIsaretiYaz(")
+    isaret = ekran[ab:ekran.index("\n}\n", ab) + 3]
+
     script = r"""
 const balonlar = new Map();
+const runDurumlari = new Map();
 const durumlar = [];
 const yazilar = [];
 let kapatildi = 0;
@@ -328,7 +334,7 @@ function akiciMetinEkle(b, metin) { icerikYaz(b, (b.dataset.ham || "") + String(
 function akiciMetniFinaleTamamla(b, metin) { icerikYaz(b, String(metin || "")); return Promise.resolve(); }
 function akiciMetniDurdur() {}
 function sohbetAlta() {}
-""" + guvenli + "\n" + olay_isle + r"""
+""" + guvenli + "\n" + isaret + "\n" + olay_isle + r"""
 
 const b = bubble("assistant", "");
 balonlar.set("abc", b);

@@ -970,6 +970,34 @@ msgEl.addEventListener("input", () => {
 
 const balonlar = new Map();
 const metinAkislari = new Map();
+
+// Sunucunun her cevapta yaydigi runState olayi (chat/agent_runtime.py:176,
+// public_snapshot). Yeni sistem degil: var olan sinyal burada tutulur ve
+// cevap bitince balonun ALTINA, cevap metninin DISINA tek satir yazilir.
+const runDurumlari = new Map();
+
+// KAYNAK SAYISI BILINCLI OLARAK GOSTERILMIYOR.
+// public_snapshot'taki evidence_count'un kaynagi chat/tools.py:397
+// -> _kaynaklari_cikar (chat/tools.py:140). O fonksiyon yalniz okunan
+// sayfanin adresini degil, sayfa GOVDESINDE gecen her baglantiyi da
+// (chat/tools.py:146, _URL_RE ile) kaynak sayiyor. Tek sayfa okumasi
+// birden cok "kaynak" uretebiliyor; yani sayi okunmamis adresleri de
+// kapsiyor. Yanlis kaynak sayisi gostermektense hic gosterilmiyor.
+function aracIsaretiYaz(b, durum) {
+  if (!b || !durum) return;
+  let el = b.querySelector(".arac-isareti");
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "arac-isareti";
+  }
+  const sayi = Number(durum.toolCount || 0);
+  el.textContent = sayi > 0
+    ? "● " + sayi + " araç kullanıldı"
+    : "○ bakılmadan cevaplandı";
+  // appendChild var olan dugumu tasir: isaret her zaman en altta kalir.
+  b.appendChild(el);
+}
+
 const uyu = (ms) => new Promise((coz) => setTimeout(coz, ms));
 
 function akisBirimleri(metin) {
@@ -1111,6 +1139,13 @@ function olayiIsle(o) {
     handoffKaydi.yonlendir.disabled = false;
   }
 
+  if (o.tur === "runState") {
+    // Sunucu bu olayi run boyunca birkac kez yayar; en sonuncusu gecerli.
+    // Kullanici cumlesine BAKILMAZ; yalniz sunucunun saydigi arac sayisi.
+    runDurumlari.set(no, { toolCount: Number(o.tool_count || 0) });
+    return false;
+  }
+
   if (o.tur === "thinking") {
     let b = balonlar.get(no);
     if (!b) {
@@ -1233,14 +1268,17 @@ function olayiIsle(o) {
     }
 
     calismaYanitaGecti(b);
+    const bitisDurumu = runDurumlari.get(no);
     const gorunurBitis = akiciMetniFinaleTamamla(b, o.cevap || "…")
       .then(() => {
         calismaBitir(b);
+        aracIsaretiYaz(b, bitisDurumu);
         sohbetAlta(false);
         return true;
       });
 
     balonlar.delete(no);
+    runDurumlari.delete(no);
     return gorunurBitis;
   }
 
@@ -1254,6 +1292,7 @@ function olayiIsle(o) {
     }
     bubble("assistant", "Bir sorun oluştu: " + (o.metin || "Yanıt alınamadı."));
     balonlar.delete(no);
+    runDurumlari.delete(no);
     return true;
   }
 

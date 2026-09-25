@@ -356,6 +356,12 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .work-summary{
   margin:7px 0 0 25px;color:#7a7a82;font-size:12px;line-height:1.4
 }
+/* Arac isareti: cevap balonunun icinde ama cevap METNININ disinda,
+   kucuk gri tek satir (web/app.js aracIsaretiYaz). */
+.arac-isareti{
+  margin:8px 0 0;color:var(--muted);font-size:12px;line-height:1.4
+}
+
 .work-actions{
   display:flex;align-items:center;gap:16px;
   margin:4px 0 0 25px
