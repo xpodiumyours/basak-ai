@@ -19,6 +19,7 @@ from chat.agent_runtime import (
     AGENT_CONTRACT, AgentRunState, capability_surface,
     emit_run_state, normalize_tool_policy,
 )
+from chat.agent_protocol import baslangic_araclari
 from chat.output_control import (
     akan_ajan_adimi, akan_final, kesik_cevabi_bildir, kesik_mi,
 )
@@ -278,6 +279,25 @@ def _yonlendirme_mesajlari(baglam, mevcut_mesajlar):
     return ek
 
 
+def _beyin_hata_mesaji(hata, onek):
+    """Zincir hatasini kullaniciya saglayicinin resmi hata turuyle anlatir.
+
+    Tur, hata metninden degil brain.hata_turu'nun resmi koddan cikardigi
+    siniftan okunur. Konusmadan hicbir sey kesilmez; yalniz durum soylenir.
+    """
+    from brain.brain import HATA_COK_BUYUK, HATA_COK_SIK, ZincirHatasi
+
+    if isinstance(hata, ZincirHatasi):
+        turler = set(hata.turler.values())
+        if turler and turler == {HATA_COK_BUYUK}:
+            return ("Bu konusma, su an ulasilabilen yapay zekalarin tek "
+                    "seferde kabul ettigi boyutu asti; hicbiri istegi "
+                    "almadi. Konusmadan hicbir sey kesilmedi.")
+        if HATA_COK_SIK in turler:
+            return "Cok fazla istek, biraz bekle"
+    return onek + str(hata)
+
+
 def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                misafir=False, gecmis_override=None,
                yonlendirme_baglami=None, tool_policy="auto",
@@ -335,11 +355,13 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         return True
 
     # Capability karari kullanici metninden cikmaz. Run politikasini
-    # cagirici acikca verir; varsayilan auto'dur. "none" disinda tum gercek
-    # katalog modele aciktir — hidden resolver / kategori kapisi yok.
+    # cagirici acikca verir; varsayilan auto'dur. "none" disinda gercek
+    # katalogun tamami acilabilir durumdadir; ilk turda modele yalniz
+    # yetenek_ac sunulur, alan(lar)i model secer (AGENTS.md §0).
     tool_policy = normalize_tool_policy(tool_policy)
-    etkin_tools = capability_surface(tools, tool_policy)
-    arac_acik = bool(etkin_tools)
+    katalog = capability_surface(tools, tool_policy)
+    arac_acik = bool(katalog)
+    etkin_tools = baslangic_araclari() if arac_acik else []
     state = run_state or AgentRunState(
         run_id=str(getattr(js_callback, "istek", "") or ctx.OTURUM_ID),
         tool_policy=tool_policy,
@@ -387,13 +409,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         except Exception as e:
             state.fail()
             emit_run_state(js_callback, state)
-            hata = str(e)
-            if "429" in hata or "rate" in hata.lower():
-                js_callback("BasakUI.error(" + _j(
-                    "Cok fazla istek, biraz bekle") + ")")
-            else:
-                js_callback("BasakUI.error(" + _j(
-                    "Ajan beyni hatasi: " + hata) + ")")
+            js_callback("BasakUI.error(" + _j(
+                _beyin_hata_mesaji(e, "Ajan beyni hatasi: ")) + ")")
             return
 
         state.provider_set(kaynak)
@@ -454,7 +471,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         cevap, kosan = arac_dongusu(
             tool_calls, mesajlar, brain, model, js_callback, calistir,
             tools=ajan_tools, yanit=yanit, tool_choice="auto",
-            tercih=[kaynak] if kaynak else None, run_state=state)
+            tercih=[kaynak] if kaynak else None, run_state=state,
+            katalog=katalog)
         cevap = _temizle(cevap)
         if cevap:
             tamam = not bool(state.truncated_reason)
@@ -518,7 +536,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                     cevap, kosan = arac_dongusu(
                         _tc, mesajlar, brain, model, js_callback,
                         calistir, tools=etkin_tools,
-                        yanit={"tool_calls": _tc, **_muh})
+                        yanit={"tool_calls": _tc, **_muh}, katalog=katalog)
                 except Exception as e:
                     logger.warning("Akis-arac turu basarisiz: %s", e)
                     cevap, kosan = "", 0
@@ -543,27 +561,22 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     # sağlayıcıdan başarılı çağrı gerçekleşmedi — kota yenmedi.
     try:
         yanit, kaynak = brain.cevapla(
-            mesajlar, model, tools=(tools if arac_acik else None))
+            mesajlar, model, tools=(etkin_tools or None))
     except Exception as e:
-        hata = str(e)
-        if "429" in hata or "rate" in hata.lower():
-            js_callback("BasakUI.error(" + _j(
-                "Cok fazla istek, biraz bekle") + ")")
-        else:
-            js_callback("BasakUI.error(" + _j(
-                "Beyin hatasi: " + hata) + ")")
+        js_callback("BasakUI.error(" + _j(
+            _beyin_hata_mesaji(e, "Beyin hatasi: ")) + ")")
         return
 
     # ── Araç turu ───────────────────────────────────────────────────
     # Model araç istediyse kod çalıştırır, sonucu modele geri verir,
     # model özetler. Beyaz liste dışı ad buraya kadar gelse bile koşmaz.
     tool_calls = yanit.get("tool_calls") if isinstance(yanit, dict) else None
-    if tool_calls and tools:
+    if tool_calls and etkin_tools:
         from chat.tools import arac_dongusu
         from tools import calistir
         cevap, kosan = arac_dongusu(
             tool_calls, mesajlar, brain, model, js_callback, calistir,
-            tools=tools, yanit=yanit)
+            tools=etkin_tools, yanit=yanit, katalog=katalog)
         cevap = _temizle(cevap)
         if cevap:
             _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
