@@ -640,6 +640,7 @@ class Brain:
         Not: akis sirasinda istatistik/token yazilmaz (kismi sayim
         butceyi bozar). Basari/zaman olcumu tam yolda yapilir.
         """
+        from brain.message_utils import mesajlari_temizle
         from brain.yayin import (
             AracIstegi as _Arac, CikisKesildi, SonHata, akit,
         )
@@ -677,7 +678,14 @@ class Brain:
                 model = getattr(istemci, "model", None)
                 if ham is None or not model:
                     continue
-                uretici = akit(ham, model, messages, tools=tools)
+                # Tek seferlik yol (_tek_cagri) gibi akis da mesajlari
+                # saglayicinin resmi bicimine indirger: Basak'in ic alanlari
+                # (_provider gibi) API'ye gitmez. Gitseydi Groq her arac
+                # turunu 400 "property '_provider' is unsupported" ile
+                # reddediyordu (P2 onizleme kaydi, 2026-09-25).
+                giden = (messages if ad == "cohere"
+                         else mesajlari_temizle(messages, provider=ad))
+                uretici = akit(ham, model, giden, tools=tools)
                 basladi = False  # akis ortasi kopma takibi
                 token_out = 0
                 for parca in uretici:

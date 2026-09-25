@@ -1044,6 +1044,8 @@ function olayiBaslangicBalonunaBagla(o, b) {
   }
 }
 
+const KESILME_SURE_ESIGI_MS = 290 * 1000;
+
 async function canliYanitiOku(r, baslangicBalonu) {
   if (!r.body || typeof r.body.getReader !== "function") {
     throw new Error("Tarayıcı canlı yanıt akışını desteklemiyor.");
@@ -1051,8 +1053,17 @@ async function canliYanitiOku(r, baslangicBalonu) {
 
   const okuyucu = r.body.getReader();
   const cozumleyici = new TextDecoder();
+  const baslangic = Date.now();
   let tampon = "";
   let sonuc = { ok: false, cevap: "", kaynak: "", hata: "" };
+
+  // Sunucu (vercel.json maxDuration: 300 sn) isi yarida durdurunca akis
+  // bitir/error gelmeden kapanir. Kullaniciya gercek sebebi soyle.
+  const kesilmeHatasi = () => new Error(
+    Date.now() - baslangic >= KESILME_SURE_ESIGI_MS
+      ? "Başak 5 dakikalık çalışma süresini doldurdu; sunucu işi durdurdu, cevap tamamlanamadı."
+      : "Başak yanıtı tamamlanmadan bağlantı kapandı."
+  );
 
   const satiriIsle = async (satir) => {
     if (!satir.trim()) return;
@@ -1093,7 +1104,9 @@ async function canliYanitiOku(r, baslangicBalonu) {
       // bitir/error zaten geldiyse kullanıcıya gösterilmiş terminal sonucu
       // sonradan olan bağlantı kapanması yüzünden silme.
       if (sonuc.ok || sonuc.hata) break;
-      throw e;
+      // Durdur/Yönlendir kasıtlı keser; o yol kendi davranışını korur.
+      if (e && e.name === "AbortError") throw e;
+      throw kesilmeHatasi();
     }
     const { value, done } = okuma;
     if (value) tampon += cozumleyici.decode(value, { stream: true });
@@ -1109,10 +1122,16 @@ async function canliYanitiOku(r, baslangicBalonu) {
   }
 
   tampon += cozumleyici.decode();
-  if (tampon.trim()) await satiriIsle(tampon);
+  if (tampon.trim()) {
+    // Satir sonu gelmeden kapanan son parca yarim kalmis olabilir; bu
+    // "gecersiz veri" degil, kesilmedir. Tam satirsa normal islenir.
+    let tamSatir = true;
+    try { JSON.parse(tampon); } catch { tamSatir = false; }
+    if (tamSatir) await satiriIsle(tampon);
+  }
 
   if (!sonuc.ok && !sonuc.hata) {
-    throw new Error("Başak yanıtı tamamlanmadan bağlantı kapandı.");
+    throw kesilmeHatasi();
   }
   return sonuc;
 }
