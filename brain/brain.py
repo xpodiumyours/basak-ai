@@ -100,9 +100,115 @@ def _cooldown_kaldi(ad):
 def _cooldown_ekle(ad, sure=None):
     _COOLDOWN[ad] = _time_mod.time() + (sure or _COOLDOWN_SURE)
 
+# Saglayici hatasinin turu hata METNINDEN okunmaz; resmi HTTP durum kodu ve
+# gövdedeki resmi hata kodu okunur. Eski metin taramasi Groq'un 413 "Request
+# too large ... Limit 8000" cevabini "limit" kelimesinden 429 saniyordu:
+# saglayici yanlis cooldown aliyor, kullaniciya "Cok fazla istek" deniyordu.
+# Resmi dayanak: Anthropic API errors (413 request_too_large / 429
+# rate_limit_error); OpenAI Python SDK _should_retry yalniz 408/409/429/5xx
+# tekrar dener, 413/400'u tekrar denemez.
+HATA_COK_SIK = "cok_sik"
+HATA_COK_BUYUK = "cok_buyuk"
+HATA_ZAMAN_ASIMI = "zaman_asimi"
+HATA_DIGER = "diger"
+
+# Istek boyutu hatasinin resmi govde kodlari (durum kodu 413 degilse):
+# OpenAI "context_length_exceeded", Anthropic "request_too_large".
+_BOYUT_HATA_KODLARI = frozenset(("context_length_exceeded", "request_too_large"))
+
+
+def _hata_zinciri(hata):
+    """Hatanin kendisi + sarildigi asil hatalar (raise ... from e)."""
+    gorulen = set()
+    while hata is not None and id(hata) not in gorulen:
+        gorulen.add(id(hata))
+        yield hata
+        hata = hata.__cause__ or hata.__context__
+
+
+def _durum_kodu(hata):
+    """SDK hata nesnesinin resmi HTTP durum kodu; yoksa None."""
+    for h in _hata_zinciri(hata):
+        kod = getattr(h, "status_code", None)
+        if kod is None:
+            kod = getattr(getattr(h, "response", None), "status_code", None)
+        try:
+            if kod is not None:
+                return int(kod)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _govde_hata_kodu(hata):
+    """SDK hata govdesindeki resmi `code`/`type` alani; yoksa ''."""
+    for h in _hata_zinciri(hata):
+        govde = getattr(h, "body", None)
+        if isinstance(govde, dict):
+            ic = govde.get("error", govde)
+            if isinstance(ic, dict):
+                kod = ic.get("code") or ic.get("type")
+                if kod:
+                    return str(kod)
+        kod = getattr(h, "code", None)
+        if isinstance(kod, str) and kod:
+            return kod
+    return ""
+
+
+def _zaman_asimi_turu_mu(hata):
+    """Hata nesnesi resmi bir zaman asimi/baglanti kopmasi turu mu?"""
+    turler = [TimeoutError, ConnectionError]
+    try:
+        import openai
+        turler.append(openai.APIConnectionError)  # APITimeoutError dahil
+    except ImportError:
+        pass
+    try:
+        import httpx
+        turler.extend((httpx.TimeoutException, httpx.NetworkError))
+    except ImportError:
+        pass
+    turler = tuple(turler)
+    return any(isinstance(h, turler) for h in _hata_zinciri(hata))
+
+
+def hata_turu(hata):
+    """Saglayici hatasini resmi koda gore siniflar.
+
+    cok_sik     : 429 — kisa surede cok istek; saglayici bekleme suresi verir.
+    cok_buyuk   : 413 veya resmi boyut kodu — istek bu saglayici icin buyuk;
+                  beklemek cozmez, siradaki saglayici denenir, ceza yok.
+    zaman_asimi : resmi zaman asimi/baglanti turu.
+    diger       : geri kalan her sey.
+    """
+    kod = _durum_kodu(hata)
+    if kod == 413:
+        return HATA_COK_BUYUK
+    if kod == 429:
+        return HATA_COK_SIK
+    if _govde_hata_kodu(hata) in _BOYUT_HATA_KODLARI:
+        return HATA_COK_BUYUK
+    if _zaman_asimi_turu_mu(hata):
+        return HATA_ZAMAN_ASIMI
+    return HATA_DIGER
+
+
 def _rate_limit_mi(hata):
-    s = str(hata).lower()
-    return any(k in s for k in ("429", "rate", "limit", "too many", "quota"))
+    return hata_turu(hata) == HATA_COK_SIK
+
+
+class ZincirHatasi(RuntimeError):
+    """Hicbir saglayici cevap veremedi; her saglayicinin hata turu tasinir."""
+
+    def __init__(self, mesaj, turler=None):
+        super().__init__(mesaj)
+        self.turler = dict(turler or {})
+
+    def ortak_tur(self):
+        """Tum denenen saglayicilar ayni turde dustuyse o tur; yoksa ''."""
+        kume = set(self.turler.values())
+        return kume.pop() if len(kume) == 1 else ""
 
 
 def _bekleme_suresi(hata):
@@ -185,11 +291,9 @@ def _zaman_asimi_mi(hata):
     GLM 3 sn'lik zaman asimi duvarina surekli carpiyordu: her istekte
     yeniden denenip patliyor, zincir yavasiyor, yerel modele dusiliyordu.
     Zaman asimi GECICI bir durumdur (429 gibi) — kisa cooldown alir.
+    Tur, metinden degil hata nesnesinin resmi turunden okunur.
     """
-    s = str(hata).lower()
-    return any(k in s for k in (
-        "timed out", "timeout", "time out", "read operation",
-        "connection reset", "connection aborted"))
+    return hata_turu(hata) == HATA_ZAMAN_ASIMI
 
 
 
@@ -359,7 +463,7 @@ class Brain:
         # bilgisini bekler. Generic OpenAI temizleyicisi bunu bilerek
         # tasimaz; Cohere kendi native donusumunu yapar.
         if ad != "cohere":
-            messages = mesajlari_temizle(messages)
+            messages = mesajlari_temizle(messages, provider=ad)
         ekstra = {"yapi": yapi_deger} if yapi_deger else {}
         if tool_choice is not None:
             # Basak disarida tek "required" ajan sozlesmesi kullanir;
@@ -380,9 +484,9 @@ class Brain:
         return istemci.cevapla(messages, **ekstra)
 
     def cevapla(self, messages, yerel_model=None, tools=None,
-                tercih=None, gorev_tipi=None, override_model=None, yapi=None,
+                tercih=None, override_model=None, yapi=None,
                 tool_choice=None):
-        """Mesajlara cevap verir — Router v2 (bulut zinciri).
+        """Mesajlara provider-neutral bulut zincirinden cevap verir.
 
         Akis: secici motoru sirayi belirler → deneme; hata verirse siradaki
         devralir; hepsi duserse RuntimeError (yerel yedek YOK — Faz 2).
@@ -414,14 +518,13 @@ class Brain:
             sirali = one_alinan + kalanlar
             gerekce = "acik tercihle siralandi"
         else:
-            # P0 (2026-09-15): gorev_tipi / karne / siniflandirici ana AI
-            # yolundan cikti. Secim yalniz teknik gerceklerle sinirli:
-            # musaitlik (_bulut_zinciri), ucretsiz olma + tool destegi
-            # (registry), rate-limit atlama (cooldown). Yeni router YOK.
+            # Sağlayıcı sırası yalnız teknik registry/fallback sırasıdır;
+            # kullanıcı metni veya görev türü burada yorumlanmaz.
             sirali, gerekce = secici.sec(mevcutlar=mevcutlar)
 
         istemciler = dict(zincir)
         hatalar = []
+        turler = {}
         for ad in sirali:
             istemci = istemciler.get(ad)
             if istemci is None:
@@ -504,6 +607,7 @@ class Brain:
                 sure = time.time() - t0
                 logger.warning("%s hatasi, siradaki deneniyor: %s", ad, e)
                 hatalar.append("%s: %s" % (ad, str(e)))
+                turler[ad] = hata_turu(e)
                 if _rate_limit_mi(e):
                     bekle = _bekleme_suresi(e)
                     _cooldown_ekle(ad, sure=bekle)
@@ -522,10 +626,10 @@ class Brain:
         # Tum bulutlar dustu → acik hata (yerel yedek yok — Faz 2).
         detay = "; ".join(hatalar) if hatalar else "bulut zinciri bos"
         _audit("TAM BASARISIZLIK: %s" % detay)
-        raise RuntimeError(f"Hicbir model calismadi ({detay})")
+        raise ZincirHatasi(f"Hicbir model calismadi ({detay})", turler)
 
     def cevapla_yayin(self, messages, yerel_model=None, tercih=None,
-                      gorev_tipi=None, tools=None):
+                      tools=None):
         """Akan cevap uretir: yield (kaynak, parca).
 
         Aracsiz duz sohbet icindir (tools=None). Model arac isterse
@@ -536,7 +640,10 @@ class Brain:
         Not: akis sirasinda istatistik/token yazilmaz (kismi sayim
         butceyi bozar). Basari/zaman olcumu tam yolda yapilir.
         """
-        from brain.yayin import AracIstegi as _Arac, SonHata, akit
+        from brain.message_utils import mesajlari_temizle
+        from brain.yayin import (
+            AracIstegi as _Arac, CikisKesildi, SonHata, akit,
+        )
         from brain import secici as _secici
 
         zincir = self._bulut_zinciri(tools=bool(tools))
@@ -549,7 +656,6 @@ class Brain:
             sirali = one_alinan + [a for a in mevcutlar if a not in tercih]
             gerekce = "acik tercihle siralandi"
         else:
-            # P0: gorev_tipi ana yoldan cikti; yalniz teknik sira.
             sirali, gerekce = _secici.sec(mevcutlar=mevcutlar)
 
         istemciler = dict(zincir)
@@ -572,7 +678,14 @@ class Brain:
                 model = getattr(istemci, "model", None)
                 if ham is None or not model:
                     continue
-                uretici = akit(ham, model, messages, tools=tools)
+                # Tek seferlik yol (_tek_cagri) gibi akis da mesajlari
+                # saglayicinin resmi bicimine indirger: Basak'in ic alanlari
+                # (_provider gibi) API'ye gitmez. Gitseydi Groq her arac
+                # turunu 400 "property '_provider' is unsupported" ile
+                # reddediyordu (P2 onizleme kaydi, 2026-09-25).
+                giden = (messages if ad == "cohere"
+                         else mesajlari_temizle(messages, provider=ad))
+                uretici = akit(ham, model, giden, tools=tools)
                 basladi = False  # akis ortasi kopma takibi
                 token_out = 0
                 for parca in uretici:
@@ -585,7 +698,11 @@ class Brain:
                                  token_in=0, token_out=token_out)
                 _audit("OK kaynak=%s | akis | %s" % (ad, gerekce))
                 return
-            except _Arac:
+            except _Arac as e:
+                e.kaynak = ad
+                raise
+            except CikisKesildi as e:
+                e.kaynak = ad
                 raise
             except Exception as e:
                 hata = str(e)

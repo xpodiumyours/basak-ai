@@ -51,7 +51,6 @@ class CloudflareClient:
             self.client = OpenAI(
                 api_key=self.api_token,
                 base_url=base_url,
-                timeout=20.0,
                 max_retries=0,
             )
         except Exception as e:
@@ -65,8 +64,7 @@ class CloudflareClient:
                 tool_choice=None) -> dict:
         """Cloudflare'a mesaj gonderir.
 
-        Cevap tavani: max_tokens=4096 (sicaklik saglayicinin kendi
-        varsayilani — 2026-09-13'te sabit 0.5 kaldirildi).
+                varsayilani — 2026-09-13'te sabit 0.5 kaldirildi).
         yapi: sozlesme modu icin; bu saglayici su an yok sayar.
         """
         if not self.client:
@@ -78,8 +76,7 @@ class CloudflareClient:
         kwargs = {
             "model": self.model,
             "messages": temiz_mesajlar,
-            "max_tokens": 4096,
-        }
+}
         if tools:
             kwargs["tools"] = tools
             if tool_choice is not None:

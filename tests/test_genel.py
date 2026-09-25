@@ -55,9 +55,9 @@ class TestGenelSira:
         assert "genel" not in registry.VARSAYILAN_SIRA
 
     def test_bilinmeyen_sona_duser(self):
-        # kod turu (karistirmasiz) ile sira nettir: genel en sonda.
-        sirali, _ = secici.sec(gorev_tipi="kod",
-                               mevcutlar=["genel", "glm", "nvidia"])
+        sirali, _ = secici.sec(
+            mevcutlar=["genel", "glm", "nvidia"]
+        )
         assert sirali[-1] == "genel"
         beklenen = [ad for ad in registry.VARSAYILAN_SIRA
                     if ad in ("glm", "nvidia")]

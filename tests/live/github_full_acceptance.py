@@ -1,9 +1,9 @@
 """GitHub Issue #4 FULL TEST — Basak'in tam ajan kabul matrisi.
 
 Kaniti uc ayri katmanda raporlar:
-1) Kotasiz: 52/52 arac semasi + dispatcher + 8x52=416 ajan baglanti yolu.
-2) Canli protokol: 8 saglayicinin her biri 10 yetenek alanindaki tum
-   52 gercek arac semasini kendi gercek API'sinde kabul edip tool-call
+1) Kotasiz: guncel arac semasi + dispatcher + saglayici-arac baglanti yolu.
+2) Canli protokol: saglayicilar 13 yetenek alanindaki guncel
+   gercek arac semalarini kendi gercek API'sinde kabul edip tool-call
    dondurur mu?
 3) Canli uctan uca: her saglayici salt sohbeti ve gercek `simdi`
    aracinin calistirilip final cevaba baglanmasini tamamlar mi?
@@ -19,10 +19,10 @@ import tempfile
 import types
 
 SONUC_DOSYASI = "github-full-acceptance.md"
-SAGLAYICILAR = (
-    "groq", "gemini", "openrouter", "glm",
-    "cloudflare", "cohere", "kilo", "nvidia",
-)
+from tests.live import matris_kosucu as _matris_kosucu
+
+# Tek kapsam kaynagi: gercek canli matrisin bugun olctugu saglayicilar.
+SAGLAYICILAR = tuple(_matris_kosucu.KAPSAM)
 
 ALAN_SORULARI = {
     "internet": "İnternette OpenAI resmi sitesini araştır ve uygun aracı seç.",
@@ -148,12 +148,12 @@ def _tek_mesaj(beyin, provider, mesaj, beklenen_arac):
 
 
 def _alan_sema_testi(beyin, provider, istemci):
-    """10 alanda 52 semayi gercek provider API'sinden gecir.
+    """10 alanda guncel semalari gercek provider API'sinden gecir.
 
     Araclari calistirmaz; amac provider/modelin Basak'in gercek JSON
     semalarini kabul edip o alandan bir tool_call uretebilmesidir.
     """
-    from chat.agent_protocol import YETENEK_ALANLARI
+    from tools.capabilities import CAPABILITY_NAMESPACES
     from tools import TOOLS
 
     tum = {
@@ -163,7 +163,7 @@ def _alan_sema_testi(beyin, provider, istemci):
     sonuclar = {}
     toplam_sema = 0
 
-    for alan, adlar in YETENEK_ALANLARI.items():
+    for alan, adlar in CAPABILITY_NAMESPACES.items():
         semalar = [tum[ad] for ad in adlar]
         toplam_sema += len(semalar)
         soru = ALAN_SORULARI[alan]
@@ -204,7 +204,7 @@ def _alan_sema_testi(beyin, provider, istemci):
                 "hata": str(e),
             }
 
-    assert toplam_sema == 52
+    assert toplam_sema == len(TOOLS)
     return sonuclar
 
 
@@ -226,7 +226,9 @@ def _kisa(metin, sinir=180):
 
 def main():
     from brain import Brain
+    from tools import TOOLS
 
+    arac_sayisi = len(TOOLS)
     b = Brain()
     mevcut = dict(b._bulut_zinciri(tools=True, tool_required=True))
 
@@ -239,8 +241,8 @@ def main():
     for ad in SAGLAYICILAR:
         if ad not in mevcut:
             satirlar.append(
-                "| %s | ❌ YOK | 0/10 | 0/52 | - | - | GitHub ortamında hazır değil |"
-                % ad
+                "| %s | ❌ YOK | 0/10 | 0/%d | - | - | GitHub ortamında hazır değil |"
+                % (ad, arac_sayisi)
             )
             detaylar.append("**%s:** canlı istemci yok." % ad)
             eksik += 1
@@ -262,12 +264,12 @@ def main():
         )
 
         provider_ok = (
-            alan_ok == 10 and sema_ok == 52 and sohbet_ok and arac_ok
+            alan_ok == 10 and sema_ok == arac_sayisi and sohbet_ok and arac_ok
         )
         if provider_ok:
             tam_gecen += 1
             durum = "✅ GEÇTİ"
-            not_ = "10 alan + 52 şema + sohbet + gerçek simdi"
+            not_ = "10 alan + %d şema + sohbet + gerçek simdi" % arac_sayisi
         else:
             kalan += 1
             durum = "❌ KALDI"
@@ -285,12 +287,13 @@ def main():
             not_ = _kisa("; ".join(neden))
 
         satirlar.append(
-            "| %s | %s | %d/10 | %d/52 | %s | %s | %s |"
+            "| %s | %s | %d/10 | %d/%d | %s | %s | %s |"
             % (
                 ad,
                 durum,
                 alan_ok,
                 sema_ok,
+                arac_sayisi,
                 "✅" if sohbet_ok else "❌",
                 "✅" if arac_ok else "❌",
                 not_,
@@ -328,32 +331,34 @@ def main():
         "**Sonuç:** " + pytest_ozet,
         "",
         (
-            "✅ 52/52 araç şeması + 52/52 dispatcher dalı + 10 yetenek alanı "
-            "+ 8×52=416 sağlayıcı-arac bağlantı yolu test paketinden geçti."
+            "✅ %d/%d araç şeması + dispatcher + 13 yetenek alanı "
+            "+ dinamik sağlayıcı-arac bağlantı yolu test paketinden geçti."
+            % (arac_sayisi, arac_sayisi)
             if kotasiz_ok else
             "❌ Kotasız yapısal test paketi tam geçmedi."
         ),
         "",
-        "**Not:** 416 testi sahte model yanıtlarıyla bağlantı/döngü testidir; "
-        "416 canlı API çağrısı değildir.",
+        "**Not:** yapısal bağlantı testleri sahte model yanıtlarıyla "
+        "döngüyü doğrular; bunlar canlı API çağrısı değildir.",
         "",
         "#### 2) Gerçek sağlayıcı + gerçek API protokolü",
         "",
-        "Her hazır sağlayıcı 10 yetenek alanında toplam 52 gerçek Başak araç "
-        "şemasını kendi API'sine alır ve o alandan tool_call üretmek zorundadır.",
+        "Her hazır sağlayıcı 13 yetenek alanında güncel gerçek Başak araç "
+        "şemalarını kendi API'sine alır ve o alandan tool_call üretmek zorundadır.",
         "",
         "| Sağlayıcı | Sonuç | Alan | Şema | Salt sohbet | Gerçek simdi | Not |",
         "|---|---|---:|---:|---|---|---|",
         *satirlar,
         "",
-        "**Canlı sağlayıcı özeti:** %d/8 tam geçti · %d eksik · %d kaldı"
-        % (tam_gecen, eksik, kalan),
+        "**Canlı sağlayıcı özeti:** %d/%d tam geçti · %d eksik · %d kaldı"
+        % (tam_gecen, len(SAGLAYICILAR), eksik, kalan),
         "",
         "#### 3) Ne gerçekten çalıştırıldı?",
         "",
         "- Her hazır sağlayıcıda Başak'ın gerçek sohbet akışı çalıştırıldı.",
         "- Her hazır sağlayıcıda gerçek `simdi` aracı çalıştırılıp sonuç tekrar modele verildi.",
-        "- 52 aracın tamamı dispatcher seviyesinde kotasız ve yan etkisiz doğrulandı.",
+        "- Güncel araç kataloğunun tamamı dispatcher seviyesinde kotasız "
+        "ve yan etkisiz doğrulandı.",
         "- Dosya yazma, görev ekleme, uygulama açma, katalog değiştirme gibi "
         "yan etkili araçların tamamı canlı ortamda topluca çalıştırılmadı; "
         "bu rapor böyle bir iddiada bulunmaz.",
@@ -366,7 +371,8 @@ def main():
         "",
         (
             "✅ TAM KABUL: kotasız yapı + 8/8 sağlayıcı + 10/10 alan + "
-            "52/52 canlı şema + gerçek sohbet/simdi döngüsü geçti."
+            "%d/%d canlı şema + gerçek sohbet/simdi döngüsü geçti."
+            % (arac_sayisi, arac_sayisi)
             if tam else
             "❌ TAM KABUL YOK: yukarıdaki eksik/kırmızı kalemler bitmeden "
             "Başak'ın tamamı canlı doğrulandı denemez."

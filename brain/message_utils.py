@@ -34,20 +34,52 @@ def reasoning_ayikla(msg) -> dict:
     return out
 
 
-def mesajlari_temizle(messages: list) -> list:
-    """Mesaj listesini API-uyumlu formata dönüştürür.
+def _tool_calls_temizle(tool_calls, provider="", kaynak_provider=""):
+    """Provider-ozel nested metadata'yi failover'da diger uca sizdirma."""
+    sonuc = []
+    ayni = bool(
+        not kaynak_provider or not provider or kaynak_provider == provider
+    )
+    for c in tool_calls or []:
+        if not isinstance(c, dict):
+            continue
+        f = c.get("function")
+        if not isinstance(f, dict):
+            # Eski/gecmis minimal kaydi genisletme; oldugu gibi koru.
+            yeni = dict(c)
+            if not ayni:
+                yeni.pop("extra_content", None)
+            sonuc.append(yeni)
+            continue
+        yeni = {
+            "id": c.get("id") or "",
+            "type": c.get("type") or "function",
+            "function": {
+                "name": f.get("name") or "",
+                "arguments": f.get("arguments") or "{}",
+            },
+        }
+        if ayni and "extra_content" in c:
+            yeni["extra_content"] = c["extra_content"]
+        sonuc.append(yeni)
+    return sonuc
 
-    Tüm content alanlarının string olduğundan emin olur.
-    None content → boş string
-    Array content → string'e çevir
-    Dict content → string'e çevir
 
-    Dönüş: Temizlenmiş mesaj listesi (orijinali değiştirmez).
+def mesajlari_temizle(messages: list, provider="") -> list:
+    """Mesaj listesini hedef provider'a uyumlu ortak protokole indirger.
+
+    Standard tool_call kimligi/adi/argumani her provider gecisinde korunur.
+    Reasoning ve nested provider metadata yalniz kaynagi ayni provider ise
+    tasinir; provider yerel provenance alani API'ye ASLA gonderilmez.
     """
     temiz = []
     for m in messages:
         if not isinstance(m, dict):
             continue
+        kaynak_provider = str(m.get("_provider") or "")
+        ayni_provider = bool(
+            not kaynak_provider or not provider or kaynak_provider == provider
+        )
         kopya = {"role": m.get("role", "user")}
         icerik = m.get("content")
 
@@ -56,16 +88,14 @@ def mesajlari_temizle(messages: list) -> list:
         elif isinstance(icerik, str):
             kopya["content"] = icerik
         elif isinstance(icerik, list):
-            # Array content → string'e çevir. 2026-09-10: parca icindeki
-            # "text" her zaman string DEGILDIR (bazi saglayicilar sayi/
-            # None/karisik blok doner) — join patliyordu ("sequence item
-            # N: expected str instance"). Hepsi zorla stringe cevrilir.
             parcalar = []
             for p in icerik:
                 if isinstance(p, dict):
                     t = p.get("text", "")
-                    parcalar.append(t if isinstance(t, str) else str(t)
-                                    if t is not None else "")
+                    parcalar.append(
+                        t if isinstance(t, str)
+                        else str(t) if t is not None else ""
+                    )
                 elif isinstance(p, str):
                     parcalar.append(p)
                 elif p is None:
@@ -76,23 +106,21 @@ def mesajlari_temizle(messages: list) -> list:
         else:
             kopya["content"] = str(icerik)
 
-        # Tool calls ve tool_call_id korunur
         if "tool_calls" in m:
-            kopya["tool_calls"] = m["tool_calls"]
+            kopya["tool_calls"] = _tool_calls_temizle(
+                m["tool_calls"], provider=provider,
+                kaynak_provider=kaynak_provider,
+            )
         if "tool_call_id" in m:
             kopya["tool_call_id"] = m["tool_call_id"]
         if "name" in m:
             kopya["name"] = m["name"]
 
-        # Reasoning zinciri korunur (P0): modelin ilk muhakemesi arac
-        # turundan sonra kaybolmamali. Destekleyen saglayici alanlari
-        # aynen tasinir; desteklemeyen yok sayar. Guvenlik disiplini
-        # degil, model verisi tasimadir.
-        for alan in ("reasoning_content", "reasoning",
-                     "reasoning_details", "thinking",
-                     "reasoning_text"):
-            if alan in m and alan not in kopya:
-                kopya[alan] = m[alan]
+        if ayni_provider:
+            for alan in _REASONING_ALANLARI:
+                if alan in m:
+                    kopya[alan] = m[alan]
 
         temiz.append(kopya)
     return temiz
+

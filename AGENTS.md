@@ -2,6 +2,8 @@
 
 Bu dosyayı kod yazan her ajan (Claude Code, Kilo Code, OpenCode) işe başlamadan önce okur. Kurallar bağlayıcıdır. Casper kod yazmıyor, doğal dille tarif ediyor — tarifi karara çevirmek ajanın işi, "anlamadım" diye boş bırakmak değil.
 
+**BU DOSYA KİLİTLİDİR (2026-09-25, Casper kararı):** AGENTS.md'yi hiçbir ajan Casper'a sormadan değiştiremez. Bu kesinlikle yasaktır. Satır eklemek, silmek, yeniden yazmak ve taşımak dahil her değişiklik önce Casper'a sorulur; Casper açıkça onaylamadan yapılmaz. Onaysız değişiklik geri alınır.
+
 ## 0. EN ÜST KURAL — CHATBOT YAPMA
 
 **Bu kural diğer her şeyin üstündedir. Çiğneyen iş reddedilir.**
@@ -24,6 +26,8 @@ Araç seçimini **model yapar**. İlk ajan turunda modele yalnız `yetenek_ac` v
 **Göreve özel/kelimeye bağlı talimat bloğu eklenmez.** `chat/prompts.py` içinde yalnız kimlik bloğu vardır. İstisna: `chat/agent_protocol.py` içindeki `AJAN_SOZLESMESI`, belirli bir kullanıcı niyetini veya aracı seçmez; yalnız resmî tool-calling döngüsünü tanımlar: model alanı/aracı seçer, araç sonucu geri gelir, model yeniden karar verir ve işi `son_cevap` ile bitirir.
 
 ### GERİ GETİRİLMESİ KESİNLİKLE YASAK
+
+**Amaç (2026-09-25, Casper onaylı):** Yasakların amacı Başak'ı chatbot ya da kural motoruna çevirmeyi ve modelin gücünü köreltmeyi önlemektir; kaliteyi yükseltmeyi değil. Her değişiklikte üç soru sorulur: (1) Kod modelin yerine mi karar veriyor? Evetse yasak. (2) Modelin gücünü mü alıyor (kesiyor, değiştiriyor, daraltıyor)? Evetse yasak. (3) Modele daha açık bilgi ya da daha iyi araç mı veriyor? Evetse serbest.
 
 Aşağıdakiler 2026-09-13'te tek tek ölçülerek söküldü. **Hiçbiri, hiçbir gerekçeyle geri gelmez.** Geri getiren iş reddedilir; "iyileştirme", "güvenlik", "kota", "küçük model şaşırmasın" gerekçelerinin hiçbiri geçerli değildir.
 

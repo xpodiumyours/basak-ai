@@ -71,6 +71,7 @@ DURUM_METNI = {
     "cikti_oku": "Çıktı okunuyor",
     "sirket_ara": "Şirket bilgisi araştırılıyor",
     "hava_durumu": "Hava durumu okunuyor",
+    "yetenek_ac": "Araçlar açılıyor",
 }
 
 # Durum satırında gösterilecek argüman — araca göre değişir.
@@ -103,10 +104,7 @@ def _durum(tool_name, args):
     return "%s: %s" % (etiket, detay) if detay else etiket + "..."
 
 
-_KAYNAK_ARACLARI = {
-    "web_search", "haber_ara", "zamanli_ara", "site_ara",
-    "kitap_ara", "derin_oku", "sayfa_oku", "adres_kontrol", "sirket_ara",
-}
+_KAYNAK_ARACLARI = {"derin_oku", "sayfa_oku"}
 _URL_RE = re.compile(r"https?://[^\\s<>'\\\"]+", re.IGNORECASE)
 
 
@@ -158,31 +156,54 @@ def _kaynaklari_cikar(tool_name, args, net):
 
 
 def sonucu_donustur(sonuc):
-    """Araç dönüşünü modele verilecek düz metne çevirir."""
+    """Araç dönüşünü modele verilecek düz metne çevirir.
+
+    Cursor kullanan araçlarda Python iç kullanıcıları için result düz metin
+    kalır; model ise meta + metni birlikte görür.
+    """
     if isinstance(sonuc, dict):
         if sonuc.get("error"):
             return "Hata: %s" % sonuc["error"]
+        if isinstance(sonuc.get("meta"), dict):
+            return json.dumps({
+                "meta": sonuc["meta"],
+                "metin": str(sonuc.get("result", "")),
+            }, ensure_ascii=False)
         return str(sonuc.get("result", ""))
     return str(sonuc)
 
 
 def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
-                 calistir, tools=None, tur_siniri=None, yanit=None,
-                 tool_choice=None, tum_tools=None, tercih=None):
+                 calistir, tools=None, yanit=None,
+                 tool_choice=None, tercih=None, run_state=None,
+                 katalog=None, mola_zamani=None):
     """Arac sonuclarini modele geri vererek ajan turunu surdurur.
 
-    Gercek arac secimini MODEL yapar. `yetenek_ac` yalniz modelin sectigi
-    alandaki semalari acan katalog kapisidir; kullanici metnine bakmaz.
+    Gercek arac secimini MODEL yapar. `yetenek_ac` modelin sectigi
+    alan(lar)in gercek semalarini `katalog`tan acar; acilan alanlar run
+    boyunca acik kalir. Kod kullanici metnine bakmaz.
+
+    mola_zamani: sunucu suresi (Vercel maxDuration) dolmadan once, bir arac
+    turu bittikten sonra run duraklatilir ("checkpoint" olayi, run_state
+    paused). Is kesilmez: sonuclar imzali handoff'ta kalir, kullanici devam
+    eder, cevap ister veya yon verir. Masaustunde verilmez.
     """
+    import time as _zaman
     from chat.gate import temizle
     from chat.agent_protocol import (
-        SON_CEVAP_ADI, YETENEK_AC_ADI, YETENEK_ALANLARI, alan_araclari,
+        YETENEK_AC_ADI, YETENEK_ALANLARI, acik_alan_araclari,
+        istenen_alanlar,
     )
+    from chat.agent_runtime import emit_run_state
     from tools.definitions import TANINMIS_TOOLLAR
+
+    acik_alanlar = []  # run boyunca acik kalan yetenek alanlari
 
     expanded = list(mesajlar)
     kosan = 0
     tur_sonuclari = []
+    _tekrar = {}
+    tur_no = 0
 
     def _muhakeme_al(obj):
         out = {}
@@ -201,7 +222,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     # yere model degistirmesini engeller.
     _tercih_aktif = list(tercih or [])
 
-    def _beyin_devam(acik_tools):
+    def _beyin_devam(acik_tools, secim=None):
         nonlocal _tercih_aktif
         import inspect
 
@@ -211,16 +232,27 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             x.kind == inspect.Parameter.VAR_KEYWORD
             for x in _p.values())
 
-        if tool_choice is not None and (
+        _secim = tool_choice if secim is None else secim
+        if _secim is not None and (
                 "tool_choice" in _p or _kwargs_var):
-            _kw["tool_choice"] = tool_choice
+            _kw["tool_choice"] = _secim
         if _tercih_aktif and ("tercih" in _p or _kwargs_var):
             _kw["tercih"] = list(_tercih_aktif)
 
+        onceki = (_tercih_aktif or [""])[0] if _tercih_aktif else ""
         sonuc = brain.cevapla(expanded, model, **_kw)
         if (isinstance(sonuc, tuple) and len(sonuc) == 2
                 and sonuc[1]):
-            _tercih_aktif = [sonuc[1]]
+            yeni = str(sonuc[1])
+            if onceki and yeni and yeni != onceki:
+                _web_olay(
+                    js_callback, "providerSwitch",
+                    onceki=onceki, yeni=yeni,
+                )
+            if run_state is not None:
+                run_state.provider_set(yeni)
+                emit_run_state(js_callback, run_state)
+            _tercih_aktif = [yeni]
         return sonuc
 
     ilk_muhakeme = _muhakeme_al(yanit)
@@ -228,6 +260,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
         ilk_muhakeme = _muhakeme_al(mesajlar[-1])
 
     while tool_calls:
+        tur_no += 1
         tur_sonuclari = []
 
         # Plan frontend tahmini değildir: bu turda modelin GERÇEKTEN
@@ -238,8 +271,6 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 continue
             _pf = _pc.get("function") or {}
             _pa = _pf.get("name", "")
-            if _pa in (YETENEK_AC_ADI, SON_CEVAP_ADI):
-                continue
             if _pa not in TANINMIS_TOOLLAR:
                 continue
             _parg = parse_args(_pf.get("arguments", "{}"))
@@ -250,21 +281,6 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             })
         if _plan:
             _web_olay(js_callback, "plan", adimlar=_plan)
-
-        _adlar = [
-            ((c.get("function") or {}).get("name", ""))
-            for c in tool_calls if isinstance(c, dict)
-        ]
-
-        # Nihai cevap yalniz basina geldiyse ajan turu bitmistir.
-        if _adlar and all(ad == SON_CEVAP_ADI for ad in _adlar):
-            for call in tool_calls:
-                args = parse_args(
-                    (call.get("function") or {}).get("arguments", "{}"))
-                metin = args.get("metin")
-                if isinstance(metin, str) and metin.strip():
-                    return temizle(metin), kosan
-            return "", kosan
 
         # Bu turda modele GERCEKTEN sunulmus araclar. Model eski bir arac
         # adini hafizadan uydurursa, alani acmadan calistirilmaz.
@@ -280,37 +296,35 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             cagri_id = call.get("id") or "call_%d" % len(tur_sonuclari)
 
             if ad == YETENEK_AC_ADI:
-                alan = args.get("alan")
+                istenen = istenen_alanlar(args)
+                bilinmeyen = [a for a in istenen if a not in YETENEK_ALANLARI]
                 if ad not in sunulan_adlar:
                     net = "Hata: yetenek_ac bu turda sunulmadi."
-                elif alan not in YETENEK_ALANLARI:
-                    net = "Hata: bilinmeyen yetenek alani."
-                elif tum_tools is None:
+                elif katalog is None:
                     net = "Hata: gercek arac katalogu bu akista yok."
+                elif not istenen or bilinmeyen:
+                    net = "Hata: bilinmeyen yetenek alani: %s. Gecerli: %s" % (
+                        ", ".join(bilinmeyen) or "-",
+                        ", ".join(YETENEK_ALANLARI))
                 else:
-                    tools = alan_araclari(tum_tools, alan)
-                    gercek_adlar = [
-                        (t.get("function") or {}).get("name")
-                        for t in tools
-                        if (t.get("function") or {}).get("name")
-                        not in (YETENEK_AC_ADI, SON_CEVAP_ADI)
-                    ]
+                    for alan in istenen:
+                        if alan not in acik_alanlar:
+                            acik_alanlar.append(alan)
+                    tools = acik_alan_araclari(katalog, acik_alanlar)
                     net = json.dumps({
-                        "acilan_alan": alan,
-                        "kullanilabilir_araclar": gercek_adlar,
+                        "acik_alanlar": list(acik_alanlar),
+                        "kullanilabilir_araclar": [
+                            (t.get("function") or {}).get("name")
+                            for t in tools
+                            if (t.get("function") or {}).get("name")
+                            != YETENEK_AC_ADI
+                        ],
                     }, ensure_ascii=False)
                     js_callback("BasakUI.toolStatus(" + _j(
-                        "Yetenek acildi: " + str(alan)) + ")")
+                        "Araçlar açılıyor: " + ", ".join(istenen)) + ")")
+                    if run_state is not None:
+                        run_state.capability_opened(istenen, cagri_id)
                 tur_sonuclari.append((ad, net, cagri_id))
-                continue
-
-            if ad == SON_CEVAP_ADI:
-                tur_sonuclari.append((
-                    ad,
-                    "Hata: son_cevap gercek araclarla ayni turda "
-                    "kullanilamaz; once arac sonuclarini degerlendir.",
-                    cagri_id,
-                ))
                 continue
 
             if ad not in TANINMIS_TOOLLAR:
@@ -328,15 +342,57 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 continue
 
             js_callback("BasakUI.toolStatus(" + _j(_durum(ad, args)) + ")")
-            net = sonucu_donustur(calistir(ad, args))
-            basarili = not net.startswith("Hata:")
+            if run_state is not None:
+                run_state.tool_started(ad, cagri_id, args=args)
+                emit_run_state(js_callback, run_state)
+            try:
+                _arg_anahtar = json.dumps(
+                    args or {}, ensure_ascii=False, sort_keys=True,
+                    separators=(",", ":"),
+                )
+            except Exception:
+                _arg_anahtar = str(args or {})
+            _tekrar_anahtar = ad + "|" + _arg_anahtar
+            _once = _tekrar.get(_tekrar_anahtar)
+            if _once and int(_once.get("adet") or 0) >= 2:
+                net = (
+                    "Hata: ayni arac, ayni arguman ve ayni sonuc tekrar "
+                    "dongusune girdi; ayni cagri tekrar calistirilmadi."
+                )
+                basarili = False
+                _web_olay(
+                    js_callback, "loopGuard", tool=ad,
+                    tekrar=int(_once.get("adet") or 0) + 1,
+                )
+            else:
+                net = sonucu_donustur(calistir(ad, args))
+                basarili = not net.startswith("Hata:")
+                if _once and _once.get("sonuc") == net:
+                    _tekrar[_tekrar_anahtar] = {
+                        "sonuc": net,
+                        "adet": int(_once.get("adet") or 0) + 1,
+                    }
+                else:
+                    _tekrar[_tekrar_anahtar] = {"sonuc": net, "adet": 1}
             _web_olay(
                 js_callback, "toolDone",
                 id=cagri_id,
                 baslik=DURUM_METNI.get(ad, "Çalışıyor"),
                 detay=_durum_detayi(args),
                 ok=basarili,
+                _handoff={
+                    "name": ad,
+                    "args": args,
+                    "result": net,
+                    "turn": tur_no,
+                },
             )
+            if run_state is not None:
+                run_state.tool_done(
+                    ad, cagri_id, basarili, args=args,
+                    result=net, turn=tur_no,
+                )
+                emit_run_state(js_callback, run_state)
             if basarili:
                 for _url in _kaynaklari_cikar(ad, args, net):
                     try:
@@ -347,6 +403,11 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                         js_callback, "source",
                         url=_url, baslik=_host, tool_id=cagri_id,
                     )
+                    if run_state is not None:
+                        run_state.evidence_add(
+                            _url, tool=ad, call_id=cagri_id
+                        )
+                        emit_run_state(js_callback, run_state)
             tur_sonuclari.append((ad, net, cagri_id))
             if basarili:
                 kosan += 1
@@ -358,6 +419,8 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
         # cagri icin tool sonucu -> modelin bir sonraki karari.
         _asistan = {"role": "assistant", "content": "",
                     "tool_calls": tool_calls}
+        if _tercih_aktif:
+            _asistan["_provider"] = str(_tercih_aktif[0] or "")
         _asistan.update(ilk_muhakeme)
         expanded = expanded + [_asistan]
         for ad, sonuc, cagri_id in tur_sonuclari:
@@ -368,11 +431,56 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 "content": sonuc,
             })
 
+        # Sure dolmak uzereyse yeni model turu baslatma; karari kullaniciya
+        # birak. Bu tur arac sonuclari handoff'a zaten yazildi.
+        if mola_zamani is not None and _zaman.monotonic() >= mola_zamani:
+            _web_olay(js_callback, "checkpoint", adim=kosan, turn=tur_no)
+            if run_state is not None:
+                run_state.pause("sure")
+                emit_run_state(js_callback, run_state)
+            return "", kosan
+
+        # Gercek tool-result ayni run icinde modele geri gider.
+        if run_state is not None:
+            run_state.phase_set("model")
+            emit_run_state(js_callback, run_state)
+
+        yanit = None
+        _kaynak = ""
+
+        # Tool sonrasi final/tool-call da provider'in gercek stream yolundan.
         try:
-            yanit, _kaynak = _beyin_devam(tools)
+            from chat.output_control import akan_ajan_adimi
+            _syanit, _skaynak, _sok = akan_ajan_adimi(
+                brain, model, expanded, js_callback, tools,
+                tercih=list(_tercih_aktif or []),
+            )
+            if _sok:
+                yanit = _syanit
+                _kaynak = _skaynak
+                onceki = (
+                    (_tercih_aktif or [""])[0]
+                    if _tercih_aktif else ""
+                )
+                if _skaynak:
+                    if onceki and _skaynak != onceki:
+                        _web_olay(
+                            js_callback, "providerSwitch",
+                            onceki=onceki, yeni=_skaynak,
+                        )
+                    _tercih_aktif = [_skaynak]
+                    if run_state is not None:
+                        run_state.provider_set(_skaynak)
+                        emit_run_state(js_callback, run_state)
         except Exception as e:
-            logger.warning("Arac turu sonrasi cevap alinamadi: %s", e)
-            break
+            logger.warning("Arac sonrasi gercek stream acilamadi: %s", e)
+
+        if yanit is None:
+            try:
+                yanit, _kaynak = _beyin_devam(tools, secim="auto")
+            except Exception as e:
+                logger.warning("Arac turu sonrasi cevap alinamadi: %s", e)
+                break
 
         yeni = yanit.get("tool_calls") if isinstance(yanit, dict) else None
         if yeni:
@@ -380,18 +488,28 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             ilk_muhakeme = _muhakeme_al(yanit)
             continue
 
-        if tool_choice == "required":
-            logger.warning(
-                "Zorunlu ajan turu tool call olmadan duz metin dondurdu")
-            break
+        if isinstance(yanit, dict) and yanit.get("_tamam") is False:
+            if run_state is not None:
+                run_state.truncate(yanit.get("_finish_reason") or "limit")
+                emit_run_state(js_callback, run_state)
 
-        cevap = temizle(yanit.get("content", ""))
+        cevap = temizle(
+            yanit.get("content", "") if isinstance(yanit, dict) else yanit
+        )
         if cevap:
-            return cevap, kosan
+            if isinstance(yanit, dict):
+                from chat.output_control import kesik_cevabi_bildir, kesik_mi
+                if kesik_mi(yanit):
+                    cevap, _kaynak, _tamam = kesik_cevabi_bildir(
+                        yanit, js_callback=js_callback,
+                        tercih=list(_tercih_aktif or []),
+                    )
+                    if not _tamam and run_state is not None:
+                        run_state.truncate(
+                            yanit.get("_finish_reason") or "limit"
+                        )
+                        emit_run_state(js_callback, run_state)
+            return temizle(cevap), kosan
         break
 
-    if tool_choice == "required":
-        return "", kosan
-
-    ham = "\n".join(net for _ad, net, _id in tur_sonuclari if net)
-    return ham, kosan
+    return "", kosan

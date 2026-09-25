@@ -26,11 +26,9 @@ def test_normal_sohbet_arac_varken_bile_dogal_metinle_biter(
     monkeypatch.setattr(ctx, "HISTORY_FILE", str(tmp_path / "g.json"))
     monkeypatch.setattr(ctx, "yukle", lambda *a, **k: [])
     monkeypatch.setattr(ctx, "temizle_history", lambda g: list(g or []))
-    monkeypatch.setattr(ctx, "gecmis_pencere", lambda g, *a, **k: [])
     monkeypatch.setattr(ctx, "ilgili_anilar", lambda *a, **k: [])
     monkeypatch.setattr(ctx, "hafiza_al", lambda: None)
     monkeypatch.setattr(ctx, "kaydet", lambda *a, **k: None)
-    monkeypatch.setattr(flow, "_profil_isle", lambda *a, **k: ("", ""))
 
     try:
         from chat import oturum
@@ -50,74 +48,66 @@ def test_normal_sohbet_arac_varken_bile_dogal_metinle_biter(
         def cevapla(self, mesajlar, model, tools=None, tool_choice=None,
                     **kwargs):
             gorulen["tool_choice"] = tool_choice
-            gorulen["tools"] = [
-                (t.get("function") or {}).get("name") for t in (tools or [])
-            ]
+            gorulen["tools"] = tools
             return {"content": "Merhaba, nasil yardimci olayim?"}, "groq"
 
-    olaylar = []
-    flow.mesaj_isle(
-        "merhaba",
-        Beyin(),
-        "sistem",
-        olaylar.append,
-        tools=[{"type": "function",
-                "function": {"name": "list_tasks"}}],
-    )
-
-    assert gorulen["tool_choice"] == "auto"
-    assert gorulen["tools"] == ["yetenek_ac"]
-    assert any("Merhaba, nasil yardimci olayim?" in o for o in olaylar)
-    assert not any("Ajan protokolu bozuldu" in o for o in olaylar)
-
-
-def test_arac_zinciri_baslayan_saglayiciyi_once_tutar_ve_fallbacki_devralir():
-    from chat.tools import arac_dongusu
-    from chat.agent_protocol import YETENEK_AC_ADI, baslangic_araclari
-
-    tercihler = []
-    turlar = {"n": 0}
-
-    class Beyin:
-        def cevapla(self, mesajlar, model, tools=None, tool_choice=None,
-                    tercih=None):
-            tercihler.append(list(tercih or []))
-            assert tool_choice == "auto"
-            turlar["n"] += 1
-            if turlar["n"] == 1:
-                # Ilk tercih gemini; Brain teknik nedenle nvidia'da basarmis
-                # gibi davranir. Sonraki tur nvidia'yi oncelemeli.
-                return {"tool_calls": [
-                    _call("list_tasks", "{}", "c2")
-                ]}, "nvidia"
-            return {"content": "1 gorev var."}, "nvidia"
-
-    tum_tools = [{
+    arac = {
         "type": "function",
         "function": {
             "name": "list_tasks",
             "description": "Gorevleri listeler",
             "parameters": {"type": "object", "properties": {}},
         },
-    }]
-
-    cevap, kosan = arac_dongusu(
-        [_call(YETENEK_AC_ADI, '{"alan":"gorevler"}', "c1")],
-        [{"role": "user", "content": "gorevlerime bak"}],
+    }
+    olaylar = []
+    flow.mesaj_isle(
+        "merhaba",
         Beyin(),
-        None,
-        lambda kod: None,
-        lambda ad, args: {"result": "1: sut al"},
-        tools=baslangic_araclari(),
-        tool_choice="auto",
-        tum_tools=tum_tools,
-        tercih=["gemini"],
+        "sistem",
+        olaylar.append,
+        tools=[arac],
+        misafir=True,
+        gecmis_override=[],
+        tool_policy="auto",
     )
 
-    assert cevap == "1 gorev var."
-    assert kosan == 1
-    assert tercihler == [["gemini"], ["nvidia"]]
+    # AGENTS §0: ilk turda yalniz yetenek_ac sunulur; auto modunda model
+    # ister alan acar, ister dogal final üretir.
+    from chat.agent_protocol import baslangic_araclari
+    assert gorulen["tool_choice"] == "auto"
+    assert gorulen["tools"] == baslangic_araclari()
+    assert any("Merhaba, nasil yardimci olayim?" in o for o in olaylar)
 
+
+def test_arac_zinciri_baslayan_saglayiciyi_once_tutar_ve_fallbacki_devralir():
+    from chat.tools import arac_dongusu
+    tercihler = []
+    turlar = {"n": 0}
+    arac = {"type": "function", "function": {
+        "name": "list_tasks", "description": "Gorevleri listeler",
+        "parameters": {"type": "object", "properties": {}}}}
+    class Beyin:
+        def cevapla_yayin(self, *a, **k):
+            from brain.yayin import SonHata
+            raise SonHata("testte stream yok")
+            yield
+        def cevapla(self, mesajlar, model, tools=None, tool_choice=None, tercih=None):
+            tercihler.append(list(tercih or []))
+            assert tool_choice == "auto"
+            turlar["n"] += 1
+            if turlar["n"] == 1:
+                return {"tool_calls": [_call("list_tasks", "{}", "c2")]}, "nvidia"
+            return {"content": "1 gorev var."}, "nvidia"
+    cevap, kosan = arac_dongusu(
+        [_call("list_tasks", "{}", "c1")],
+        [{"role": "user", "content": "gorevlerime bak"}],
+        Beyin(), None, lambda kod: None,
+        lambda ad, args: {"result": "1: sut al"},
+        tools=[arac], tool_choice="auto", tercih=["gemini"],
+    )
+    assert cevap == "1 gorev var."
+    assert kosan == 2
+    assert tercihler == [["gemini"], ["nvidia"]]
 
 def test_openrouter_arac_istegi_parametre_destekli_uclara_gider():
     from brain.openrouter import OpenRouterClient

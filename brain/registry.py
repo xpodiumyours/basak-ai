@@ -1,16 +1,16 @@
 """brain/registry.py — Model Registry (P3).
 
-Her saglayicinin statik karti: ucretsiz mi, tool calling destekliyor mu,
-gucleri ne, gunluk istek limiti kac. Saglik durumu (cooldown) burada degil,
-kota.py'de tutulur.
+Her saglayicinin statik teknik karti: ucretsiz mi, tool calling destekliyor
+mu, gozlemsel yetenek etiketleri ve yayinlanan kota bilgisi. Saglik durumu
+(cooldown) burada degil, kota.py'de tutulur.
 
 Limit kartlari 2026-09-20 resmi saglayici belgeleriyle guncellendi.
 Hesaba/model katmanina gore degisen limitler burada uydurulmaz; 429 ve
 saglayici basliklari calisma aninda hakikat sayilir.
 """
 
-# Gucleri etiketleri secici motorunun anladigi standart degerlerdir:
-# hiz, kod, arastirma, genel, uzun-baglam
+# Gucleri yalniz durum/arayuz metadata'sidir; runtime siralamasi veya
+# kullanici niyeti secimi icin okunmaz.
 SAGLAYICILAR = {
     "groq": {
         "ad": "Groq",

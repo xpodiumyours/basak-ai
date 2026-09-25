@@ -6,7 +6,7 @@ ve hafıza bağlantısı buraya taşındı.
 
 Sorumluluğu:
   - dosya yolları ve ayar okuma (kişiye özel: chat.kimlik)
-  - modele giden geçmiş penceresi (kilo limitli)
+  - modele giden tam geçmişi koruma
   - kalıcı hafıza motoruna tek giriş noktası (kişi başına ayrı DB)
 
 2026-09-23: HISTORY_FILE None ise dinamiktir (kimlik); testler
@@ -38,14 +38,9 @@ OTURUM_ID = uuid.uuid4().hex[:8]
 # Gecmis yazma kilidi (tek surec ici; bkz. kaydet).
 _kayit_kilidi = threading.Lock()
 
-# ── Geçmiş penceresi ────────────────────────────────────────────────
-# Ozgu-ajan (2026-09-13 Faz 1, AGENTS.md S0-5): kilo/adet kirpmasi YOK.
-# Gecmis tam verilir; karari model + saglayici baglami verir.
-# Uyumluluk icin imza korunur (limit/adet_siniri kullanilmaz).
-
-MAX_HISTORY = 200
-GECMIS_KILO_LIMITI = 200000
-
+# ── Geçmiş ────────────────────────────────────────────────────────
+# P2: uygulama geçmişi sessizce kırpmaz; sağlayıcı gerçek bağlam sınırını
+# aşarsa hata/incomplete durumu görünür olur.
 
 def gecmis_yolu():
     """Aktif kişinin gecmis.json yolu (test monkeypatch'i önce gelir)."""
@@ -78,12 +73,24 @@ def kaydet(path, veri):
         os.replace(gecici, path)
 
 
-def gecmis_pencere(gecmis, limit=GECMIS_KILO_LIMITI, adet_siniri=MAX_HISTORY):
-    """Gecmisi tam dondurur (kirpma yok).
-
-    Uyumluluk icin limit/adet_siniri parametreleri durur, kullanilmaz.
-    """
+def gecmis_pencere(gecmis):
+    """Geçmişi tam döndürür; sessiz kırpma yapmaz."""
     return list(gecmis or [])
+
+
+def gecmis_model_penceresi(gecmis):
+    """Modele tam geçmişi verir; sessiz kırpma yapmaz.
+
+    Sağlayıcı bağlamı kabul etmezse hata görünür olur; uygulama eski
+    mesajları gizlice düşürmez.
+    """
+    liste = list(gecmis or [])
+    return liste, {
+        "compact": False,
+        "toplam_token": None,
+        "modele_giden_token": None,
+        "atlanan_mesaj": 0,
+    }
 
 
 def temizle_history(gecmis):
@@ -97,11 +104,8 @@ def temizle_history(gecmis):
 
 
 # ── Önem puanı ──────────────────────────────────────────────────────
-# Puanı KOD verir, model tahmin etmez. Budama sırası önem → tarih
-# olduğu için açıkça "hatırla" denen bilgi gevezeliğin altında kalmaz.
-
 def onem_puanla(text):
-    """Her anı eşit önemde. Kelimeye bakıp puan veren kod kaldırıldı."""
+    """Her episodik kayıt eşit önemdedir; kullanıcı metni sınıflandırılmaz."""
     return 1
 
 

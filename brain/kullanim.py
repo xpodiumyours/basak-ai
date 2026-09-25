@@ -49,12 +49,34 @@ def openai_kullanim(resp):
     return {"giris": giris, "cikis": cikis}
 
 
+def _bitis_nedeni(resp):
+    """OpenAI/Cohere uyumlu yanittan teknik bitis nedenini cikar."""
+    try:
+        secimler = getattr(resp, "choices", None) or []
+        if secimler:
+            neden = getattr(secimler[0], "finish_reason", None)
+            if neden:
+                return str(neden)
+    except Exception:
+        pass
+    try:
+        neden = getattr(resp, "finish_reason", None)
+        if neden:
+            return str(neden)
+    except Exception:
+        pass
+    return ""
+
+
 def kullanim_ekle(yanit, resp):
-    """Adaptör dönüşüne _kullanim bilgisini ekler; yanıtı döndürür."""
+    """Adapter donusune kullanim + teknik bitis nedenini ekler."""
     try:
         k = openai_kullanim(resp)
-    except Exception:            # olcum hicbir zaman sohbeti bozmasin
-        return yanit
+    except Exception:
+        k = None
     if k:
         yanit["_kullanim"] = k
+    neden = _bitis_nedeni(resp)
+    if neden:
+        yanit["_finish_reason"] = neden
     return yanit

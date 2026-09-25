@@ -16,7 +16,7 @@ Kapsananlar (davranisla olculur, yoruma degil):
 6. Yasak modul yok: orkestra/onay/izin/kapasite dosyalari donemez.
 7. Yasak isim yok: kelime tetikleyici tanimlayicilar donemez.
 8. Sozlesme zorunluluk tasir: arac gerektiren istekte araci tarif
-   etmek is sayilmaz; baslangic araclari yalniz yetenek_ac'dir.
+   etmek is sayilmaz; auto|required politikasinda tam gercek katalog aciktir.
 """
 
 import ast
@@ -34,16 +34,13 @@ def _okunan(ad):
 
 
 class TestSeciciTarafsiz:
-    def test_bayraklar_sirayi_degistirmez(self):
+    def test_secici_yalniz_teknik_mevcutlar_listesini_alir(self):
+        import inspect
         from brain import secici, registry
+        assert tuple(inspect.signature(secici.sec).parameters) == ("mevcutlar",)
         beklenen = list(registry.VARSAYILAN_SIRA)
-        for kw in ({"tools": True},
-                   {"karne_kullan": True},
-                   {"cooldown": {"glm": 9999999999}},
-                   {"gorev_tipi": "kod", "tools": True,
-                    "karne_kullan": True}):
-            sirali, _ = secici.sec(mevcutlar=list(beklenen), **kw)
-            assert sirali == beklenen, kw
+        sirali, _ = secici.sec(mevcutlar=list(beklenen))
+        assert sirali == beklenen
 
 
 class TestDonguOzgur:
@@ -64,15 +61,24 @@ class TestDonguOzgur:
                                      "arguments": "{}"}}]}, "x"
                 return {"content": "bitti <think>ozet</think>  😀"}, "x"
 
+        gercek_kosum = {"n": 0}
+
+        def degisen_sonuc(ad, args):
+            # Genel tur tavani olmadigini olcerken exact-loop guard'a
+            # takilmamak icin her gercek arac sonucu farklidir.
+            gercek_kosum["n"] += 1
+            return {"result": "tamam-%d" % gercek_kosum["n"]}
+
         cevap, kosan = arac_dongusu(
             [{"id": "c0", "type": "function",
               "function": {"name": "list_tasks", "arguments": "{}"}}],
             [{"role": "user", "content": "sor"}],
             IsrarciBeyin(), None, lambda kod: None,
-            lambda ad, args: {"result": "tamam"},
+            degisen_sonuc,
             tools=[{"type": "function",
                     "function": {"name": "list_tasks"}}])
         assert kosan == 31
+        assert gercek_kosum["n"] == 31
         assert all(g is not None and len(g) == 1 for g in gorulen_araclar)
         assert cevap == "bitti <think>ozet</think>  😀"
 
@@ -152,7 +158,7 @@ class TestSaglayiciBogulmaz:
             i.cevapla([{"role": "user", "content": "s"}])
             kw = i.client.kayit[0]
             assert "temperature" not in kw, cls
-            assert kw.get("max_tokens", 0) >= 4096, (cls, kw.get("max_tokens"))
+            assert "max_tokens" not in kw, (cls, kw.get("max_tokens"))
             assert "disabled" not in str(kw.get("extra_body", "")), cls
 
 
@@ -160,16 +166,19 @@ class TestYasakModulYok:
     def test_donen_dosya_yok(self):
         import importlib.util
         for mod in ("brain.orkestra", "brain.kapasite", "chat.approval",
+                    "chat.tool_resolver",
                     "tools.executor", "tools.permissions"):
             assert importlib.util.find_spec(mod) is None, mod
 
 
 class TestYasakIsimYok:
-    YASAK = ("ARAC_ISARET", "arac_gerek", "GOREV_KELIME", "TOOL_IYI",
+    YASAK = ("ARAC_ISARET", "arac_gerek", "GOREV_KELIME", "gorev_tipi",
+             "karne_kullan", "TOOL_IYI",
              "dinamik_arac", "aktif_tool", "ham_tool_call",
              "tool_argumani", "raw_tool", "orkestra_aktif", "juri_acik",
              "mod_kapasite", "calistirilabilir", "cikis_kapisi",
              "PROMPT_BLOG", "TUR_SINIRI", "ARAC_SONUC_TAVAN",
+             "GECMIS_KILO_LIMITI", "MAX_HISTORY", "token_butcesi",
              "onay_kuyrugu", "ApprovalSystem", "yetki_tavani")
 
     DOSYALAR = ("brain/secici.py", "brain/brain.py", "chat/flow.py",
@@ -201,37 +210,36 @@ class TestYasakIsimYok:
 
 
 class TestSozlesmeZorunlulukTasir:
-    """8. guvence (2026-09-22, Casper karari): sozlesme arac tarifini
-    is sayilmaz der; baslangic araclari yalniz yetenek_ac'dir (model
-    hala serbesttir — required/force YOK, kelime tetikleyici YOK)."""
+    """P2 ortak mimari: full capability registry, gizli resolver yok."""
 
-    def test_sozlesme_tarifi_is_yapmaz_der(self):
-        from chat.agent_protocol import AJAN_SOZLESMESI
-        metin = AJAN_SOZLESMESI.lower()
-        assert "yetenek_ac" in metin
-        assert "zorunluluktur" in metin
-        assert "tarif" in metin
-        assert "sayilmaz" in metin
+    def test_runtime_sozlesmesi_gercek_araci_tanimlar(self):
+        from chat.agent_runtime import AGENT_CONTRACT
+        metin = AGENT_CONTRACT.lower()
+        assert "gercek ve cagrilabilir arac katalogu" in metin
+        assert "tool_call" in metin
+        assert "tool sonucu" in metin
+        assert "kararini yeniden sen verirsin" in metin
 
-    def test_sozlesme_kelime_tetikleyici_icermaz(self):
-        from chat.agent_protocol import AJAN_SOZLESMESI
-        yasak = ("eger su kelime", "asagidaki kelime", "kelime gecerse",
-                 "if the user says", "su araci ac")
-        metin = AJAN_SOZLESMESI.lower()
-        for cumle in yasak:
-            assert cumle not in metin, cumle
+    def test_runtime_kelime_tetikleyici_icermez(self):
+        import inspect
+        from chat import agent_runtime
+        kaynak = inspect.getsource(agent_runtime).lower()
+        for cumle in (
+            "if 'hava' in", 'if "hava" in',
+            "if 'github' in", 'if "github" in',
+            "kelime gecerse", "if the user says",
+        ):
+            assert cumle not in kaynak, cumle
 
-    def test_baslangic_araclari_yalniz_yetenek_ac(self):
-        from chat.agent_protocol import baslangic_araclari, YETENEK_AC_ADI
-        araclar = baslangic_araclari()
-        assert len(araclar) == 1
-        assert araclar[0]["function"]["name"] == YETENEK_AC_ADI
-
-    def test_flow_sozlesmeyi_arac_acikken_gonderir(self):
+    def test_aktif_flow_hidden_resolver_kullanmaz(self):
         import inspect
         from chat import flow
         kaynak = inspect.getsource(flow.mesaj_isle)
-        assert "AJAN_SOZLESMESI" in kaynak
-        assert "tool_choice=\"auto\"" in kaynak or \
-               "tool_choice='auto'" in kaynak or \
-               'tool_choice="auto"' in kaynak
+        assert "arac_karari_coz" not in kaynak
+        assert "tool_resolver" not in kaynak
+        assert "capability_surface" in kaynak
+        assert 'tool_choice=secim' in kaynak
+
+    def test_tool_policy_acik_ve_sinirli(self):
+        from chat.agent_runtime import TOOL_POLICIES
+        assert TOOL_POLICIES == frozenset(("auto", "required", "none"))

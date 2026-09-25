@@ -13,7 +13,8 @@ jobs:
     if: >-
       github.event.issue.number == 4 &&
       github.event.comment.user.login == 'xpodiumyours' &&
-      github.event.comment.body == 'FULL TEST'
+      (github.event.comment.body == 'FULL TEST' ||
+       github.event.comment.body == 'FULL TEST P2')
     runs-on: windows-latest
     timeout-minutes: 60
 
@@ -21,7 +22,7 @@ jobs:
       - name: Basak kodunu al
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event.comment.body == 'FULL TEST P2' && 'preview/p2-arac-ara-profesyonel' || 'main' }}
 
       - name: Python 3.12 kur
         uses: actions/setup-python@v5
@@ -42,7 +43,7 @@ jobs:
           python -m pytest tests -q --ignore=tests/live 2>&1 | Tee-Object -FilePath full-pytest.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: 8 saglayici x 10 alan x 52 semayi gercek API'de sina
+      - name: Guncel saglayici x 10 alan x guncel semayi gercek API'de sina
         id: providers
         continue-on-error: true
         env:
@@ -56,6 +57,7 @@ jobs:
           COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
           KILO_API_KEY: ${{ secrets.KILO_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
         run: python tests/live/github_full_acceptance.py
 
       - name: FULL TEST raporunu issue'ya yaz

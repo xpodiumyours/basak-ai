@@ -13,6 +13,11 @@
   --shadow-soft:0 8px 28px rgba(20,20,24,.055);
 }
 *{box-sizing:border-box}
+/* Kod bir ogeyi gizlediginde (hidden) hicbir display kurali onu geri
+   gostermesin. Eskiden .work-current/.work-redirect-form kurallari bunu
+   eziyordu: is bitince "Yanit yaziliyor" kaliyor, Yonlendir kutusu
+   istenmeden acik duruyordu. */
+[hidden]{display:none !important}
 html,body{height:100%}
 body{
   margin:0;
@@ -155,6 +160,9 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   background:#20b26b;
   box-shadow:0 0 0 3px rgba(32,178,107,.11);
 }
+/* Ust durum yalniz sorun varken gorunur (common.js basakHealth). */
+.health-problem{color:#a23b3b}
+.health-problem .status-dot{background:#a23b3b;box-shadow:0 0 0 3px rgba(162,59,59,.12)}
 .menu-button{
   display:none;
   width:38px;height:38px;border:0;border-radius:12px;
@@ -260,6 +268,25 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em;
 }
 .message-row.user .icerik code{background:rgba(255,255,255,.15)}
+/* Cevap metni bicimi (web/app.js bicimle): mevcut --ink/--muted/--line/--soft */
+.icerik>:first-child{margin-top:0}
+.icerik>:last-child{margin-bottom:0}
+.icerik p{margin:0 0 12px}
+.icerik .md-baslik{margin:20px 0 8px;color:var(--ink);line-height:1.3;letter-spacing:-.01em;font-weight:700}
+.icerik .md-b1{font-size:20px}
+.icerik .md-b2{font-size:18px}
+.icerik .md-b3,.icerik .md-b4,.icerik .md-b5,.icerik .md-b6{font-size:16px}
+.icerik ul,.icerik ol{margin:0 0 12px;padding-left:22px}
+.icerik li{margin:4px 0}
+.icerik li>ul,.icerik li>ol{margin:4px 0 0}
+.icerik hr{border:0;border-top:1px solid var(--line);margin:18px 0}
+.icerik a{color:var(--ink);text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}
+.icerik pre{margin:0 0 12px;padding:12px 14px;border-radius:12px;background:var(--soft);overflow-x:auto;line-height:1.45}
+.icerik pre code{padding:0;background:transparent;white-space:pre}
+.icerik .tablo-kap{margin:0 0 12px;overflow-x:auto}
+.icerik table{border-collapse:collapse;font-size:14px}
+.icerik th,.icerik td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+.icerik th{background:var(--soft);font-weight:600}
 .status-line{display:block;margin-top:8px;color:#68686f;font-size:12px}
 .work-card{
   position:relative;
@@ -329,6 +356,12 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .work-summary{
   margin:7px 0 0 25px;color:#7a7a82;font-size:12px;line-height:1.4
 }
+/* Arac isareti: cevap balonunun icinde ama cevap METNININ disinda,
+   kucuk gri tek satir (web/app.js aracIsaretiYaz). */
+.arac-isareti{
+  margin:8px 0 0;color:var(--muted);font-size:12px;line-height:1.4
+}
+
 .work-actions{
   display:flex;align-items:center;gap:16px;
   margin:4px 0 0 25px
@@ -350,7 +383,17 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .work-card.done .work-details::before,
 .work-card.stopped .work-details::before{bottom:8px}
 .work-card.done .work-pulse{animation:none;background:#39734d;box-shadow:none}
+/* Is bitince kart tek satira iner; plan da adimlar gibi Detaylar'la acilir. */
+.work-card.done:not(.details-open) .work-plan,
+.work-card.stopped:not(.details-open) .work-plan{display:none}
 .work-card.stopped .work-pulse{animation:none;background:#8b3030;box-shadow:none}
+/* Mola: sunucu süresi dolmadan karar kullanıcıya bırakılır. */
+.work-card.paused .work-pulse{animation:none;background:#4f5968;box-shadow:none}
+.work-continue{
+  min-height:36px;padding:0 12px;border-radius:9px;
+  background:#27272b;color:#fff
+}
+.work-continue:hover{background:#171719;color:#fff}
 .sr-only{
   position:absolute!important;width:1px!important;height:1px!important;padding:0!important;
   margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;
@@ -478,7 +521,6 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   .topbar{height:58px;padding:0 10px}
   .menu-button{display:grid;place-items:center}
   .topbar-title{margin-right:auto}
-  .ready-inline{display:none}
   .new-chat{width:38px;height:38px;padding:0;justify-content:center}
   .new-chat span{display:none}
   .conversation-inner{width:calc(100% - 20px);padding-top:24px}

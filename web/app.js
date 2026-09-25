@@ -134,11 +134,149 @@ function kacis(s) {
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function bicimle(metin) {
+// Satir ici bicim. Girdi ONCEDEN kacis()'tan gecmistir; burada uretilen
+// etiketler disinda HTML olusmaz. Baglanti yalniz http(s) adresine verilir.
+function satirIci(s) {
+  s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+  s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?![*\w])/g, "$1<em>$2</em>");
+  s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  return s;
+}
+
+function basitBicimle(metin) {
   let h = kacis(metin);
   h = h.replace(/`([^`\n]+)`/g, "<code>$1</code>");
   h = h.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   return h.replace(/\n/g, "<br>");
+}
+
+const TABLO_SATIRI = /^\s*\|.*\|\s*$/;
+const TABLO_AYRACI = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/;
+
+function tabloHucreleri(satir) {
+  return satir.trim().replace(/^\|/, "").replace(/\|$/, "").split("|")
+    .map((h) => satirIci(h.trim()));
+}
+
+// Model cevabindaki markdown'i gorunume cevirir: baslik, madde/numarali
+// liste (girintiyle ic ice), ayirici cizgi, kod blogu, tablo, baglanti.
+// Metnin kendisine dokunmaz; yalniz nasil gosterilecegini belirler.
+function bicimle(metin) {
+  const satirlar = kacis(metin).split(/\r?\n/);
+  const cikti = [];
+  const listeler = [];
+  let paragraf = [];
+  let kod = null;
+
+  const paragrafKapat = () => {
+    if (!paragraf.length) return;
+    cikti.push("<p>" + paragraf.map(satirIci).join("<br>") + "</p>");
+    paragraf = [];
+  };
+  const listeKapat = () => {
+    const ust = listeler.pop();
+    cikti.push("</li></" + ust.tip + ">");
+  };
+  const listeleriKapat = () => { while (listeler.length) listeKapat(); };
+
+  for (let i = 0; i < satirlar.length; i++) {
+    const satir = satirlar[i];
+
+    if (kod !== null) {
+      if (/^\s*```/.test(satir)) {
+        cikti.push("<pre><code>" + kod.join("\n") + "</code></pre>");
+        kod = null;
+      } else {
+        kod.push(satir);
+      }
+      continue;
+    }
+    if (/^\s*```/.test(satir)) {
+      paragrafKapat(); listeleriKapat();
+      kod = [];
+      continue;
+    }
+
+    if (TABLO_SATIRI.test(satir) && i + 1 < satirlar.length &&
+        TABLO_AYRACI.test(satirlar[i + 1])) {
+      paragrafKapat(); listeleriKapat();
+      const basliklar = tabloHucreleri(satir);
+      const govde = [];
+      i += 2;
+      while (i < satirlar.length && TABLO_SATIRI.test(satirlar[i])) {
+        govde.push(tabloHucreleri(satirlar[i]));
+        i++;
+      }
+      i--;
+      cikti.push('<div class="tablo-kap"><table><thead><tr>' +
+        basliklar.map((h) => "<th>" + h + "</th>").join("") +
+        "</tr></thead><tbody>" +
+        govde.map((s) => "<tr>" + s.map((h) => "<td>" + h + "</td>")
+          .join("") + "</tr>").join("") +
+        "</tbody></table></div>");
+      continue;
+    }
+
+    if (/^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(satir)) {
+      paragrafKapat(); listeleriKapat();
+      cikti.push("<hr>");
+      continue;
+    }
+
+    const baslik = satir.match(/^\s{0,3}(#{1,6})\s+(.+?)(?:\s+#+)?\s*$/);
+    if (baslik) {
+      paragrafKapat(); listeleriKapat();
+      const seviye = Math.min(6, baslik[1].length + 2);
+      cikti.push("<h" + seviye + ' class="md-baslik md-b' +
+        baslik[1].length + '">' + satirIci(baslik[2]) + "</h" + seviye + ">");
+      continue;
+    }
+
+    const madde = satir.match(/^(\s*)(?:([*+-])|(\d{1,9})[.)])\s+(.*)$/);
+    if (madde) {
+      paragrafKapat();
+      const girinti = madde[1].replace(/\t/g, "    ").length;
+      const tip = madde[3] !== undefined ? "ol" : "ul";
+      while (listeler.length &&
+             girinti < listeler[listeler.length - 1].girinti) {
+        listeKapat();
+      }
+      const ust = listeler[listeler.length - 1];
+      if (ust && girinti < ust.girinti + 2 && ust.tip === tip) {
+        cikti.push("</li><li>");
+      } else {
+        if (ust && girinti < ust.girinti + 2) listeKapat();
+        const baslangic = tip === "ol" && madde[3] !== "1"
+          ? ' start="' + Number(madde[3]) + '"' : "";
+        cikti.push("<" + tip + baslangic + "><li>");
+        listeler.push({ tip, girinti });
+      }
+      cikti.push(satirIci(madde[4]));
+      continue;
+    }
+
+    if (!satir.trim()) {
+      paragrafKapat();
+      continue;
+    }
+
+    if (listeler.length && /^\s+\S/.test(satir)) {
+      cikti.push("<br>" + satirIci(satir.trim()));
+      continue;
+    }
+
+    listeleriKapat();
+    paragraf.push(satir);
+  }
+
+  if (kod !== null) {
+    cikti.push("<pre><code>" + kod.join("\n") + "</code></pre>");
+  }
+  paragrafKapat();
+  listeleriKapat();
+  return cikti.join("");
 }
 
 function icerikYaz(b, metin) {
@@ -149,7 +287,9 @@ function icerikYaz(b, metin) {
     ic.className = "icerik";
     b.appendChild(ic);
   }
-  ic.innerHTML = bicimle(metin || "");
+  ic.innerHTML = b.dataset.rol === "user"
+    ? basitBicimle(metin || "")
+    : bicimle(metin || "");
 }
 
 function sohbetAlta(zorla = true) {
@@ -169,6 +309,7 @@ function bubble(role, text) {
 
   const b = document.createElement("div");
   b.className = "bubble";
+  b.dataset.rol = role;
 
   if (role === "assistant") {
     const head = document.createElement("div");
@@ -338,6 +479,7 @@ function calismaKaydi(b) {
   yonlendir.type = "button";
   yonlendir.className = "work-action work-redirect";
   yonlendir.textContent = "Yönlendir";
+  yonlendir.disabled = true;
 
   const durdur = document.createElement("button");
   durdur.type = "button";
@@ -409,6 +551,9 @@ function calismaKaydi(b) {
     ozet, detaylar, yonlendir, durdur, yonForm, yonInput,
     panel, liste, canli, planEl, kaynakBolumu, kaynakListe,
     plan: [], kaynaklar: [], yonlendirIstegi: null,
+    handoffToken: "", toolPolicy: "auto",
+    kesik: false, kesikNedeni: "",
+    mola: false,
     bitti: false,
   };
 
@@ -477,7 +622,8 @@ function adimlariCiz(kayit) {
     !!(kayit.aktif && kayit.aktif.detay);
   kayit.detaylar.hidden = !detayVar && kayit.adimlar.length === 0;
 
-  if (!kayit.bitti) {
+  // Mola özeti kullanıcının kararını bekler; adım çizimi onu silmez.
+  if (!kayit.bitti && !kayit.mola) {
     kayit.ozet.hidden = true;
     kayit.ozet.textContent = "";
   }
@@ -554,6 +700,14 @@ function araciTamamla(b, olay) {
   }
 }
 
+function yonlendirmeBaglamiOlustur(b) {
+  const kayit = calismaKaydi(b);
+  return {
+    schema: "p2-handoff-v1",
+    token: String(kayit.handoffToken || ""),
+  };
+}
+
 function durumSatiri(b, metin, tur = "thinking") {
   if (!b) return;
   const kayit = calismaKaydi(b);
@@ -601,13 +755,15 @@ function calismaBitir(b) {
   const toplamSure = sureMetni(Date.now() - kayit.baslangic);
   const sayi = kayit.adimlar.length;
   kayit.kart.classList.add("done");
-  kayit.baslik.textContent = sayi
-    ? sayi + " adım tamamlandı"
-    : "Yanıt tamamlandı";
+  kayit.baslik.textContent = kayit.kesik
+    ? "Yanıt tamamlanmadan durdu"
+    : (sayi ? sayi + " adım tamamlandı" : "Yanıt tamamlandı");
   kayit.sure.textContent = toplamSure;
   kayit.mevcut.hidden = true;
-  kayit.ozet.hidden = true;
-  kayit.ozet.textContent = "";
+  kayit.ozet.hidden = !kayit.kesik;
+  kayit.ozet.textContent = kayit.kesik
+    ? "Sağlayıcı çıktı sınırında durdu; cevap metni değiştirilmedi."
+    : "";
   kayit.durdur.remove();
   kayit.yonlendir.remove();
   kayit.yonForm.remove();
@@ -620,6 +776,79 @@ function calismaBitir(b) {
   adimlariCiz(kayit);
 }
 
+// Sunucu süresi dolmadan Başak mola verir; iş kendiliğinden sürmez, karar
+// kullanıcıdadır. Yapılan adımların sonuçları imzalı devam kaydında kalır.
+function calismaMolaVer(b) {
+  const kayit = durumSaatleri.get(b);
+  if (!kayit || kayit.bitti || kayit.mola) return;
+  aktifAdimiTamamla(kayit);
+  kayit.mola = true;
+  if (kayit.zamanlayici) clearInterval(kayit.zamanlayici);
+  kayit.zamanlayici = null;
+  kayit.kart.classList.add("paused");
+  const sure = sureMetni(Date.now() - kayit.baslangic);
+  const sayi = kayit.adimlar.length;
+  kayit.baslik.textContent = "Mola · " + sayi + " adım tamamlandı";
+  kayit.sure.textContent = sure;
+  kayit.mevcut.hidden = true;
+  kayit.ozet.hidden = false;
+  kayit.ozet.textContent =
+    "Çalışma süresi " + sure + ". Bulunanlar saklandı; nasıl devam edelim?";
+  if (kayit.durdur?.isConnected) kayit.durdur.remove();
+
+  const devam = document.createElement("button");
+  devam.type = "button";
+  devam.className = "work-action work-continue";
+  devam.textContent = "Devam et";
+
+  const cevapla = document.createElement("button");
+  cevapla.type = "button";
+  cevapla.className = "work-action work-answer";
+  cevapla.textContent = "Bulduklarınla cevap ver";
+
+  kayit.yonlendir.parentNode.insertBefore(devam, kayit.yonlendir);
+  kayit.yonlendir.parentNode.insertBefore(cevapla, kayit.yonlendir);
+  kayit.yonlendir.disabled = false;
+  kayit.yonlendir.hidden = false;
+
+  const sec = (secenek) => {
+    if (kayit.bitti) return;
+    kayit.bitti = true;
+    devam.remove();
+    cevapla.remove();
+    if (kayit.yonlendir?.isConnected) kayit.yonlendir.remove();
+    if (kayit.yonForm?.isConnected) kayit.yonForm.remove();
+    kayit.ozet.textContent = sayi + " adım tamamlandı · seçiminle sürüyor.";
+    // Devam kaydı tıklama anında okunur: en son imzalı durum taşınır.
+    molaSonrasiGonder({ ...secenek, yonlendirmeBaglami: yonlendirmeBaglamiOlustur(b) });
+  };
+
+  devam.addEventListener("click", () => sec({
+    text: "Kaldığın yerden devam et.",
+    gorunenMetin: "Devam et",
+  }));
+  cevapla.addEventListener("click", () => sec({
+    text: "Şimdiye kadar bulduklarınla cevap ver.",
+    gorunenMetin: "Bulduklarınla cevap ver",
+  }));
+  kayit.yonlendirIstegi = (yon) => sec({
+    text: yon,
+    gorunenMetin: "Yönlendirme: " + yon,
+  });
+
+  kayit.canli.textContent = kayit.ozet.textContent;
+  adimlariCiz(kayit);
+}
+
+function molaSonrasiGonder(secenek) {
+  // Mola olayını getiren istek kapanana kadar bekle; sonra yeni istek aç.
+  const dene = () => {
+    if (gonderiliyor) { setTimeout(dene, 150); return; }
+    send(secenek);
+  };
+  dene();
+}
+
 function calismaDurdur(b, neden = "durdur") {
   const kayit = durumSaatleri.get(b);
   if (!kayit || kayit.bitti) return;
@@ -628,12 +857,14 @@ function calismaDurdur(b, neden = "durdur") {
   if (kayit.zamanlayici) clearInterval(kayit.zamanlayici);
   kayit.zamanlayici = null;
   kayit.kart.classList.add("stopped");
-  kayit.baslik.textContent = neden === "yonlendir" ? "Yönlendiriliyor" : "Durduruldu";
+  kayit.baslik.textContent = neden === "yonlendir"
+    ? "Yeni yönle yeniden başlatılıyor"
+    : "Durduruldu";
   kayit.sure.textContent = sureMetni(Date.now() - kayit.baslangic);
   kayit.mevcut.hidden = true;
   kayit.ozet.hidden = false;
   kayit.ozet.textContent = neden === "yonlendir"
-    ? "Yeni talimat aynı sohbet bağlamıyla gönderiliyor."
+    ? "Mevcut çalışma durduruldu · yeni yönle yeniden başlatılıyor."
     : (kayit.adimlar.length
       ? kayit.adimlar.length + " adım tamamlandı · Yeni adım başlatılmayacak."
       : "Yeni adım başlatılmayacak.");
@@ -739,6 +970,34 @@ msgEl.addEventListener("input", () => {
 
 const balonlar = new Map();
 const metinAkislari = new Map();
+
+// Sunucunun her cevapta yaydigi runState olayi (chat/agent_runtime.py:176,
+// public_snapshot). Yeni sistem degil: var olan sinyal burada tutulur ve
+// cevap bitince balonun ALTINA, cevap metninin DISINA tek satir yazilir.
+const runDurumlari = new Map();
+
+// KAYNAK SAYISI BILINCLI OLARAK GOSTERILMIYOR.
+// public_snapshot'taki evidence_count'un kaynagi chat/tools.py:397
+// -> _kaynaklari_cikar (chat/tools.py:140). O fonksiyon yalniz okunan
+// sayfanin adresini degil, sayfa GOVDESINDE gecen her baglantiyi da
+// (chat/tools.py:146, _URL_RE ile) kaynak sayiyor. Tek sayfa okumasi
+// birden cok "kaynak" uretebiliyor; yani sayi okunmamis adresleri de
+// kapsiyor. Yanlis kaynak sayisi gostermektense hic gosterilmiyor.
+function aracIsaretiYaz(b, durum) {
+  if (!b || !durum) return;
+  let el = b.querySelector(".arac-isareti");
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "arac-isareti";
+  }
+  const sayi = Number(durum.toolCount || 0);
+  el.textContent = sayi > 0
+    ? "● " + sayi + " araç kullanıldı"
+    : "○ bakılmadan cevaplandı";
+  // appendChild var olan dugumu tasir: isaret her zaman en altta kalir.
+  b.appendChild(el);
+}
+
 const uyu = (ms) => new Promise((coz) => setTimeout(coz, ms));
 
 function akisBirimleri(metin) {
@@ -869,6 +1128,24 @@ function olayiIsle(o) {
 
   if (o.tur === "ping") return false;
 
+  if (typeof o.handoff_token === "string" && o.handoff_token) {
+    let handoffBalonu = balonlar.get(no);
+    if (!handoffBalonu) {
+      handoffBalonu = bubble("assistant", "");
+      balonlar.set(no, handoffBalonu);
+    }
+    const handoffKaydi = calismaKaydi(handoffBalonu);
+    handoffKaydi.handoffToken = o.handoff_token;
+    handoffKaydi.yonlendir.disabled = false;
+  }
+
+  if (o.tur === "runState") {
+    // Sunucu bu olayi run boyunca birkac kez yayar; en sonuncusu gecerli.
+    // Kullanici cumlesine BAKILMAZ; yalniz sunucunun saydigi arac sayisi.
+    runDurumlari.set(no, { toolCount: Number(o.tool_count || 0) });
+    return false;
+  }
+
   if (o.tur === "thinking") {
     let b = balonlar.get(no);
     if (!b) {
@@ -905,6 +1182,63 @@ function olayiIsle(o) {
     return false;
   }
 
+  if (o.tur === "contextStatus") {
+    let b = balonlar.get(no);
+    if (!b) {
+      b = bubble("assistant", "");
+      balonlar.set(no, b);
+    }
+    const n = Number(o.atlanan || 0);
+    durumSatiri(
+      b,
+      n > 0
+        ? "Bağlam düzenlendi — " + n + " eski mesaj kalıcı geçmişte korundu"
+        : "Bağlam ölçüldü",
+      "thinking",
+    );
+    return false;
+  }
+
+  if (o.tur === "providerSwitch") {
+    const b = balonlar.get(no);
+    if (b) {
+      const kayit = calismaKaydi(b);
+      kayit.canli.textContent =
+        "Sağlayıcı değişti: " + String(o.onceki || "") +
+        " → " + String(o.yeni || "");
+    }
+    return false;
+  }
+
+  if (o.tur === "loopGuard") {
+    const b = balonlar.get(no);
+    if (b) {
+      durumSatiri(
+        b,
+        "Tekrarlanan araç döngüsü durduruldu — " + String(o.tool || ""),
+        "thinking",
+      );
+    }
+    return false;
+  }
+
+  if (o.tur === "checkpoint") {
+    const b = balonlar.get(no);
+    if (b) calismaMolaVer(b);
+    return false;
+  }
+
+  if (o.tur === "truncated") {
+    const b = balonlar.get(no);
+    if (b) {
+      const kayit = calismaKaydi(b);
+      kayit.kesik = true;
+      kayit.kesikNedeni = String(o.reason || "limit");
+      kayit.canli.textContent = "Yanıt tamamlanmadan durdu";
+    }
+    return false;
+  }
+
   if (o.tur === "toolStatus") {
     let b = balonlar.get(no);
     if (!b) {
@@ -934,14 +1268,17 @@ function olayiIsle(o) {
     }
 
     calismaYanitaGecti(b);
+    const bitisDurumu = runDurumlari.get(no);
     const gorunurBitis = akiciMetniFinaleTamamla(b, o.cevap || "…")
       .then(() => {
         calismaBitir(b);
+        aracIsaretiYaz(b, bitisDurumu);
         sohbetAlta(false);
         return true;
       });
 
     balonlar.delete(no);
+    runDurumlari.delete(no);
     return gorunurBitis;
   }
 
@@ -955,6 +1292,7 @@ function olayiIsle(o) {
     }
     bubble("assistant", "Bir sorun oluştu: " + (o.metin || "Yanıt alınamadı."));
     balonlar.delete(no);
+    runDurumlari.delete(no);
     return true;
   }
 
@@ -967,6 +1305,8 @@ function olayiBaslangicBalonunaBagla(o, b) {
   }
 }
 
+const KESILME_SURE_ESIGI_MS = 290 * 1000;
+
 async function canliYanitiOku(r, baslangicBalonu) {
   if (!r.body || typeof r.body.getReader !== "function") {
     throw new Error("Tarayıcı canlı yanıt akışını desteklemiyor.");
@@ -974,8 +1314,17 @@ async function canliYanitiOku(r, baslangicBalonu) {
 
   const okuyucu = r.body.getReader();
   const cozumleyici = new TextDecoder();
+  const baslangic = Date.now();
   let tampon = "";
   let sonuc = { ok: false, cevap: "", kaynak: "", hata: "" };
+
+  // Sunucu (vercel.json maxDuration: 300 sn) isi yarida durdurunca akis
+  // bitir/error gelmeden kapanir. Kullaniciya gercek sebebi soyle.
+  const kesilmeHatasi = () => new Error(
+    Date.now() - baslangic >= KESILME_SURE_ESIGI_MS
+      ? "Başak 5 dakikalık çalışma süresini doldurdu; sunucu işi durdurdu, cevap tamamlanamadı."
+      : "Başak yanıtı tamamlanmadan bağlantı kapandı."
+  );
 
   const satiriIsle = async (satir) => {
     if (!satir.trim()) return;
@@ -998,6 +1347,8 @@ async function canliYanitiOku(r, baslangicBalonu) {
         kaynak: String(o.kaynak || ""),
         hata: "",
       };
+    } else if (o.tur === "checkpoint") {
+      sonuc = { ok: false, mola: true, cevap: "", kaynak: "", hata: "" };
     } else if (o.tur === "error") {
       sonuc = {
         ok: false,
@@ -1015,8 +1366,10 @@ async function canliYanitiOku(r, baslangicBalonu) {
     } catch (e) {
       // bitir/error zaten geldiyse kullanıcıya gösterilmiş terminal sonucu
       // sonradan olan bağlantı kapanması yüzünden silme.
-      if (sonuc.ok || sonuc.hata) break;
-      throw e;
+      if (sonuc.ok || sonuc.hata || sonuc.mola) break;
+      // Durdur/Yönlendir kasıtlı keser; o yol kendi davranışını korur.
+      if (e && e.name === "AbortError") throw e;
+      throw kesilmeHatasi();
     }
     const { value, done } = okuma;
     if (value) tampon += cozumleyici.decode(value, { stream: true });
@@ -1032,10 +1385,16 @@ async function canliYanitiOku(r, baslangicBalonu) {
   }
 
   tampon += cozumleyici.decode();
-  if (tampon.trim()) await satiriIsle(tampon);
+  if (tampon.trim()) {
+    // Satir sonu gelmeden kapanan son parca yarim kalmis olabilir; bu
+    // "gecersiz veri" degil, kesilmedir. Tam satirsa normal islenir.
+    let tamSatir = true;
+    try { JSON.parse(tampon); } catch { tamSatir = false; }
+    if (tamSatir) await satiriIsle(tampon);
+  }
 
-  if (!sonuc.ok && !sonuc.hata) {
-    throw new Error("Başak yanıtı tamamlanmadan bağlantı kapandı.");
+  if (!sonuc.ok && !sonuc.hata && !sonuc.mola) {
+    throw kesilmeHatasi();
   }
   return sonuc;
 }
@@ -1109,6 +1468,9 @@ async function send(secenek = {}) {
     ? secenek.text.trim()
     : msgEl.value.trim();
   const gorsel = secenek.gorsel || seciliGorsel;
+  const toolPolicy = ["auto", "required", "none"].includes(secenek.toolPolicy)
+    ? secenek.toolPolicy
+    : "auto";
   if ((!text && !gorsel) || gonderiliyor) return;
 
   const gonderilecekMetin = text || "Bu görüntüyü açıkla.";
@@ -1121,10 +1483,16 @@ async function send(secenek = {}) {
   kullaniciDurdurdu = false;
   durumSatiri(bekleyenBalon, "Mesaj Başak’a iletiliyor…", "thinking");
   const calisma = calismaKaydi(bekleyenBalon);
+  calisma.toolPolicy = toolPolicy;
   calisma.yonlendir.hidden = !!gorsel;
   calisma.yonlendirIstegi = (yon) => {
     if (!gonderiliyor || calisma.bitti) return;
-    yonlendirmeBekliyor = { yon, anaMetin: gonderilecekMetin };
+    yonlendirmeBekliyor = {
+      yon,
+      anaMetin: gonderilecekMetin,
+      baglam: yonlendirmeBaglamiOlustur(bekleyenBalon),
+      toolPolicy,
+    };
     yonlendirmeIcinDurduruldu = true;
     kullaniciDurdurdu = true;
     if (aktifIstekDenetleyici) aktifIstekDenetleyici.abort();
@@ -1154,6 +1522,8 @@ async function send(secenek = {}) {
         misafir:MISAFIR,
         gecmis:bulutGecmisi,
         ek,
+        tool_policy:toolPolicy,
+        yonlendirme_baglami:secenek.yonlendirmeBaglami || null,
       }),
       signal:aktifIstekDenetleyici.signal,
     });
@@ -1181,6 +1551,10 @@ async function send(secenek = {}) {
       for (const o of d.olaylar) {
         olayiBaslangicBalonunaBagla(o, bekleyenBalon);
         olayiIsle(o);
+      }
+      if (d.olaylar.some((o) => o && o.tur === "checkpoint")) {
+        onizlemeTemizle();
+        return;
       }
       if (!r.ok || !d.ok) throw new Error(d.error || "Sohbet isteği başarısız");
 
@@ -1232,6 +1606,8 @@ async function send(secenek = {}) {
         send({
           text: devam.yon,
           gorunenMetin: "Yönlendirme: " + devam.yon,
+          yonlendirmeBaglami: devam.baglam || null,
+          toolPolicy: devam.toolPolicy || "auto",
         });
       }, 0);
     } else {

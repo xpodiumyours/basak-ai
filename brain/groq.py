@@ -69,7 +69,6 @@ class GroqClient:
         try:
             self.client = OpenAI(
                 api_key=self.api_key,
-                timeout=20.0,
                 max_retries=0,
                 base_url="https://api.groq.com/openai/v1",
             )
@@ -84,8 +83,7 @@ class GroqClient:
                 model: str = None, yapi=None, tool_choice=None) -> dict:
         """Groq'a mesaj gönderir.
 
-        Cevap tavani: max_tokens=4096 (sicaklik saglayicinin kendi
-        varsayilani — 2026-09-13'te sabit 0.5 kaldirildi).
+                varsayilani — 2026-09-13'te sabit 0.5 kaldirildi).
         model: geçici model override (orn: openai/gpt-oss-120b).
         yapi: sozlesme modu — verildiginde JSON yanit zorlanir
         (response_format={"type": "json_object"}).
@@ -96,8 +94,7 @@ class GroqClient:
         kwargs = {
             "model": model or self.model,
             "messages": _groq_mesajlari(messages),
-            "max_tokens": 4096,
-        }
+}
         if tools:
             kwargs["tools"] = tools
             if tool_choice is not None:

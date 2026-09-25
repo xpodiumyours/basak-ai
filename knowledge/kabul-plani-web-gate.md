@@ -1,5 +1,23 @@
 # WEB GATE KABUL PLANI (TEK DOĞRU KAYNAK)
 
+## P2 GUNCEL MIMARI OVERRIDE (2026-09-25)
+
+Aşağıdaki tarihli 52 araç ve 364 hücre satırları geçmiş
+kanıt olarak korunur; **aktif P2 mimari kuralı değildir**.
+
+- Aktif runtime: `chat/agent_runtime.py` + `chat/flow.py` + `chat/tools.py`.
+- Gerçek capability kaynağı: `tools/definitions.py::TOOLS` = **53 araç**.
+- `auto|required` politikasında gizli resolver/kategori kapısı yoktur.
+- AGENTS.md §0 (Casper kararı 2026-09-25): ilk turda model yalnız
+  `yetenek_ac` görür; bir veya birkaç alanı kendisi açar, açılan alan run
+  boyunca açık kalır. `chat/agent_protocol.py` içindeki 13 yetenek alanı
+  (her biri 10'dan az araç) tek kaynaktır; `tools/capabilities.py` onu okur.
+- `chat/tool_resolver.py` silinmiştir; kullanıcı metnine bakan seçici yoktur.
+- Kesilmiş model cevabı ham kalır; kesilme ayrı structured state/event'tir.
+- Elde anahtarı olan 7 sağlayıcı tam matris kapsamı: **7 × 53 = 371**.
+- Gerçek checkpoint/resume henüz yoktur; varmış gibi raporlanmaz.
+
+
 Tarih: 2026-09-19 | Yazan: Buffy (Codebuff) | Onay: Casper
 Amaç: Bu plan deftere yazilmadigi icin iki ayri oturum ayni sapmayi yapti.
 Bu dosya o boslugu kapatir. Plana sapma oldugunda once bu dosya guncellenir.

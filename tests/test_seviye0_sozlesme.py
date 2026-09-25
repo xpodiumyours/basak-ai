@@ -174,10 +174,10 @@ def test_52_arac_uchalida_birebir():
 
 def test_yetenek_katalogu_52_gercek_araci_kapsar():
     from tools.definitions import TOOLS
-    from chat.agent_protocol import YETENEK_ALANLARI
+    from tools.capabilities import CAPABILITY_NAMESPACES
 
     gercek = {t["function"]["name"] for t in TOOLS}
-    katalog = {ad for grup in YETENEK_ALANLARI.values() for ad in grup}
+    katalog = {ad for grup in CAPABILITY_NAMESPACES.values() for ad in grup}
     assert katalog == gercek
     assert len(katalog) == 53
 
@@ -186,11 +186,11 @@ def test_katalog_daki_her_arac_gercekten_kosabilir():
     """Katalogdaki her ad calistirici beyaz listesinde ve calistirma
     dalinda VAR — katalog hayalet arac icermez."""
     import re
-    from chat.agent_protocol import YETENEK_ALANLARI
+    from tools.capabilities import CAPABILITY_NAMESPACES
     from tools.definitions import TANINMIS_TOOLLAR
 
     kaynak = open("tools/__init__.py", encoding="utf-8").read()
-    for grup in YETENEK_ALANLARI.values():
+    for grup in CAPABILITY_NAMESPACES.values():
         for ad in grup:
             assert ad in TANINMIS_TOOLLAR, ad
             assert ('tool_name == "%s"' % ad) in kaynak, ad

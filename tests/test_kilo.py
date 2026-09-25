@@ -16,7 +16,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from brain import registry
-from brain.kilo import KiloClient, VARSAYILAN_JETON, VARSAYILAN_MODEL
+from brain.kilo import KiloClient, VARSAYILAN_MODEL
 
 
 def _mesaj(content=None, tool_calls=None, reasoning=None):
@@ -99,12 +99,10 @@ class TestDusunmeMetni:
         assert sonuc["content"] == "Merhaba."
         assert sonuc.get("reasoning") == "Once sunu dusunmeliyim..."
 
-    def test_jeton_butcesi_genis(self):
-        # Butce daraltilirsa bos cevap tuzagi geri gelir.
-        assert VARSAYILAN_JETON >= 1500
+    def test_uygulama_yapay_jeton_tavani_gondermez(self):
         c, sahte = _istemci(_yanit(_mesaj(content="ok")))
         c.cevapla([{"role": "user", "content": "selam"}])
-        assert sahte.son_kwargs["max_tokens"] >= 1500
+        assert "max_tokens" not in sahte.son_kwargs
 
 
 class TestToolCevirisi:

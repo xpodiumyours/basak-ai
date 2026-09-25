@@ -50,6 +50,9 @@ def _hazirla(monkeypatch, mesaj_isle):
     import chat.prompts as prompts
 
     monkeypatch.setattr(app_modulu, "_kimlik", lambda _r: "test-user")
+    monkeypatch.setattr(
+        app_modulu, "_handoff_anahtari", lambda _kid: b"test-handoff-key"
+    )
     monkeypatch.setattr(app_modulu, "_cekirdek", lambda: (object(), []))
     monkeypatch.setattr(kimlik, "kullanici_kur", lambda _kid: None)
     monkeypatch.setattr(prompts, "kisilik_blogu", lambda *_a, **_k: "sistem")
@@ -80,6 +83,10 @@ def test_stream_ilk_olayi_worker_bitmeden_verir(monkeypatch):
         assert isinstance(cevap, StreamingResponse)
         it = cevap.body_iterator
 
+        # P2: her run imzali handoff tasiyan runContext ile acilir.
+        baglam = _json_satir(await asyncio.wait_for(anext(it), timeout=1))
+        assert baglam["tur"] == "runContext"
+        assert baglam.get("handoff_token")
         ilk = _json_satir(await asyncio.wait_for(anext(it), timeout=1))
         ikinci = _json_satir(await asyncio.wait_for(anext(it), timeout=1))
         assert not devam.is_set()
@@ -114,6 +121,7 @@ def test_bitir_gorunur_ama_worker_bitmeden_stream_kapanmaz(monkeypatch):
             _request({"metin": "x"}, "application/x-ndjson")
         )
         it = cevap.body_iterator
+        assert _json_satir(await anext(it))["tur"] == "runContext"
         assert _json_satir(await anext(it))["tur"] == "thinking"
         bitis = _json_satir(await anext(it))
         assert bitis["tur"] == "bitir"
@@ -162,7 +170,8 @@ def test_accept_yoksa_eski_toplu_json_korunur(monkeypatch):
     assert isinstance(cevap, dict)
     assert cevap["ok"] is True
     assert cevap["cevap"] == "eski yol"
-    assert [o["tur"] for o in cevap["olaylar"]] == ["thinking", "bitir"]
+    assert [o["tur"] for o in cevap["olaylar"]] == [
+        "runContext", "thinking", "bitir"]
 
 
 def test_vercel_suresi_300():
@@ -282,8 +291,14 @@ def test_web_ui_gercek_olaylari_detayli_gosterir_ve_sirlari_maskeler():
     os = ekran.index("\n\nfunction olayiBaslangicBalonunaBagla", ob)
     olay_isle = ekran[ob:os]
 
+    # Arac isareti olayiIsle'nin bitir dalindan cagrilir: taklit degil,
+    # gercek kod betige girer.
+    ab = ekran.index("function aracIsaretiYaz(")
+    isaret = ekran[ab:ekran.index("\n}\n", ab) + 3]
+
     script = r"""
 const balonlar = new Map();
+const runDurumlari = new Map();
 const durumlar = [];
 const yazilar = [];
 let kapatildi = 0;
@@ -319,7 +334,7 @@ function akiciMetinEkle(b, metin) { icerikYaz(b, (b.dataset.ham || "") + String(
 function akiciMetniFinaleTamamla(b, metin) { icerikYaz(b, String(metin || "")); return Promise.resolve(); }
 function akiciMetniDurdur() {}
 function sohbetAlta() {}
-""" + guvenli + "\n" + olay_isle + r"""
+""" + guvenli + "\n" + isaret + "\n" + olay_isle + r"""
 
 const b = bubble("assistant", "");
 balonlar.set("abc", b);
@@ -495,8 +510,8 @@ def test_preview_mobil_dokunmatik_duzen_ve_cache_surumu():
     stil = open("web/chat.css", encoding="utf-8").read()
     html = open("web/index.html", encoding="utf-8").read()
     assert "(hover:none) and (pointer:coarse) and (max-width:1100px)" in stil
-    assert "/chat.css?v=7" in html
-    assert "/app.js?v=9" in html
+    assert "/chat.css?v=10" in html
+    assert "/app.js?v=17" in html
 
 
 def test_preview_calisma_akisi_kutusuz_inline_gorunur():
@@ -640,8 +655,8 @@ def test_preview_plan_kaynak_yonlendir_ui_sozlesmesi():
     assert ".work-plan{" in stil
     assert ".work-redirect-form{" in stil
     assert ".answer-sources{" in stil
-    assert "/chat.css?v=7" in html
-    assert "/app.js?v=9" in html
+    assert "/chat.css?v=10" in html
+    assert "/app.js?v=17" in html
 
 
 def test_preview_gercek_parca_oncelikli_fallback_sonradan():
@@ -650,3 +665,41 @@ def test_preview_gercek_parca_oncelikli_fallback_sonradan():
     assert "kayit.gercekParcaGeldi = true" in ekran
     assert 'akiciMetinEkle(b, o.metin || "", true)' in ekran
     assert "function akiciMetniFinaleTamamla" in ekran
+
+
+def test_p2_yonlendirme_baglami_imzali_ve_kesintisiz_tasinir():
+    ekran = open("web/app.js", encoding="utf-8").read()
+    app_kaynak = open("app.py", encoding="utf-8").read()
+    html = open("web/index.html", encoding="utf-8").read()
+
+    assert "function yonlendirmeBaglamiOlustur" in ekran
+    assert 'schema: "p2-handoff-v1"' in ekran
+    assert "handoffToken" in ekran
+    assert "handoff_token" in ekran
+    assert "tool_policy:toolPolicy" in ekran
+    assert "yonlendirme_baglami:secenek.yonlendirmeBaglami || null" in ekran
+
+    # Önceki sürümün sessiz kesmeleri geri gelemez.
+    for yasak in (
+        "onceki_istek: String(anaMetin || \"\").slice",
+        "tamamlanan_adimlar: (kayit.adimlar || []).slice",
+        "kullanilan_kaynaklar: (kayit.kaynaklar || []).slice",
+        "kismi_cevap: String(b.dataset.ham || \"\").slice",
+    ):
+        assert yasak not in ekran
+
+    assert "_yonlendirme_baglami_dogrula" in app_kaynak
+    assert "_handoff_tokeni_coz" in app_kaynak
+    assert "hmac.compare_digest" in app_kaynak
+
+    for tur in ("contextStatus", "providerSwitch", "loopGuard", "truncated"):
+        assert 'o.tur === "' + tur + '"' in ekran
+    assert "/app.js?v=17" in html
+
+
+def test_truncated_durumu_cevap_disinda_ui_state_olarak_gorunur():
+    ekran = open("web/app.js", encoding="utf-8").read()
+    assert 'o.tur === "truncated"' in ekran
+    assert "kayit.kesik = true" in ekran
+    assert "Yanıt tamamlanmadan durdu" in ekran
+    assert "cevap metni değiştirilmedi" in ekran

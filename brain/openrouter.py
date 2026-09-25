@@ -53,7 +53,6 @@ class OpenRouterClient:
             self.client = OpenAI(
                 api_key=self.api_key,
                 base_url=BASE_URL,
-                timeout=20.0,
                 max_retries=0,
                 default_headers={
                     "HTTP-Referer": "http://localhost",
@@ -143,8 +142,7 @@ class OpenRouterClient:
         kwargs = {
             "model": self.model,
             "messages": messages,
-            "max_tokens": 4096,
-        }
+}
         if tools:
             kwargs["tools"] = tools
             if tool_choice is not None:

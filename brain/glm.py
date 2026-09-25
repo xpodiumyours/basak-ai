@@ -48,7 +48,6 @@ class GLMClient:
                 # yani 20 sn tavani hep bosa harcaniyordu. 8 sn, cevap
                 # veren bir uc icin fazlasiyla comert; vermeyeni de
                 # zinciri 12 sn bekletmeden eler.
-                timeout=8.0,
                 max_retries=0,
                 base_url=BASE_URL,
             )
@@ -72,8 +71,7 @@ class GLMClient:
         kwargs = {
             "model": self.model,
             "messages": messages,
-            "max_tokens": 4096,
-            "extra_body": {"thinking": {"type": "enabled"}},
+"extra_body": {"thinking": {"type": "enabled"}},
         }
         if tools:
             kwargs["tools"] = tools

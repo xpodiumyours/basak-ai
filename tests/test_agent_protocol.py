@@ -1,4 +1,4 @@
-"""Gercek ajan protokolu icin kotasiz birim testler."""
+"""Provider-neutral ajan runtime icin kotasiz birim testler."""
 
 import inspect
 import types
@@ -14,133 +14,123 @@ def _call(ad, args="{}", cid="c1"):
     }
 
 
-def test_52_aracin_tamami_tek_yetenek_alaninda():
+def test_53_arac_namespace_metadata_tam_katalogu_kapsar():
+    from tools.capabilities import validate_registry
     from tools.definitions import TOOLS, TANINMIS_TOOLLAR
-    from chat.agent_protocol import YETENEK_ALANLARI
-
-    gercek = [t["function"]["name"] for t in TOOLS]
-    katalog = [ad for grup in YETENEK_ALANLARI.values() for ad in grup]
-    assert len(gercek) == 53
+    sonuc = validate_registry(TOOLS)
+    assert sonuc == {
+        "ok": True, "tool_count": 53, "namespace_count": 13,
+        "missing": [], "unknown": [], "duplicates": [],
+    }
     assert len(TANINMIS_TOOLLAR) == 53
-    assert len(katalog) == 53
-    assert len(set(katalog)) == 53
-    assert set(katalog) == set(gercek)
 
-
-def test_ilk_turda_52_arac_modele_yigilmaz():
-    from chat.agent_protocol import baslangic_araclari, YETENEK_AC_ADI
-
-    adlar = [x["function"]["name"] for x in baslangic_araclari()]
-    # Model normal sohbette dogrudan metinle bitebilir; ilk turda yalniz
-    # gercek araca ihtiyac duyarsa acacagi katalog kapisi sunulur.
-    assert adlar == [YETENEK_AC_ADI]
-
-
-def test_tek_alan_en_faz_12_sema_tasir():
+def test_auto_policy_tam_53_gercek_araci_modele_verir():
+    from chat.agent_runtime import capability_surface
     from tools.definitions import TOOLS
-    from chat.agent_protocol import YETENEK_ALANLARI, alan_araclari
+    assert capability_surface(TOOLS, "auto") == TOOLS
+    assert capability_surface(TOOLS, "required") == TOOLS
+    assert capability_surface(TOOLS, "none") == []
 
-    for alan in YETENEK_ALANLARI:
-        secilen = alan_araclari(TOOLS, alan)
-        # En buyuk alan 11 gercek arac + alan degistirme kapisi.
-        assert len(secilen) <= 12, (alan, len(secilen))
-
+def test_her_yetenek_alani_ondan_az_arac_tasir():
+    # OpenAI tool search onerisi: grup basina 10'dan az arac.
+    from chat.agent_runtime import capability_surface
+    from tools.capabilities import CAPABILITY_NAMESPACES, namespace_schemas
+    from tools.definitions import TOOLS
+    assert max(len(x) for x in CAPABILITY_NAMESPACES.values()) < 10
+    assert len(namespace_schemas("internet_ara", TOOLS)) == 8
+    assert len(capability_surface(TOOLS, "auto")) == 53
 
 def test_ajan_sozlesmesi_kelime_routeri_degildir():
-    from chat.agent_protocol import AJAN_SOZLESMESI
-
+    from chat.agent_runtime import AGENT_CONTRACT
     for ad in ("web_search", "fatura_oku", "github_durum", "list_tasks"):
-        assert ad not in AJAN_SOZLESMESI
-    assert "kelime eslestirmesi" in AJAN_SOZLESMESI.lower()
+        assert ad not in AGENT_CONTRACT
+    metin = AGENT_CONTRACT.lower()
+    assert "gercek ve cagrilabilir arac katalogudur" in metin
+    assert "tool_call" in metin
+    assert "ayni run" in metin
 
-
-def test_son_cevap_gercek_arac_calistirmadan_donguyu_bitirir():
-    from chat.tools import arac_dongusu
-    from chat.agent_protocol import SON_CEVAP_ADI
-
-    class Beyin:
-        def cevapla(self, *args, **kwargs):
-            raise AssertionError("finalden sonra modele donulmemeli")
-
-    def calistir(*args, **kwargs):
-        raise AssertionError("son_cevap gercek arac degil")
-
-    cevap, kosan = arac_dongusu(
-        [_call(SON_CEVAP_ADI, '{"metin":"Tamamlandi."}')],
-        [{"role": "user", "content": "merhaba"}],
-        Beyin(), None, lambda kod: None, calistir,
-        tools=[], tool_choice="required",
-    )
-    assert cevap == "Tamamlandi."
-    assert kosan == 0
-
-
-def test_model_yetenegi_acar_sonra_gercek_araci_kendi_secer():
+def test_meta_son_cevap_gercek_arac_degildir_ve_kosmaz():
     from chat.tools import arac_dongusu
     from tools.definitions import TOOLS
-    from chat.agent_protocol import (
-        YETENEK_AC_ADI, SON_CEVAP_ADI, baslangic_araclari,
-    )
-
-    gorulen = []
-    class Beyin:
-        def cevapla(self, mesajlar, model, tools=None, tool_choice=None):
-            assert tool_choice == "required"
-            adlar = [t["function"]["name"] for t in tools]
-            gorulen.append(adlar)
-            if len(gorulen) == 1:
-                assert "list_tasks" in adlar
-                assert "web_search" not in adlar
-                return {"tool_calls": [_call("list_tasks", "{}", "c2")]}, "groq"
-            assert len(gorulen) == 2
-            return {"tool_calls": [
-                _call(SON_CEVAP_ADI, '{"metin":"1 gorev var."}', "c3")
-            ]}, "groq"
-
     kosulan = []
+    class Beyin:
+        def cevapla_yayin(self, *a, **k):
+            from brain.yayin import SonHata
+            raise SonHata("testte stream yok")
+            yield
+        def cevapla(self, mesajlar, model, tools=None, **kwargs):
+            return {"content": "meta arac reddedildi"}, "groq"
     cevap, kosan = arac_dongusu(
-        [_call(YETENEK_AC_ADI, '{"alan":"gorevler"}')],
+        [_call("son_cevap", '{"metin":"uydurma"}')],
+        [{"role": "user", "content": "merhaba"}],
+        Beyin(), None, lambda kod: None,
+        lambda ad, args: kosulan.append(ad) or {"result": "x"},
+        tools=TOOLS, tool_choice="auto",
+    )
+    assert kosulan == []
+    assert kosan == 0
+    assert cevap == "meta arac reddedildi"
+
+def test_model_gercek_araci_dogrudan_secer():
+    from chat.tools import arac_dongusu
+    from tools.definitions import TOOLS
+    kosulan = []
+    class Beyin:
+        def cevapla_yayin(self, *a, **k):
+            from brain.yayin import SonHata
+            raise SonHata("testte stream yok")
+            yield
+        def cevapla(self, mesajlar, model, tools=None, tool_choice=None, **kwargs):
+            assert tool_choice == "auto"
+            assert len(tools) == 53
+            return {"content": "1 gorev var."}, "groq"
+    cevap, kosan = arac_dongusu(
+        [_call("list_tasks", "{}", "c1")],
         [{"role": "user", "content": "gorevlerime bak"}],
         Beyin(), None, lambda kod: None,
         lambda ad, args: kosulan.append(ad) or {"result": "1: sut al"},
-        tools=baslangic_araclari(), tool_choice="required", tum_tools=TOOLS,
+        tools=TOOLS, tool_choice="auto",
     )
     assert kosulan == ["list_tasks"]
     assert kosan == 1
     assert cevap == "1 gorev var."
 
-
-def test_acilmamis_gercek_arac_calistirilmaz():
+def test_run_yuzeyinde_olmayan_gercek_arac_calistirilmaz():
     from chat.tools import arac_dongusu
-    from tools.definitions import TOOLS
-    from chat.agent_protocol import baslangic_araclari
-
-    class Beyin:
-        def cevapla(self, mesajlar, model, tools=None, tool_choice=None):
-            # Hata sonucu modele geri donunce final yerine yine duz metin
-            # donerse required kapi bunu kabul etmez.
-            return {"content": "olmaz"}, "groq"
-
+    list_tasks = {"type": "function", "function": {
+        "name": "list_tasks", "description": "x",
+        "parameters": {"type": "object", "properties": {}}}}
     kosulan = []
+    class Beyin:
+        def cevapla_yayin(self, *a, **k):
+            from brain.yayin import SonHata
+            raise SonHata("testte stream yok")
+            yield
+        def cevapla(self, mesajlar, model, tools=None, **kwargs):
+            return {"content": "reddedildi"}, "groq"
     cevap, kosan = arac_dongusu(
-        [_call("list_tasks")],
-        [{"role": "user", "content": "gorevler"}],
+        [_call("web_search", '{"query":"x"}')],
+        [{"role": "user", "content": "x"}],
         Beyin(), None, lambda kod: None,
         lambda ad, args: kosulan.append(ad) or {"result": "x"},
-        tools=baslangic_araclari(), tool_choice="required", tum_tools=TOOLS,
+        tools=[list_tasks], tool_choice="auto",
     )
     assert kosulan == []
     assert kosan == 0
-    assert cevap == ""
+    assert cevap == "reddedildi"
 
-
-def test_required_ajan_duz_metni_final_saymaz():
+def test_required_ilk_aractan_sonra_auto_finale_izin_verir():
     from chat.tools import arac_dongusu
 
     class Beyin:
+        def cevapla_yayin(self, *a, **k):
+            from brain.yayin import SonHata
+            raise SonHata("testte stream yok")
+            yield
+
         def cevapla(self, mesajlar, model, tools=None, tool_choice=None):
-            assert tool_choice == "required"
-            return {"content": "Araci kullandim, bitti."}, "groq"
+            assert tool_choice == "auto"
+            return {"content": "Arac sonucu degerlendirildi."}, "groq"
 
     cevap, kosan = arac_dongusu(
         [_call("list_tasks")],
@@ -152,7 +142,7 @@ def test_required_ajan_duz_metni_final_saymaz():
         tool_choice="required",
     )
     assert kosan == 1
-    assert cevap == ""
+    assert cevap == "Arac sonucu degerlendirildi."
 
 
 # 2026-09-22: Mistral eklendi (Yol 1). glhf ayni gun olu ciktigi (HTTP
@@ -401,64 +391,35 @@ def test_ajan_zinciri_9_ucretsiz_saglayicinin_tamamini_kapsar():
     assert len(adlar) == 9
 
 
-def test_52_arac_dort_yuz_atmis_sekiz_saglayici_arac_yolunda_erisebilir():
-    """9 saglayici x 52 arac = 468 ajan yolu; kota kullanmaz."""
-    from chat.agent_protocol import (
-        YETENEK_AC_ADI, SON_CEVAP_ADI, YETENEK_ALANLARI,
-        baslangic_araclari,
-    )
+def test_9_saglayici_x_53_gercek_arac_dogrudan_ajan_yolunda_erisebilir():
     from chat.tools import arac_dongusu
     from tools.definitions import TOOLS
-
     araclar = [t["function"]["name"] for t in TOOLS]
-    ters = {
-        arac: alan
-        for alan, alan_araclari in YETENEK_ALANLARI.items()
-        for arac in alan_araclari
-    }
     sayac = 0
-
     for provider in AJAN_SAGLAYICILARI:
         for hedef in araclar:
-            alan = ters[hedef]
-            turlar = {"n": 0}
-
             class Beyin:
-                def cevapla(self, mesajlar, model, tools=None,
-                            tool_choice=None):
-                    assert tool_choice == "required"
-                    adlar = [x["function"]["name"] for x in tools]
-                    turlar["n"] += 1
-                    if turlar["n"] == 1:
-                        assert hedef in adlar, (provider, hedef, alan)
-                        return {"tool_calls": [
-                            _call(hedef, "{}", "gercek")
-                        ]}, provider
-                    return {"tool_calls": [
-                        _call(SON_CEVAP_ADI,
-                              '{"metin":"tamam"}', "final")
-                    ]}, provider
-
+                def cevapla_yayin(self, *a, **k):
+                    from brain.yayin import SonHata
+                    raise SonHata("testte stream yok")
+                    yield
+                def cevapla(self, mesajlar, model, tools=None, tool_choice=None, **kwargs):
+                    assert tool_choice == "auto"
+                    assert len(tools) == 53
+                    return {"content": "tamam"}, provider
             kosulan = []
             cevap, kosan = arac_dongusu(
-                [_call(YETENEK_AC_ADI,
-                       '{"alan":"%s"}' % alan, "alan")],
+                [_call(hedef, "{}", "gercek")],
                 [{"role": "user", "content": "dogrulama"}],
                 Beyin(), None, lambda kod: None,
-                lambda ad, args: (
-                    kosulan.append(ad) or {"result": "ok"}),
-                tools=baslangic_araclari(),
-                tool_choice="required",
-                tum_tools=TOOLS,
+                lambda ad, args: kosulan.append(ad) or {"result": "ok"},
+                tools=TOOLS, tool_choice="auto",
             )
             assert kosulan == [hedef], (provider, hedef)
             assert kosan == 1
             assert cevap == "tamam"
             sayac += 1
-
     assert sayac == 9 * 53
-
-
 
 @pytest.mark.parametrize(
     "sinif_yolu,model,tool_choice",
@@ -507,8 +468,8 @@ def test_openai_uyumlu_ajan_istemcileri_tool_choice_http_istegine_yazar(
     assert yakalanan["tool_choice"] == tool_choice
 
 
-def test_nvidia_ajan_istegi_auto_ve_gptoss20b_ile_gider():
-    from brain.nvidia import NvidiaClient, GPTOSS_MODEL
+def test_nvidia_ajan_istegi_secili_modeli_degistirmez():
+    from brain.nvidia import NvidiaClient
 
     yakalanan = {}
 
@@ -540,7 +501,7 @@ def test_nvidia_ajan_istegi_auto_ve_gptoss20b_ile_gider():
         tool_choice="auto",
     )
     assert yakalanan["tool_choice"] == "auto"
-    assert yakalanan["model"] == GPTOSS_MODEL
+    assert yakalanan["model"] == "baska-model"
 
 
 def test_openrouter_ajan_yetenegi_model_katalogundan_dogrulanir():
@@ -618,17 +579,14 @@ def test_52_aracin_dispatcher_dali_birebir_var():
     assert len(dallar) == 53
 
 
-def test_10_yetenek_alani_52_araci_eksiksiz_tasir():
-    from chat.agent_protocol import YETENEK_ALANLARI
+def test_13_namespace_53_araci_eksiksiz_tasir():
+    from tools.capabilities import CAPABILITY_NAMESPACES
     from tools.definitions import TANINMIS_TOOLLAR
-
-    assert len(YETENEK_ALANLARI) == 10
-    duz = [ad for araclar in YETENEK_ALANLARI.values() for ad in araclar]
+    assert len(CAPABILITY_NAMESPACES) == 13
+    duz = [ad for araclar in CAPABILITY_NAMESPACES.values() for ad in araclar]
     assert len(duz) == 53
     assert len(set(duz)) == 53
     assert set(duz) == set(TANINMIS_TOOLLAR)
-
-
 
 def test_gemini3_thought_signature_tool_call_icinde_korunur():
     """Google OpenAI uyumlulugundaki extra_content imzasi kaybolamaz."""

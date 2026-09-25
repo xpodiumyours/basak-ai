@@ -17,7 +17,7 @@ Olculen (2026-09-20, gemini-3-flash-preview):
                                        parts"
 Yargi: saglayici degistiren devam turu native protokolu kirar. Duzeltme
 chat/tools.py'dedir (devam turu basladigi saglayiciya baglanir); kilit
-testi: tests/test_agent_protocol.py::test_dongu_devami_basladigi_saglayicida_surer
+testi: tests/test_p2_canli_oncesi.py::test_provider_ozel_gemini_imzasi_failoverda_temizlenir
 """
 
 import json

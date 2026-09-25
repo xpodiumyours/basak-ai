@@ -1,35 +1,14 @@
-"""memory/profil.py — Kalici kullanici profili (salt-okunur).
+"""memory/profil.py — Kayıtlı kullanıcı profilinin salt-okunur bağlamı.
 
-2026-09-09: Casper istedi — "hafizasi kalici olsun, beni konusarak
-tanisin". Episodic anilar budanabilir/silinebilir; PROFIL budanmaz,
-temizlenmez. meta tablosunda "profil" anahtariyla JSON durur:
-
-    {"ad": "Casper",
-     "tercihler": ["sade konusma", "cayi sekerli"],
-     "bilgiler": ["muhendis", "Istanbul'da yasiyor"]}
-
-2026-09-13 (Casper karari): kullanici cumlelerini regex'le yorumlayip
-profil uretmek kelime tabanli chatbot mantigiydi — sokuldu. Model
-kendi hatirlar; kod adina karar vermez. Bu dosya yalniz KAYITLI
-profili okur/yazar; ogrenme kapisi stub'dur (asagida).
-
-Hassas bilgi ASLA profile alinmaz: sifre, TC, kart, telefon, adres.
+Bu modül kullanıcı cümlesini yorumlamaz, regex/kelimeyle profil üretmez ve
+sohbet sırasında otomatik profil silmez. Yalnız daha önce açıkça kaydedilmiş
+profil verisini okuma/yazma yardımcılarını sağlar.
 """
-
 import logging
-import re
 
 logger = logging.getLogger(__name__)
 
 PROFIL_ANAHTARI = "profil"
-
-# Hassas bilgi kokusu — ogrenme kapisi canlanirsa ilk satir bu kalir.
-_HASSAS = re.compile(
-    r"(sifre|şifre|parola|tc\b|kimlik\s*no|kart\s*no|kredi\s*kart|"
-    r"telefon|gsm|cep\s*no|iban|hesap\s*no|cvv|cvc|pin\s*kod)",
-    re.IGNORECASE,
-)
-
 
 def bos_profil():
     return {"ad": "", "tercihler": [], "bilgiler": []}
@@ -81,16 +60,5 @@ def blok(motor):
         parcalar.append("Bilinenler: %s" % "; ".join(profil["bilgiler"]))
     if not parcalar:
         return ""
-    return ("Casper hakkinda KALICI bilinenler (bunlari tekrar sorma):\n"
+    return ("Casper hakkinda kayitli profil:\n"
             + "\n".join("- " + p for p in parcalar))
-
-
-# 2026-09-13 (Casper karari): kullanici cumlelerini regex'le yorumlayip
-# profil uretmek kelime tabanli chatbot mantigiydi. Model kendi
-# hatirlar; kod adina karar vermez.
-def ogren(motor, text, speaker=""):
-    return []
-
-
-def unut(motor, text):
-    return 0

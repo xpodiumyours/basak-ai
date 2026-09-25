@@ -1,0 +1,130 @@
+"""P2 çıktı kontrolü: gerçek streaming ve sessiz kesilmeme."""
+
+import json
+import logging
+
+logger = logging.getLogger(__name__)
+
+KESIK_BITISLER = {"length", "max_tokens", "model_context_window_exceeded"}
+
+
+def _j(obj):
+    return json.dumps(obj, ensure_ascii=False)
+
+
+def kesik_mi(yanit):
+    return isinstance(yanit, dict) and str(
+        yanit.get("_finish_reason") or ""
+    ).lower() in KESIK_BITISLER
+
+
+def kesik_nedeni(yanit):
+    if not isinstance(yanit, dict):
+        return ""
+    return str(yanit.get("_finish_reason") or "")
+
+
+def kesik_cevabi_bildir(yanit, js_callback=None, tercih=None):
+    """Kesilmeyi YANITA DOKUNMADAN yapisal durum olarak bildir.
+
+    Uygulama modele sahte "devam et" system mesaji gondermez ve model
+    cevabina kendi aciklamasini eklemez. Ham provider ciktisi aynen kalir.
+    """
+    if not isinstance(yanit, dict):
+        return str(yanit or ""), "", True
+
+    ham = str(yanit.get("content") or "")
+    neden = kesik_nedeni(yanit)
+    kaynak = (tercih or [""])[0] if tercih else ""
+    kesik = neden.lower() in KESIK_BITISLER
+
+    if kesik and js_callback is not None and hasattr(js_callback, "olay"):
+        js_callback.olay("truncated", reason=neden or "limit")
+
+    return ham, kaynak, not kesik
+
+def akan_final(brain, model, mesajlar, js_callback, tercih=None):
+    from brain.yayin import SonHata, CikisKesildi
+    yayin = getattr(brain, "cevapla_yayin", None)
+    if not callable(yayin):
+        return "", "", False
+    parcalar, kaynak = [], ""
+    try:
+        for kaynak, parca in yayin(
+                mesajlar, model, tercih=tercih, tools=None):
+            parca = parca if isinstance(parca, str) else str(parca or "")
+            if not parca:
+                continue
+            parcalar.append(parca)
+            js_callback("BasakUI.parca(" + _j(parca) + ")")
+        return "".join(parcalar), kaynak or "bulut", True
+    except CikisKesildi as e:
+        ham = {"content": "".join(parcalar), "_finish_reason": e.neden}
+        return kesik_cevabi_bildir(
+            ham, js_callback=js_callback,
+            tercih=[kaynak] if kaynak else tercih,
+        )
+    except SonHata as e:
+        logger.info("Gercek final akisi acilamadi: %s", e.ozet)
+        return "", "", False
+
+
+def akan_ajan_adimi(brain, model, mesajlar, js_callback, tools,
+                    tercih=None):
+    """Optional-tool ajan adimini gercek provider stream'i ile calistirir.
+
+    Duz metin gelirse parcalar UI'ya aninda gider. Native tool_call gelirse
+    AracIstegi icindeki gercek cagri + reasoning kaybolmadan ortak donguye
+    doner. Teknik olarak akis acilamazsa (None, "", False) doner ve cagiran
+    mevcut tek-seferlik Brain yoluna duser.
+    """
+    from brain.yayin import AracIstegi, CikisKesildi, SonHata
+
+    yayin = getattr(brain, "cevapla_yayin", None)
+    if not callable(yayin):
+        return None, "", False
+
+    parcalar = []
+    kaynak = ""
+    try:
+        for kaynak, parca in yayin(
+                mesajlar, model, tercih=tercih, tools=tools):
+            parca = parca if isinstance(parca, str) else str(parca or "")
+            if not parca:
+                continue
+            parcalar.append(parca)
+            js_callback("BasakUI.parca(" + _j(parca) + ")")
+        return {
+            "content": "".join(parcalar),
+            "_streamed": True,
+            "_tamam": True,
+        }, kaynak or "bulut", True
+    except AracIstegi as e:
+        kaynak = getattr(e, "kaynak", "") or kaynak
+        yanit = {
+            "content": "".join(parcalar),
+            "tool_calls": list(e.tool_calls or []),
+            "_streamed": True,
+            "_tamam": True,
+        }
+        yanit.update(dict(e.muhakeme or {}))
+        return yanit, kaynak, True
+    except CikisKesildi as e:
+        kaynak = getattr(e, "kaynak", "") or kaynak
+        ham = {
+            "content": "".join(parcalar),
+            "_finish_reason": e.neden,
+        }
+        tam, kaynak, tamam = kesik_cevabi_bildir(
+            ham, js_callback=js_callback,
+            tercih=[kaynak] if kaynak else tercih,
+        )
+        return {
+            "content": tam,
+            "_streamed": True,
+            "_tamam": tamam,
+            "_finish_reason": e.neden,
+        }, kaynak, True
+    except SonHata as e:
+        logger.info("Optional ajan stream acilamadi: %s", e.ozet)
+        return None, "", False

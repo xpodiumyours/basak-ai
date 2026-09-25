@@ -39,7 +39,6 @@ class KimiClient:
         try:
             self.client = OpenAI(
                 api_key=self.api_key,
-                timeout=20.0,
                 max_retries=0,
                 base_url=BASE_URL,
             )
@@ -58,8 +57,7 @@ class KimiClient:
         kwargs = {
             "model": self.model,
             "messages": messages,
-            "max_tokens": 4096,
-        }
+}
         if tools:
             kwargs["tools"] = tools
         resp = self.client.chat.completions.create(**kwargs)
