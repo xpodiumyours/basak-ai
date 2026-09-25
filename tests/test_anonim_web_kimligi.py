@@ -138,10 +138,12 @@ def test_preview_sohbeti_normal_basak_akisini_kisitlamaz(monkeypatch, tmp_path):
 
     def _sahte_mesaj_isle(
         metin, beyin, sistem, js_callback, tools=None,
-        misafir=False, gecmis_override=None, yonlendirme_baglami=None
+        misafir=False, gecmis_override=None, yonlendirme_baglami=None,
+        tool_policy="auto", run_state=None
     ):
         yakalanan["misafir"] = misafir
         yakalanan["metin"] = metin
+        yakalanan["tool_policy"] = tool_policy
         js_callback('BasakUI.thinking()')
         js_callback('BasakUI.bitir("preview-ok", "test")')
 
@@ -156,7 +158,11 @@ def test_preview_sohbeti_normal_basak_akisini_kisitlamaz(monkeypatch, tmp_path):
         )
         assert r.status_code == 200
         assert '"cevap":"preview-ok"' in r.text
-        assert yakalanan == {"misafir": False, "metin": "test"}
+        assert yakalanan == {
+            "misafir": False,
+            "metin": "test",
+            "tool_policy": "auto",
+        }
 
 
 def test_production_preview_kuralindan_etkilenmez(monkeypatch, tmp_path):
