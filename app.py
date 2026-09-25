@@ -901,4 +901,14 @@ async def cikis():
     return resp
 
 
-app.mount("/", StaticFiles(directory=str(WEB), html=True), name="web")
+class _Statik(StaticFiles):
+    """HTML onbelleklenmesin ki dagitim degisikligi donen tarayiciya ulassin."""
+
+    async def get_response(self, path, scope):
+        yanit = await super().get_response(path, scope)
+        if yanit.headers.get("content-type", "").startswith("text/html"):
+            yanit.headers["Cache-Control"] = "no-store"
+        return yanit
+
+
+app.mount("/", _Statik(directory=str(WEB), html=True), name="web")
