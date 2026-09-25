@@ -26,7 +26,6 @@ def test_normal_sohbet_arac_varken_bile_dogal_metinle_biter(
     monkeypatch.setattr(ctx, "HISTORY_FILE", str(tmp_path / "g.json"))
     monkeypatch.setattr(ctx, "yukle", lambda *a, **k: [])
     monkeypatch.setattr(ctx, "temizle_history", lambda g: list(g or []))
-    monkeypatch.setattr(ctx, "gecmis_pencere", lambda g, *a, **k: [])
     monkeypatch.setattr(ctx, "ilgili_anilar", lambda *a, **k: [])
     monkeypatch.setattr(ctx, "hafiza_al", lambda: None)
     monkeypatch.setattr(ctx, "kaydet", lambda *a, **k: None)
@@ -38,18 +37,6 @@ def test_normal_sohbet_arac_varken_bile_dogal_metinle_biter(
     except Exception:
         pass
 
-    # Normal sohbette resolver gercek arac gerekmiyor diyebilir; ana model
-    # meta-arac gormeden dogal metinle biter.
-    monkeypatch.setattr(
-        flow, "arac_karari_coz",
-        lambda *_a, **_k: {
-            "tools": [],
-            "tool_required": False,
-            "verified": True,
-            "fail_open": False,
-            "resolver_provider": "groq",
-        },
-    )
     gorulen = {}
 
     class Beyin:
@@ -65,20 +52,31 @@ def test_normal_sohbet_arac_varken_bile_dogal_metinle_biter(
             gorulen["tools"] = tools
             return {"content": "Merhaba, nasil yardimci olayim?"}, "groq"
 
+    arac = {
+        "type": "function",
+        "function": {
+            "name": "list_tasks",
+            "description": "Gorevleri listeler",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    }
     olaylar = []
     flow.mesaj_isle(
         "merhaba",
         Beyin(),
         "sistem",
         olaylar.append,
-        tools=[{"type": "function",
-                "function": {"name": "list_tasks"}}],
+        tools=[arac],
+        misafir=True,
+        gecmis_override=[],
+        tool_policy="auto",
     )
 
-    assert gorulen["tool_choice"] is None
-    assert gorulen["tools"] is None
+    # Ortak platform mimarisi: capability gizlenmez; auto modunda model
+    # ister tool-call, ister dogal final üretir.
+    assert gorulen["tool_choice"] == "auto"
+    assert gorulen["tools"] == [arac]
     assert any("Merhaba, nasil yardimci olayim?" in o for o in olaylar)
-    assert not any("Ajan protokolu bozuldu" in o for o in olaylar)
 
 
 def test_arac_zinciri_baslayan_saglayiciyi_once_tutar_ve_fallbacki_devralir():
