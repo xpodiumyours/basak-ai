@@ -43,7 +43,14 @@ def _tool_calls_temizle(tool_calls, provider="", kaynak_provider=""):
     for c in tool_calls or []:
         if not isinstance(c, dict):
             continue
-        f = c.get("function") or {}
+        f = c.get("function")
+        if not isinstance(f, dict):
+            # Eski/gecmis minimal kaydi genisletme; oldugu gibi koru.
+            yeni = dict(c)
+            if not ayni:
+                yeni.pop("extra_content", None)
+            sonuc.append(yeni)
+            continue
         yeni = {
             "id": c.get("id") or "",
             "type": c.get("type") or "function",

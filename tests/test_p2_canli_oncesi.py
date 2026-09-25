@@ -208,103 +208,6 @@ def test_live_matris_arac_sayisini_koddan_alir():
     assert len(TOOLS) == 53
 
 
-def test_unverified_resolver_duz_ezber_finali_reddeder():
-    from chat.flow import mesaj_isle
-    from tools import TOOLS
-
-    class Beyin:
-        def __init__(self):
-            self.n = 0
-
-        def bulut_musait(self):
-            return True
-
-        def ajan_musait(self):
-            return True
-
-        def cevapla(self, mesajlar, model, tools=None, **kwargs):
-            self.n += 1
-            if self.n == 1:
-                # Resolver teknik olarak gecerli karar uretemedi.
-                return {"content": "json degil"}, "groq"
-            assert tools and len(tools) == len(TOOLS)
-            return {"content": "Ezberden uydurma final"}, "groq"
-
-    olaylar = []
-    mesaj_isle(
-        "bugunku dis gercegi soyle",
-        Beyin(),
-        "test",
-        olaylar.append,
-        TOOLS,
-        misafir=True,
-        gecmis_override=[],
-    )
-    assert not any(x.startswith("BasakUI.bitir(") for x in olaylar)
-    assert any(
-        "final kabul edilmedi" in x
-        for x in olaylar if x.startswith("BasakUI.error(")
-    )
-
-
-def test_cache_resolverdan_once_cevap_veremez():
-    import inspect
-    from chat import flow
-
-    kaynak = inspect.getsource(flow.mesaj_isle)
-    karar = kaynak.index("karar = arac_karari_coz")
-    cache = kaynak.index(
-        "and _onbellekten_don()", karar
-    )
-    assert cache > karar
-    assert "karar_dogrulandi" in kaynak[karar:cache + 80]
-
-
-def test_required_ilk_tur_sonrasi_auto_final_kabul_edilir(monkeypatch):
-    from chat.tools import arac_dongusu
-    from chat import tool_resolver
-
-    ilk = {
-        "id": "c1", "type": "function",
-        "function": {"name": "list_tasks", "arguments": "{}"},
-    }
-
-    monkeypatch.setattr(
-        tool_resolver,
-        "arac_karari_coz",
-        lambda *a, **k: {
-            "tools": [],
-            "tool_required": False,
-            "verified": True,
-            "fail_open": False,
-            "resolver_provider": "groq",
-        },
-    )
-
-    class Beyin:
-        def cevapla_yayin(self, *a, **k):
-            from brain.yayin import SonHata
-            raise SonHata("testte stream yok")
-            yield
-
-        def cevapla(self, mesajlar, model, tools=None, **kwargs):
-            return {"content": "arac sonrasi dogrulanmis final"}, "groq"
-
-    cevap, kosan = arac_dongusu(
-        [ilk],
-        [{"role": "user", "content": "gorevi yap"}],
-        Beyin(), None, lambda _x: None,
-        lambda *_a: {"result": "ok"},
-        tools=[_tool("list_tasks")],
-        tool_choice="required",
-        tum_tools=[_tool("list_tasks")],
-        dinamik_resolver=True,
-        tercih=["groq"],
-    )
-    assert kosan == 1
-    assert cevap == "arac sonrasi dogrulanmis final"
-
-
 def test_optional_agent_stream_native_tool_calli_kaybetmez():
     from chat.output_control import akan_ajan_adimi
     from brain.yayin import AracIstegi
@@ -397,3 +300,83 @@ def test_full_test_p2_gercekten_p2_refini_hedefler():
     from tests.live import github_full_acceptance as full
     from tests.live import matris_kosucu
     assert tuple(full.SAGLAYICILAR) == tuple(matris_kosucu.KAPSAM)
+
+
+def test_p2_aktif_flow_hidden_resolver_kullanmaz():
+    import inspect
+    from chat import flow
+    kaynak = inspect.getsource(flow.mesaj_isle)
+    assert "arac_karari_coz" not in kaynak
+    assert "tool_resolver" not in kaynak
+    assert "capability_surface" in kaynak
+    assert "ajan_tools = list(etkin_tools)" in kaynak
+
+
+def test_auto_policy_tam_gercek_katalogu_modele_verir():
+    from chat.flow import mesaj_isle
+    from tools import TOOLS
+
+    class Beyin:
+        def bulut_musait(self): return True
+        def ajan_musait(self): return True
+        def cevapla_yayin(self, *a, **k):
+            from brain.yayin import SonHata
+            raise SonHata("testte stream yok")
+            yield
+        def cevapla(self, mesajlar, model, tools=None,
+                    tool_choice=None, **kwargs):
+            assert tool_choice == "auto"
+            assert len(tools or []) == len(TOOLS) == 53
+            return {"content": "dogal final"}, "groq"
+
+    olaylar = []
+    mesaj_isle(
+        "normal soru", Beyin(), "test", olaylar.append, TOOLS,
+        misafir=True, gecmis_override=[], tool_policy="auto",
+    )
+    assert any(x.startswith("BasakUI.bitir(") for x in olaylar)
+
+
+def test_required_policy_tool_call_olmadan_finali_reddeder():
+    from chat.flow import mesaj_isle
+    from tools import TOOLS
+
+    class Beyin:
+        def bulut_musait(self): return True
+        def ajan_musait(self): return True
+        def cevapla(self, mesajlar, model, tools=None,
+                    tool_choice=None, **kwargs):
+            assert tool_choice == "required"
+            assert len(tools or []) == len(TOOLS)
+            return {"content": "aracsiz final"}, "groq"
+
+    olaylar = []
+    mesaj_isle(
+        "arac zorunlu run", Beyin(), "test", olaylar.append, TOOLS,
+        misafir=True, gecmis_override=[], tool_policy="required",
+    )
+    assert not any(x.startswith("BasakUI.bitir(") for x in olaylar)
+    assert any(
+        "required modunda" in x
+        for x in olaylar if x.startswith("BasakUI.error(")
+    )
+
+
+def test_none_policy_arac_yuzeyini_tamamen_kapatir():
+    from chat.agent_runtime import capability_surface
+    from tools import TOOLS
+    assert capability_surface(TOOLS, "none") == []
+    assert len(capability_surface(TOOLS, "auto")) == 53
+    assert len(capability_surface(TOOLS, "required")) == 53
+
+
+def test_tool_policy_kelime_routeri_degil_acik_run_politikasidir():
+    from chat.agent_runtime import normalize_tool_policy
+    assert normalize_tool_policy("auto") == "auto"
+    assert normalize_tool_policy("required") == "required"
+    assert normalize_tool_policy("none") == "none"
+    try:
+        normalize_tool_policy("web_ara")
+        assert False
+    except ValueError:
+        pass

@@ -7,8 +7,8 @@ sayılmaz. CI, provider pilotu ve gerçek Preview testi ayrı ayrı kaydedilir.
 
 | # | Risk | P2 düzenlemesi | Canlı kabul kanıtı |
 |---|---|---|---|
-| 1 | Meta yetenek kapısı / gizli araç kaybı | Ana model meta araç görmez. Görünmez resolver gerçek araç adaylarını seçer; bozuk seçimde tam katalog fail-open. | Çok alanlı gerçek görev E2E |
-| 2 | Araç gereken işte ezber final | Resolver `tool_required=true` derse ana çağrı `required`; toolsuz düz final kabul edilmez. | Güncel veri + proje/dosya gerçek görevleri |
+| 1 | Meta yetenek kapısı / gizli araç kaybı | Aktif akışta hidden resolver yok. `auto|required` modunda 53 gerçek araç capability registry olarak modele eksiksiz verilir; deferred loading yalnız provider-native optimizasyon olabilir. | 53 araç görünürlüğü + çok alanlı gerçek görev E2E |
+| 2 | Araç gereken işte ezber final | `tool_policy` açık run politikasıdır: `auto|required|none`. Metinden gizli sınıflandırma yok. `required` run'da gerçek tool-call olmadan final kabul edilmez; `auto` model-native karardır ve eval ile ölçülür. | `required` yapısal test + `auto` gerçek görev eval'i |
 | 3 | Sahte/görsel streaming | Araç sonrası final ve araçsız final `brain.cevapla_yayin` üzerinden gerçek provider parçalarını taşır; frontend animasyonu fallback. | İlk `parca` finalden önce ağda görülmeli |
 | 4 | Arama sonucu kaynak sanılması | Final Kaynaklar yalnız `sayfa_oku` / `derin_oku` ile gerçekten okunan URL'lerden çıkar. | Search-only URL final kaynakta olmamalı |
 | 5 | Halüsinasyonun hafızada kanıtlaşması | Hafıza kayıtları `sohbet_aracli/aracsiz` provenance taşır; prompt bunları KANIT DEĞİL diye işler; eksik/truncated final episodik hafızaya yazılmaz. | Stale hafıza + güncel araç çelişki testi |
@@ -60,3 +60,19 @@ Bu denetim, testlerin yesil olmasini tek basina yeterli kabul etmez.
 - `FULL TEST` varsayilan olarak main'i olcer. `FULL TEST P2` yalniz
   `preview/p2-arac-ara-profesyonel` dalini olcer. Canli provider kabul
   kosusu acik tetik olmadan otomatik calismaz.
+
+
+## 2026-09-25 ortak platform mimari karari
+
+Aktif P2 akisinda `chat/tool_resolver.py` yetki/capability kapisi DEGILDIR ve
+`chat/flow.py` tarafindan kullanilmaz. Ortak taban `chat/agent_runtime.py`:
+
+1. Full capability registry (53 gercek arac).
+2. Acik run policy: `auto|required|none`.
+3. Model-native compositional function calling.
+4. Provider-native deferred/tool-search yalniz optimizasyon; destek yoksa eager
+   full registry devam eder.
+5. Evidence, context budget, provider failover ve streaming ayni run boyunca
+   canonical state/trace olarak korunur.
+
+Ayrintili karar: `docs/p2-platform-ortak-mimari.md`.

@@ -175,13 +175,12 @@ def sonucu_donustur(sonuc):
 def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                  calistir, tools=None, tur_siniri=None, yanit=None,
                  tool_choice=None, tum_tools=None, tercih=None,
-                 dinamik_resolver=False):
+                 dinamik_resolver=False, run_state=None):
     """Arac sonuclarini modele geri vererek ajan turunu surdurur.
 
-    P2 aktif yolunda model yalnız resolver'ın sunduğu GERCEK araçları görür.
-    Her araç turundan sonra dinamik_resolver=True ise güncel bağlamla yeni
-    gerçek araç adayları hazırlanır. Eski yetenek_ac dalları yalnız P1
-    uyumluluk testleri için pasif kalır; P2 akışında modele sunulmaz.
+    P2 aktif yolunda full capability registry modele aciktir; model native
+    function calling ile araci secer. dinamik_resolver yalniz eski deney
+    uyumlulugu icin imzada kalir ve aktif flow tarafindan kullanilmaz.
     """
     from chat.gate import temizle
     from chat.agent_protocol import (
@@ -240,6 +239,8 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                     js_callback, "providerSwitch",
                     onceki=onceki, yeni=yeni,
                 )
+            if run_state is not None:
+                run_state.provider_set(yeni)
             _tercih_aktif = [yeni]
         return sonuc
 
@@ -389,6 +390,8 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 detay=_durum_detayi(args),
                 ok=basarili,
             )
+            if run_state is not None:
+                run_state.tool_done(ad, cagri_id, basarili, args=args)
             if basarili:
                 for _url in _kaynaklari_cikar(ad, args, net):
                     try:
@@ -399,6 +402,10 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                         js_callback, "source",
                         url=_url, baslik=_host, tool_id=cagri_id,
                     )
+                    if run_state is not None:
+                        run_state.evidence_add(
+                            _url, tool=ad, call_id=cagri_id
+                        )
             tur_sonuclari.append((ad, net, cagri_id))
             if basarili:
                 kosan += 1

@@ -641,7 +641,7 @@ def test_preview_plan_kaynak_yonlendir_ui_sozlesmesi():
     assert ".work-redirect-form{" in stil
     assert ".answer-sources{" in stil
     assert "/chat.css?v=7" in html
-    assert "/app.js?v=10" in html
+    assert "/app.js?v=11" in html
 
 
 def test_preview_gercek_parca_oncelikli_fallback_sonradan():
@@ -659,4 +659,4 @@ def test_p2_yonlendirme_baglami_ve_runtime_olaylari_ui_da_var():
     assert "yonlendirme_baglami:secenek.yonlendirmeBaglami || null" in ekran
     for tur in ("contextStatus", "providerSwitch", "loopGuard", "truncated"):
         assert 'o.tur === "' + tur + '"' in ekran
-    assert "/app.js?v=10" in html
+    assert "/app.js?v=11" in html

@@ -566,6 +566,8 @@ async def durum(request: Request):
         "tasima": "canli-ndjson",
         "hafiza_modu": hafiza_modu,
         "preview_hafiza_parity": hafiza_modu == "postgres_isolated",
+        "tool_policy_default": "auto",
+        "tool_discovery": "eager-full-registry",
     }
 
 
@@ -596,6 +598,10 @@ async def sohbet(request: Request):
             return JSONResponse({"error": "Bos mesaj"}, status_code=400)
 
         beyin, tools = _cekirdek()
+        from chat.agent_runtime import normalize_tool_policy
+        tool_policy = normalize_tool_policy(
+            (body or {}).get("tool_policy", "auto")
+        )
         akis = _canli_akis_isteniyor(request)
         dongu = asyncio.get_running_loop() if akis else None
         kuyruk = asyncio.Queue() if akis else None
@@ -634,6 +640,7 @@ async def sohbet(request: Request):
                         if isinstance(
                             (body or {}).get("yonlendirme_baglami"), dict)
                         else None),
+                    tool_policy=tool_policy,
                 )
             except _AkisIptal:
                 return

@@ -210,40 +210,36 @@ class TestYasakIsimYok:
 
 
 class TestSozlesmeZorunlulukTasir:
-    """P2 aktif guvence: meta yetenek kapisi yok, kelime routeri yok."""
+    """P2 ortak mimari: full capability registry, gizli resolver yok."""
 
-    def test_runtime_sozlesmesi_gercek_araci_zorunlu_kilar(self):
-        from chat.tool_resolver import RUNTIME_AJAN_SOZLESMESI
-        metin = RUNTIME_AJAN_SOZLESMESI.lower()
-        assert "gercek" in metin
-        assert "aracı çağır" in metin or "araci cagir" in metin
-        assert "iş yapılmış sayılmaz" in metin or "is yapilmis sayilmaz" in metin
+    def test_runtime_sozlesmesi_gercek_araci_tanimlar(self):
+        from chat.agent_runtime import AGENT_CONTRACT
+        metin = AGENT_CONTRACT.lower()
+        assert "gercek capability registry" in metin
+        assert "gercek araci cagir" in metin
+        assert "yapilmis sayilmaz" in metin
 
-    def test_runtime_resolver_kelime_tetikleyici_icermez(self):
+    def test_runtime_kelime_tetikleyici_icermez(self):
         import inspect
-        from chat import tool_resolver
-        kaynak = inspect.getsource(tool_resolver)
-        yasak = (
+        from chat import agent_runtime
+        kaynak = inspect.getsource(agent_runtime).lower()
+        for cumle in (
             "if 'hava' in", 'if "hava" in',
             "if 'github' in", 'if "github" in',
             "kelime gecerse", "if the user says",
-        )
-        kucuk = kaynak.lower()
-        for cumle in yasak:
-            assert cumle not in kucuk, cumle
+        ):
+            assert cumle not in kaynak, cumle
 
-    def test_aktif_flow_yetenek_ac_kapisini_kullanmaz(self):
+    def test_aktif_flow_hidden_resolver_kullanmaz(self):
         import inspect
         from chat import flow
         kaynak = inspect.getsource(flow.mesaj_isle)
-        assert "arac_karari_coz" in kaynak
-        assert "baslangic_araclari(" not in kaynak
-        assert 'secim = "required" if arac_zorunlu else "auto"' in kaynak
+        assert "arac_karari_coz" not in kaynak
+        assert "tool_resolver" not in kaynak
+        assert "capability_surface" in kaynak
+        assert 'tool_choice=secim' in kaynak
 
-    def test_unverified_resolver_duz_finali_geciremez(self):
-        import inspect
-        from chat import flow
-        kaynak = inspect.getsource(flow.mesaj_isle)
-        assert "karar_dogrulandi" in kaynak
-        assert "or not karar_dogrulandi" in kaynak
+    def test_tool_policy_acik_ve_sinirli(self):
+        from chat.agent_runtime import TOOL_POLICIES
+        assert TOOL_POLICIES == frozenset(("auto", "required", "none"))
 
