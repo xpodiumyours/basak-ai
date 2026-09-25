@@ -296,32 +296,60 @@ def sinifla(sonuc, beklenen):
 
 
 # ── Kosum ─────────────────────────────────────────────────────────────
-def kos(beyin, mevcut, tum):
+def _saglayici_kos(beyin, istemci, ad, tum, yaz):
+    """Tek saglayici, sirali ve beklemeli (kendi kotasi korunur)."""
     kayitlar = []
-    for ad in SAGLAYICILAR:
-        if ad not in mevcut:
-            kayitlar.append({"saglayici": ad, "durum": "istemci-yok"})
-            continue
-        olcer = Olcer(beyin, mevcut[ad], ad)
-        durdu = ""
-        for gorev, beklenen in GOREVLER:
-            for duzen_adi, fonk in DUZENLER:
-                kayit = {"saglayici": ad, "duzen": duzen_adi,
-                         "gorev": gorev, "beklenen": sorted(beklenen)}
-                if durdu:
+    olcer = Olcer(beyin, istemci, ad)
+    durdu = ""
+    for gorev, beklenen in GOREVLER:
+        for duzen_adi, fonk in DUZENLER:
+            kayit = {"saglayici": ad, "duzen": duzen_adi,
+                     "gorev": gorev, "beklenen": sorted(beklenen)}
+            if durdu:
+                kayit.update(sinif="OLCULMEDI", hata=durdu)
+            else:
+                try:
+                    sonuc = fonk(olcer, gorev, tum)
+                    kayit.update(sonuc)
+                    kayit["sinif"] = sinifla(sonuc, beklenen)
+                except KotaDoldu as e:
+                    durdu = str(e)
                     kayit.update(sinif="OLCULMEDI", hata=durdu)
-                else:
-                    try:
-                        sonuc = fonk(olcer, gorev, tum)
-                        kayit.update(sonuc)
-                        kayit["sinif"] = sinifla(sonuc, beklenen)
-                    except KotaDoldu as e:
-                        durdu = str(e)
-                        kayit.update(sinif="OLCULMEDI", hata=durdu)
-                    except Exception as e:
-                        kayit.update(sinif="HATA", hata=str(e)[:300])
-                kayitlar.append(kayit)
-                print(json.dumps(kayit, ensure_ascii=False), flush=True)
+                except Exception as e:
+                    kayit.update(sinif="HATA", hata=str(e)[:300])
+            kayitlar.append(kayit)
+            yaz(kayit)
+    return kayitlar
+
+
+def kos(beyin, mevcut, tum):
+    """Saglayicilar PARALEL olculur: kotalari birbirinden bagimsiz,
+    her saglayici kendi icinde sirali ve beklemeli kalir.
+    DENEY_SAGLAYICILAR=groq,gemini ile alt kume secilebilir."""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    secili = [s.strip() for s in os.environ.get(
+        "DENEY_SAGLAYICILAR", "").split(",") if s.strip()]
+    adlar = [a for a in SAGLAYICILAR if not secili or a in secili]
+    kilit = threading.Lock()
+
+    def yaz(kayit):
+        with kilit:
+            print(json.dumps(kayit, ensure_ascii=False), flush=True)
+
+    kayitlar = []
+    isler = {}
+    with ThreadPoolExecutor(max_workers=max(1, len(adlar))) as havuz:
+        for ad in adlar:
+            if ad not in mevcut:
+                kayitlar.append({"saglayici": ad, "durum": "istemci-yok"})
+                continue
+            isler[ad] = havuz.submit(
+                _saglayici_kos, beyin, mevcut[ad], ad, tum, yaz)
+        for ad in adlar:
+            if ad in isler:
+                kayitlar.extend(isler[ad].result())
     return kayitlar
 
 
