@@ -83,6 +83,10 @@ def test_stream_ilk_olayi_worker_bitmeden_verir(monkeypatch):
         assert isinstance(cevap, StreamingResponse)
         it = cevap.body_iterator
 
+        # P2: her run imzali handoff tasiyan runContext ile acilir.
+        baglam = _json_satir(await asyncio.wait_for(anext(it), timeout=1))
+        assert baglam["tur"] == "runContext"
+        assert baglam.get("handoff_token")
         ilk = _json_satir(await asyncio.wait_for(anext(it), timeout=1))
         ikinci = _json_satir(await asyncio.wait_for(anext(it), timeout=1))
         assert not devam.is_set()
@@ -117,6 +121,7 @@ def test_bitir_gorunur_ama_worker_bitmeden_stream_kapanmaz(monkeypatch):
             _request({"metin": "x"}, "application/x-ndjson")
         )
         it = cevap.body_iterator
+        assert _json_satir(await anext(it))["tur"] == "runContext"
         assert _json_satir(await anext(it))["tur"] == "thinking"
         bitis = _json_satir(await anext(it))
         assert bitis["tur"] == "bitir"
@@ -165,7 +170,8 @@ def test_accept_yoksa_eski_toplu_json_korunur(monkeypatch):
     assert isinstance(cevap, dict)
     assert cevap["ok"] is True
     assert cevap["cevap"] == "eski yol"
-    assert [o["tur"] for o in cevap["olaylar"]] == ["thinking", "bitir"]
+    assert [o["tur"] for o in cevap["olaylar"]] == [
+        "runContext", "thinking", "bitir"]
 
 
 def test_vercel_suresi_300():
