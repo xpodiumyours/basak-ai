@@ -360,8 +360,9 @@ function olayiIsle(o) {
     if (!b) b = bubble("assistant", o.cevap || "…");
     else {
       durumuKapat(b);
-      const ham = b.dataset.ham || "";
-      if (!ham || ham === "Düşünüyorum…" || ham === "…") icerikYaz(b, o.cevap || "…");
+      // Son cevap parcaların birebir toplamı olmak zorunda değildir.
+      // Ekranda da geçmişte de tek doğru metin olan o.cevap gösterilir.
+      icerikYaz(b, o.cevap || "…");
     }
     balonlar.delete(no);
     sohbetAlta();
@@ -380,6 +381,46 @@ function olayiIsle(o) {
   }
 
   return false;
+}
+function satirCoz(satir) {
+  const temiz = String(satir || "").trim();
+  if (!temiz) return null;
+  try {
+    const o = JSON.parse(temiz);
+    return o && o.tur !== "ping" ? o : null;
+  } catch {
+    return null;
+  }
+}
+
+async function akisiOku(r) {
+  if (!r.body || !r.body.getReader) {
+    const ham = await r.text();
+    for (const satir of ham.split("\n")) {
+      const o = satirCoz(satir);
+      if (o && olayiIsle(o)) return o;
+    }
+    return null;
+  }
+  const okur = r.body.getReader();
+  const cozucu = new TextDecoder("utf-8");
+  let tampon = "";
+  while (true) {
+    const { value, done } = await okur.read();
+    if (done) break;
+    tampon += cozucu.decode(value, { stream: true });
+    let i;
+    while ((i = tampon.indexOf("\n")) >= 0) {
+      const satir = tampon.slice(0, i);
+      tampon = tampon.slice(i + 1);
+      const o = satirCoz(satir);
+      if (o && olayiIsle(o)) {
+        try { await okur.cancel(); } catch {}
+        return o;
+      }
+    }
+  }
+  return null;
 }
 
 async function jsonOku(r) {
@@ -463,7 +504,7 @@ async function send() {
 
     const r = await window.basakFetch("/api/sohbet", {
       method:"POST",
-      headers:{"content-type":"application/json"},
+      headers:{"content-type":"application/json","accept":"application/x-ndjson"},
       body:JSON.stringify({
         metin:gonderilecekMetin,
         misafir:MISAFIR,
@@ -471,6 +512,18 @@ async function send() {
         ek,
       }),
     });
+
+    const tur = (r.headers.get("content-type") || "").toLowerCase();
+    if (r.ok && tur.indexOf("ndjson") >= 0) {
+      const sonOlay = await akisiOku(r);
+      if (sonOlay && sonOlay.tur === "bitir" && sonOlay.cevap) {
+        bulutGecmisi.push({role:"user",content:gonderilecekMetin});
+        bulutGecmisi.push({role:"assistant",content:sonOlay.cevap});
+        aktifSohbetiKaydet();
+      }
+      onizlemeTemizle();
+      return;
+    }
 
     const d = await jsonOku(r);
 

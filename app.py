@@ -16,7 +16,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 BASE = Path(__file__).resolve().parent
@@ -213,13 +213,62 @@ def _giris_engeli():
     return JSONResponse({"error": "giris gerekli"}, status_code=401)
 
 
+_AKIS_BOSLUK_SN = 10.0
+_AKIS_PING = '{"tur":"ping"}\n'
+
+
+def _canli_akis_isteniyor(request: Request):
+    """Tarayıcı canlı akış istiyorsa gerçek zamanlı taşımayı açar."""
+    return "application/x-ndjson" in (request.headers.get("accept") or "")
+
+
+async def _akis_ureci(kuyruk, gorev, gecici_dosya=None):
+    """Çekirdeğin gerçek olaylarını her oluştuğunda NDJSON olarak yollar."""
+    son = object()
+    gorev.add_done_callback(lambda _g: kuyruk.put_nowait(son))
+    terminal = False
+    try:
+        while True:
+            try:
+                olay = await asyncio.wait_for(kuyruk.get(), _AKIS_BOSLUK_SN)
+            except asyncio.TimeoutError:
+                yield _AKIS_PING
+                continue
+            if olay is son:
+                if not terminal:
+                    yield json.dumps({
+                        "tur": "error",
+                        "metin": "Basak yaniti tamamlanmadan bitti.",
+                    }, ensure_ascii=False) + "\n"
+                return
+            terminal = olay.get("tur") in ("bitir", "error")
+            yield json.dumps(olay, ensure_ascii=False) + "\n"
+            if terminal:
+                return
+    finally:
+        if gecici_dosya:
+            try:
+                os.remove(gecici_dosya)
+            except OSError:
+                pass
+
+
+def _akis_yaniti(kuyruk, gorev, gecici_dosya=None):
+    return StreamingResponse(
+        _akis_ureci(kuyruk, gorev, gecici_dosya),
+        media_type="application/x-ndjson; charset=utf-8",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 class _OlayToplayici:
-    def __init__(self, istek):
+    def __init__(self, istek, yayinla=None):
         self.istek = istek
         self.olaylar = []
         self.cevap = ""
         self.kaynak = ""
         self.hata = ""
+        self.yayinla = yayinla
 
     def __call__(self, kod):
         try:
@@ -240,6 +289,11 @@ class _OlayToplayici:
             if ad == "error":
                 self.hata = olay.get("metin", "")
             self.olaylar.append(olay)
+            if self.yayinla is not None:
+                try:
+                    self.yayinla(olay)
+                except Exception:
+                    pass
         except Exception:
             return
 
@@ -439,23 +493,49 @@ async def sohbet(request: Request):
             return JSONResponse({"error": "Bos mesaj"}, status_code=400)
 
         beyin, tools = _cekirdek()
-        kayit = _OlayToplayici(uuid.uuid4().hex[:12])
+        akis = _canli_akis_isteniyor(request)
+        kuyruk = asyncio.Queue() if akis else None
+        dongu = asyncio.get_running_loop() if akis else None
+        kayit = _OlayToplayici(
+            uuid.uuid4().hex[:12],
+            yayinla=(
+                None if not akis
+                else lambda o: dongu.call_soon_threadsafe(
+                    kuyruk.put_nowait, o
+                )
+            ),
+        )
 
-        def _kos():
-            from chat.flow import mesaj_isle
-            from chat.kimlik import kullanici_kur
-            from chat.prompts import kisilik_blogu
-            kullanici_kur(kid)  # thread contextvar'i — kisi izolasyonu
+        def _kos(hatayi_akisla=False):
             misafir = bool((body or {}).get("misafir", False))
-            mesaj_isle(
-                metin,
-                beyin,
-                kisilik_blogu(kid, misafir=misafir),
-                kayit,
-                tools,
-                misafir=misafir,
-                gecmis_override=_gecmis(body or {}),
-            )
+            try:
+                from chat.flow import mesaj_isle
+                from chat.kimlik import kullanici_kur
+                from chat.prompts import kisilik_blogu
+                kullanici_kur(kid)
+                mesaj_isle(
+                    metin,
+                    beyin,
+                    kisilik_blogu(kid, misafir=misafir),
+                    kayit,
+                    tools,
+                    misafir=misafir,
+                    gecmis_override=_gecmis(body or {}),
+                )
+            except Exception as e:
+                if not hatayi_akisla:
+                    raise
+                kayit.yayinla({
+                    "istek": kayit.istek,
+                    "tur": "error",
+                    "metin": "Basak calistirilamadi: %s" % str(e)[:300],
+                })
+
+        if akis:
+            gorev = asyncio.create_task(asyncio.to_thread(_kos, True))
+            gecici = ek_yol
+            ek_yol = None
+            return _akis_yaniti(kuyruk, gorev, gecici)
 
         await asyncio.to_thread(_kos)
         if kayit.hata and not kayit.cevap:

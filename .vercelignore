@@ -7,3 +7,12 @@ data
 *.onnx.json
 *.wav
 *.mp3
+hata.log
+*.log
+so.html
+tunnel-log.txt
+.vercel
+.env*
+ayarlar.json
+gecmis.json
+gorevler.json
