@@ -143,8 +143,7 @@ class OpenRouterClient:
         kwargs = {
             "model": self.model,
             "messages": messages,
-            "max_tokens": 4096,
-        }
+}
         if tools:
             kwargs["tools"] = tools
             if tool_choice is not None:

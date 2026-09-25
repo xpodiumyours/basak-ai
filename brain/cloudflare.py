@@ -65,8 +65,7 @@ class CloudflareClient:
                 tool_choice=None) -> dict:
         """Cloudflare'a mesaj gonderir.
 
-        Cevap tavani: max_tokens=4096 (sicaklik saglayicinin kendi
-        varsayilani — 2026-09-13'te sabit 0.5 kaldirildi).
+                varsayilani — 2026-09-13'te sabit 0.5 kaldirildi).
         yapi: sozlesme modu icin; bu saglayici su an yok sayar.
         """
         if not self.client:
@@ -78,8 +77,7 @@ class CloudflareClient:
         kwargs = {
             "model": self.model,
             "messages": temiz_mesajlar,
-            "max_tokens": 4096,
-        }
+}
         if tools:
             kwargs["tools"] = tools
             if tool_choice is not None:

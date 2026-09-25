@@ -72,8 +72,7 @@ class GLMClient:
         kwargs = {
             "model": self.model,
             "messages": messages,
-            "max_tokens": 4096,
-            "extra_body": {"thinking": {"type": "enabled"}},
+"extra_body": {"thinking": {"type": "enabled"}},
         }
         if tools:
             kwargs["tools"] = tools

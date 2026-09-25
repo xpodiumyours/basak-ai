@@ -142,8 +142,7 @@ class CohereClient:
         kwargs = {
             "model": self.model,
             "messages": cohere_messages,
-            "max_tokens": 4096,
-        }
+}
 
         if tools:
             # Cohere formatinda tool tanimlarina cevir

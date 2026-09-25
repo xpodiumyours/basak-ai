@@ -161,7 +161,7 @@ class TestSaglayiciBogulmaz:
             i.cevapla([{"role": "user", "content": "s"}])
             kw = i.client.kayit[0]
             assert "temperature" not in kw, cls
-            assert kw.get("max_tokens", 0) >= 4096, (cls, kw.get("max_tokens"))
+            assert "max_tokens" not in kw, (cls, kw.get("max_tokens"))
             assert "disabled" not in str(kw.get("extra_body", "")), cls
 
 

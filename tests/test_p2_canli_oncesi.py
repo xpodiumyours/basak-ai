@@ -25,13 +25,14 @@ def test_finish_reason_merkezi_tasinir():
     assert y["_finish_reason"] == "length"
 
 
-def test_context_butcesi_disk_gecmisini_silmez():
+def test_context_modelden_mesaj_saklamaz():
     from chat import context as ctx
     g = [{"role": "user", "content": "x" * 5000} for _ in range(20)]
     asli = json.loads(json.dumps(g))
     pencere, bilgi = ctx.gecmis_model_penceresi(g, token_butcesi=16000)
-    assert bilgi["compact"] is True
-    assert 0 < len(pencere) < len(g)
+    assert pencere == g
+    assert bilgi["compact"] is False
+    assert bilgi["atlanan_mesaj"] == 0
     assert g == asli
 
 
@@ -436,3 +437,31 @@ def test_namespace_metadata_runtime_araclarini_daraltmaz():
     assert validate_registry(TOOLS)["ok"] is True
     assert len(CAPABILITY_NAMESPACES) == 10
     assert len(capability_surface(TOOLS, "auto")) == len(TOOLS) == 53
+
+
+def test_yonlendirme_baglami_sessiz_kirilmaz_ve_modele_kocluk_yapmaz():
+    import inspect
+    from chat import flow
+
+    kaynak = inspect.getsource(flow.mesaj_isle)
+    assert "[:12000]" not in kaynak
+    assert "körlemesine" not in kaynak
+    assert "gerekiyorsa önce" not in kaynak
+    assert "YONLENDIRME_BAGLAMI_JSON" in kaynak
+
+
+def test_provider_cagri_yollarinda_yapay_max_tokens_tavani_yok():
+    import pathlib
+
+    dosyalar = (
+        "brain/yayin.py", "brain/genel.py", "brain/groq.py",
+        "brain/gemini.py", "brain/openrouter.py", "brain/glm.py",
+        "brain/cloudflare.py", "brain/cohere.py", "brain/kilo.py",
+        "brain/nvidia.py", "brain/kimi.py", "brain/deepseek.py",
+        "brain/qwen.py",
+    )
+    for yol in dosyalar:
+        kaynak = pathlib.Path(yol).read_text(encoding="utf-8")
+        assert '"max_tokens"' not in kaynak, yol
+        assert "max_tokens=4096" not in kaynak, yol
+        assert 'kwargs["max_tokens"]' not in kaynak, yol

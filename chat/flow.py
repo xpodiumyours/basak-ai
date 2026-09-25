@@ -290,19 +290,10 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     mesajlar += model_gecmisi
     if isinstance(yonlendirme_baglami, dict) and yonlendirme_baglami:
         try:
-            _yon = json.dumps(
-                yonlendirme_baglami, ensure_ascii=False
-            )[:12000]
+            _yon = json.dumps(yonlendirme_baglami, ensure_ascii=False)
             mesajlar.append({
                 "role": "system",
-                "content": (
-                    "KESILMIS CALISMA BAGLAMI (kullanici Yönlendir dedi): "
-                    + _yon
-                    + "\nBu veri tamamlanmış adımlar/kaynaklar/kısmi "
-                      "cevaptır; ham tool sonucu değildir ve tek başına kanıt "
-                      "sayılmaz. Aynı yan etkili işlemi körlemesine tekrar "
-                      "etme; gerekiyorsa önce mevcut durumu doğrula."
-                ),
+                "content": "YONLENDIRME_BAGLAMI_JSON:\n" + _yon,
             })
         except Exception:
             pass

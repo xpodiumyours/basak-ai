@@ -176,16 +176,14 @@ class NvidiaClient:
             "messages": messages,
         }
         if self._buyuk_model_mi(model_adi):
-            kwargs["max_tokens"] = 32768
-            kwargs["timeout"] = _THINKING_TIMEOUT
+kwargs["timeout"] = _THINKING_TIMEOUT
             if "deepseek" in model_adi.lower():
                 # DeepSeek NIM'de dusunme modu acik olarak istenir
                 kwargs["extra_body"] = {
                     "chat_template_kwargs": {"thinking": True}
                 }
         else:
-            kwargs["max_tokens"] = 4096
-        if tools:
+if tools:
             kwargs["tools"] = tools
             if tool_choice is not None:
                 kwargs["tool_choice"] = tool_choice

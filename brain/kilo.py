@@ -4,12 +4,10 @@
 tanınır, saatte 200 istek/IP sınırı vardır.
 OpenAI-uyumlu uç: https://api.kilo.ai/api/gateway
 
-DİKKAT — ücretsiz modeller "düşünen" (reasoning) modeller. Düşünme metni
-max_tokens bütçesinden yer ve ayrı bir `reasoning` alanında döner.
-Bütçe dar tutulursa cevap tamamen BOŞ döner (2026-08-23 ölçümü:
-max_tokens=150 → content boş, 150 jetonun 81'i düşünmeye gitti;
-max_tokens=1024 → düzgün cevap). Bu yüzden VARSAYILAN_JETON geniştir ve
-boş cevap sessizce kullanıcıya gitmez, hata sayılıp zincir devam eder.
+DİKKAT — ücretsiz modeller "düşünen" (reasoning) modeller. Uygulama
+cevap için yapay bir token tavanı koymaz; sağlayıcının/modelin kendi gerçek
+sınırı geçerlidir. Boş cevap sessizce kullanıcıya gitmez, hata sayılıp
+zincir devam eder.
 """
 
 import json
@@ -31,7 +29,6 @@ YER_TUTUCU_ANAHTAR = "anonymous"
 
 # Düşünme metni bütçeden yediği için dar tutulamaz (dosya başındaki nota bak).
 # ARAC-PLANI S5 cizgisi: 4096 (1024'te duzgun cevap olculdu).
-VARSAYILAN_JETON = 4096
 
 # kilo-auto/free ücretsiz modeller arasında kendi yönlendirir.
 # Duzey 1 kaniti (2026-09-20 00:07, canli): kilo-auto/free yonlendiricisi
@@ -127,8 +124,7 @@ class KiloClient:
         kwargs = {
             "model": model_adi,
             "messages": messages,
-            "max_tokens": VARSAYILAN_JETON,
-        }
+}
         if tools:
             kwargs["tools"] = tools
             if tool_choice is not None:
