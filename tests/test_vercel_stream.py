@@ -50,6 +50,9 @@ def _hazirla(monkeypatch, mesaj_isle):
     import chat.prompts as prompts
 
     monkeypatch.setattr(app_modulu, "_kimlik", lambda _r: "test-user")
+    monkeypatch.setattr(
+        app_modulu, "_handoff_anahtari", lambda _kid: b"test-handoff-key"
+    )
     monkeypatch.setattr(app_modulu, "_cekirdek", lambda: (object(), []))
     monkeypatch.setattr(kimlik, "kullanici_kur", lambda _kid: None)
     monkeypatch.setattr(prompts, "kisilik_blogu", lambda *_a, **_k: "sistem")

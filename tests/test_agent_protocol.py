@@ -43,7 +43,10 @@ def test_ajan_sozlesmesi_kelime_routeri_degildir():
     from chat.agent_runtime import AGENT_CONTRACT
     for ad in ("web_search", "fatura_oku", "github_durum", "list_tasks"):
         assert ad not in AGENT_CONTRACT
-    assert "gercek capability registry" in AGENT_CONTRACT.lower()
+    metin = AGENT_CONTRACT.lower()
+    assert "gercek ve cagrilabilir arac katalogudur" in metin
+    assert "tool_call" in metin
+    assert "ayni run" in metin
 
 def test_meta_son_cevap_gercek_arac_degildir_ve_kosmaz():
     from chat.tools import arac_dongusu
@@ -464,8 +467,8 @@ def test_openai_uyumlu_ajan_istemcileri_tool_choice_http_istegine_yazar(
     assert yakalanan["tool_choice"] == tool_choice
 
 
-def test_nvidia_ajan_istegi_auto_ve_gptoss20b_ile_gider():
-    from brain.nvidia import NvidiaClient, GPTOSS_MODEL
+def test_nvidia_ajan_istegi_secili_modeli_degistirmez():
+    from brain.nvidia import NvidiaClient
 
     yakalanan = {}
 
@@ -497,7 +500,7 @@ def test_nvidia_ajan_istegi_auto_ve_gptoss20b_ile_gider():
         tool_choice="auto",
     )
     assert yakalanan["tool_choice"] == "auto"
-    assert yakalanan["model"] == GPTOSS_MODEL
+    assert yakalanan["model"] == "baska-model"
 
 
 def test_openrouter_ajan_yetenegi_model_katalogundan_dogrulanir():

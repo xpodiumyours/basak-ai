@@ -506,8 +506,10 @@ def test_provider_cagri_yollarinda_yapay_cikti_ve_kisa_timeout_tavani_yok():
     )
     for yol in dosyalar:
         kaynak = pathlib.Path(yol).read_text(encoding="utf-8")
-        assert '"max_tokens"' not in kaynak, yol
-        assert "max_tokens=4096" not in kaynak, yol
+        # finish_reason degeri olarak "max_tokens" meşrudur; yasak olan
+        # request'e yapay çıktı bütçesi yazılmasıdır.
+        assert '"max_tokens":' not in kaynak, yol
+        assert "max_tokens=" not in kaynak, yol
         assert 'kwargs["max_tokens"]' not in kaynak, yol
 
     # Provider/model cevabini 8/20/60 saniyede yapay olarak kesen

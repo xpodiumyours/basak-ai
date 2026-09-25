@@ -29,7 +29,6 @@ def test_normal_sohbet_arac_varken_bile_dogal_metinle_biter(
     monkeypatch.setattr(ctx, "ilgili_anilar", lambda *a, **k: [])
     monkeypatch.setattr(ctx, "hafiza_al", lambda: None)
     monkeypatch.setattr(ctx, "kaydet", lambda *a, **k: None)
-    monkeypatch.setattr(flow, "_profil_isle", lambda *a, **k: ("", ""))
 
     try:
         from chat import oturum
