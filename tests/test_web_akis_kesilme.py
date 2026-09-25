@@ -11,6 +11,7 @@ import pathlib
 import re
 import shutil
 import subprocess
+import tempfile
 
 import pytest
 
@@ -63,8 +64,14 @@ canliYanitiOku({ body: akis }, null).then(
         "gecen": gecen_ms,
         "abort": "true" if abort else "false",
     }
-    cikti = subprocess.run(
-        [NODE, "-e", betik], capture_output=True, text=True, timeout=30)
+    # Windows'ta varsayilan kodlama cp1252: betik dosyaya UTF-8 yazilir,
+    # cikti UTF-8 olarak cozulur (Node stdout'u her zaman UTF-8 yazar).
+    with tempfile.TemporaryDirectory() as klasor:
+        dosya = pathlib.Path(klasor) / "akis_testi.js"
+        dosya.write_text(betik, encoding="utf-8")
+        cikti = subprocess.run(
+            [NODE, str(dosya)], capture_output=True, encoding="utf-8",
+            timeout=30)
     assert cikti.returncode == 0, cikti.stderr
     return json.loads(cikti.stdout.strip().splitlines()[-1])
 
