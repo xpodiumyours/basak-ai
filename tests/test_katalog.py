@@ -205,7 +205,9 @@ class TestFaturaOku:
             cagrilar.append(yol)
             if len(cagrilar) < 3:
                 return {"error": "Request timed out."}
-            return {"result": "TER0101 6 ad", "model": "sahte"}
+            return {"result": "TER0101 6 ad\n"
+                              "Toplam: 6 ad 1 dz 10,00 TL",
+                    "model": "sahte"}
 
         monkeypatch.setattr(ga, "image_analyze", dalgali)
         import time as _z
@@ -213,6 +215,44 @@ class TestFaturaOku:
         r = katalog.fatura_oku("gln_c4")
         assert "result" in r, r
         assert len(cagrilar) == 3
+
+    def test_yarim_okumada_tekrar_deneme(self, tmp_path, monkeypatch):
+        """Toplam satiri olmayan (yarim) okuma yeniden denenir."""
+        import tools.image_analyzer as ga
+        monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
+        (tmp_path / "gln_c5.jpg").write_bytes(b"\xff\xd8sahte")
+        cagrilar = []
+
+        def dalgali(yol, soru=None, model=None):
+            cagrilar.append(yol)
+            if len(cagrilar) < 2:
+                return {"result": "ELT1302 2 ad 137,00", "model": "sahte"}
+            return {"result": "ELT1302 2 ad 137,00\n"
+                              "Toplam: 75 ad 6 dz 6.034,00 TL",
+                    "model": "sahte"}
+
+        monkeypatch.setattr(ga, "image_analyze", dalgali)
+        r = katalog.fatura_oku("gln_c5")
+        assert "result" in r, r
+        veri = json.loads(r["result"])
+        assert veri["ustbilgi"]["toplam"] == 6034.0
+        assert len(cagrilar) == 2
+
+    def test_yarim_okuma_son_denemede_kabul(self, tmp_path, monkeypatch):
+        """Hep yarım okursa 4. denemede yarım metinle yetinilir."""
+        import tools.image_analyzer as ga
+        monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
+        (tmp_path / "gln_c6.jpg").write_bytes(b"\xff\xd8sahte")
+        cagrilar = []
+
+        def hep_yarim(yol, soru=None, model=None):
+            cagrilar.append(yol)
+            return {"result": "ELT1302 2 ad", "model": "sahte"}
+
+        monkeypatch.setattr(ga, "image_analyze", hep_yarim)
+        r = katalog.fatura_oku("gln_c6")
+        assert "result" in r, r
+        assert len(cagrilar) == 4
 
 
 class TestYerelGoru:
@@ -236,7 +276,8 @@ class TestYerelGoru:
         dokunuldu = []
         monkeypatch.setattr(
             yerel_goru, "oku",
-            lambda yol, soru: {"result": "yerel yazı",
+            lambda yol, soru: {"result": "yerel yazı\n"
+                                        "Toplam: 2 ad 1 dz 5,00 TL",
                                "model": "sahte-goz"})
         import tools.image_analyzer as ga
         monkeypatch.setattr(
@@ -246,7 +287,7 @@ class TestYerelGoru:
         (tmp_path / "gln_y2.jpg").write_bytes(b"\xff\xd8sahte")
         veri = json.loads(katalog.fatura_oku("gln_y2")["result"])
         assert veri["kaynak"] == "yerel"
-        assert veri["yazi"] == "yerel yazı"
+        assert veri["yazi"].startswith("yerel yazı")
         assert dokunuldu == []
 
     def test_yerel_cokerse_bulut(self, tmp_path, monkeypatch):
@@ -344,6 +385,47 @@ class TestKatalogHatti:
         assert "TUT ERK PEN. ATLET" in atlet["ad"]
         boxer = next(k for k in veri["kartlar"] if k["kod"] == "TER0114")
         assert boxer["varyantlar"][0]["renk"] == "siyah"
+
+    def test_adet_ustbilgi_uyusmazsa_kaydetmez(self, tmp_path, monkeypatch):
+        """Satır adet toplamı üst bilgiye uymazsa katalog kaydedilmez
+        (2026-09-26 göz imtihani: 72/75 ölçümü); uyuşursa kaydedilir."""
+        monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path / "gelen"))
+        monkeypatch.setattr(katalog, "KATALOG_KOK", str(tmp_path / "kat"))
+        monkeypatch.setattr(katalog, "YETKI_KOK", str(tmp_path / "yzk"))
+        os.makedirs(tmp_path / "gelen", exist_ok=True)
+        (tmp_path / "gelen" / "gln_a.jpg").write_bytes(b"\xff\xd8x")
+        satirlar = [{"marka": "Tutku", "kod": "TER0101", "adet": 3,
+                     "renk": "beyaz", "kategori": "Atlet"}]
+
+        r = katalog.katalog_kur(
+            "gln_a", satirlar, ustbilgi={"adet": 75, "toplam": 6034.0})
+        assert "error" in r, r
+        assert "75" in r["error"] and "3" in r["error"], r
+        kayitli = (os.listdir(tmp_path / "kat")
+                   if os.path.isdir(tmp_path / "kat") else [])
+        assert kayitli == [], kayitli
+
+        r2 = katalog.katalog_kur("gln_a", satirlar, ustbilgi={"adet": 3})
+        assert "result" in r2, r2
+        assert _j(r2)["is_id"]
+
+    def test_kaynak_okuma_kaydi_ustbilgiyi_basar(self, tmp_path, monkeypatch):
+        """Model ustbilgi'yi eksik gecirse bile hedef adet kaynak
+        okuma kaydindan (_oku_kaydet) okunur; uyusmazsa kapu kapanir."""
+        monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path / "gelen"))
+        monkeypatch.setattr(katalog, "KATALOG_KOK", str(tmp_path / "kat"))
+        monkeypatch.setattr(katalog, "YETKI_KOK", str(tmp_path / "yzk"))
+        os.makedirs(tmp_path / "gelen", exist_ok=True)
+        (tmp_path / "gelen" / "gln_k.jpg").write_bytes(b"\xff\xd8x")
+        katalog._oku_kaydet("gln_k", {"yazi": "x",
+                                      "ustbilgi": {"adet": 75}})
+        satirlar = [{"marka": "Tutku", "kod": "TER0101", "adet": 3,
+                     "renk": "beyaz", "kategori": "Atlet"}]
+        r = katalog.katalog_kur("gln_k", satirlar)  # ustbilgi gecilmedi
+        assert "error" in r and "75" in r["error"], r
+        r2 = katalog.katalog_kur(
+            "gln_k", [dict(satirlar[0], adet=75)])
+        assert "result" in r2, r2
 
     def test_stok_esikleri(self, tmp_path, monkeypatch):
         assert katalog._stok_durumu(0) == "Tükendi"
