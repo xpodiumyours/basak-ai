@@ -534,7 +534,27 @@ def _gorsel_kaydet(ek):
         "ad": os.path.basename(str(ek.get("ad") or "fotograf")),
         "tur": "image",
         "path": yol,
+        "data_url": data_url,
     }
+
+
+def _staginge_yaz(ek):
+    """Fotoğrafı fatura staging'ine yazar; tutmazsa None döner."""
+    try:
+        from tools import katalog
+        sonuc = katalog.fatura_kaydet_b64(
+            ek.get("data_url"), ek.get("ad"))
+        if not isinstance(sonuc, dict) or not sonuc.get("result"):
+            return None
+        fatura_id = json.loads(sonuc["result"]).get("fatura_id")
+        if not isinstance(fatura_id, str) or not fatura_id:
+            return None
+        yol = katalog._fatura_yolu(fatura_id)
+    except Exception:
+        return None
+    if not yol or not os.path.isfile(yol):
+        return None
+    return {"fatura_id": fatura_id, "path": yol}
 
 
 
@@ -714,11 +734,23 @@ async def sohbet(request: Request):
     try:
         ek = _gorsel_kaydet((body or {}).get("ek"))
         if ek:
+            staging = _staginge_yaz(ek)
+            if staging:
+                gecici_yol = ek["path"]
+                ek.update(staging)
+                try:
+                    os.remove(gecici_yol)
+                except OSError:
+                    pass
             ek_yol = ek["path"]
+            ek_veri = {"ad": ek["ad"], "tur": ek["tur"],
+                       "path": ek["path"]}
+            if ek.get("fatura_id"):
+                ek_veri["fatura_id"] = ek["fatura_id"]
             metin = (metin or "Bu goruntuyu acikla.") + (
                 "\n\nKullanici bu mesaja bir dosya ekledi. "
                 "Dosya verisi: %s" % json.dumps(
-                    {"ad": ek["ad"], "tur": ek["tur"], "path": ek["path"]},
+                    ek_veri,
                     ensure_ascii=False,
                 )
             )
