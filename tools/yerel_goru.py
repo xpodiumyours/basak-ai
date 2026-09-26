@@ -38,9 +38,16 @@ def _ayarlar():
 
 
 def acik_mi():
-    """Yerel göz denensin mi? Kapalı yazılmadıkça evet."""
-    if os.environ.get("BASAK_YEREL_GORU", "").lower() in ("0", "kapali"):
+    """Yerel göz denensin mi? Kapalı yazılmadıkça evet.
+
+    BASAK_YEREL_GORU=1 ayarlar dosyasındaki kapatmayı ezer —
+    bulut kotası dolduğunda/imtihanda bu göz zorla denenir.
+    """
+    durum = os.environ.get("BASAK_YEREL_GORU", "").lower()
+    if durum in ("0", "kapali"):
         return False
+    if durum in ("1", "acik", "evet"):
+        return True
     return not _ayarlar().get("yerel_goru_kapali", False)
 
 

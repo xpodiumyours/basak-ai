@@ -416,13 +416,37 @@ def _gecici_mi(hata):
 
 
 def _okuma_yarim(yazi):
-    """'Toplam' satırı olmayan okuma yarım sayılır.
+    """Okuma sağlıksızsa yarım sayılır: tekrar denenir, hata değildir.
 
-    2026-09-26 ölçümü: görü modeli bazen tabloyu yarım transkript
-    edip toplam satırına varmadan duruyor (finish=stop); eksik metin
-    katalogda eksik satıra dönüşüyor. Hata değildir, tekrar denenir.
+    2026-09-26 ölçümleri (üç gerçek vaka):
+    - Tablo yarım transkript edilip Toplam satırına varmadan durabilir.
+    - Kilo okuması: satır adetleri toplamı 77, basılı Toplam 75 —
+      sayılar tutmuyorsa okuma faturayı yansıtmıyor (fantom satır).
+    - Yerel küçük model (qwen2.5vl:3b) aynı satırı 100+ kez
+      tekrarlayıp döngüye girebiliyor.
     """
-    return "toplam" not in (yazi or "").lower()
+    m = str(yazi or "")
+    kucuk = m.lower()
+    if "toplam" not in kucuk:
+        return True
+    # Aynı satırın art arda/coplu tekrarı: döngü okuması.
+    uzun = [s.strip() for s in kucuk.splitlines() if len(s.strip()) > 15]
+    for s in uzun:
+        if uzun.count(s) >= 5:
+            return True
+    # Satır adetleri toplamı basılı Toplam adetine uymuyorsa.
+    mt = re.search(r"toplam\s*[:.]?\s*(\d+)\s*ad\b", kucuk)
+    if mt:
+        basili = int(mt.group(1))
+        toplam = 0
+        for satir in kucuk.splitlines():
+            if "toplam" in satir:
+                continue
+            for mm in re.finditer(r"(\d+)\s*ad\b", satir):
+                toplam += int(mm.group(1))
+        if toplam != basili:
+            return True
+    return False
 
 
 def _oku_kaydet(fatura_id, veri):

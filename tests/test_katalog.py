@@ -228,7 +228,7 @@ class TestFaturaOku:
             if len(cagrilar) < 2:
                 return {"result": "ELT1302 2 ad 137,00", "model": "sahte"}
             return {"result": "ELT1302 2 ad 137,00\n"
-                              "Toplam: 75 ad 6 dz 6.034,00 TL",
+                              "Toplam: 2 ad 1 dz 6.034,00 TL",
                     "model": "sahte"}
 
         monkeypatch.setattr(ga, "image_analyze", dalgali)
@@ -237,6 +237,23 @@ class TestFaturaOku:
         veri = json.loads(r["result"])
         assert veri["ustbilgi"]["toplam"] == 6034.0
         assert len(cagrilar) == 2
+
+    def test_adet_toplami_uyusmazsa_yarim(self):
+        """Satır adetleri 77, basılı Toplam 75 → okuma sağlıksız (Kilo vakası)."""
+        yazi = ("ELT1302 2 ad\nELT1303 75 ad\n"
+                "Toplam: 75 ad 6 dz 6.034,00 TL")
+        assert katalog._okuma_yarim(yazi) is True
+
+    def test_adet_toplami_tutuyorsa_saglikli(self):
+        yazi = ("ELT1302 2 ad\nELT1303 73 ad\n"
+                "Toplam: 75 ad 6 dz 6.034,00 TL")
+        assert katalog._okuma_yarim(yazi) is False
+
+    def test_tekrar_dongusu_yarim(self):
+        """Aynı satır 5+ kez → döngü okuması (yerel göz vakası)."""
+        satir = "ELT2204 ELIT BYN ELS BALIK YAKA 81,0000 TL\n"
+        yazi = satir * 6 + "Toplam: 81,00 TL"
+        assert katalog._okuma_yarim(yazi) is True
 
     def test_yarim_okuma_son_denemede_kabul(self, tmp_path, monkeypatch):
         """Hep yarım okursa 4. denemede yarım metinle yetinilir."""
@@ -276,7 +293,7 @@ class TestYerelGoru:
         dokunuldu = []
         monkeypatch.setattr(
             yerel_goru, "oku",
-            lambda yol, soru: {"result": "yerel yazı\n"
+            lambda yol, soru: {"result": "yerel yazı 2 ad\n"
                                         "Toplam: 2 ad 1 dz 5,00 TL",
                                "model": "sahte-goz"})
         import tools.image_analyzer as ga
@@ -310,6 +327,12 @@ class TestYerelGoru:
         monkeypatch.setenv("BASAK_YEREL_GORU", "0")
         assert yerel_goru.acik_mi() is False
         assert yerel_goru.musait() is False
+
+    def test_zorla_acma_ayarlari_ezer(self, monkeypatch):
+        """BASAK_YEREL_GORU=1 ayarlar.json'daki kapatmayı ezer."""
+        from tools import yerel_goru
+        monkeypatch.setenv("BASAK_YEREL_GORU", "1")
+        assert yerel_goru.acik_mi() is True
 
     def test_kucultme_siniri(self, tmp_path):
         from PIL import Image

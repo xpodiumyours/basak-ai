@@ -52,6 +52,11 @@ def _nvidia_key_al() -> str:
 def _goruntu_b64(goruntu_yolu: str) -> tuple[str, str]:
     """Görüntüyü base64'e çevirir.
 
+    2026-09-26 ölçümü: ~2 MB fatura fotoğrafları NVIDIA'da zaman
+    aşımına çarpıyordu. 700 KB'ı aşan görseller 1600 px'e indirilip
+    JPEG'e çevrilir; OCR için fazlasıyla yeterli, tüm sağlayıcılara
+    aynı küçük gider.
+
     Returns:
         (base64_string, mime_type)
     """
@@ -68,6 +73,23 @@ def _goruntu_b64(goruntu_yolu: str) -> tuple[str, str]:
     # 10MB limit
     if len(icerik) > 10 * 1024 * 1024:
         raise ValueError("Görüntü çok büyük (maks 10MB)")
+
+    if len(icerik) > _NVIDIA_BUYUK_ESIK:
+        try:
+            from PIL import Image
+            import io as _io
+            resim = Image.open(_io.BytesIO(icerik))
+            resim.load()
+            oran = min(1.0, 1600 / max(resim.size))
+            if oran < 1.0:
+                resim = resim.convert("RGB").resize(
+                    (int(resim.width * oran), int(resim.height * oran)))
+            tampon = _io.BytesIO()
+            resim.save(tampon, format="JPEG", quality=88)
+            icerik = tampon.getvalue()
+            mime = "image/jpeg"
+        except Exception as e:
+            logger.debug("Kucultme atlandi: %s", e)
 
     return base64.b64encode(icerik).decode("ascii"), mime
 
