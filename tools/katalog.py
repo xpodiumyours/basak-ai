@@ -94,12 +94,13 @@ GORUNTU_SORUSU = (
     "Bu fotoğraf/iş dosyasındaki TÜM yazıyı satır satır aynen yaz. "
     "Açıklama yapma, yorum ekleme, düşünceni yazma — yalnız "
     "fotoğraftaki yazının kendisi olsun. "
-    "Tablo varsa her satırı ayrı satıra yaz; sayıları ve kodları "
-    "olduğu gibi kopyala. "
+    "Tablo varsa her ürün satırını TEK satırda yaz: kod, ürün adı, "
+    "barkod, renk, beden, adet, birim fiyat, tutar — aralarında tek "
+    "boşluk, satırı bölme. "
+    "Sayıları ve kodları olduğu gibi kopyala. "
+    "Alt toplamı da TEK satırda aynen yaz: 'Toplam: <adet> ad <dz> dz "
+    "<tutar> TL' (sayılar fotoğraftaki gibi). "
     "Okuyamadığın yeri uydurma, boş bırak. "
-    "Bir ürün/fatura/satış formu tablosu gibi görünüyorsa "
-    "Model, Stok (ürün adı), Barkod, Varyant, Beden, Miktar (adet), "
-    "Fiyat gibi sütunları da yazar."
 )
 
 _BARKOD_RE = re.compile(r"\d{8,14}")
@@ -414,6 +415,68 @@ def _gecici_mi(hata):
     return any(k in h for k in _GECICI_HATA)
 
 
+def _okuma_yarim(yazi):
+    """Okuma sağlıksızsa yarım sayılır: tekrar denenir, hata değildir.
+
+    2026-09-26 ölçümleri (üç gerçek vaka):
+    - Tablo yarım transkript edilip Toplam satırına varmadan durabilir.
+    - Kilo okuması: satır adetleri toplamı 77, basılı Toplam 75 —
+      sayılar tutmuyorsa okuma faturayı yansıtmıyor (fantom satır).
+    - Yerel küçük model (qwen2.5vl:3b) aynı satırı 100+ kez
+      tekrarlayıp döngüye girebiliyor.
+    """
+    m = str(yazi or "")
+    kucuk = m.lower()
+    if "toplam" not in kucuk:
+        return True
+    # Aynı satırın art arda/coplu tekrarı: döngü okuması.
+    uzun = [s.strip() for s in kucuk.splitlines() if len(s.strip()) > 15]
+    for s in uzun:
+        if uzun.count(s) >= 5:
+            return True
+    # Satır adetleri toplamı basılı Toplam adetine uymuyorsa.
+    mt = re.search(r"toplam\s*[:.]?\s*(\d+)\s*ad\b", kucuk)
+    if mt:
+        basili = int(mt.group(1))
+        toplam = 0
+        for satir in kucuk.splitlines():
+            if "toplam" in satir:
+                continue
+            for mm in re.finditer(r"(\d+)\s*ad\b", satir):
+                toplam += int(mm.group(1))
+        if toplam != basili:
+            return True
+    return False
+
+
+def _oku_kaydet(fatura_id, veri):
+    """fatura_oku çıktısını yan dosyaya saklar.
+
+    katalog_kur adet kontrolünü modelin gönderdiği ustbilgi'ye değil
+    buradaki kaynak kayda yapar; model alan atlatsa da kapı kapanır.
+    """
+    if not _guvenli_id(fatura_id):
+        return
+    alt = os.path.join(gelen_kok(), ".oku")
+    try:
+        os.makedirs(alt, exist_ok=True)
+        _atomik_yaz(os.path.join(alt, str(fatura_id) + ".json"), veri)
+    except OSError as e:
+        logger.warning("Okuma kaydi yazilamadi: %s", e)
+
+
+def _oku_yukle(fatura_id):
+    """_oku_kaydet'in yazdığı kaydı okur; yoksa None."""
+    if not _guvenli_id(fatura_id):
+        return None
+    yol = os.path.join(gelen_kok(), ".oku", str(fatura_id) + ".json")
+    try:
+        veri = _yukle_json(yol)
+    except (OSError, ValueError):
+        return None
+    return veri if isinstance(veri, dict) else None
+
+
 def _ustbilgi_cikar(yazi):
     """OCR metninden fiş üst bilgilerini kurallarla çıkarır.
 
@@ -447,13 +510,13 @@ def _ustbilgi_cikar(yazi):
     if m:
         ust["kdv_oran"] = int(m.group(1))
     m = re.search(
-        r"Toplam\s*[:.]?\s*(?:\d+\s*ad\s*\d+\s*dz)?\s*"
+        r"Toplam\s*[:.]?\s*(?:\d+\s*ad\s*\d+\s*d(?:z|üz))?\s*"
         r"(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*(?:TL|₺|TRY)?", yazi)
     if m:
         tutar, _uy = fiyat_coz(m.group(1))
         if tutar is not None:
             ust["toplam"] = tutar
-    m = re.search(r"(\d+)\s*ad\s+(\d+)\s*dz", yazi)
+    m = re.search(r"(\d+)\s*ad\s+(\d+)\s*d(?:z|üz)", yazi)
     if m:
         ust["adet"] = int(m.group(1))
         ust["dusin"] = int(m.group(2))
@@ -479,7 +542,10 @@ def fatura_oku(fatura_id):
     kaynak = ""
     if yerel_goru.musait():
         sonuc = yerel_goru.oku(yol, GORUNTU_SORUSU)
-        if not sonuc.get("error"):
+        if not sonuc.get("error") and _okuma_yarim(sonuc.get("result", "")):
+            logger.info("Yerel goz yarim okudu, buluta devrediliyor.")
+            sonuc = None
+        elif not sonuc.get("error"):
             kaynak = "yerel"
         else:
             logger.info("Yerel goz devretti: %s", sonuc["error"])
@@ -489,16 +555,24 @@ def fatura_oku(fatura_id):
     if sonuc is None:
         from tools import image_analyzer
         import time as _zaman
-        for deneme in range(3):
+        for deneme in range(4):
             sonuc = image_analyzer.image_analyze(yol, GORUNTU_SORUSU)
-            if not sonuc.get("error") or not _gecici_mi(sonuc["error"]):
+            if sonuc.get("error"):
+                if not _gecici_mi(sonuc["error"]):
+                    break
+                # 2026-09-18: 10 sn bekleme hatta 60 sn API timeout ile
+                # birlesince tek fatura 200 sn'yi buluyordu; 2 sn yeterli,
+                # kalici hatada zaten donguden cikiliyor.
+                if deneme < 3:
+                    _zaman.sleep(2)
+            elif _okuma_yarim(sonuc.get("result", "")):
+                logger.info("Yarim okuma (Toplam yok), tekrar: %s",
+                            sonuc.get("model", ""))
+                if deneme == 3:
+                    break  # son deneme: yarim metinle yetin
+                sonuc = None  # hizli tekrar: bekleme yok
+            else:
                 break
-            # 2026-09-18: 10 sn bekleme hatta 60 sn API timeout ile
-            # birlesince tek fatura 200 sn'yi buluyor, sohbet
-            # kilitlenmis gorunuyordu. 2 sn yeterli; kalici
-            # hatada zaten donguden cikiliyor.
-            if deneme < 2:
-                _zaman.sleep(2)
         if not kaynak:
             kaynak = "bulut"
     if sonuc.get("error"):
@@ -507,6 +581,9 @@ def fatura_oku(fatura_id):
     if not yazi.strip():
         return {"error": "Fotoğrafta yazı bulunamadı."}
     ust = _ustbilgi_cikar(yazi)
+    _oku_kaydet(fatura_id, {"yazi": yazi, "ustbilgi": ust,
+                            "model": sonuc.get("model", ""),
+                            "kaynak": kaynak, "okuma": _simdi()})
     return {"result": _j({"fatura_id": fatura_id, "yazi": yazi,
                           "aday_satirlar": _aday_satirlar(yazi),
                           "ustbilgi": ust,
@@ -632,6 +709,31 @@ def katalog_kur(fatura_id, satirlar, ustbilgi=None):
     if not temizler:
         return {"error": ("Hiç geçerli satır yok (%d uyarı). " % len(uyarilar) +
                           " ".join(uyarilar[:3]))}
+    # 2026-09-26 (goz imtihani): model satir adetlerini yanlis
+    # kopyalayabiliyor (72/75 olcumu) ve ustbilgi'yi eksik
+    # gonderebiliyor. Hedef adet once KAYNAK okuma kaydindan
+    # (_oku_kaydet) okunur; model alan atlatsa da kapı kapanır.
+    # Tum ornek fislerde satir toplami basili toplama esittir
+    # (142/142 olcumlu).
+    yan = _oku_yukle(fatura_id) or {}
+    hedef = None
+    for aday in ((yan.get("ustbilgi") or {}).get("adet"),
+                 ustbilgi.get("adet") if isinstance(ustbilgi, dict)
+                 else None):
+        if aday is not None:
+            try:
+                hedef = int(aday)
+            except (TypeError, ValueError):
+                hedef = None
+            if hedef is not None:
+                break
+    if hedef is not None:
+        hesap = sum(s["adet"] for s in temizler)
+        if hesap != hedef:
+            return {"error": ("Satır adet toplamı %d, fatura üst bilgisi "
+                              "%d ad. Satırları tekrar kontrol et "
+                              "(eksik/yanlış satır olabilir); katalog "
+                              "kaydedilmedi.") % (hesap, hedef)}
     gruplar = {}
     for satir in temizler:
         anahtar = (satir["marka_norm"], satir["kod_norm"])

@@ -11,11 +11,21 @@ import base64
 import logging
 import os
 import mimetypes
+import time
 
 logger = logging.getLogger(__name__)
 
 # Varsayılan model (canlı testli, hızlı, Türkçe)
 VARSAYILAN_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+
+# 2026-09-26 ölçümü: ~2 MB fatura fotoğrafları NVIDIA'da 60 sn'de
+# zaman aşımına uğruyor (6/6 çağrı). Zaman aşımından sonra 5 dk
+# NVIDIA atlanır (Gemini/Kilo devralır); büyük görselde istek
+# timeout'u 25 sn'ye iner. Serinleme başarısızlıkla tetiklenir,
+# tercihle değil.
+_NVIDIA_SERINLEME = 0.0
+_NVIDIA_SERINME_SURE = 300.0
+_NVIDIA_BUYUK_ESIK = 700 * 1024
 
 # Desteklenen formatlar
 DESTEKLENEN = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tiff")
@@ -42,6 +52,11 @@ def _nvidia_key_al() -> str:
 def _goruntu_b64(goruntu_yolu: str) -> tuple[str, str]:
     """Görüntüyü base64'e çevirir.
 
+    2026-09-26 ölçümü: ~2 MB fatura fotoğrafları NVIDIA'da zaman
+    aşımına çarpıyordu. 700 KB'ı aşan görseller 1600 px'e indirilip
+    JPEG'e çevrilir; OCR için fazlasıyla yeterli, tüm sağlayıcılara
+    aynı küçük gider.
+
     Returns:
         (base64_string, mime_type)
     """
@@ -58,6 +73,23 @@ def _goruntu_b64(goruntu_yolu: str) -> tuple[str, str]:
     # 10MB limit
     if len(icerik) > 10 * 1024 * 1024:
         raise ValueError("Görüntü çok büyük (maks 10MB)")
+
+    if len(icerik) > _NVIDIA_BUYUK_ESIK:
+        try:
+            from PIL import Image
+            import io as _io
+            resim = Image.open(_io.BytesIO(icerik))
+            resim.load()
+            oran = min(1.0, 1600 / max(resim.size))
+            if oran < 1.0:
+                resim = resim.convert("RGB").resize(
+                    (int(resim.width * oran), int(resim.height * oran)))
+            tampon = _io.BytesIO()
+            resim.save(tampon, format="JPEG", quality=88)
+            icerik = tampon.getvalue()
+            mime = "image/jpeg"
+        except Exception as e:
+            logger.debug("Kucultme atlandi: %s", e)
 
     return base64.b64encode(icerik).decode("ascii"), mime
 
@@ -98,7 +130,7 @@ def _gemini_goru(yol, soru):
                 {"type": "image_url",
                  "image_url": {"url": "data:%s;base64,%s" % (mime, img_b64)}},
             ]}],
-            max_tokens=4096,
+            max_tokens=8192,
         )
         metin = ((yanit.choices[0].message.content) or "").strip()
         if not metin:
@@ -152,6 +184,7 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
     Returns:
         {"result": "açıklama", "model": "omni", "sure": "2.1s"}
     """
+    global _NVIDIA_SERINLEME
     # Doğrulama
     if not goruntu_yolu or not os.path.isfile(goruntu_yolu):
         return {"error": f"Dosya bulunamadı: {goruntu_yolu}"}
@@ -161,8 +194,11 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
         return {"error": f"Desteklenmeyen format: {uzanti}. İzin verilen: {', '.join(DESTEKLENEN)}"}
 
     # Key kontrolü. NVIDIA yoksa mevcut Gemini yedegi, o da yoksa
-    # anahtarsiz Kilo Step 3.7 Flash denenir; fotoğraf yolu kapanmaz.
+    # anahtarsiz Kilo Step 3.7 Flash denenir; fotograf yolu kapanmaz.
+    # Serinleme suresince de NVIDIA atlanir (zaman asimi olcumu).
     nvidia_key = _nvidia_key_al()
+    if nvidia_key and time.time() - _NVIDIA_SERINLEME < _NVIDIA_SERINME_SURE:
+        nvidia_key = ""
     if not nvidia_key:
         yedek = _gemini_goru(goruntu_yolu, soru)
         if not yedek.get("error"):
@@ -182,7 +218,6 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
 
     try:
         from openai import OpenAI
-        import time
 
         # base64 çevir
         img_b64, mime = _goruntu_b64(goruntu_yolu)
@@ -193,7 +228,9 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
         if not soru:
             soru = "Bu görüntüyü açıkla."
 
-        client = OpenAI(api_key=nvidia_key, base_url="https://integrate.api.nvidia.com/v1", timeout=60.0, max_retries=0)
+        istek_zamani = (25.0 if len(img_b64) > _NVIDIA_BUYUK_ESIK
+                        else 60.0)
+        client = OpenAI(api_key=nvidia_key, base_url="https://integrate.api.nvidia.com/v1", timeout=istek_zamani, max_retries=0)
 
         t0 = time.time()
         resp = client.chat.completions.create(
@@ -222,6 +259,8 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
 
     except Exception as e:
         logger.error("Görüntü analiz hatası: %s", e)
+        if "timed out" in str(e).lower() or "timeout" in str(e).lower():
+            _NVIDIA_SERINLEME = time.time()
         # NVIDIA donmedi: ayni soru ikinci buluta sorulur
         # (katalog hatti yedekligi).
         yedek = _gemini_goru(goruntu_yolu, soru)
@@ -258,7 +297,6 @@ def image_analyze_url(gorsel_url: str, soru: str = None,
 
     try:
         from openai import OpenAI
-        import time
 
         soru = (soru or "").strip()
         if not soru:

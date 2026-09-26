@@ -1,6 +1,36 @@
 from tools import image_analyzer as ga
 
 
+def test_buyuk_gorsel_kucultulur(tmp_path):
+    """700 KB'ı aşan görsel küçültülüp JPEG'e çevrilir (NVIDIA duvarı)."""
+    import base64 as b64m
+    import io
+    import os
+    from PIL import Image
+    yol = tmp_path / "buyuk.png"
+    gorsel = Image.frombytes("RGB", (1500, 1100),
+                             os.urandom(1500 * 1100 * 3))
+    gorsel.save(yol)
+    orijinal = yol.read_bytes()
+    assert len(orijinal) > 700 * 1024
+    veri, mime = ga._goruntu_b64(str(yol))
+    govde = b64m.b64decode(veri)
+    assert mime == "image/jpeg"
+    assert len(govde) < len(orijinal)
+    assert max(Image.open(io.BytesIO(govde)).size) <= 1600
+
+
+def test_kucuk_gorsel_degistirilmez(tmp_path):
+    from PIL import Image
+    yol = tmp_path / "kucuk.png"
+    Image.new("RGB", (100, 80), "white").save(yol)
+    orijinal = yol.read_bytes()
+    veri, mime = ga._goruntu_b64(str(yol))
+    import base64 as b64m
+    assert b64m.b64decode(veri) == orijinal
+    assert mime == "image/png"
+
+
 def test_nvidia_yokken_kilo_goru_yedegi(monkeypatch, tmp_path):
     foto = tmp_path / "foto.jpg"
     foto.write_bytes(b"test")
