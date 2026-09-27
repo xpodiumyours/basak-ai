@@ -131,3 +131,30 @@ def test_sektor_baglami_firma_adayini_yukseltir():
     sa, _ = pr._firma_ilk_skor(a, kimlik)
     sb, _ = pr._firma_ilk_skor(b, kimlik)
     assert sa > sb
+
+
+def test_uretici_sitesi_schema_sku_vermezse_tam_sku_metin_kaniti_yeter():
+    kimlik = pr.kart_kimligi({
+        "marka": "Tutku", "kod": "TER0117", "kategori": "İç Giyim",
+        "ad": "Tutku Erkek Penye Düz Boxer", "varyantlar": []
+    })
+    veri = {
+        "metin": "TER0117 Tutku Erkek Penye Düz Boxer S M L XL",
+        "urunler": [{
+            "name": "TER0117 Tutku Erkek Penye Düz Boxer",
+            "brand": "", "sku": "", "mpn": "", "gtin": []
+        }],
+        "gorseller": ["https://uretici.example/i/ter0117.webp"]
+    }
+    firma = {"kaynak_turu": "uretici_adayi",
+             "kanitlar": ["guclu_uretim_beyani"]}
+    skor, kimlik_kaniti, resmi, kanit = pr._sayfa_skor(
+        kimlik, "https://uretici.example/urun/ter0117", veri, firma)
+    assert kimlik_kaniti is True
+    assert resmi is True
+    assert "sku_sayfa_tam" in kanit
+
+
+def test_kisa_sku_substring_yanlis_eslesmez():
+    assert pr._kod_metin_de("X1", "MODEL X10 başka ürün") is False
+    assert pr._kod_metin_de("X1", "MODEL X1 ürün") is True

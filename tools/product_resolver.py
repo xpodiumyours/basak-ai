@@ -133,6 +133,24 @@ def _kimlik_metinleri(kimlik):
     return degerler
 
 
+def _kod_metin_de(kod, metin):
+    """SKU/MPN'yi substring ile değil normalize edilmiş tam token ile ara."""
+    hedef = _norm(kod)
+    if not hedef:
+        return False
+    tokenlar = re.findall(r"[A-Za-zÇĞİÖŞÜçğıöşü0-9][A-Za-zÇĞİÖŞÜçğıöşü0-9._/-]*",
+                          str(metin or ""))
+    return any(_norm(t) == hedef for t in tokenlar)
+
+
+def _gtin_metin_de(gtin, metin):
+    hedef = re.sub(r"\D", "", str(gtin or ""))
+    if not hedef:
+        return False
+    return bool(re.search(r"(?<!\d)%s(?!\d)" % re.escape(hedef),
+                          str(metin or "")))
+
+
 def _firma_sorgulari(kimlik):
     marka = str(kimlik.get("marka") or "").strip()
     sku = str(kimlik.get("sku") or "").strip()
@@ -340,15 +358,19 @@ def _sayfa_skor(kimlik, url, veri, firma):
     skor = 0
     kimlik_kaniti = False
 
+    gtin_sayfa_tam = any(_gtin_metin_de(g, metin)
+                          for g in kimlik.get("gtinler") or [])
+    sku_sayfa_tam = _kod_metin_de(kimlik.get("sku"), metin)
+
     if gtinler and gtinler & yap_gtin:
         skor += 60; kanit.append("gtin_yapilandirilmis"); kimlik_kaniti = True
-    elif gtinler and any(g and g in norm_metin for g in gtinler):
-        skor += 38; kanit.append("gtin_sayfa"); kimlik_kaniti = True
+    elif gtinler and gtin_sayfa_tam:
+        skor += 38; kanit.append("gtin_sayfa_tam"); kimlik_kaniti = True
 
     if sku and (sku in yap_sku or sku in yap_mpn):
         skor += 45; kanit.append("sku_yapilandirilmis"); kimlik_kaniti = True
-    elif sku and sku in norm_metin:
-        skor += 26; kanit.append("sku_sayfa"); kimlik_kaniti = True
+    elif sku and sku_sayfa_tam:
+        skor += 26; kanit.append("sku_sayfa_tam"); kimlik_kaniti = True
 
     if marka and marka in yap_marka:
         skor += 20; kanit.append("marka_yapilandirilmis")
@@ -385,15 +407,21 @@ def _sayfa_skor(kimlik, url, veri, firma):
     # ürün kimliği ayrıca kanıtlıysa verilir. Marka adını taşıyan domain,
     # reseller/official-store iddiası veya pazar yeri tek başına yeterli değil.
     gtin_yapisal = bool(gtinler and gtinler & yap_gtin)
-    gtin_metin = bool(gtinler and any(g and g in norm_metin for g in gtinler))
+    gtin_metin = bool(gtinler and gtin_sayfa_tam)
     sku_yapisal = bool(sku and (sku in yap_sku or sku in yap_mpn))
-    sku_metin = bool(sku and sku in norm_metin)
+    sku_metin = bool(sku and sku_sayfa_tam)
     marka_yapisal = bool(marka and marka in yap_marka)
+    marka_sayfa = bool(marka and marka in norm_metin)
+
+    # Üretici hostu bağımsız kurumsal kanıtla doğrulandıysa ürün sayfasının
+    # Schema.org alanları eksik olsa bile tam SKU/GTIN + marka metni yeterlidir.
+    # Bu, Seher gibi gerçek üretici sitelerinde Product JSON-LD'nin yalnız
+    # name/image/url taşıdığı durumları doğru işler.
     guclu_urun_kimligi = (
         gtin_yapisal or
-        (sku_yapisal and marka_yapisal) or
-        (gtin_metin and marka_yapisal) or
-        (sku_metin and marka_yapisal)
+        (sku_yapisal and (marka_yapisal or marka_sayfa)) or
+        (gtin_metin and (marka_yapisal or marka_sayfa)) or
+        (sku_metin and (marka_yapisal or marka_sayfa))
     )
     resmi = bool(kaynak_turu == "uretici_adayi" and guclu_urun_kimligi)
     if resmi:
