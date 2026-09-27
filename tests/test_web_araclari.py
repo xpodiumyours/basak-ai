@@ -254,3 +254,28 @@ def test_urun_sayfasi_schema_product_tek_get(monkeypatch):
     assert "8680508918124" in veri["urunler"][0]["gtin"]
     assert veri["urunler"][0]["brand"] == "Marka"
     assert len(veri["gorseller"]) >= 1
+
+
+def test_site_haritasi_exact_sku_filtreler(monkeypatch):
+    monkeypatch.setattr(
+        ws, "_sitemap_url_listesi",
+        lambda host: [
+            "https://firma.example/urun/ter0117-erkek-boxer",
+            "https://firma.example/urun/ter0118-atlet",
+            "https://firma.example/kategori/erkek",
+        ])
+    r = ws.site_haritasi_ara("firma.example", "TER0117")
+    assert json.loads(r["result"]) == [
+        "https://firma.example/urun/ter0117-erkek-boxer"]
+
+
+def test_sitemap_xml_urlset_parser():
+    tur, loclar = ws._xml_loclar(b"""<?xml version="1.0"?>
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url><loc>https://firma.example/urun/a</loc></url>
+      <url><loc>https://firma.example/urun/b</loc></url>
+    </urlset>""")
+    assert tur == "urlset"
+    assert loclar == [
+        "https://firma.example/urun/a",
+        "https://firma.example/urun/b"]

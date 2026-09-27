@@ -158,3 +158,25 @@ def test_uretici_sitesi_schema_sku_vermezse_tam_sku_metin_kaniti_yeter():
 def test_kisa_sku_substring_yanlis_eslesmez():
     assert pr._kod_metin_de("X1", "MODEL X10 başka ürün") is False
     assert pr._kod_metin_de("X1", "MODEL X1 ürün") is True
+
+
+def test_sitemap_adayi_ddg_indeksinden_once_kullanilir():
+    kart = {
+        "marka": "Örnek Marka", "kod": "OM-42", "kategori": "İç Giyim",
+        "varyantlar": []
+    }
+    url = "https://uretici.example/urun/om-42"
+    class SitemapWeb(SahteWeb):
+        def site_haritasi_ara(self, host, terim, adet=4):
+            return {"result": json.dumps([url]) if terim == "OM-42" else "[]"}
+    ws = SitemapWeb(
+        {}, {url: {
+            "metin": "Örnek Marka OM-42 kendi markamız fabrikamızda üretiyoruz",
+            "urunler": [{"name": "OM-42 Ürün", "brand": "Örnek Marka",
+                         "sku": "", "gtin": []}],
+            "gorseller": ["https://uretici.example/i/om42.jpg"]}})
+    firma = [{"host": "uretici.example", "kaynak_turu": "uretici_adayi",
+              "kanitlar": ["guclu_uretim_beyani"]}]
+    sonuc = pr.urun_bul(kart, firma, ws=ws)
+    assert sonuc["resmi_dogrulandi"] is True
+    assert sonuc["kaynak"] == url

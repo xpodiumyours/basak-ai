@@ -11,9 +11,12 @@ import json
 import logging
 import re
 import socket
+import threading
+import time
 import urllib.error
 import urllib.request
-from urllib.parse import urlparse
+import xml.etree.ElementTree as ET
+from urllib.parse import unquote, urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -221,6 +224,12 @@ _MAX_SAYFA = 200000
 # Derin okuma tavani (derin_oku): uzun sayfa/katalog metinleri icin.
 _MAX_DERIN = 500000
 _MAX_HAM = 50 * 1024 * 1024  # Ham HTML ust siniri (50 MB)
+_SITEMAP_MAX_HAM = 2 * 1024 * 1024
+_SITEMAP_MAX_DOSYA = 12
+_SITEMAP_MAX_URL = 10000
+_SITEMAP_CACHE_SN = 600
+_SITEMAP_CACHE = {}
+_SITEMAP_KILIT = threading.Lock()
 
 # SSRF korumasi (2026-08-24, Casper'in bulgusu): string tabanli "localhost"
 # aramasi 127.0.0.2, [::1], onluk IP, ozel aglar ve ic IP'ye cozunen
@@ -277,6 +286,120 @@ class _GuvenliYonlendirme(urllib.request.HTTPRedirectHandler):
             logger.warning("Yonlendirme engellendi: %s", engel)
             return None   # None = takip etme -> HTTPError firlar
         return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+
+
+def _xml_loclar(ham):
+    """Sitemap XML'den loc adreslerini ve kok turunu okur."""
+    try:
+        kok = ET.fromstring(ham)
+    except ET.ParseError:
+        return "", []
+    tur = kok.tag.rsplit("}", 1)[-1].lower()
+    loclar = []
+    for eleman in kok.iter():
+        if eleman.tag.rsplit("}", 1)[-1].lower() != "loc":
+            continue
+        deger = (eleman.text or "").strip()
+        if deger:
+            loclar.append(deger)
+    return tur, loclar
+
+
+def _sitemap_cek(url):
+    engel = _guvenli_adres(url)
+    if engel:
+        return None
+    try:
+        opener = urllib.request.build_opener(_GuvenliYonlendirme())
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Basak/1.0",
+            "Accept": "application/xml,text/xml,text/plain,*/*",
+            "Accept-Encoding": "identity",
+        })
+        with opener.open(req, timeout=12) as resp:
+            ctype = (resp.headers.get("Content-Type", "") or "").lower()
+            if not any(x in ctype for x in ("xml", "text/plain", "octet-stream")):
+                return None
+            return resp.read(_SITEMAP_MAX_HAM)
+    except Exception:
+        return None
+
+
+def _sitemap_url_listesi(host):
+    """Bir hostun sitemap URL envanterini kısa süreli kamu verisi olarak cache'ler."""
+    host = (host or "").strip().lower().lstrip("www.")
+    if not host or " " in host or "." not in host:
+        return []
+    simdi = time.time()
+    with _SITEMAP_KILIT:
+        kayit = _SITEMAP_CACHE.get(host)
+        if kayit and simdi - kayit["zaman"] < _SITEMAP_CACHE_SN:
+            return list(kayit["url"])
+
+    ana = "https://%s/sitemap.xml" % host
+    ham = _sitemap_cek(ana)
+    if not ham:
+        return []
+    tur, loclar = _xml_loclar(ham)
+    urller = []
+    if tur == "urlset":
+        urller = loclar[:_SITEMAP_MAX_URL]
+    elif tur == "sitemapindex":
+        # Önce ürün/katalog sitemapleri; sonra diğerleri. Ağ yükü sınırlı.
+        sirali = sorted(
+            loclar,
+            key=lambda u: (0 if any(k in u.lower()
+                                   for k in ("product", "urun", "shop"))
+                           else 1, u))
+        for alt in sirali[:_SITEMAP_MAX_DOSYA]:
+            alt_ham = _sitemap_cek(alt)
+            if not alt_ham:
+                continue
+            alt_tur, alt_loclar = _xml_loclar(alt_ham)
+            if alt_tur != "urlset":
+                continue
+            for u in alt_loclar:
+                if u not in urller:
+                    urller.append(u)
+                    if len(urller) >= _SITEMAP_MAX_URL:
+                        break
+            if len(urller) >= _SITEMAP_MAX_URL:
+                break
+
+    with _SITEMAP_KILIT:
+        # Cache yalnız kamuya açık URL envanteridir; kullanıcı/fatura verisi yok.
+        if len(_SITEMAP_CACHE) >= 20:
+            en_eski = min(_SITEMAP_CACHE,
+                          key=lambda h: _SITEMAP_CACHE[h]["zaman"])
+            _SITEMAP_CACHE.pop(en_eski, None)
+        _SITEMAP_CACHE[host] = {"zaman": simdi, "url": list(urller)}
+    return urller
+
+
+def site_haritasi_ara(site, terim, adet=8):
+    """Doğrulanmış firma sitesinin sitemap'inde tam ürün kodu/GTIN ara.
+
+    Arama motoru indekslemesine bağlı değildir. İç yardımcıdır; yeni ajan
+    aracı eklemez. Sonuç yalnız URL adaylarıdır, ürün doğrulaması sayfa
+    içeriğinde ayrıca yapılır.
+    """
+    host = str(site or "").strip()
+    if "://" in host:
+        host = (urlparse(host).hostname or "")
+    host = host.lower().lstrip("www.")
+    hedef = re.sub(r"[^a-z0-9]", "", str(terim or "").lower())
+    if not host or not hedef:
+        return {"result": json.dumps([], ensure_ascii=False)}
+    eslesen = []
+    for u in _sitemap_url_listesi(host):
+        yol = re.sub(r"[^a-z0-9]", "", unquote(str(u)).lower())
+        if hedef in yol:
+            eslesen.append(u)
+            if len(eslesen) >= max(1, min(20, int(adet or 8))):
+                break
+    return {"result": json.dumps(eslesen, ensure_ascii=False)}
 
 
 def sayfa_oku(url: str, baslangic=0, uzunluk=None) -> dict:

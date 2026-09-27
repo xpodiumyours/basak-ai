@@ -444,6 +444,32 @@ def urun_bul(kart, firma_adaylari=None, ws=None, deadline=None):
     firma_by_host = {f.get("host"): f for f in (firmalar or []) if f.get("host")}
     sorgular = _urun_sorgulari(kimlik, firmalar)
     kayitlar = []
+
+    # Arama motoru bir üretici ürününü indekslememiş olabilir. Doğrulanmış
+    # firma adaylarının sitemap'inde SKU/GTIN'i önce ara; sayfayı yine aynı
+    # kanıt kapısından geçir. Sitemap sonucu tek başına doğrulama değildir.
+    sitemap_kimlikleri = list(kimlik.get("gtinler") or [])
+    if kimlik.get("sku"):
+        sitemap_kimlikleri.append(kimlik["sku"])
+    for firma in (firmalar or [])[:2]:
+        host = firma.get("host")
+        if not host:
+            continue
+        for kimlik_degeri in sitemap_kimlikleri[:2]:
+            if time.monotonic() >= deadline:
+                break
+            sm = ws.site_haritasi_ara(host, kimlik_degeri, adet=4)
+            if sm.get("error"):
+                continue
+            try:
+                urller = json.loads(sm.get("result") or "[]")
+            except (TypeError, ValueError):
+                urller = []
+            for url in urller:
+                if isinstance(url, str):
+                    kayitlar.append({
+                        "url": url, "baslik": kimlik_degeri,
+                        "ozet": "sitemap exact identity", "sitemap": True})
     for q in sorgular:
         if time.monotonic() >= deadline:
             break
@@ -457,7 +483,7 @@ def urun_bul(kart, firma_adaylari=None, ws=None, deadline=None):
         host = _host(url)
         if not host or _host_engelli(host):
             continue
-        on = 0
+        on = 25 if kayit.get("sitemap") else 0
         nm = _norm(kayit.get("baslik", "") + " " + kayit.get("ozet", ""))
         for x in _kimlik_metinleri(kimlik):
             if _norm(x) and _norm(x) in nm:
