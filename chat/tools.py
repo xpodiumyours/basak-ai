@@ -17,6 +17,14 @@ from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 
+
+class AracSonrasiHatasi(RuntimeError):
+    """Gercek arac sonucu alindiktan sonraki model turu tamamlanamadi."""
+    def __init__(self, mesaj, neden=None):
+        super().__init__(mesaj)
+        self.neden = neden
+
+
 DURUM_METNI = {
     "web_search": "İnternette aranıyor",
     "haber_ara": "Haberlerde aranıyor",
@@ -480,7 +488,9 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 yanit, _kaynak = _beyin_devam(tools, secim="auto")
             except Exception as e:
                 logger.warning("Arac turu sonrasi cevap alinamadi: %s", e)
-                break
+                raise AracSonrasiHatasi(
+                    "Araç sonucu alındı ancak sonuçtan sonraki yapay zekâ turu tamamlanamadı.",
+                    neden=e) from e
 
         yeni = yanit.get("tool_calls") if isinstance(yanit, dict) else None
         if yeni:
@@ -510,6 +520,9 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                         )
                         emit_run_state(js_callback, run_state)
             return temizle(cevap), kosan
+        if kosan > 0:
+            raise AracSonrasiHatasi(
+                "Araç sonucu alındı ancak yapay zekâ boş final cevap döndürdü.")
         break
 
     return "", kosan

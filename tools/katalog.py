@@ -64,6 +64,9 @@ DESTEK_UZANTI = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp",
                  ".tiff")
 MAX_BOYUT = 10 * 1024 * 1024
 
+# Fatura gozunun tum saglayicilar dahil toplam butcesi.
+FATURA_GOZ_BUTCE_SN = 90.0
+
 # Belge uzantıları
 DESTEK_BELGE = (".jpg", ".jpeg", ".png", ".webp", ".pdf")
 
@@ -523,73 +526,52 @@ def _ustbilgi_cikar(yazi):
     return ust
 
 
-def fatura_oku(fatura_id):
-    """Kayıtlı fatura fotoğrafını okur; yazı + aday satırları JSON döner.
 
-    Önce Başak'ın kendi gözü (yerel VLM) denenir; yoksa/kapalıysa ya
-    da boş dönerse mevcut bulut zinciri (image_analyzer) devralır.
-    Geçici bulut hatalarında 3 kez denenir. Aday çıkarımı kuraldır
-    (barkod/fiyat/beden deseni); nihai satırları model
-    katalog_kur'a verir.
-    """
+def fatura_oku(fatura_id):
+    """Kayitli fatura fotografini tek butceli goz zinciriyle okur."""
     yol = _fatura_yolu(fatura_id)
     if yol is None or not os.path.isfile(yol):
         return {"error": "Fatura bulunamadı: '%s'." % (fatura_id or "")}
     if os.path.splitext(yol)[1].lower() == ".pdf":
         return {"error": ("PDF okuma bu sürümde yok; "
                           "faturanın fotoğrafını gönder.")}
+    deadline = time.monotonic() + FATURA_GOZ_BUTCE_SN
     from tools import yerel_goru
     kaynak = ""
+    sonuc = None
     if yerel_goru.musait():
-        sonuc = yerel_goru.oku(yol, GORUNTU_SORUSU)
-        if not sonuc.get("error") and _okuma_yarim(sonuc.get("result", "")):
-            logger.info("Yerel goz yarim okudu, buluta devrediliyor.")
+        kalan = max(3.0, min(35.0, deadline-time.monotonic()))
+        sonuc = yerel_goru.oku(yol, GORUNTU_SORUSU, sure=kalan)
+        if not sonuc.get("error") and _okuma_yarim(sonuc.get("result","")):
+            logger.info("Yerel goz kalite kapisini gecemedi, buluta devrediliyor.")
             sonuc = None
         elif not sonuc.get("error"):
             kaynak = "yerel"
         else:
             logger.info("Yerel goz devretti: %s", sonuc["error"])
             sonuc = None
-    else:
-        sonuc = None
     if sonuc is None:
         from tools import image_analyzer
-        import time as _zaman
-        for deneme in range(4):
-            sonuc = image_analyzer.image_analyze(yol, GORUNTU_SORUSU)
-            if sonuc.get("error"):
-                if not _gecici_mi(sonuc["error"]):
-                    break
-                # 2026-09-18: 10 sn bekleme hatta 60 sn API timeout ile
-                # birlesince tek fatura 200 sn'yi buluyordu; 2 sn yeterli,
-                # kalici hatada zaten donguden cikiliyor.
-                if deneme < 3:
-                    _zaman.sleep(2)
-            elif _okuma_yarim(sonuc.get("result", "")):
-                logger.info("Yarim okuma (Toplam yok), tekrar: %s",
-                            sonuc.get("model", ""))
-                if deneme == 3:
-                    break  # son deneme: yarim metinle yetin
-                sonuc = None  # hizli tekrar: bekleme yok
-            else:
-                break
-        if not kaynak:
-            kaynak = "bulut"
+        sonuc = image_analyzer.image_analyze(
+            yol, GORUNTU_SORUSU, deadline_monotonic=deadline,
+            kabul=lambda yazi: not _okuma_yarim(yazi))
+        kaynak = "bulut"
     if sonuc.get("error"):
         return {"error": "Görüntü okunamadı: %s" % sonuc["error"]}
-    yazi = sonuc.get("result", "")
+    yazi = sonuc.get("result","")
     if not yazi.strip():
         return {"error": "Fotoğrafta yazı bulunamadı."}
+    if _okuma_yarim(yazi):
+        return {"error": ("Görüntü okundu ancak kalite kapısını geçemedi; "
+                          "satır/adet/toplam doğrulanamadı.")}
     ust = _ustbilgi_cikar(yazi)
     _oku_kaydet(fatura_id, {"yazi": yazi, "ustbilgi": ust,
-                            "model": sonuc.get("model", ""),
+                            "model": sonuc.get("model",""),
                             "kaynak": kaynak, "okuma": _simdi()})
     return {"result": _j({"fatura_id": fatura_id, "yazi": yazi,
                           "aday_satirlar": _aday_satirlar(yazi),
-                          "ustbilgi": ust,
-                          "kaynak": kaynak,
-                          "model": sonuc.get("model", "")})}
-
+                          "ustbilgi": ust, "kaynak": kaynak,
+                          "model": sonuc.get("model","")})}
 
 # ── F3: doğrulama + aile birleştirme ──────────────────────────────
 

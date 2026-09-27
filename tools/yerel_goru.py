@@ -51,26 +51,35 @@ def acik_mi():
     return not _ayarlar().get("yerel_goru_kapali", False)
 
 
+
 def _kucult(goruntu_yolu):
-    """Görüntüyü AZAMI_KENAR altına indirir, bayt döner."""
+    """EXIF yonunu uygular, gerekirse 1600 px'e indirir, bayt dondurur."""
     with open(goruntu_yolu, "rb") as f:
         ham = f.read()
     try:
-        from PIL import Image
+        from PIL import Image, ImageOps
         import io as _io
-        resim = Image.open(_io.BytesIO(ham))
-        resim.load()
+        resim = Image.open(_io.BytesIO(ham)); resim.load()
+        try:
+            yon = resim.getexif().get(274, 1)
+        except Exception:
+            yon = 1
+        yon_duzeltildi = yon not in (None, 1)
+        if yon_duzeltildi:
+            resim = ImageOps.exif_transpose(resim)
         oran = min(1.0, AZAMI_KENAR / max(resim.size))
-        if oran < 1.0:
-            resim = resim.convert("RGB").resize(
-                (int(resim.width * oran), int(resim.height * oran)))
+        if oran < 1.0 or yon_duzeltildi:
+            resim = resim.convert("RGB")
+            if oran < 1.0:
+                resim = resim.resize(
+                    (max(1,int(resim.width*oran)),max(1,int(resim.height*oran))),
+                    Image.Resampling.LANCZOS)
             tampon = _io.BytesIO()
-            resim.save(tampon, format="JPEG", quality=88)
+            resim.save(tampon, format="JPEG", quality=88, optimize=True)
             return tampon.getvalue()
     except Exception as e:
-        logger.debug("Kucultme atlandi: %s", e)
+        logger.debug("Kucultme/yon duzeltme atlandi: %s", e)
     return ham
-
 
 def _istek(yol, veri=None, sure=5):
     govde = json.dumps(veri or {}).encode("utf-8") if veri else None
@@ -95,7 +104,7 @@ def musait():
         return False
 
 
-def oku(goruntu_yolu, soru):
+def oku(goruntu_yolu, soru, sure=60):
     """Fotoğrafı yerel gözle okur. Dönüş: {"result"} / {"error"}."""
     if not goruntu_yolu or not os.path.isfile(goruntu_yolu):
         return {"error": "Dosya bulunamadı: '%s'." % (goruntu_yolu or "")}
@@ -114,7 +123,7 @@ def oku(goruntu_yolu, soru):
                 "content": soru or "Bu görüntüyü açıkla.",
                 "images": [base64.b64encode(ham).decode("ascii")],
             }],
-        }, sure=300)
+        }, sure=max(3.0, min(float(sure), 300.0)))
     except Exception as e:
         logger.warning("Yerel goz hatasi: %s", e)
         return {"error": "Yerel göz çalışmadı: %s" % str(e)[:120]}

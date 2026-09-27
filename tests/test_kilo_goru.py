@@ -37,9 +37,9 @@ def test_nvidia_yokken_kilo_goru_yedegi(monkeypatch, tmp_path):
 
     monkeypatch.setattr(ga, "_nvidia_key_al", lambda: "")
     monkeypatch.setattr(ga, "_gemini_goru",
-                        lambda yol, soru: {"error": "Gemini anahtari yok"})
+                        lambda yol, soru, deadline_monotonic=None: {"error": "Gemini anahtari yok"})
     monkeypatch.setattr(ga, "_kilo_goru",
-                        lambda yol, soru: {"result": "gordum", "model": "kilo"})
+                        lambda yol, soru, deadline_monotonic=None: {"result": "gordum", "model": "kilo"})
 
     sonuc = ga.image_analyze(str(foto), "Ne goruyorsun?")
     assert sonuc["result"] == "gordum"
@@ -55,8 +55,9 @@ def test_kilo_goru_multimodal_mesaj_gonderir(monkeypatch, tmp_path):
         def __init__(self, model=None):
             yakalanan["model"] = model
 
-        def goru_cevapla(self, messages):
+        def goru_cevapla(self, messages, timeout=None):
             yakalanan["messages"] = messages
+            yakalanan["timeout"] = timeout
             return {"content": "resim aciklamasi"}
 
     import brain.kilo
@@ -69,3 +70,33 @@ def test_kilo_goru_multimodal_mesaj_gonderir(monkeypatch, tmp_path):
     assert parcalar[0]["type"] == "text"
     assert parcalar[1]["type"] == "image_url"
     assert parcalar[1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+
+
+def test_exif_yonu_normalize_edilir(tmp_path):
+    import base64 as b64m
+    import io
+    from PIL import Image
+    yol = tmp_path / "donuk.jpg"
+    resim = Image.new("RGB", (120, 60), "white")
+    exif = resim.getexif()
+    exif[274] = 6
+    resim.save(yol, exif=exif)
+    veri, mime = ga._goruntu_b64(str(yol))
+    duz = Image.open(io.BytesIO(b64m.b64decode(veri)))
+    assert mime == "image/jpeg"
+    assert duz.size == (60, 120)
+
+
+def test_kalite_reddi_siradaki_goze_gecer(monkeypatch, tmp_path):
+    foto = tmp_path / "foto.jpg"
+    foto.write_bytes(b"test")
+    monkeypatch.setattr(ga, "_nvidia_key_al", lambda: "")
+    cagrilar = []
+    monkeypatch.setattr(ga, "_gemini_goru",
+        lambda *a, **k: cagrilar.append("gemini") or {"result": "yarim", "model": "g"})
+    monkeypatch.setattr(ga, "_kilo_goru",
+        lambda *a, **k: cagrilar.append("kilo") or {"result": "tamam", "model": "k"})
+    sonuc = ga.image_analyze(str(foto), "oku", kabul=lambda metin: metin == "tamam")
+    assert sonuc["result"] == "tamam"
+    assert sonuc["yedek"] == "kilo"
+    assert cagrilar == ["gemini", "kilo"]

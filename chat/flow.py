@@ -322,6 +322,14 @@ def _beyin_hata_mesaji(hata, onek):
     return onek + str(hata)
 
 
+def _arac_sonrasi_hata_mesaji(hata):
+    neden = getattr(hata, "neden", None)
+    if neden is not None:
+        return _beyin_hata_mesaji(
+            neden, "Araç sonucu alındı ancak devam turu tamamlanamadı: ")
+    return str(hata)
+
+
 def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                misafir=False, gecmis_override=None,
                yonlendirme_baglami=None, tool_policy="auto",
@@ -485,18 +493,25 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             js_callback("BasakUI.error(" + _j("Model bos cevap dondu") + ")")
             return
 
-        from chat.tools import arac_dongusu
+        from chat.tools import AracSonrasiHatasi, arac_dongusu
         from tools import calistir
         # Ilk required kararinin isi ilk tool-call'i garanti etmektir.
         # Tool sonucu sonraki model turu compositional olarak AUTO devam eder;
         # aksi halde final cevap vermesi sonsuza kadar yasaklanmis olur.
         state.phase_set("tools")
         emit_run_state(js_callback, state)
-        cevap, kosan = arac_dongusu(
-            tool_calls, mesajlar, brain, model, js_callback, calistir,
-            tools=ajan_tools, yanit=yanit, tool_choice="auto",
-            tercih=[kaynak] if kaynak else None, run_state=state,
-            katalog=katalog, mola_zamani=mola_zamani)
+        try:
+            cevap, kosan = arac_dongusu(
+                tool_calls, mesajlar, brain, model, js_callback, calistir,
+                tools=ajan_tools, yanit=yanit, tool_choice="auto",
+                tercih=[kaynak] if kaynak else None, run_state=state,
+                katalog=katalog, mola_zamani=mola_zamani)
+        except AracSonrasiHatasi as e:
+            state.fail()
+            emit_run_state(js_callback, state)
+            js_callback("BasakUI.error(" + _j(
+                _arac_sonrasi_hata_mesaji(e)) + ")")
+            return
         if state.status == "paused":
             # Karar kullanicida: devam / cevap / yon. Hata degil.
             return
@@ -556,7 +571,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             _tc = getattr(istek, "tool_calls", None) or []
             _muh = getattr(istek, "muhakeme", None) or {}
             if _tc and etkin_tools:
-                from chat.tools import arac_dongusu
+                from chat.tools import AracSonrasiHatasi, arac_dongusu
                 from tools import calistir
                 logger.info("Model akista arac istedi — dogrudan calisiyor")
                 try:
@@ -564,6 +579,10 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                         _tc, mesajlar, brain, model, js_callback,
                         calistir, tools=etkin_tools,
                         yanit={"tool_calls": _tc, **_muh}, katalog=katalog)
+                except AracSonrasiHatasi as e:
+                    js_callback("BasakUI.error(" + _j(
+                        _arac_sonrasi_hata_mesaji(e)) + ")")
+                    return
                 except Exception as e:
                     logger.warning("Akis-arac turu basarisiz: %s", e)
                     cevap, kosan = "", 0
@@ -599,11 +618,16 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     # model özetler. Beyaz liste dışı ad buraya kadar gelse bile koşmaz.
     tool_calls = yanit.get("tool_calls") if isinstance(yanit, dict) else None
     if tool_calls and etkin_tools:
-        from chat.tools import arac_dongusu
+        from chat.tools import AracSonrasiHatasi, arac_dongusu
         from tools import calistir
-        cevap, kosan = arac_dongusu(
-            tool_calls, mesajlar, brain, model, js_callback, calistir,
-            tools=etkin_tools, yanit=yanit, katalog=katalog)
+        try:
+            cevap, kosan = arac_dongusu(
+                tool_calls, mesajlar, brain, model, js_callback, calistir,
+                tools=etkin_tools, yanit=yanit, katalog=katalog)
+        except AracSonrasiHatasi as e:
+            js_callback("BasakUI.error(" + _j(
+                _arac_sonrasi_hata_mesaji(e)) + ")")
+            return
         cevap = _temizle(cevap)
         if cevap:
             _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,

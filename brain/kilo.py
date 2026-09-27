@@ -112,14 +112,14 @@ class KiloClient:
     def musait(self) -> bool:
         return self.client is not None
 
-    def goru_cevapla(self, messages: list) -> dict:
-        """Step 3.7 Flash'in dogrulanmis goruntu girdisini keyless hatta kullan."""
+    def goru_cevapla(self, messages: list, timeout=None) -> dict:
+        """Step 3.7 Flash goruntu girdisi; istege ozel sure siniri alabilir."""
         if not self.client:
             raise RuntimeError("Kilo bağlı değil")
-        return self._tek_model("stepfun/step-3.7-flash:free", messages)
+        return self._tek_model("stepfun/step-3.7-flash:free", messages, timeout=timeout)
 
     def _tek_model(self, model_adi: str, messages: list,
-                   tools: list = None, tool_choice=None) -> dict:
+                   tools: list = None, tool_choice=None, timeout=None) -> dict:
         kwargs = {
             "model": model_adi,
             "messages": messages,
@@ -129,7 +129,8 @@ class KiloClient:
             if tool_choice is not None:
                 kwargs["tool_choice"] = tool_choice
 
-        resp = self.client.chat.completions.create(**kwargs)
+        istemci = self.client.with_options(timeout=timeout) if timeout is not None else self.client
+        resp = istemci.chat.completions.create(**kwargs)
         secim = resp.choices[0]
         msg = secim.message
         muhakeme = reasoning_ayikla(msg)

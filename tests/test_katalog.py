@@ -174,7 +174,7 @@ class TestFaturaOku:
         (tmp_path / "gln_b2.jpg").write_bytes(b"\xff\xd8sahte")
         monkeypatch.setattr(
             ga, "image_analyze",
-            lambda yol, soru=None, model=None: {
+            lambda yol, soru=None, model=None, **kwargs: {
                 "result": "Tutku TK-102 S 5 adet 120,50 TL "
                           "8691234567890\nBerrak elbise",
                 "model": "sahte"})
@@ -191,52 +191,34 @@ class TestFaturaOku:
         (tmp_path / "gln_c3.jpg").write_bytes(b"\xff\xd8sahte")
         monkeypatch.setattr(
             ga, "image_analyze",
-            lambda yol, soru=None, model=None: {"error": "kota bitti"})
+            lambda yol, soru=None, model=None, **kwargs: {"error": "kota bitti"})
         r = katalog.fatura_oku("gln_c3")
         assert "error" in r and "kota" in r["error"]
 
-    def test_gecici_hatada_uc_deneme(self, tmp_path, monkeypatch):
+    def test_bulut_gozu_tek_orchestrator_cagrisi(self, tmp_path, monkeypatch):
         import tools.image_analyzer as ga
         monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
         (tmp_path / "gln_c4.jpg").write_bytes(b"\xff\xd8sahte")
         cagrilar = []
-
-        def dalgali(yol, soru=None, model=None):
-            cagrilar.append(yol)
-            if len(cagrilar) < 3:
-                return {"error": "Request timed out."}
-            return {"result": "TER0101 6 ad\n"
-                              "Toplam: 6 ad 1 dz 10,00 TL",
-                    "model": "sahte"}
-
-        monkeypatch.setattr(ga, "image_analyze", dalgali)
-        import time as _z
-        monkeypatch.setattr(_z, "sleep", lambda s: None)
+        def tek(yol, soru=None, model=None, **kwargs):
+            cagrilar.append(kwargs)
+            assert callable(kwargs.get("kabul"))
+            assert kwargs.get("deadline_monotonic") is not None
+            return {"result": "ELT1302 2 ad\nToplam: 2 ad 1 dz 6.034,00 TL", "model": "sahte"}
+        monkeypatch.setattr(ga, "image_analyze", tek)
         r = katalog.fatura_oku("gln_c4")
         assert "result" in r, r
-        assert len(cagrilar) == 3
+        assert len(cagrilar) == 1
 
-    def test_yarim_okumada_tekrar_deneme(self, tmp_path, monkeypatch):
-        """Toplam satiri olmayan (yarim) okuma yeniden denenir."""
+    def test_kalite_kapisini_gecmeyen_okuma_reddedilir(self, tmp_path, monkeypatch):
         import tools.image_analyzer as ga
         monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
         (tmp_path / "gln_c5.jpg").write_bytes(b"\xff\xd8sahte")
-        cagrilar = []
-
-        def dalgali(yol, soru=None, model=None):
-            cagrilar.append(yol)
-            if len(cagrilar) < 2:
-                return {"result": "ELT1302 2 ad 137,00", "model": "sahte"}
-            return {"result": "ELT1302 2 ad 137,00\n"
-                              "Toplam: 2 ad 1 dz 6.034,00 TL",
-                    "model": "sahte"}
-
-        monkeypatch.setattr(ga, "image_analyze", dalgali)
+        monkeypatch.setattr(ga, "image_analyze",
+            lambda *a, **k: {"error": "Goruntu saglayicilari sonuca ulasamadi [gemini: kalite kapisini gecemedi]"})
         r = katalog.fatura_oku("gln_c5")
-        assert "result" in r, r
-        veri = json.loads(r["result"])
-        assert veri["ustbilgi"]["toplam"] == 6034.0
-        assert len(cagrilar) == 2
+        assert "error" in r
+        assert "kalite" in r["error"]
 
     def test_adet_toplami_uyusmazsa_yarim(self):
         """Satır adetleri 77, basılı Toplam 75 → okuma sağlıksız (Kilo vakası)."""
@@ -281,7 +263,7 @@ class TestYerelGoru:
         (tmp_path / "gln_y1.jpg").write_bytes(b"\xff\xd8sahte")
         monkeypatch.setattr(
             ga, "image_analyze",
-            lambda yol, soru=None, model=None: {"result": "bulut yazı",
+            lambda yol, soru=None, model=None, **kwargs: {"result": "bulut yazı",
                                                 "model": "sahte"})
         veri = json.loads(katalog.fatura_oku("gln_y1")["result"])
         assert veri["kaynak"] == "bulut"
@@ -315,7 +297,7 @@ class TestYerelGoru:
         import tools.image_analyzer as ga
         monkeypatch.setattr(
             ga, "image_analyze",
-            lambda yol, soru=None, model=None: {"result": "bulut yazı",
+            lambda yol, soru=None, model=None, **kwargs: {"result": "bulut yazı",
                                                 "model": "sahte"})
         monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
         (tmp_path / "gln_y3.jpg").write_bytes(b"\xff\xd8sahte")
