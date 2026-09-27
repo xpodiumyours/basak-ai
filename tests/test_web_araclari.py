@@ -296,3 +296,29 @@ def test_jsonld_productgroup_hasvariant_acilir():
     assert len(urunler) == 3
     assert any(u["sku"] == "A-M-BLK" and u["color"] == "Siyah"
                and u["size"] == "M" for u in urunler)
+
+
+def test_jsonld_kurum_ayni_sayfadan_okunur():
+    ham = """<script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"Organization",
+     "name":"Örnek Marka Giyim Ltd.","url":"https://ornek.example/"}
+    </script>"""
+    kurumlar = ws._jsonld_kurumlar(ham)
+    assert kurumlar == [{
+        "type": "Organization",
+        "name": "Örnek Marka Giyim Ltd.",
+        "url": "https://ornek.example/",
+        "sameAs": []}]
+
+
+def test_ddgs_cagrilari_bes_saniye_timeout_kullanir():
+    import inspect
+    kaynak = inspect.getsource(ws)
+    assert kaynak.count("DDGS(timeout=5)") >= 5
+
+
+def test_sitemap_ayni_host_icin_host_kilidi_var():
+    import inspect
+    kaynak = inspect.getsource(ws._sitemap_url_listesi)
+    assert "_SITEMAP_HOST_KILIT" in kaynak
+    assert "with host_kilit:" in kaynak

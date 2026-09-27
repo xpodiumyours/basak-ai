@@ -218,3 +218,43 @@ def test_varyant_schema_gorseli_once_gelir():
     assert v["durum"] == "uyumlu"
     assert v["varyant_gorseller"] == [
         "https://firma.example/siyah-m.jpg"]
+
+
+def test_schema_organization_ayni_host_resmi_marka_kaniti():
+    kurumlar = [{
+        "type": "Organization",
+        "name": "Kaktüs Moda Giyim San. ve Tic. Ltd. Şti.",
+        "url": "https://www.kaktusmoda.com/tr/",
+        "sameAs": []
+    }]
+    tur, kanit = pr._kaynak_sinifi(
+        "kaktusmoda.com",
+        "KAKTÜS MODA stok kodu 23Y108-001-01",
+        "Kaktüs Moda", kurumlar)
+    assert tur == "resmi_marka_adayi"
+    assert "schema_kurum_marka" in kanit
+
+
+def test_fatura_kodu_schema_yoksa_sku_diye_uydurulmaz():
+    kart = {
+        "marka": "Tutku", "kod": "TER0117",
+        "varyantlar": []
+    }
+    url = "https://uretici.example/urun/ter0117"
+    ws = SahteWeb(
+        {"TER0117": blok("TER0117 Tutku Boxer", url, "Tutku")},
+        {url: {
+            "metin": "Tutku TER0117 kendi markamız fabrikamızda üretiyoruz",
+            "kurumlar": [],
+            "urunler": [{"name": "TER0117 Tutku Boxer", "brand": "Tutku",
+                         "sku": "", "mpn": "", "gtin": []}],
+            "gorseller": []
+        }})
+    firma = [{"host": "uretici.example", "kaynak_turu": "uretici_adayi",
+              "kanitlar": ["guclu_uretim_beyani"]}]
+    sonuc = pr.urun_bul(kart, firma, ws=ws)
+    assert sonuc["resmi_dogrulandi"] is True
+    assert sonuc["fatura_kodu"] == "TER0117"
+    assert sonuc["sku"] == ""
+    assert sonuc["dogrulanmis_kod"] == "TER0117"
+    assert sonuc["kod_turu"] == "uretici_sayfa_kodu"

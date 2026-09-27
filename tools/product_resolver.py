@@ -93,7 +93,9 @@ def kart_kimligi(kart):
             barkodlar.append(b)
     return {
         "marka": str(kart.get("marka") or "").strip(),
-        "sku": str(kart.get("kod") or "").strip(),
+        # Faturadaki kod üretici SKU'su olabilir ama doğrulanana kadar
+        # yalnız "fatura_kodu"dur. Supplier/internal kodu SKU diye uydurmayız.
+        "fatura_kodu": str(kart.get("kod") or "").strip(),
         "ad": str(kart.get("ad") or "").strip(),
         "kategori": str(kart.get("kategori") or "").strip(),
         "barkodlar": barkodlar,
@@ -127,9 +129,9 @@ def _arama_kayitlari(metin):
 def _kimlik_metinleri(kimlik):
     degerler = []
     degerler.extend(kimlik.get("gtinler") or [])
-    sku = str(kimlik.get("sku") or "").strip()
-    if sku:
-        degerler.append(sku)
+    fatura_kodu = str(kimlik.get("fatura_kodu") or "").strip()
+    if fatura_kodu:
+        degerler.append(fatura_kodu)
     return degerler
 
 
@@ -153,7 +155,7 @@ def _gtin_metin_de(gtin, metin):
 
 def _firma_sorgulari(kimlik):
     marka = str(kimlik.get("marka") or "").strip()
-    sku = str(kimlik.get("sku") or "").strip()
+    fatura_kodu = str(kimlik.get("fatura_kodu") or "").strip()
     gtin = (kimlik.get("gtinler") or [""])[0]
     kategori = str(kimlik.get("kategori") or "").strip()
     ad = str(kimlik.get("ad") or "").strip()
@@ -161,22 +163,48 @@ def _firma_sorgulari(kimlik):
     q = []
     if gtin:
         q.append('"%s" "%s"' % (gtin, marka) if marka else '"%s"' % gtin)
-    if marka and sku:
-        q.append('"%s" "%s" %s' % (marka, sku, baglam or "ürün"))
+    if marka and fatura_kodu:
+        q.append('"%s" "%s" %s' % (
+            marka, fatura_kodu, baglam or "ürün"))
     if marka:
         q.append('"%s" %s üretici resmi site' % (marka, kategori or "ürün"))
         q.append('"%s" %s üretim iletişim' % (marka, kategori or "ürün"))
     return list(dict.fromkeys(x.strip() for x in q if x.strip()))[:4]
 
 
-def _kaynak_sinifi(host, metin, marka):
+def _kurum_marka_kaniti(host, marka, kurumlar):
+    """Yapılandırılmış Organization/Brand/WebSite kaydını hostla çaprazlar."""
+    m = _norm(marka)
+    if not m:
+        return False
+    host = str(host or "").lower().lstrip("www.")
+    for kurum in kurumlar or []:
+        if not isinstance(kurum, dict):
+            continue
+        ad = _norm(kurum.get("name"))
+        if not ad or not (m in ad or ad in m):
+            continue
+        url = str(kurum.get("url") or "")
+        khost = _host(url) if url else ""
+        if khost and not (khost == host or khost.endswith("." + host)
+                          or host.endswith("." + khost)):
+            continue
+        return True
+    return False
+
+
+def _kaynak_sinifi(host, metin, marka, kurumlar=None):
     """Kaynağın rolünü sınıflandırır; resellerı üretici diye yükseltmez."""
     h = _norm(host)
     m = _norm(marka)
     t = str(metin or "").lower()
     marka_var = bool(m and (m in _norm(metin) or m in h))
+    kurum_kaniti = _kurum_marka_kaniti(host, marka, kurumlar)
     if marka_var and any(k in t for k in _GUCLU_URETIM_IPUCU):
         return "uretici_adayi", ["marka", "guclu_uretim_beyani"]
+    if marka_var and kurum_kaniti:
+        return "resmi_marka_adayi", [
+            "marka", "schema_kurum_marka", "ayni_host"]
     if marka_var and any(k in t for k in _RESMI_SATIS_IPUCU):
         return "resmi_satis_adayi", ["marka", "resmi_satis_beyani"]
     if marka_var and m and m in h:
@@ -219,7 +247,7 @@ def _firma_ilk_skor(kayit, kimlik):
     baglam_kelimeleri = [
         x for x in re.findall(r"[A-Za-zÇĞİÖŞÜçğıöşü0-9]{4,}", baglam)
         if _norm(x) not in {_norm(kimlik.get("marka")),
-                            _norm(kimlik.get("sku"))}
+                            _norm(kimlik.get("fatura_kodu"))}
     ][:8]
     ortak = [x for x in baglam_kelimeleri if _norm(x) in _norm(metin)]
     if ortak:
@@ -288,10 +316,14 @@ def firma_bul(kart_veya_kimlik, ws=None, deadline=None):
         except (TypeError, ValueError):
             continue
         metin = str(veri.get("metin") or "")
-        tur, ek = _kaynak_sinifi(aday["host"], metin, kimlik.get("marka"))
+        tur, ek = _kaynak_sinifi(
+            aday["host"], metin, kimlik.get("marka"),
+            veri.get("kurumlar") or [])
         skor = aday["skor"]
         if tur == "uretici_adayi":
             skor += 25
+        elif tur == "resmi_marka_adayi":
+            skor += 22
         elif tur == "marka_alani_adayi":
             skor += 18
         elif tur == "resmi_satis_adayi":
@@ -305,7 +337,7 @@ def firma_bul(kart_veya_kimlik, ws=None, deadline=None):
 
 def _urun_sorgulari(kimlik, firma_adaylari):
     gtin = (kimlik.get("gtinler") or [""])[0]
-    sku = str(kimlik.get("sku") or "").strip()
+    fatura_kodu = str(kimlik.get("fatura_kodu") or "").strip()
     marka = str(kimlik.get("marka") or "").strip()
     sorgular = []
     for firma in (firma_adaylari or [])[:3]:
@@ -314,12 +346,12 @@ def _urun_sorgulari(kimlik, firma_adaylari):
             continue
         if gtin:
             sorgular.append('site:%s "%s"' % (host, gtin))
-        if sku:
-            sorgular.append('site:%s "%s"' % (host, sku))
+        if fatura_kodu:
+            sorgular.append('site:%s "%s"' % (host, fatura_kodu))
     if gtin:
         sorgular.append('"%s" "%s"' % (gtin, marka) if marka else '"%s"' % gtin)
-    if marka and sku:
-        sorgular.append('"%s" "%s"' % (marka, sku))
+    if marka and fatura_kodu:
+        sorgular.append('"%s" "%s"' % (marka, fatura_kodu))
     return list(dict.fromkeys(sorgular))[:8]
 
 
@@ -418,7 +450,7 @@ def _sayfa_skor(kimlik, url, veri, firma):
     urunler = veri.get("urunler") or []
     norm_metin = _norm(metin)
     marka = _norm(kimlik.get("marka"))
-    sku = _norm(kimlik.get("sku"))
+    fatura_kodu = _norm(kimlik.get("fatura_kodu"))
     gtinler = {_norm(x) for x in kimlik.get("gtinler") or []}
     yap_sku = {_norm(x) for x in _structured_degerler(urunler, "sku")}
     yap_mpn = {_norm(x) for x in _structured_degerler(urunler, "mpn")}
@@ -430,17 +462,21 @@ def _sayfa_skor(kimlik, url, veri, firma):
 
     gtin_sayfa_tam = any(_gtin_metin_de(g, metin)
                           for g in kimlik.get("gtinler") or [])
-    sku_sayfa_tam = _kod_metin_de(kimlik.get("sku"), metin)
+    kod_sayfa_tam = _kod_metin_de(kimlik.get("fatura_kodu"), metin)
 
     if gtinler and gtinler & yap_gtin:
         skor += 60; kanit.append("gtin_yapilandirilmis"); kimlik_kaniti = True
     elif gtinler and gtin_sayfa_tam:
         skor += 38; kanit.append("gtin_sayfa_tam"); kimlik_kaniti = True
 
-    if sku and (sku in yap_sku or sku in yap_mpn):
-        skor += 45; kanit.append("sku_yapilandirilmis"); kimlik_kaniti = True
-    elif sku and sku_sayfa_tam:
-        skor += 26; kanit.append("sku_sayfa_tam"); kimlik_kaniti = True
+    if fatura_kodu and (fatura_kodu in yap_sku or fatura_kodu in yap_mpn):
+        skor += 45
+        kanit.append("fatura_kodu_sku_mpn_yapilandirilmis")
+        kimlik_kaniti = True
+    elif fatura_kodu and kod_sayfa_tam:
+        skor += 26
+        kanit.append("fatura_kodu_sayfa_tam")
+        kimlik_kaniti = True
 
     if marka and marka in yap_marka:
         skor += 20; kanit.append("marka_yapilandirilmis")
@@ -459,8 +495,10 @@ def _sayfa_skor(kimlik, url, veri, firma):
     kaynak_turu = (firma or {}).get("kaynak_turu", "ticari_kaynak")
     if kaynak_turu == "uretici_adayi":
         skor += 20; kanit.append("uretici_kaynagi")
+    elif kaynak_turu == "resmi_marka_adayi":
+        skor += 18; kanit.append("resmi_marka_kaynagi")
     elif kaynak_turu == "marka_alani_adayi":
-        skor += 15; kanit.append("marka_alani")
+        skor += 8; kanit.append("marka_alani")
     elif kaynak_turu == "resmi_satis_adayi":
         skor += 6; kanit.append("resmi_satis_adayi")
 
@@ -477,8 +515,9 @@ def _sayfa_skor(kimlik, url, veri, firma):
     # reseller/official-store iddiası veya pazar yeri tek başına yeterli değil.
     gtin_yapisal = bool(gtinler and gtinler & yap_gtin)
     gtin_metin = bool(gtinler and gtin_sayfa_tam)
-    sku_yapisal = bool(sku and (sku in yap_sku or sku in yap_mpn))
-    sku_metin = bool(sku and sku_sayfa_tam)
+    kod_yapisal = bool(
+        fatura_kodu and (fatura_kodu in yap_sku or fatura_kodu in yap_mpn))
+    kod_metin = bool(fatura_kodu and kod_sayfa_tam)
     marka_yapisal = bool(marka and marka in yap_marka)
     marka_sayfa = bool(marka and marka in norm_metin)
 
@@ -488,11 +527,13 @@ def _sayfa_skor(kimlik, url, veri, firma):
     # name/image/url taşıdığı durumları doğru işler.
     guclu_urun_kimligi = (
         gtin_yapisal or
-        (sku_yapisal and (marka_yapisal or marka_sayfa)) or
+        (kod_yapisal and (marka_yapisal or marka_sayfa)) or
         (gtin_metin and (marka_yapisal or marka_sayfa)) or
-        (sku_metin and (marka_yapisal or marka_sayfa))
+        (kod_metin and (marka_yapisal or marka_sayfa))
     )
-    resmi = bool(kaynak_turu == "uretici_adayi" and guclu_urun_kimligi)
+    birincil_kaynak = kaynak_turu in (
+        "uretici_adayi", "resmi_marka_adayi")
+    resmi = bool(birincil_kaynak and guclu_urun_kimligi)
     if resmi:
         kanit.append("resmi_uretici_urun_kimligi")
     return skor, kimlik_kaniti, resmi, kanit
@@ -503,7 +544,8 @@ def urun_bul(kart, firma_adaylari=None, ws=None, deadline=None):
     if ws is None:
         from tools import web_search as ws
     kimlik = kart_kimligi(kart)
-    if not (kimlik["gtinler"] or kimlik["sku"] or kimlik["marka"]):
+    if not (kimlik["gtinler"] or kimlik["fatura_kodu"]
+            or kimlik["marka"]):
         return {"error": "Ürün kimliği için barkod, SKU veya marka yok."}
     deadline = float(deadline or (time.monotonic() + 60.0))
     firmalar = firma_adaylari
@@ -518,8 +560,8 @@ def urun_bul(kart, firma_adaylari=None, ws=None, deadline=None):
     # firma adaylarının sitemap'inde SKU/GTIN'i önce ara; sayfayı yine aynı
     # kanıt kapısından geçir. Sitemap sonucu tek başına doğrulama değildir.
     sitemap_kimlikleri = list(kimlik.get("gtinler") or [])
-    if kimlik.get("sku"):
-        sitemap_kimlikleri.append(kimlik["sku"])
+    if kimlik.get("fatura_kodu"):
+        sitemap_kimlikleri.append(kimlik["fatura_kodu"])
     for firma in (firmalar or [])[:2]:
         host = firma.get("host")
         if not host:
@@ -582,8 +624,9 @@ def urun_bul(kart, firma_adaylari=None, ws=None, deadline=None):
         firma = next((f for h, f in firma_by_host.items()
                       if h and (host == h or host.endswith("." + h))), None)
         if firma is None:
-            tur, kanit0 = _kaynak_sinifi(host, veri.get("metin", ""),
-                                         kimlik.get("marka"))
+            tur, kanit0 = _kaynak_sinifi(
+                host, veri.get("metin", ""), kimlik.get("marka"),
+                veri.get("kurumlar") or [])
             firma = {"host": host, "kaynak_turu": tur, "kanitlar": kanit0}
         skor, kimlik_kaniti, resmi, kanit = _sayfa_skor(
             kimlik, url, veri, firma)
@@ -593,6 +636,7 @@ def urun_bul(kart, firma_adaylari=None, ws=None, deadline=None):
         adlar = _structured_degerler(urunler, "name")
         markalar = _structured_degerler(urunler, "brand")
         skular = _structured_degerler(urunler, "sku")
+        mpnler = _structured_degerler(urunler, "mpn")
         gtin = _structured_degerler(urunler, "gtin")
         guven = ("yuksek" if resmi and skor >= 85
                  else "orta" if kimlik_kaniti and skor >= 65
@@ -609,6 +653,19 @@ def urun_bul(kart, firma_adaylari=None, ws=None, deadline=None):
             else "aday" if gorseller
             else "yok")
 
+        fatura_kodu = str(kimlik.get("fatura_kodu") or "")
+        dogrulanmis_kod = ""
+        kod_turu = ""
+        if skular:
+            dogrulanmis_kod = skular[0]
+            kod_turu = "sku"
+        elif mpnler:
+            dogrulanmis_kod = mpnler[0]
+            kod_turu = "mpn"
+        elif resmi and _kod_metin_de(fatura_kodu, veri.get("metin", "")):
+            dogrulanmis_kod = fatura_kodu
+            kod_turu = "uretici_sayfa_kodu"
+
         sonuc = {
             "cozucu_surumu": "urun-kimlik-v2",
             "kaynak": url,
@@ -621,7 +678,11 @@ def urun_bul(kart, firma_adaylari=None, ws=None, deadline=None):
             "guven": guven,
             "urun_adi": adlar[0] if adlar else aday.get("baslik", ""),
             "marka": markalar[0] if markalar else kimlik["marka"],
-            "sku": skular[0] if skular else kimlik["sku"],
+            "fatura_kodu": fatura_kodu,
+            "dogrulanmis_kod": dogrulanmis_kod,
+            "kod_turu": kod_turu,
+            "sku": skular[0] if skular else "",
+            "mpn": mpnler[0] if mpnler else "",
             "gtin": gtin[0] if gtin else ((kimlik["gtinler"] or [""])[0]),
             "varyant_dogrulama": varyant,
             "gorsel_dogrulama": gorsel_dogrulama,

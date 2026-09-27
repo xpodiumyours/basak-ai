@@ -61,7 +61,7 @@ def _duckduckgo_ara(query, adet=_VARSAYILAN_SONUC):
     try:
         from ddgs import DDGS
 
-        with DDGS() as ddgs:
+        with DDGS(timeout=5) as ddgs:
             results = list(ddgs.text(query, region="tr-tr",
                                      max_results=_adet_sinirla(adet)))
 
@@ -94,7 +94,7 @@ def haber_ara(query: str, adet: int = 10) -> dict:
     try:
         from ddgs import DDGS
 
-        with DDGS() as ddgs:
+        with DDGS(timeout=5) as ddgs:
             results = list(ddgs.news(str(query).strip(), region="tr-tr",
                                      max_results=_adet_sinirla(adet, 10)))
         if not results:
@@ -131,7 +131,7 @@ def zamanli_ara(query: str, aralik: str = "hafta",
     try:
         from ddgs import DDGS
 
-        with DDGS() as ddgs:
+        with DDGS(timeout=5) as ddgs:
             results = list(ddgs.text(str(query).strip(), region="tr-tr",
                                      timelimit=sinir,
                                      max_results=_adet_sinirla(adet, 10)))
@@ -169,7 +169,7 @@ def gorsel_ara(query: str, adet: int = 10) -> dict:
     try:
         from ddgs import DDGS
 
-        with DDGS() as ddgs:
+        with DDGS(timeout=5) as ddgs:
             results = list(ddgs.images(str(query).strip(), region="tr-tr",
                                        max_results=_adet_sinirla(adet, 10)))
         adresler = []
@@ -194,7 +194,7 @@ def kitap_ara(query: str, adet: int = 10) -> dict:
     try:
         from ddgs import DDGS
 
-        with DDGS() as ddgs:
+        with DDGS(timeout=5) as ddgs:
             results = list(ddgs.books(str(query).strip(),
                                       max_results=_adet_sinirla(adet, 10)))
         if not results:
@@ -230,6 +230,7 @@ _SITEMAP_MAX_URL = 10000
 _SITEMAP_CACHE_SN = 600
 _SITEMAP_CACHE = {}
 _SITEMAP_KILIT = threading.Lock()
+_SITEMAP_HOST_KILIT = {}
 
 # SSRF korumasi (2026-08-24, Casper'in bulgusu): string tabanli "localhost"
 # aramasi 127.0.0.2, [::1], onluk IP, ozel aglar ve ic IP'ye cozunen
@@ -328,54 +329,64 @@ def _sitemap_cek(url):
 
 
 def _sitemap_url_listesi(host):
-    """Bir hostun sitemap URL envanterini kısa süreli kamu verisi olarak cache'ler."""
+    """Bir hostun sitemap URL envanterini kısa süreli kamu verisi olarak cache'ler.
+
+    Aynı hostu paralel ürün kartları aynı anda isterse tek ağ fetch'i yapılır.
+    Farklı hostlar birbirini bloke etmez.
+    """
     host = (host or "").strip().lower().lstrip("www.")
     if not host or " " in host or "." not in host:
         return []
-    simdi = time.time()
-    with _SITEMAP_KILIT:
-        kayit = _SITEMAP_CACHE.get(host)
-        if kayit and simdi - kayit["zaman"] < _SITEMAP_CACHE_SN:
-            return list(kayit["url"])
-
-    ana = "https://%s/sitemap.xml" % host
-    ham = _sitemap_cek(ana)
-    if not ham:
-        return []
-    tur, loclar = _xml_loclar(ham)
-    urller = []
-    if tur == "urlset":
-        urller = loclar[:_SITEMAP_MAX_URL]
-    elif tur == "sitemapindex":
-        # Önce ürün/katalog sitemapleri; sonra diğerleri. Ağ yükü sınırlı.
-        sirali = sorted(
-            loclar,
-            key=lambda u: (0 if any(k in u.lower()
-                                   for k in ("product", "urun", "shop"))
-                           else 1, u))
-        for alt in sirali[:_SITEMAP_MAX_DOSYA]:
-            alt_ham = _sitemap_cek(alt)
-            if not alt_ham:
-                continue
-            alt_tur, alt_loclar = _xml_loclar(alt_ham)
-            if alt_tur != "urlset":
-                continue
-            for u in alt_loclar:
-                if u not in urller:
-                    urller.append(u)
-                    if len(urller) >= _SITEMAP_MAX_URL:
-                        break
-            if len(urller) >= _SITEMAP_MAX_URL:
-                break
 
     with _SITEMAP_KILIT:
-        # Cache yalnız kamuya açık URL envanteridir; kullanıcı/fatura verisi yok.
-        if len(_SITEMAP_CACHE) >= 20:
-            en_eski = min(_SITEMAP_CACHE,
-                          key=lambda h: _SITEMAP_CACHE[h]["zaman"])
-            _SITEMAP_CACHE.pop(en_eski, None)
-        _SITEMAP_CACHE[host] = {"zaman": simdi, "url": list(urller)}
-    return urller
+        host_kilit = _SITEMAP_HOST_KILIT.setdefault(host, threading.Lock())
+
+    with host_kilit:
+        simdi = time.time()
+        with _SITEMAP_KILIT:
+            kayit = _SITEMAP_CACHE.get(host)
+            if kayit and simdi - kayit["zaman"] < _SITEMAP_CACHE_SN:
+                return list(kayit["url"])
+
+        ana = "https://%s/sitemap.xml" % host
+        ham = _sitemap_cek(ana)
+        if not ham:
+            return []
+        tur, loclar = _xml_loclar(ham)
+        urller = []
+        if tur == "urlset":
+            urller = loclar[:_SITEMAP_MAX_URL]
+        elif tur == "sitemapindex":
+            # Önce ürün/katalog sitemapleri; sonra diğerleri. Ağ yükü sınırlı.
+            sirali = sorted(
+                loclar,
+                key=lambda u: (
+                    0 if any(k in u.lower()
+                             for k in ("product", "urun", "shop")) else 1,
+                    u))
+            for alt in sirali[:_SITEMAP_MAX_DOSYA]:
+                alt_ham = _sitemap_cek(alt)
+                if not alt_ham:
+                    continue
+                alt_tur, alt_loclar = _xml_loclar(alt_ham)
+                if alt_tur != "urlset":
+                    continue
+                for u in alt_loclar:
+                    if u not in urller:
+                        urller.append(u)
+                        if len(urller) >= _SITEMAP_MAX_URL:
+                            break
+                if len(urller) >= _SITEMAP_MAX_URL:
+                    break
+
+        with _SITEMAP_KILIT:
+            # Cache yalnız kamuya açık URL envanteridir; kullanıcı/fatura verisi yok.
+            if len(_SITEMAP_CACHE) >= 20:
+                en_eski = min(_SITEMAP_CACHE,
+                              key=lambda h: _SITEMAP_CACHE[h]["zaman"])
+                _SITEMAP_CACHE.pop(en_eski, None)
+            _SITEMAP_CACHE[host] = {"zaman": simdi, "url": list(urller)}
+        return urller
 
 
 def site_haritasi_ara(site, terim, adet=8):
@@ -721,6 +732,38 @@ def _jsonld_dugumleri(deger):
         yield from _jsonld_dugumleri(varyantlar)
 
 
+def _jsonld_kurumlar(ham):
+    """Schema.org Organization/Corporation/Brand/WebSite kimliklerini çıkarır."""
+    import html as _html
+    sonuc = []
+    izinli = {"organization", "corporation", "localbusiness", "brand", "website"}
+    for parca in _JSONLD_RE.findall(ham or ""):
+        try:
+            veri = json.loads(_html.unescape(parca).strip())
+        except (TypeError, ValueError):
+            continue
+        for dugum in _jsonld_dugumleri(veri):
+            tur = dugum.get("@type")
+            turler = tur if isinstance(tur, list) else [tur]
+            if not any(str(t or "").lower() in izinli for t in turler):
+                continue
+            ad = str(dugum.get("name") or "").strip()
+            url = str(dugum.get("url") or dugum.get("@id") or "").strip()
+            same_as = dugum.get("sameAs")
+            same_as = same_as if isinstance(same_as, list) else [same_as]
+            kayit = {
+                "type": next((str(t) for t in turler if t), ""),
+                "name": ad,
+                "url": url,
+                "sameAs": [str(x) for x in same_as if x],
+            }
+            if (ad or url) and kayit not in sonuc:
+                sonuc.append(kayit)
+            if len(sonuc) >= 20:
+                return sonuc
+    return sonuc
+
+
 def _jsonld_urun(ham):
     """Schema.org Product/ProductGroup bloklarini dar JSON'a cevirir."""
     import html as _html
@@ -801,6 +844,7 @@ def urun_sayfasi_oku(url: str, _acici=None) -> dict:
             ham = resp.read(_MAX_HAM).decode("utf-8", errors="replace")
 
         urunler = _jsonld_urun(ham)
+        kurumlar = _jsonld_kurumlar(ham)
         temiz = re.sub(
             r'<(script|style|noscript)[^>]*>.*?</\1>',
             '', ham, flags=re.DOTALL | re.IGNORECASE)
@@ -839,6 +883,7 @@ def urun_sayfasi_oku(url: str, _acici=None) -> dict:
             "url": son_url,
             "metin": temiz[:50000],
             "urunler": urunler,
+            "kurumlar": kurumlar,
             "gorseller": gorseller,
         }, ensure_ascii=False)}
     except urllib.error.HTTPError as e:
