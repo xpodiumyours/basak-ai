@@ -155,7 +155,7 @@ def test_ucretsiz_kartlar_zincire_girer_ucretli_girmez():
 
 # ── BOLUM 2: 52/52/52 arac yapisal eslesmesi ────────────────────────
 
-def test_52_arac_uchalida_birebir():
+def test_55_arac_uchalida_birebir():
     """sema (definitions) <-> calistirma dali <-> ekran etiketi."""
     import re
     from tools.definitions import TOOLS, TANINMIS_TOOLLAR
@@ -165,21 +165,21 @@ def test_52_arac_uchalida_birebir():
     kaynak = open("tools/__init__.py", encoding="utf-8").read()
     dallar = set(re.findall(r"tool_name == \"([a-z_]+)\"", kaynak))
 
-    assert len(sema) == 53
-    assert len(TANINMIS_TOOLLAR) == 53
+    assert len(sema) == 55
+    assert len(TANINMIS_TOOLLAR) == 55
     assert sema == dallar, ("sema/dal farki", sema ^ dallar)
     eksik_etiket = sema - set(DURUM_METNI)
     assert not eksik_etiket, ("etiketsiz arac", eksik_etiket)
 
 
-def test_yetenek_katalogu_52_gercek_araci_kapsar():
+def test_yetenek_katalogu_55_gercek_araci_kapsar():
     from tools.definitions import TOOLS
     from tools.capabilities import CAPABILITY_NAMESPACES
 
     gercek = {t["function"]["name"] for t in TOOLS}
     katalog = {ad for grup in CAPABILITY_NAMESPACES.values() for ad in grup}
     assert katalog == gercek
-    assert len(katalog) == 53
+    assert len(katalog) == 55
 
 
 def test_katalog_daki_her_arac_gercekten_kosabilir():
@@ -399,13 +399,13 @@ def test_matris_kosucu_pilot_listesi_sekiz_arac_gercek_sema_es():
         assert arac in kosucu.SEMALAR, "%s semasi yok" % arac
 
 
-def test_matris_kosucu_52_semaya_bagli_tek_kaynak():
+def test_matris_kosucu_55_semaya_bagli_tek_kaynak():
     """Koşucunun sema kaynagi tools.TOOLS'in kendisi — kopya tablo yok."""
     from tests.live import kosucu
     from tools import TANINMIS_TOOLLAR
 
     assert set(kosucu.SEMALAR.keys()) == set(TANINMIS_TOOLLAR)
-    assert len(kosucu.SEMALAR) == 53
+    assert len(kosucu.SEMALAR) == 55
 
 
 def test_matris_kosucu_hucre_kaydi_yapisi(tmp_path, monkeypatch):

@@ -71,6 +71,8 @@ DURUM_METNI = {
     "cikti_oku": "Çıktı okunuyor",
     "sirket_ara": "Şirket bilgisi araştırılıyor",
     "hava_durumu": "Hava durumu okunuyor",
+    "freetools_ara": "freetools kataloğu aranıyor",
+    "freetools_calistir": "freetools aracı çalıştırılıyor",
     "yetenek_ac": "Araçlar açılıyor",
 }
 
