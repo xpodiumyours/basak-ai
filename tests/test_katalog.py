@@ -818,3 +818,11 @@ class TestCheckupTemizlik:
             "cikti_oku", {"is_id": is_id, "dosya": "kotu.csv"})
         assert "error" in calistir(
             "cikti_oku", {"is_id": "ktg_yok", "dosya": "vixrex_urunler.csv"})
+
+
+def test_genel_eslestirme_firma_kesfi_de_sinirli_paralel():
+    import inspect
+    kaynak = inspect.getsource(katalog.urun_eslestir)
+    assert "max_workers=min(3, max(1, len(gruplar)))" in kaynak
+    assert "max_workers=min(4, len(hedefler))" in kaynak
+    assert "deadline = time.monotonic() + 120.0" in kaynak

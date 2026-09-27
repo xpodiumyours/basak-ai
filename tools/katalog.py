@@ -1315,12 +1315,26 @@ def urun_eslestir(is_id, kart_id="", tum_kartlar=False):
         gruplar.setdefault(anahtar, []).append(kart)
 
     firma_haritasi = {}
-    for anahtar, grup in gruplar.items():
+
+    # Çok markalı faturada firma keşfi seri yapılmaz. En fazla 3 marka
+    # paralel araştırılır; hepsi aynı 120 sn iş bütçesini paylaşır.
+    def _firma_coz(oge):
+        anahtar, grup = oge
         if time.monotonic() >= deadline:
-            firma_haritasi[anahtar] = []
-            continue
-        firma_haritasi[anahtar] = product_resolver.firma_bul(
-            grup[0], deadline=deadline)
+            return anahtar, []
+        try:
+            return anahtar, product_resolver.firma_bul(
+                grup[0], deadline=deadline)
+        except Exception as e:
+            logger.warning("Firma cozumu hatasi (%s): %s", anahtar, e)
+            return anahtar, []
+
+    with ThreadPoolExecutor(max_workers=min(3, max(1, len(gruplar)))) as havuz:
+        firma_isleri = [havuz.submit(_firma_coz, oge)
+                        for oge in gruplar.items()]
+        for gelecek in as_completed(firma_isleri):
+            anahtar, adaylar = gelecek.result()
+            firma_haritasi[anahtar] = adaylar
 
     def _coz(kart):
         anahtar = kodu_normla(kart.get("marka", "")) or ("#" + kart["kart_id"])
