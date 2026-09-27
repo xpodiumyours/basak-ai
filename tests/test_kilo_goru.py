@@ -100,3 +100,28 @@ def test_kalite_reddi_siradaki_goze_gecer(monkeypatch, tmp_path):
     assert sonuc["result"] == "tamam"
     assert sonuc["yedek"] == "kilo"
     assert cagrilar == ["gemini", "kilo"]
+
+
+def test_varsayilan_goruntu_butcesi_tum_yedeklere_ortak(monkeypatch, tmp_path):
+    import time
+    foto = tmp_path / "foto.jpg"
+    foto.write_bytes(b"test")
+    monkeypatch.setattr(ga, "_nvidia_key_al", lambda: "")
+    gorulen = []
+
+    def gemini(*args, **kwargs):
+        gorulen.append(kwargs.get("deadline_monotonic"))
+        return {"error": "gecici"}
+
+    def kilo(*args, **kwargs):
+        gorulen.append(kwargs.get("deadline_monotonic"))
+        return {"result": "gordum", "model": "kilo"}
+
+    monkeypatch.setattr(ga, "_gemini_goru", gemini)
+    monkeypatch.setattr(ga, "_kilo_goru", kilo)
+    bas = time.monotonic()
+    sonuc = ga.image_analyze(str(foto), "Ne goruyorsun?")
+    assert sonuc["result"] == "gordum"
+    assert len(gorulen) == 2
+    assert gorulen[0] == gorulen[1]
+    assert bas < gorulen[0] <= bas + ga.GORUNTU_TOPLAM_BUTCE_SN + 1

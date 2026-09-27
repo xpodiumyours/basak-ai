@@ -267,7 +267,20 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     if not ilk_muhakeme and mesajlar:
         ilk_muhakeme = _muhakeme_al(mesajlar[-1])
 
+    def _mola_ver():
+        _web_olay(js_callback, "checkpoint", adim=kosan, turn=tur_no)
+        if run_state is not None:
+            run_state.pause("sure")
+            emit_run_state(js_callback, run_state)
+
     while tool_calls:
+        # Mola eşiği geçmişse yeni araç başlatılmaz. Bu, uzun bir model
+        # turunun ardından pahalı bir aracın 300 sn sert tavana taşmasını
+        # önleyen sunucu-zamanı kapısıdır; araç seçimine müdahale etmez.
+        if mola_zamani is not None and _zaman.monotonic() >= mola_zamani:
+            _mola_ver()
+            return "", kosan
+
         tur_no += 1
         tur_sonuclari = []
 
@@ -442,10 +455,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
         # Sure dolmak uzereyse yeni model turu baslatma; karari kullaniciya
         # birak. Bu tur arac sonuclari handoff'a zaten yazildi.
         if mola_zamani is not None and _zaman.monotonic() >= mola_zamani:
-            _web_olay(js_callback, "checkpoint", adim=kosan, turn=tur_no)
-            if run_state is not None:
-                run_state.pause("sure")
-                emit_run_state(js_callback, run_state)
+            _mola_ver()
             return "", kosan
 
         # Gercek tool-result ayni run icinde modele geri gider.

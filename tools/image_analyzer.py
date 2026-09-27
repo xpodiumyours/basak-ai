@@ -27,6 +27,17 @@ _NVIDIA_SERINLEME = 0.0
 _NVIDIA_SERINME_SURE = 300.0
 _NVIDIA_BUYUK_ESIK = 700 * 1024
 
+# app.py 180 sn'de mola verir, Vercel sert tavanı 300 sn'dir.
+# Bir görsel işi en geç 90 sn'de kendi içinde sonuçlanır; böylece
+# mola eşiğinden hemen önce başlayan görsel işi dahi dönüş payı bırakır.
+GORUNTU_TOPLAM_BUTCE_SN = 90.0
+_SAGLAYICI_BUTCE_SN = {
+    "nvidia": 35.0,
+    "gemini": 35.0,
+    "kilo": 25.0,
+}
+_MIN_CAGRI_SN = 3.0
+
 # Desteklenen formatlar
 DESTEKLENEN = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tiff")
 
@@ -50,12 +61,26 @@ def _nvidia_key_al() -> str:
 
 
 
-def _kalan_sure(deadline_monotonic, varsayilan):
-    """Toplam is butcesinden bu cagriya kalabilecek saniyeyi hesaplar."""
+def _deadline(deadline_monotonic=None):
+    """Her görüntü işi için tek monotonik son zamanı üretir."""
     if deadline_monotonic is None:
-        return float(varsayilan)
-    kalan = float(deadline_monotonic) - time.monotonic()
+        return time.monotonic() + GORUNTU_TOPLAM_BUTCE_SN
+    return float(deadline_monotonic)
+
+
+def _kalan_sure(deadline_monotonic, varsayilan):
+    """Toplam iş bütçesinden bu çağrıya kalabilecek saniyeyi hesaplar."""
+    deadline_monotonic = _deadline(deadline_monotonic)
+    kalan = deadline_monotonic - time.monotonic()
     return max(0.0, min(float(varsayilan), kalan))
+
+
+def _b64_bayt_boyutu(veri):
+    """Base64 metninin yaklaşık ham bayt boyutu; tekrar decode etmez."""
+    if not veri:
+        return 0
+    dolgu = 2 if veri.endswith("==") else 1 if veri.endswith("=") else 0
+    return max(0, (len(veri) * 3) // 4 - dolgu)
 
 
 def _goruntu_b64(goruntu_yolu: str) -> tuple[str, str]:
@@ -113,8 +138,8 @@ def _gemini_goru(yol, soru, deadline_monotonic=None):
             anahtar = ayar.get("gemini_key", "") if isinstance(ayar, dict) else ""
         if not str(anahtar or "").strip():
             return {"error": "Gemini anahtari yok"}
-        sure = _kalan_sure(deadline_monotonic, 35.0 if deadline_monotonic is not None else 60.0)
-        if sure < 3.0:
+        sure = _kalan_sure(deadline_monotonic, _SAGLAYICI_BUTCE_SN["gemini"])
+        if sure < _MIN_CAGRI_SN:
             return {"error": "Goruntu okuma zaman butcesi doldu"}
         from openai import OpenAI as _OpenAI
         import time as _zaman
@@ -145,8 +170,8 @@ def _gemini_goru(yol, soru, deadline_monotonic=None):
 def _kilo_goru(yol, soru, deadline_monotonic=None):
     """Ucuncu goz: Kilo Step 3.7 Flash. Cagri butceyle sinirlidir."""
     try:
-        sure = _kalan_sure(deadline_monotonic, 25.0 if deadline_monotonic is not None else 60.0)
-        if sure < 3.0:
+        sure = _kalan_sure(deadline_monotonic, _SAGLAYICI_BUTCE_SN["kilo"])
+        if sure < _MIN_CAGRI_SN:
             return {"error": "Goruntu okuma zaman butcesi doldu"}
         from brain.kilo import KiloClient
         img_b64, mime = _goruntu_b64(yol)
@@ -170,8 +195,14 @@ def _kilo_goru(yol, soru, deadline_monotonic=None):
 def image_analyze(goruntu_yolu: str, soru: str = None,
                   model: str = None, deadline_monotonic=None,
                   kabul=None) -> dict:
-    """Tek seferlik, butceli saglayici zinciriyle goruntu analiz eder."""
+    """Tek bütçeli sağlayıcı zinciriyle görüntü analiz eder.
+
+    Sağlayıcı sırası sabittir; her sağlayıcı en fazla bir kez denenir.
+    Çağıran taraf isterse kabul fonksiyonu ile kalite kapısı verir.
+    Karar kullanıcı metninden çıkarılmaz. Varsayılan bütçe 90 saniyedir.
+    """
     global _NVIDIA_SERINLEME
+    deadline_monotonic = _deadline(deadline_monotonic)
     if not goruntu_yolu or not os.path.isfile(goruntu_yolu):
         return {"error": f"Dosya bulunamadı: {goruntu_yolu}"}
     uzanti = os.path.splitext(goruntu_yolu)[1].lower()
@@ -204,11 +235,11 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
             from openai import OpenAI
             img_b64, mime = _goruntu_b64(goruntu_yolu)
             soru2 = (soru or "").strip() or "Bu görüntüyü açıkla."
-            varsayilan = 25.0 if len(img_b64) > _NVIDIA_BUYUK_ESIK else 60.0
-            if deadline_monotonic is not None:
-                varsayilan = min(varsayilan, 35.0)
+            varsayilan = _SAGLAYICI_BUTCE_SN["nvidia"]
+            if _b64_bayt_boyutu(img_b64) > _NVIDIA_BUYUK_ESIK:
+                varsayilan = min(varsayilan, 25.0)
             sure = _kalan_sure(deadline_monotonic, varsayilan)
-            if sure < 3.0:
+            if sure < _MIN_CAGRI_SN:
                 hatalar.append("nvidia: goruntu okuma zaman butcesi doldu")
             else:
                 client = OpenAI(api_key=nvidia_key,
@@ -236,12 +267,12 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
             if "timed out" in str(e).lower() or "timeout" in str(e).lower():
                 _NVIDIA_SERINLEME = time.time()
             hatalar.append("nvidia: %s" % str(e)[:180])
-    if _kalan_sure(deadline_monotonic, 3600.0) >= 3.0:
+    if _kalan_sure(deadline_monotonic, GORUNTU_TOPLAM_BUTCE_SN) >= _MIN_CAGRI_SN:
         sonuc = _gemini_goru(goruntu_yolu, soru, deadline_monotonic=deadline_monotonic)
         kabul_edilen = _degerlendir("gemini", sonuc, yedek=True)
         if kabul_edilen is not None:
             return kabul_edilen
-    if _kalan_sure(deadline_monotonic, 3600.0) >= 3.0:
+    if _kalan_sure(deadline_monotonic, GORUNTU_TOPLAM_BUTCE_SN) >= _MIN_CAGRI_SN:
         sonuc = _kilo_goru(goruntu_yolu, soru, deadline_monotonic=deadline_monotonic)
         kabul_edilen = _degerlendir("kilo", sonuc, yedek=True)
         if kabul_edilen is not None:
@@ -274,7 +305,7 @@ def image_analyze_url(gorsel_url: str, soru: str = None,
         if not soru:
             soru = "Bu görüntüyü açıkla."
 
-        client = OpenAI(api_key=nvidia_key, base_url="https://integrate.api.nvidia.com/v1", timeout=60.0, max_retries=0)
+        client = OpenAI(api_key=nvidia_key, base_url="https://integrate.api.nvidia.com/v1", timeout=_SAGLAYICI_BUTCE_SN["nvidia"], max_retries=0)
 
         t0 = time.time()
         resp = client.chat.completions.create(

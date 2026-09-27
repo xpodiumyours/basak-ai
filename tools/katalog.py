@@ -64,9 +64,6 @@ DESTEK_UZANTI = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp",
                  ".tiff")
 MAX_BOYUT = 10 * 1024 * 1024
 
-# Fatura gozunun tum saglayicilar dahil toplam butcesi.
-FATURA_GOZ_BUTCE_SN = 90.0
-
 # Belge uzantıları
 DESTEK_BELGE = (".jpg", ".jpeg", ".png", ".webp", ".pdf")
 
@@ -409,17 +406,11 @@ def _aday_satirlar(yazi):
     return adaylar
 
 
-_GECICI_HATA = ("503", "429", "timed out", "timeout", "connection",
-                "overloaded", "try again", "rate")
-
-
-def _gecici_mi(hata):
-    h = str(hata or "").lower()
-    return any(k in h for k in _GECICI_HATA)
-
-
 def _okuma_yarim(yazi):
-    """Okuma sağlıksızsa yarım sayılır: tekrar denenir, hata değildir.
+    """Okuma sağlıksızsa yarım sayılır ve başarı olarak kabul edilmez.
+
+    Bulut zincirinde kalite kapısını geçmeyen sonuç sıradaki sağlayıcıya
+    devredilir. Fatura katmanı aynı sağlayıcı çağrısını tekrar etmez.
 
     2026-09-26 ölçümleri (üç gerçek vaka):
     - Tablo yarım transkript edilip Toplam satırına varmadan durabilir.
@@ -535,8 +526,8 @@ def fatura_oku(fatura_id):
     if os.path.splitext(yol)[1].lower() == ".pdf":
         return {"error": ("PDF okuma bu sürümde yok; "
                           "faturanın fotoğrafını gönder.")}
-    deadline = time.monotonic() + FATURA_GOZ_BUTCE_SN
-    from tools import yerel_goru
+    from tools import image_analyzer, yerel_goru
+    deadline = time.monotonic() + image_analyzer.GORUNTU_TOPLAM_BUTCE_SN
     kaynak = ""
     sonuc = None
     if yerel_goru.musait():
@@ -551,7 +542,6 @@ def fatura_oku(fatura_id):
             logger.info("Yerel goz devretti: %s", sonuc["error"])
             sonuc = None
     if sonuc is None:
-        from tools import image_analyzer
         sonuc = image_analyzer.image_analyze(
             yol, GORUNTU_SORUSU, deadline_monotonic=deadline,
             kabul=lambda yazi: not _okuma_yarim(yazi))
@@ -565,12 +555,15 @@ def fatura_oku(fatura_id):
         return {"error": ("Görüntü okundu ancak kalite kapısını geçemedi; "
                           "satır/adet/toplam doğrulanamadı.")}
     ust = _ustbilgi_cikar(yazi)
+    saglayici = sonuc.get("yedek") or sonuc.get("model", "")
     _oku_kaydet(fatura_id, {"yazi": yazi, "ustbilgi": ust,
                             "model": sonuc.get("model",""),
+                            "saglayici": saglayici,
                             "kaynak": kaynak, "okuma": _simdi()})
     return {"result": _j({"fatura_id": fatura_id, "yazi": yazi,
                           "aday_satirlar": _aday_satirlar(yazi),
                           "ustbilgi": ust, "kaynak": kaynak,
+                          "saglayici": saglayici,
                           "model": sonuc.get("model","")})}
 
 # ── F3: doğrulama + aile birleştirme ──────────────────────────────

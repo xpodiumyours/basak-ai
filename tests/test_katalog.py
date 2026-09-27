@@ -175,8 +175,9 @@ class TestFaturaOku:
         monkeypatch.setattr(
             ga, "image_analyze",
             lambda yol, soru=None, model=None, **kwargs: {
-                "result": "Tutku TK-102 S 5 adet 120,50 TL "
-                          "8691234567890\nBerrak elbise",
+                "result": "Tutku TK-102 S 5 ad 120,50 TL "
+                          "8691234567890\n"
+                          "Toplam: 5 ad 1 dz 602,50 TL",
                 "model": "sahte"})
         r = katalog.fatura_oku("gln_b2")
         assert "result" in r, r
@@ -237,21 +238,23 @@ class TestFaturaOku:
         yazi = satir * 6 + "Toplam: 81,00 TL"
         assert katalog._okuma_yarim(yazi) is True
 
-    def test_yarim_okuma_son_denemede_kabul(self, tmp_path, monkeypatch):
-        """Hep yarım okursa 4. denemede yarım metinle yetinilir."""
+    def test_yarim_okuma_kabul_edilmez_ve_ic_retry_yok(
+            self, tmp_path, monkeypatch):
+        """Yarım OCR başarı sayılmaz; fatura katmanı aynı işi tekrarlamaz."""
         import tools.image_analyzer as ga
         monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
         (tmp_path / "gln_c6.jpg").write_bytes(b"\xff\xd8sahte")
         cagrilar = []
 
-        def hep_yarim(yol, soru=None, model=None):
+        def hep_yarim(yol, soru=None, model=None, **kwargs):
             cagrilar.append(yol)
             return {"result": "ELT1302 2 ad", "model": "sahte"}
 
         monkeypatch.setattr(ga, "image_analyze", hep_yarim)
         r = katalog.fatura_oku("gln_c6")
-        assert "result" in r, r
-        assert len(cagrilar) == 4
+        assert "error" in r, r
+        assert "kalite" in r["error"]
+        assert len(cagrilar) == 1
 
 
 class TestYerelGoru:
@@ -263,11 +266,12 @@ class TestYerelGoru:
         (tmp_path / "gln_y1.jpg").write_bytes(b"\xff\xd8sahte")
         monkeypatch.setattr(
             ga, "image_analyze",
-            lambda yol, soru=None, model=None, **kwargs: {"result": "bulut yazı",
-                                                "model": "sahte"})
+            lambda yol, soru=None, model=None, **kwargs: {
+                "result": "bulut yazı 2 ad\nToplam: 2 ad 1 dz 5,00 TL",
+                "model": "sahte"})
         veri = json.loads(katalog.fatura_oku("gln_y1")["result"])
         assert veri["kaynak"] == "bulut"
-        assert veri["yazi"] == "bulut yazı"
+        assert veri["yazi"].startswith("bulut yazı")
 
     def test_yerel_once_buluta_değmez(self, tmp_path, monkeypatch):
         from tools import yerel_goru
@@ -275,9 +279,9 @@ class TestYerelGoru:
         dokunuldu = []
         monkeypatch.setattr(
             yerel_goru, "oku",
-            lambda yol, soru: {"result": "yerel yazı 2 ad\n"
-                                        "Toplam: 2 ad 1 dz 5,00 TL",
-                               "model": "sahte-goz"})
+            lambda yol, soru, **kwargs: {"result": "yerel yazı 2 ad\n"
+                                                  "Toplam: 2 ad 1 dz 5,00 TL",
+                                         "model": "sahte-goz"})
         import tools.image_analyzer as ga
         monkeypatch.setattr(
             ga, "image_analyze",
@@ -293,12 +297,14 @@ class TestYerelGoru:
         from tools import yerel_goru
         monkeypatch.setattr(yerel_goru, "musait", lambda: True)
         monkeypatch.setattr(
-            yerel_goru, "oku", lambda yol, soru: {"error": "göz kapalı"})
+            yerel_goru, "oku",
+            lambda yol, soru, **kwargs: {"error": "göz kapalı"})
         import tools.image_analyzer as ga
         monkeypatch.setattr(
             ga, "image_analyze",
-            lambda yol, soru=None, model=None, **kwargs: {"result": "bulut yazı",
-                                                "model": "sahte"})
+            lambda yol, soru=None, model=None, **kwargs: {
+                "result": "bulut yazı 2 ad\nToplam: 2 ad 1 dz 5,00 TL",
+                "model": "sahte"})
         monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
         (tmp_path / "gln_y3.jpg").write_bytes(b"\xff\xd8sahte")
         veri = json.loads(katalog.fatura_oku("gln_y3")["result"])

@@ -515,6 +515,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         if state.status == "paused":
             # Karar kullanicida: devam / cevap / yon. Hata degil.
             return
+        if state.status == "paused":
+            return
         cevap = _temizle(cevap)
         if cevap:
             tamam = not bool(state.truncated_reason)
@@ -578,7 +580,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                     cevap, kosan = arac_dongusu(
                         _tc, mesajlar, brain, model, js_callback,
                         calistir, tools=etkin_tools,
-                        yanit={"tool_calls": _tc, **_muh}, katalog=katalog)
+                        yanit={"tool_calls": _tc, **_muh},
+                        run_state=state, katalog=katalog,
+                        mola_zamani=mola_zamani)
                 except AracSonrasiHatasi as e:
                     js_callback("BasakUI.error(" + _j(
                         _arac_sonrasi_hata_mesaji(e)) + ")")
@@ -586,6 +590,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 except Exception as e:
                     logger.warning("Akis-arac turu basarisiz: %s", e)
                     cevap, kosan = "", 0
+                if state.status == "paused":
+                    return
                 cevap = _temizle(cevap)
                 if cevap:
                     _kaydet(text, cevap, kaynak or "bulut", gecmis,
@@ -623,7 +629,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         try:
             cevap, kosan = arac_dongusu(
                 tool_calls, mesajlar, brain, model, js_callback, calistir,
-                tools=etkin_tools, yanit=yanit, katalog=katalog)
+                tools=etkin_tools, yanit=yanit, run_state=state,
+                katalog=katalog, mola_zamani=mola_zamani)
         except AracSonrasiHatasi as e:
             js_callback("BasakUI.error(" + _j(
                 _arac_sonrasi_hata_mesaji(e)) + ")")

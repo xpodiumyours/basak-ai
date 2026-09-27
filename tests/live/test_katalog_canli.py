@@ -37,9 +37,10 @@ def _sentetik_fatura():
     satirlar = [
         "TUTKU TEKSTIL - SATIS TEKLIF FORMU",
         "Tarih: 14.09.2026",
-        "TK-102 Siyah S 5 adet 120,50 TL 8691234567890",
-        "TK-102 Siyah M 3 adet 120,50 TL 8691234567891",
-        "BR-7 Beyaz L 2 adet 200 TL",
+        "TK-102 Siyah S 5 ad 120,50 TL 8691234567890",
+        "TK-102 Siyah M 3 ad 120,50 TL 8691234567891",
+        "BR-7 Beyaz L 2 ad 200 TL",
+        "Toplam: 10 ad 1 dz 1.364,00 TL",
     ]
     y = 30
     for satir in satirlar:
