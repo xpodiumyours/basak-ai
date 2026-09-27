@@ -126,3 +126,12 @@ def test_tum_arac_yollari_ayni_mola_zamanini_tasir():
     kaynak = inspect.getsource(flow.mesaj_isle)
     assert kaynak.count("mola_zamani=mola_zamani") == 3
     assert kaynak.count("run_state=state") >= 3
+
+    # Her gerçek arac_dongusu çağrısından sonra, bir sonraki araç yoluna
+    # geçmeden önce paused kapısı bulunmalı. Aynı yerde iki kez yazılmış
+    # bir kontrol başka bir yolun eksik kontrolünü maskeleyemez.
+    parcalar = kaynak.split("arac_dongusu(")[1:]
+    assert len(parcalar) == 3
+    for parca in parcalar:
+        ilk_yol = parca.split("arac_dongusu(", 1)[0]
+        assert 'if state.status == "paused":' in ilk_yol

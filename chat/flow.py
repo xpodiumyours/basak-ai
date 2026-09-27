@@ -515,8 +515,6 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         if state.status == "paused":
             # Karar kullanicida: devam / cevap / yon. Hata degil.
             return
-        if state.status == "paused":
-            return
         cevap = _temizle(cevap)
         if cevap:
             tamam = not bool(state.truncated_reason)
@@ -634,6 +632,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         except AracSonrasiHatasi as e:
             js_callback("BasakUI.error(" + _j(
                 _arac_sonrasi_hata_mesaji(e)) + ")")
+            return
+        if state.status == "paused":
+            # Tek-seferlik fallback da checkpoint'i hata saymaz.
             return
         cevap = _temizle(cevap)
         if cevap:
