@@ -1,0 +1,454 @@
+"""tools/product_resolver.py — Faturadaki urunu kamuya acik webde kanitla.
+
+Amac:
+- marka listesine bagli kalmadan firma / resmi kaynak adayi bulmak,
+- barkod/GTIN > SKU/MPN > marka+varyant kanit sirasini kullanmak,
+- Schema.org Product/ProductGroup verisini duz metinle birlikte okumak,
+- pazar yeri / sosyal ag sonucunu "resmi kaynak" diye isaretlememek,
+- kanit yetersizse tahmin etmek yerine dogrulanamadi demek.
+
+Bu modul yayin izni vermez. Yalniz urun kimligi ve kaynak kaniti uretir.
+"""
+
+import json
+import re
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import urlparse
+
+_URL_RE = re.compile(r"https?://[^\s\"'<>]+")
+_GTIN_RE = re.compile(r"^\d{8,14}$")
+_URUN_YOL = ("urun", "product", "products", "p/", "item", "model")
+_KATEGORI_YOL = ("kategori", "category", "search", "arama", "koleksiyon")
+_URETIM_IPUCU = (
+    "üretici", "uretici", "üretim", "uretim", "manufacturer",
+    "fabrika", "imalat", "marka sahibi", "brand owner", "üretmektedir",
+    "uretmektedir",
+)
+_RESMI_SATIS_IPUCU = (
+    "resmi satış", "resmi satis", "official store", "resmi mağaza",
+    "resmi magaza", "resmi satış sitesi", "resmi satis sitesi",
+)
+_ENGELLI_HOST = (
+    "trendyol.com", "hepsiburada.com", "n11.com", "amazon.",
+    "pazarama.com", "ciceksepeti.com", "akakce.com", "cimri.com",
+    "epey.com", "facebook.com", "instagram.com", "linkedin.com",
+    "youtube.com", "tiktok.com", "pinterest.", "x.com", "twitter.com",
+)
+_TR = str.maketrans({
+    "ç": "c", "Ç": "c", "ğ": "g", "Ğ": "g", "ı": "i", "İ": "i",
+    "ö": "o", "Ö": "o", "ş": "s", "Ş": "s", "ü": "u", "Ü": "u",
+})
+
+
+def _norm(deger):
+    return re.sub(r"[^a-z0-9]", "", str(deger or "").translate(_TR).lower())
+
+
+def _host(url):
+    try:
+        return (urlparse(str(url or "")).hostname or "").lower().lstrip("www.")
+    except ValueError:
+        return ""
+
+
+def _host_engelli(host):
+    host = str(host or "").lower()
+    return any(host == h or host.endswith("." + h) or h in host
+               for h in _ENGELLI_HOST)
+
+
+def gtin_gecerli(deger):
+    """GTIN-8/12/13/14 check digit dogrulamasi."""
+    s = re.sub(r"\D", "", str(deger or ""))
+    if len(s) not in (8, 12, 13, 14) or not _GTIN_RE.fullmatch(s):
+        return False
+    govde = s[:-1]
+    toplam = sum(
+        int(rakam) * (3 if i % 2 == 0 else 1)
+        for i, rakam in enumerate(reversed(govde))
+    )
+    kontrol = (10 - (toplam % 10)) % 10
+    return kontrol == int(s[-1])
+
+
+def kart_kimligi(kart):
+    kart = kart if isinstance(kart, dict) else {}
+    barkodlar = []
+    for v in kart.get("varyantlar") or []:
+        if not isinstance(v, dict):
+            continue
+        b = re.sub(r"\D", "", str(v.get("barkod") or ""))
+        if b and b not in barkodlar:
+            barkodlar.append(b)
+    return {
+        "marka": str(kart.get("marka") or "").strip(),
+        "sku": str(kart.get("kod") or "").strip(),
+        "ad": str(kart.get("ad") or "").strip(),
+        "barkodlar": barkodlar,
+        "gtinler": [b for b in barkodlar if gtin_gecerli(b)],
+        "renkler": sorted({str(v.get("renk") or "").strip()
+                           for v in (kart.get("varyantlar") or [])
+                           if isinstance(v, dict) and v.get("renk")}),
+        "bedenler": sorted({str(v.get("beden") or "").strip()
+                            for v in (kart.get("varyantlar") or [])
+                            if isinstance(v, dict) and v.get("beden")}),
+    }
+
+
+def _arama_kayitlari(metin):
+    """web_search BASLIK/URL/METIN bloklarini yapiya cevirir."""
+    sonuc = []
+    for blok in re.split(r"\n\s*\n", str(metin or "")):
+        satirlar = [s.strip() for s in blok.splitlines() if s.strip()]
+        if not satirlar:
+            continue
+        url = next((s for s in satirlar if s.startswith(("http://", "https://"))), "")
+        if not url:
+            continue
+        i = satirlar.index(url)
+        baslik = " ".join(satirlar[:i])
+        ozet = " ".join(satirlar[i + 1:])
+        sonuc.append({"url": url, "baslik": baslik, "ozet": ozet})
+    return sonuc
+
+
+def _kimlik_metinleri(kimlik):
+    degerler = []
+    degerler.extend(kimlik.get("gtinler") or [])
+    sku = str(kimlik.get("sku") or "").strip()
+    if sku:
+        degerler.append(sku)
+    return degerler
+
+
+def _firma_sorgulari(kimlik):
+    marka = str(kimlik.get("marka") or "").strip()
+    sku = str(kimlik.get("sku") or "").strip()
+    gtin = (kimlik.get("gtinler") or [""])[0]
+    q = []
+    if gtin:
+        q.append('"%s" "%s"' % (gtin, marka) if marka else '"%s"' % gtin)
+    if marka and sku:
+        q.append('"%s" "%s" ürün' % (marka, sku))
+    if marka:
+        q.append('"%s" üretici resmi site' % marka)
+        q.append('"%s" üretim iletişim' % marka)
+    return list(dict.fromkeys(x for x in q if x.strip()))[:4]
+
+
+def _kaynak_sinifi(host, metin, marka):
+    h = _norm(host)
+    m = _norm(marka)
+    t = str(metin or "").lower()
+    marka_var = bool(m and (m in _norm(metin) or m in h))
+    if marka_var and any(k in t for k in _URETIM_IPUCU):
+        return "uretici_adayi", ["marka", "uretim_beyani"]
+    if marka_var and m and m in h:
+        return "marka_alani_adayi", ["marka", "marka_domaini"]
+    if marka_var and any(k in t for k in _RESMI_SATIS_IPUCU):
+        return "resmi_satis_adayi", ["marka", "resmi_satis_beyani"]
+    return "ticari_kaynak", (["marka"] if marka_var else [])
+
+
+def _firma_ilk_skor(kayit, kimlik):
+    metin = "%s %s" % (kayit.get("baslik", ""), kayit.get("ozet", ""))
+    host = _host(kayit.get("url"))
+    skor = 0
+    kanit = []
+    marka = _norm(kimlik.get("marka"))
+    if marka and marka in _norm(host):
+        skor += 15
+        kanit.append("marka_domaini")
+    if marka and marka in _norm(metin):
+        skor += 8
+        kanit.append("marka_arama_sonucu")
+    for kimlik_degeri in _kimlik_metinleri(kimlik):
+        if _norm(kimlik_degeri) and _norm(kimlik_degeri) in _norm(metin):
+            skor += 10
+            kanit.append("urun_kimligi_arama_sonucu")
+            break
+    t = metin.lower()
+    if any(k in t for k in _URETIM_IPUCU):
+        skor += 8
+        kanit.append("uretim_beyani")
+    if any(k in t for k in _RESMI_SATIS_IPUCU):
+        skor += 4
+        kanit.append("resmi_satis_beyani")
+    return skor, kanit
+
+
+def firma_bul(kart_veya_kimlik, ws=None, deadline=None):
+    """Turkiye odakli web aramasindan firma / birincil kaynak adaylari bulur.
+
+    Sabit firma listesi gerektirmez. Sonuc kanitli aday listesidir; firma
+    bulunamamasi urun kimligini uydurma yetkisi vermez.
+    """
+    if ws is None:
+        from tools import web_search as ws
+    kimlik = (kart_veya_kimlik if isinstance(kart_veya_kimlik, dict)
+              and "gtinler" in kart_veya_kimlik
+              else kart_kimligi(kart_veya_kimlik))
+    sorgular = _firma_sorgulari(kimlik)
+    if not sorgular:
+        return []
+    deadline = float(deadline or (time.monotonic() + 45.0))
+
+    kayitlar = []
+    def _ara(q):
+        if time.monotonic() >= deadline:
+            return []
+        r = ws.web_search(q, adet=10)
+        return [] if r.get("error") else _arama_kayitlari(r.get("result", ""))
+
+    with ThreadPoolExecutor(max_workers=min(3, len(sorgular))) as havuz:
+        for gelecekte in as_completed([havuz.submit(_ara, q) for q in sorgular]):
+            try:
+                kayitlar.extend(gelecekte.result())
+            except Exception:
+                continue
+
+    hostlar = {}
+    for kayit in kayitlar:
+        host = _host(kayit["url"])
+        if not host or _host_engelli(host):
+            continue
+        skor, kanit = _firma_ilk_skor(kayit, kimlik)
+        mevcut = hostlar.get(host)
+        if mevcut is None or skor > mevcut["skor"]:
+            hostlar[host] = {
+                "host": host, "site": "https://" + host,
+                "kaynak": kayit["url"], "skor": skor,
+                "kanitlar": list(kanit),
+            }
+
+    adaylar = sorted(hostlar.values(), key=lambda x: x["skor"], reverse=True)[:6]
+    sonuc = []
+    for aday in adaylar:
+        if time.monotonic() >= deadline:
+            break
+        okuma = ws.urun_sayfasi_oku(aday["kaynak"])
+        if okuma.get("error"):
+            continue
+        try:
+            veri = json.loads(okuma["result"])
+        except (TypeError, ValueError):
+            continue
+        metin = str(veri.get("metin") or "")
+        tur, ek = _kaynak_sinifi(aday["host"], metin, kimlik.get("marka"))
+        skor = aday["skor"]
+        if tur == "uretici_adayi":
+            skor += 25
+        elif tur == "marka_alani_adayi":
+            skor += 18
+        elif tur == "resmi_satis_adayi":
+            skor += 8
+        sonuc.append({
+            **aday, "kaynak_turu": tur, "skor": skor,
+            "kanitlar": list(dict.fromkeys(aday["kanitlar"] + ek)),
+        })
+    return sorted(sonuc, key=lambda x: x["skor"], reverse=True)[:4]
+
+
+def _urun_sorgulari(kimlik, firma_adaylari):
+    gtin = (kimlik.get("gtinler") or [""])[0]
+    sku = str(kimlik.get("sku") or "").strip()
+    marka = str(kimlik.get("marka") or "").strip()
+    sorgular = []
+    for firma in (firma_adaylari or [])[:3]:
+        host = firma.get("host")
+        if not host:
+            continue
+        if gtin:
+            sorgular.append('site:%s "%s"' % (host, gtin))
+        if sku:
+            sorgular.append('site:%s "%s"' % (host, sku))
+    if gtin:
+        sorgular.append('"%s" "%s"' % (gtin, marka) if marka else '"%s"' % gtin)
+    if marka and sku:
+        sorgular.append('"%s" "%s"' % (marka, sku))
+    return list(dict.fromkeys(sorgular))[:8]
+
+
+def _structured_degerler(urunler, alan):
+    sonuc = []
+    for u in urunler or []:
+        if not isinstance(u, dict):
+            continue
+        deger = u.get(alan)
+        if isinstance(deger, list):
+            adaylar = deger
+        else:
+            adaylar = [deger]
+        for a in adaylar:
+            if isinstance(a, dict):
+                a = a.get("name") or a.get("@id") or a.get("url")
+            if a is not None:
+                s = str(a).strip()
+                if s and s not in sonuc:
+                    sonuc.append(s)
+    return sonuc
+
+
+def _sayfa_skor(kimlik, url, veri, firma):
+    metin = str(veri.get("metin") or "")
+    urunler = veri.get("urunler") or []
+    norm_metin = _norm(metin)
+    marka = _norm(kimlik.get("marka"))
+    sku = _norm(kimlik.get("sku"))
+    gtinler = {_norm(x) for x in kimlik.get("gtinler") or []}
+    yap_sku = {_norm(x) for x in _structured_degerler(urunler, "sku")}
+    yap_mpn = {_norm(x) for x in _structured_degerler(urunler, "mpn")}
+    yap_gtin = {_norm(x) for x in _structured_degerler(urunler, "gtin")}
+    yap_marka = {_norm(x) for x in _structured_degerler(urunler, "brand")}
+    kanit = []
+    skor = 0
+    kimlik_kaniti = False
+
+    if gtinler and gtinler & yap_gtin:
+        skor += 60; kanit.append("gtin_yapilandirilmis"); kimlik_kaniti = True
+    elif gtinler and any(g and g in norm_metin for g in gtinler):
+        skor += 38; kanit.append("gtin_sayfa"); kimlik_kaniti = True
+
+    if sku and (sku in yap_sku or sku in yap_mpn):
+        skor += 45; kanit.append("sku_yapilandirilmis"); kimlik_kaniti = True
+    elif sku and sku in norm_metin:
+        skor += 26; kanit.append("sku_sayfa"); kimlik_kaniti = True
+
+    if marka and marka in yap_marka:
+        skor += 20; kanit.append("marka_yapilandirilmis")
+    elif marka and marka in norm_metin:
+        skor += 10; kanit.append("marka_sayfa")
+
+    if urunler:
+        skor += 10; kanit.append("schema_product")
+
+    yol = (urlparse(url).path or "").lower()
+    if any(k in yol for k in _URUN_YOL):
+        skor += 5; kanit.append("urun_yolu")
+    if any(k in yol for k in _KATEGORI_YOL):
+        skor -= 12; kanit.append("kategori_yolu")
+
+    kaynak_turu = (firma or {}).get("kaynak_turu", "ticari_kaynak")
+    if kaynak_turu == "uretici_adayi":
+        skor += 20; kanit.append("uretici_kaynagi")
+    elif kaynak_turu == "marka_alani_adayi":
+        skor += 15; kanit.append("marka_alani")
+    elif kaynak_turu == "resmi_satis_adayi":
+        skor += 6; kanit.append("resmi_satis_adayi")
+
+    # Varyant bilgisi varsa yalniz ek kanit olur; yoklugu urunu dusurmez.
+    varyant_metin = " ".join(_structured_degerler(urunler, "color") +
+                             _structured_degerler(urunler, "size"))
+    vn = _norm(varyant_metin)
+    if vn and any(_norm(r) in vn for r in kimlik.get("renkler") or [] if _norm(r)):
+        skor += 3; kanit.append("renk")
+    if vn and any(_norm(b) in vn for b in kimlik.get("bedenler") or [] if _norm(b)):
+        skor += 3; kanit.append("beden")
+
+    resmi = bool(kimlik_kaniti and (
+        kaynak_turu == "uretici_adayi" or
+        (kaynak_turu == "marka_alani_adayi" and marka and marka in yap_marka)
+    ))
+    return skor, kimlik_kaniti, resmi, kanit
+
+
+def urun_bul(kart, firma_adaylari=None, ws=None, deadline=None):
+    """Bir katalog kartini kanitli dijital urun adayi ile eslestirir."""
+    if ws is None:
+        from tools import web_search as ws
+    kimlik = kart_kimligi(kart)
+    if not (kimlik["gtinler"] or kimlik["sku"] or kimlik["marka"]):
+        return {"error": "Ürün kimliği için barkod, SKU veya marka yok."}
+    deadline = float(deadline or (time.monotonic() + 60.0))
+    firmalar = firma_adaylari
+    if firmalar is None:
+        firmalar = firma_bul(kimlik, ws=ws, deadline=deadline)
+
+    firma_by_host = {f.get("host"): f for f in (firmalar or []) if f.get("host")}
+    sorgular = _urun_sorgulari(kimlik, firmalar)
+    kayitlar = []
+    for q in sorgular:
+        if time.monotonic() >= deadline:
+            break
+        r = ws.web_search(q, adet=10)
+        if not r.get("error"):
+            kayitlar.extend(_arama_kayitlari(r.get("result", "")))
+
+    adaylar = {}
+    for kayit in kayitlar:
+        url = kayit["url"]
+        host = _host(url)
+        if not host or _host_engelli(host):
+            continue
+        on = 0
+        nm = _norm(kayit.get("baslik", "") + " " + kayit.get("ozet", ""))
+        for x in _kimlik_metinleri(kimlik):
+            if _norm(x) and _norm(x) in nm:
+                on += 15
+        if _norm(kimlik["marka"]) and _norm(kimlik["marka"]) in nm:
+            on += 5
+        if any(k in (urlparse(url).path or "").lower() for k in _URUN_YOL):
+            on += 3
+        onceki = adaylar.get(url)
+        if onceki is None or on > onceki["on"]:
+            adaylar[url] = {**kayit, "on": on}
+
+    sirali = sorted(adaylar.values(), key=lambda x: x["on"], reverse=True)[:12]
+    en_iyi = None
+    for aday in sirali:
+        if time.monotonic() >= deadline:
+            break
+        url = aday["url"]
+        okuma = ws.urun_sayfasi_oku(url)
+        if okuma.get("error"):
+            continue
+        try:
+            veri = json.loads(okuma["result"])
+        except (TypeError, ValueError):
+            continue
+        host = _host(url)
+        firma = next((f for h, f in firma_by_host.items()
+                      if h and (host == h or host.endswith("." + h))), None)
+        if firma is None:
+            tur, kanit0 = _kaynak_sinifi(host, veri.get("metin", ""),
+                                         kimlik.get("marka"))
+            firma = {"host": host, "kaynak_turu": tur, "kanitlar": kanit0}
+        skor, kimlik_kaniti, resmi, kanit = _sayfa_skor(
+            kimlik, url, veri, firma)
+        if not kimlik_kaniti or skor < 45:
+            continue
+        urunler = veri.get("urunler") or []
+        adlar = _structured_degerler(urunler, "name")
+        markalar = _structured_degerler(urunler, "brand")
+        skular = _structured_degerler(urunler, "sku")
+        gtin = _structured_degerler(urunler, "gtin")
+        sonuc = {
+            "kaynak": url,
+            "kaynak_turu": firma.get("kaynak_turu", "ticari_kaynak"),
+            "resmi_dogrulandi": resmi,
+            "skor": skor,
+            "guven": ("yuksek" if resmi and skor >= 85
+                      else "orta" if skor >= 65 else "dusuk"),
+            "urun_adi": adlar[0] if adlar else aday.get("baslik", ""),
+            "marka": markalar[0] if markalar else kimlik["marka"],
+            "sku": skular[0] if skular else kimlik["sku"],
+            "gtin": gtin[0] if gtin else ((kimlik["gtinler"] or [""])[0]),
+            "gorseller": [g for g in (veri.get("gorseller") or [])
+                          if isinstance(g, str)][:10],
+            "kanitlar": list(dict.fromkeys((firma.get("kanitlar") or []) + kanit)),
+            "eksik": [],
+        }
+        if not resmi:
+            sonuc["eksik"].append("resmi_kaynak")
+        if not sonuc["gorseller"]:
+            sonuc["eksik"].append("gorsel")
+        if not urunler:
+            sonuc["eksik"].append("yapilandirilmis_urun_verisi")
+        if en_iyi is None or (resmi, skor) > (
+                bool(en_iyi["resmi_dogrulandi"]), en_iyi["skor"]):
+            en_iyi = sonuc
+
+    if en_iyi is None:
+        return {"error": "Ürün kamuya açık kaynaklarda yeterli kanıtla doğrulanamadı."}
+    return en_iyi

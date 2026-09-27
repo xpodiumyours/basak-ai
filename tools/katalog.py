@@ -6,8 +6,9 @@ Esnaf fatura / satış teklif formu fotoğrafı gönderir; bulut görü
 yükleme biçiminde dosya çıktısı üretir.
 
 Vixrex'e YAZMA YOK — yalnız dosya çıktısı; aktarım ayrı aşamadır.
-Resmi kaynak eşleştirmesi bu sürümde yok: image_urls boş çıkar,
-alanı rezerve eder (eslesme_adayi F6 iskelesidir, ağa çıkmaz).
+Resmi kaynak eşleştirmesi sabit firma listesine bağlı değildir:
+ürün kimliği barkod/GTIN, SKU ve marka kanıtlarıyla kamuya açık
+web kaynaklarında çözülür; kanıt yetmezse "doğrulanamadı" kalır.
 
 Klasörler (hepsi .gitignore'da, kişisel veri) — durum kökü altında:
   <durum>/gelen/    — yüklenen fatura fotoğrafları (staging)
@@ -847,17 +848,24 @@ def katalog_fiyat_guncelle(is_id, kart_id, satis_fiyat):
 # ── F4: Vixrex çıktıları ──────────────────────────────────────────
 
 def _kart_gorsel(kart):
-    """Yayınlanabilir görsel: eşleşme varsa ve marka izinliyse ilk aday.
-
-    İzin yoksa boş döner; görseller kartta aday olarak durur.
-    """
+    """Yayınlanabilir görsel: resmi doğrulama + marka izni gerekir."""
     eslesme = kart.get("eslesme") or {}
     gorseller = eslesme.get("gorseller") or []
-    if not gorseller:
+    if not gorseller or not eslesme.get("resmi_dogrulandi"):
         return ""
     if marka_kapsama(kodu_normla(kart.get("marka", ""))) is None:
         return ""
     return gorseller[0]
+
+
+def _yayin_urun_adi(kart):
+    """Yüksek güvenli resmi eşleşmede doğrulanmış adı kullanır."""
+    eslesme = kart.get("eslesme") or {}
+    ad = str(eslesme.get("urun_adi") or "").strip()
+    if (ad and eslesme.get("resmi_dogrulandi")
+            and eslesme.get("guven") == "yuksek"):
+        return ad
+    return kart.get("ad", "")
 
 def _kart_fiyat(kart):
     if kart.get("satis_fiyat") is not None:
@@ -875,7 +883,7 @@ def _csv_uret(kartlar):
     yazici.writerow(CSV_BASLIK)
     for kart in kartlar:
         fiyat, _onayli = _kart_fiyat(kart)
-        yazici.writerow([kart.get("ad", ""), fiyat_yaz(fiyat),
+        yazici.writerow([_yayin_urun_adi(kart), fiyat_yaz(fiyat),
                          kart.get("aciklama", ""),
                          kart.get("kategori", "Genel"),
                          kart.get("stok_durumu", STOK_VAR),
@@ -889,7 +897,7 @@ def _batch_uret(kartlar):
         fiyat, _onayli = _kart_fiyat(kart)
         gorsel = _kart_gorsel(kart)
         ogeler.append({
-            "name": kart.get("ad", ""),
+            "name": _yayin_urun_adi(kart),
             "description": kart.get("aciklama", ""),
             "price_text": fiyat_yaz(fiyat),
             "category_id": "",
@@ -1216,37 +1224,28 @@ def yetki_belgesi_ekle(is_id, b64_veri, ad, marka=""):
                           "bagli_is": veri["is_id"] if veri else None})}
 
 
-# ── F6: resmi kaynak eşleştirme (Tutku pilotu) ───────────────────
+# ── F6: genel firma + ürün kimlik çözümü ─────────────────────────
 #
-# Kayıtlı tedarikçinin resmi sitesinde ürün kodu aranır; bulunan
-# sayfanın başlığı ve görselleri karta işlenir. Görsel YAYINA
-# yalnız marka izinliyse girer (_kart_gorsel); değilse aday durur.
+# Eski sürümde ürün eşleştirme Tutku için sabit domain kaydına bağlıydı.
+# Artık eşleştirme tools.product_resolver üzerinden marka bağımsızdır:
+# GTIN/barkod > SKU/MPN > marka/varyant kanıtı; Schema.org Product
+# verisi; kaynak rolü ve güven skoru. Kanıt yetersizse uydurma yok.
 #
-# 2026-09-18 (Faz A): "alias" desteği — fişlerde aynı üreticinin
-# farklı yazımları (TUTKU / ELİT / TUT ...) aynı tedarikçiye bağlanır.
-# Anahtar kodu_normla çıktısıdır; değer ya tedarikçi sözlüğü ya da
-# başka bir anahtara yönlendirmedir (str = alias).
-
+# Bu eski ipuçları yalnız sirket_ara geriye uyumluluğu içindir; ürün
+# eşleştirmenin kapısı değildir.
 TEDARIKCILER = {
     "TUTKU": {"site": "tutkuelit.com.tr", "ad": "Tutku"},
     "ELIT": "TUTKU",
     "TUT": "TUTKU",
 }
 
-# Sırrı olmayan, esnafın fişinde geçen marka kısaltmaları; jargon
-# çözümünde marka olarak da kullanılır.
 MARKA_TAKMA = {
     "ELIT": "Tutku Elit",
 }
 
 
 def tedarikci_coz(marka):
-    """Marka adını (alias dâhil) tedarikçi kaydına çözer.
-
-    Türkçe büyük İ önce ASCII I'ya indirilir (ELİT → ELIT),
-    sonra alias zinciri en fazla 3 adım çözülür (döngü koruması).
-    Dönüş: (kayit, cozulen_ad) — kayıtsız markada (None, ad).
-    """
+    """Eski bilinen marka ipucunu çözer; yeni ürün hattının kapısı değildir."""
     anahtar = kodu_normla(_tr_duzelt(marka).replace("İ", "I"))
     ad = str(marka or "").strip()
     for _ in range(3):
@@ -1256,116 +1255,101 @@ def tedarikci_coz(marka):
         if isinstance(kayit, str):
             anahtar = kodu_normla(_tr_duzelt(kayit).replace("İ", "I"))
             ad = TEDARIKCILER.get(anahtar, {}).get("ad", ad) \
-                if isinstance(TEDARIKCILER.get(anahtar), dict) \
-                else ad
+                if isinstance(TEDARIKCILER.get(anahtar), dict) else ad
             continue
         return kayit, ad
     return None, ad
 
-_URL_RE = re.compile(r"https?://[^\s\"'<>]+")
+
+def _eslesme_karta_yaz(kart, sonuc):
+    kart["eslesme"] = {
+        "kaynak": sonuc.get("kaynak", ""),
+        "kaynak_turu": sonuc.get("kaynak_turu", "ticari_kaynak"),
+        "resmi_dogrulandi": bool(sonuc.get("resmi_dogrulandi")),
+        "guven": sonuc.get("guven", "dusuk"),
+        "skor": int(sonuc.get("skor") or 0),
+        "urun_adi": sonuc.get("urun_adi", ""),
+        "dogrulanmis_marka": sonuc.get("marka", ""),
+        "sku": sonuc.get("sku", ""),
+        "gtin": sonuc.get("gtin", ""),
+        "gorseller": list(sonuc.get("gorseller") or [])[:10],
+        "kanitlar": list(sonuc.get("kanitlar") or []),
+        "eksik": list(sonuc.get("eksik") or []),
+        "tarih": _simdi(),
+    }
 
 
-def _alnum(metin):
-    return re.sub(r"[^a-z0-9]", "", _tr_duzelt(metin).lower())
+def urun_eslestir(is_id, kart_id="", tum_kartlar=False):
+    """Bir kartı veya katalogdaki tüm kartları genel web zinciriyle çözer.
 
-
-def _eslesme_skor(kod, marka, adres, yazi):
-    """3 adres + 2 başlık/yazı + 1 marka + 2 ürün sayfası - 1 kategori;
-    5+ yüksek, 3+ orta."""
-    skor = 0
-    kod_a = _alnum(kod)
-    yol_a = ""
-    if kod_a:
-        from urllib.parse import urlparse as _coz
-        try:
-            yol_a = _alnum(_coz(adres).path)
-        except ValueError:
-            yol_a = ""
-        if kod_a in yol_a:
-            skor += 3
-        if kod_a in _alnum((yazi or "")[:2000]):
-            skor += 2
-    if _alnum(marka) and _alnum(marka) in _alnum(yazi or ""):
-        skor += 1
-    if "urun" in yol_a or "product" in yol_a:
-        skor += 2
-    if "kategori" in yol_a or "category" in yol_a:
-        skor -= 1
-    return skor
-
-
-def urun_eslestir(is_id, kart_id):
-    """Kartı resmi sitede arar; kaynak, güven ve görselleri karta işler.
-
-    Eşleşme bulunamazsa veya marka kayıtsızsa hata döner; karta
-    dokunulmaz. Görsellerin yayına girmesi izne bağlıdır.
+    Firma listesi sabit değildir. Her marka için firma adayları bir kez
+    bulunur; kartlar en fazla 4 paralel işçiyle çözülür. Tüm-kart modunda
+    doğrulanamayanlar hata diye saklanmaz, açıkça raporlanır.
     """
     veri = _is_yukle(is_id)
     if veri is None:
         return {"error": "Katalog işi bulunamadı: '%s'." % (is_id or "")}
-    kart = next((k for k in veri.get("kartlar", [])
-                 if k.get("kart_id") == kart_id), None)
-    if kart is None:
-        return {"error": "Kart bulunamadı: '%s'." % (kart_id or "")}
-    tedarikci, cozulen_ad = tedarikci_coz(kart.get("marka", ""))
-    if tedarikci is None:
-        return {"error": ("'%s' için eşleştirme kaydı yok; "
-                          "kart faturasıyla çıkar."
-                          % (kart.get("marka", "") or "?"))}
-    from tools import web_search as ws
-    arama = ws.web_search("site:%s %s" % (tedarikci["site"],
-                                          kart.get("kod", "")))
-    if arama.get("error"):
-        return {"error": "Arama yapılamadı: %s" % arama["error"]}
-    adaylar = []
-    for adres in _URL_RE.findall(arama.get("result", "")):
-        try:
-            from urllib.parse import urlparse as _coz
-            host = (_coz(adres).hostname or "").lower()
-        except ValueError:
-            continue
-        if host == tedarikci["site"] or \
-                host.endswith("." + tedarikci["site"]):
-            if adres not in adaylar:
-                adaylar.append(adres)
-    if not adaylar:
-        return {"error": ("Resmi sitede eşleşme bulunamadı: %s."
-                          % kart.get("kod", ""))}
-    en_iyi, en_skor, en_yazi = None, 0, ""
-    eksikler = []
-    for adres in adaylar[:5]:
-        okuma = ws.sayfa_oku(adres)
-        yazi = "" if okuma.get("error") else okuma.get("result", "")
-        if okuma.get("error") and "sayfa_oku" not in eksikler:
-            eksikler.append("sayfa_oku")
-        skor = _eslesme_skor(kart.get("kod", ""), kart.get("marka", ""),
-                             adres, yazi)
-        if skor > en_skor:
-            en_iyi, en_skor, en_yazi = adres, skor, yazi
-    if en_iyi is None:
-        return {"error": ("Resmi sitede eşleşme bulunamadı: %s."
-                          % kart.get("kod", ""))}
-    gorseller = []
-    gorsel = ws.sayfa_gorseller(en_iyi)
-    if not gorsel.get("error"):
-        try:
-            bulunan = json.loads(gorsel["result"])
-            if isinstance(bulunan, list):
-                gorseller = [g for g in bulunan if isinstance(g, str)][:10]
-        except ValueError:
-            eksikler.append("gorsel_cozumleme")
+    kartlar = list(veri.get("kartlar") or [])
+    if not kartlar:
+        return {"error": "Katalogda kart yok."}
+
+    tum = bool(tum_kartlar) or str(kart_id or "").strip() in ("", "*", "tum")
+    if not tum:
+        kart = next((k for k in kartlar if k.get("kart_id") == kart_id), None)
+        if kart is None:
+            return {"error": "Kart bulunamadı: '%s'." % (kart_id or "")}
+        hedefler = [kart]
     else:
-        eksikler.append("gorsel")
-    guven = "yuksek" if en_skor >= 5 else "orta" if en_skor >= 3 \
-        else "dusuk"
-    kart["eslesme"] = {
-        "kaynak": en_iyi,
-        "baslik": (en_yazi or "")[:120],
-        "guven": guven,
-        "gorseller": gorseller,
-        "eksik": sorted(set(eksikler)),
-        "tarih": _simdi(),
-    }
+        hedefler = kartlar
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from tools import product_resolver
+    deadline = time.monotonic() + 120.0
+
+    # Aynı markayı taşıyan 13 satır/kart için firma keşfini 13 kez yapma.
+    gruplar = {}
+    for kart in hedefler:
+        anahtar = kodu_normla(kart.get("marka", "")) or ("#" + kart["kart_id"])
+        gruplar.setdefault(anahtar, []).append(kart)
+
+    firma_haritasi = {}
+    for anahtar, grup in gruplar.items():
+        if time.monotonic() >= deadline:
+            firma_haritasi[anahtar] = []
+            continue
+        firma_haritasi[anahtar] = product_resolver.firma_bul(
+            grup[0], deadline=deadline)
+
+    def _coz(kart):
+        anahtar = kodu_normla(kart.get("marka", "")) or ("#" + kart["kart_id"])
+        return kart, product_resolver.urun_bul(
+            kart, firma_haritasi.get(anahtar), deadline=deadline)
+
+    sonuclar = {}
+    with ThreadPoolExecutor(max_workers=min(4, len(hedefler))) as havuz:
+        gelecekler = [havuz.submit(_coz, k) for k in hedefler]
+        for gelecek in as_completed(gelecekler):
+            try:
+                kart, sonuc = gelecek.result()
+            except Exception as e:
+                logger.warning("Urun cozumu hatasi: %s", e)
+                continue
+            sonuclar[kart["kart_id"]] = sonuc
+
+    eslesen, resmi, dogrulanamayan = [], [], []
+    for kart in hedefler:
+        sonuc = sonuclar.get(kart["kart_id"]) or {
+            "error": "Eşleştirme zaman bütçesinde tamamlanamadı."}
+        if sonuc.get("error"):
+            dogrulanamayan.append({
+                "kart_id": kart["kart_id"], "ad": kart.get("ad", ""),
+                "neden": sonuc["error"]})
+            continue
+        _eslesme_karta_yaz(kart, sonuc)
+        eslesen.append(kart["kart_id"])
+        if sonuc.get("resmi_dogrulandi"):
+            resmi.append(kart["kart_id"])
+
     try:
         with _KILIT:
             _atomik_yaz(os.path.join(katalog_kok(),
@@ -1373,19 +1357,39 @@ def urun_eslestir(is_id, kart_id):
     except OSError as e:
         logger.warning("Eslesme yazilamadi: %s", e)
         return {"error": "Eşleşme saklanamadı."}
-    return {"result": _j({"is_id": veri["is_id"], "kart_id": kart_id,
-                          "guven": guven, "kaynak": en_iyi,
-                          "gorsel_sayisi": len(gorseller)})}
+
+    if not tum and dogrulanamayan:
+        return {"error": dogrulanamayan[0]["neden"]}
+    return {"result": _j({
+        "is_id": veri["is_id"],
+        "toplam_kart": len(hedefler),
+        "eslesen": len(eslesen),
+        "resmi_dogrulanan": len(resmi),
+        "dogrulanamayan": dogrulanamayan,
+        "kartlar": [
+            {"kart_id": k["kart_id"],
+             "guven": (k.get("eslesme") or {}).get("guven"),
+             "resmi_dogrulandi":
+                 bool((k.get("eslesme") or {}).get("resmi_dogrulandi")),
+             "kaynak": (k.get("eslesme") or {}).get("kaynak", "")}
+            for k in hedefler
+        ],
+    })}
+
 
 def eslesme_adayi(marka, kod):
-    """Eşleştirme için normalize kimlik + aday sorgular üretir.
-
-    Ağ adresi kurmaz, sayfa okumaz; pilot marka başlayınca
-    web_search/sayfa_oku bu sorguları kullanır.
-    """
+    """Kanitli resolver icin normalize kimlik + aday sorgular uretir."""
     return {"marka": str(marka or "").strip(),
-            "kod": kodu_normla(kod)}
+            "kod": str(kod or "").strip(),
+            "marka_norm": kodu_normla(marka),
+            "kod_norm": kodu_normla(kod),
+            "sorgular": [
+                "%s %s" % (str(marka or "").strip(),
+                           str(kod or "").strip()),
+                "%s üretici resmi site" % str(marka or "").strip(),
+            ]}
 
+# ── Faz B: şirket kartı araştırma
 
 # ── Faz B: şirket kartı araştırma ────────────────────────────────
 # Markanın resmi sitesi + iletişim/vergi bilgisi. Salt-okunur:
@@ -1445,14 +1449,21 @@ def sirket_ara(marka):
         return {"error": "Marka boş olamaz."}
     from tools import web_search as ws
 
-    kayit, cozulen_ad = tedarikci_coz(marka)
-    site = (kayit or {}).get("site", "")
+    # Genel resolver marka listesine bağlı değildir; önce kamuya açık
+    # webden üretici/marka domain adaylarını çıkarır.
+    from tools import product_resolver
+    cozulen_ad = marka
+    firma_adaylari = product_resolver.firma_bul(
+        {"marka": marka, "kod": "", "varyantlar": []})
     adaylar = []
-    if site:
-        adaylar = _sirket_iletisim_yollari(site)
-    else:
+    for firma in firma_adaylari:
+        site = firma.get("site") or ""
+        if site:
+            adaylar.extend(_sirket_iletisim_yollari(site.replace("https://", "")
+                                                    .replace("http://", "")))
+    if not adaylar:
         arama = ws.web_search(
-            "%s iletişim adres telefon resmi site" % cozulen_ad)
+            "%s iletişim adres telefon üretici resmi site" % cozulen_ad)
         if arama.get("error"):
             return {"error": "Arama yapılamadı: %s" % arama["error"]}
         for adres in _URL_RE.findall(arama.get("result", "")):

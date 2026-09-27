@@ -571,3 +571,151 @@ def sayfa_gorseller(url: str, _acici=None) -> dict:
     except Exception as e:
         logger.error("Gorsel toplama hatasi: %s", e)
         return {"error": "Gorseller alinamadi: %s" % str(e)}
+
+
+# ── Ürün sayfası kanıt okuyucusu ──────────────────────────────────
+_JSONLD_RE = re.compile(
+    r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+    re.IGNORECASE | re.DOTALL)
+
+
+def _jsonld_dugumleri(deger):
+    if isinstance(deger, list):
+        for x in deger:
+            yield from _jsonld_dugumleri(x)
+        return
+    if not isinstance(deger, dict):
+        return
+    yield deger
+    graph = deger.get("@graph")
+    if isinstance(graph, (list, dict)):
+        yield from _jsonld_dugumleri(graph)
+
+
+def _jsonld_urun(ham):
+    """Schema.org Product/ProductGroup bloklarini dar JSON'a cevirir."""
+    import html as _html
+    urunler = []
+    for parca in _JSONLD_RE.findall(ham or ""):
+        try:
+            veri = json.loads(_html.unescape(parca).strip())
+        except (TypeError, ValueError):
+            continue
+        for dugum in _jsonld_dugumleri(veri):
+            tur = dugum.get("@type")
+            turler = tur if isinstance(tur, list) else [tur]
+            if not any(str(t or "").lower() in ("product", "productgroup")
+                       for t in turler):
+                continue
+            brand = dugum.get("brand")
+            if isinstance(brand, dict):
+                brand = brand.get("name") or brand.get("@id") or ""
+            image = dugum.get("image")
+            if isinstance(image, dict):
+                image = image.get("url") or image.get("contentUrl") or ""
+            gtinler = []
+            for anahtar in ("gtin", "gtin8", "gtin12", "gtin13", "gtin14"):
+                deger = dugum.get(anahtar)
+                if isinstance(deger, list):
+                    gtinler.extend(str(x) for x in deger if x)
+                elif deger:
+                    gtinler.append(str(deger))
+            urunler.append({
+                "name": dugum.get("name") or "",
+                "brand": brand or "",
+                "sku": dugum.get("sku") or "",
+                "mpn": dugum.get("mpn") or "",
+                "gtin": gtinler,
+                "color": dugum.get("color") or "",
+                "size": dugum.get("size") or "",
+                "productGroupID": dugum.get("productGroupID") or
+                                  dugum.get("inProductGroupWithID") or "",
+                "image": image or "",
+                "url": dugum.get("url") or "",
+            })
+            if len(urunler) >= 30:
+                return urunler
+    return urunler
+
+
+def urun_sayfasi_oku(url: str, _acici=None) -> dict:
+    """Bir urun aday sayfasini tek HTTP GET ile kanit paketine cevirir.
+
+    Donus: metin + Schema.org Product/ProductGroup + urun gorselleri.
+    SSRF ve yonlendirme savunmasi sayfa_oku ile aynidir.
+    """
+    if not url or not str(url).strip():
+        return {"error": "URL bos olamaz"}
+    url = str(url).strip()
+    engel = _guvenli_adres(url)
+    if engel:
+        return {"error": engel}
+    try:
+        import html as html_mod
+        from urllib.parse import urljoin
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Basak/1.0",
+            "Accept": "text/html",
+            "Accept-Encoding": "identity",
+        })
+        if _acici is not None:
+            acilis = _acici(req, timeout=15)
+        else:
+            opener = urllib.request.build_opener(_GuvenliYonlendirme())
+            acilis = opener.open(req, timeout=15)
+        with acilis as resp:
+            content_type = resp.headers.get("Content-Type", "")
+            son_url = resp.geturl() if hasattr(resp, "geturl") else url
+            if "text/html" not in content_type:
+                return {"error": "Desteklenen icerik tipi degil: %s"
+                                 % content_type}
+            ham = resp.read(_MAX_HAM).decode("utf-8", errors="replace")
+
+        urunler = _jsonld_urun(ham)
+        temiz = re.sub(
+            r'<(script|style|noscript)[^>]*>.*?</\1>',
+            '', ham, flags=re.DOTALL | re.IGNORECASE)
+        temiz = re.sub(r'<!--.*?-->', '', temiz, flags=re.DOTALL)
+        temiz = re.sub(r'<[^>]+>', ' ', temiz)
+        temiz = re.sub(r'\s+', ' ', html_mod.unescape(temiz)).strip()
+
+        adaylar = _OG_RE.findall(ham) + _IMG_RE.findall(ham)
+        adaylar += _IMG_DATA_RE.findall(ham)
+        adaylar += [_srcset_ilk(s) for s in _SRCSET_RE.findall(ham)]
+        for u in urunler:
+            img = u.get("image")
+            if isinstance(img, list):
+                adaylar.extend(img)
+            elif img:
+                adaylar.append(img)
+
+        gorseller = []
+        for aday in adaylar:
+            aday = str(aday or "").strip()
+            if not aday or aday.startswith("data:"):
+                continue
+            mutlak = urljoin(son_url, aday).split("#")[0]
+            k = urlparse(mutlak)
+            if k.scheme not in ("http", "https") or not k.hostname:
+                continue
+            yol = k.path.lower().split("?")[0]
+            if any(kelime in yol for kelime in _GORSEL_ATIK_KELIME):
+                continue
+            if mutlak not in gorseller:
+                gorseller.append(mutlak)
+            if len(gorseller) >= 10:
+                break
+
+        return {"result": json.dumps({
+            "url": son_url,
+            "metin": temiz[:50000],
+            "urunler": urunler,
+            "gorseller": gorseller,
+        }, ensure_ascii=False)}
+    except urllib.error.HTTPError as e:
+        return {"error": "HTTP hatasi %d: %s" % (e.code, url)}
+    except urllib.error.URLError as e:
+        return {"error": "Baglanti hatasi: %s" % str(e.reason)}
+    except Exception as e:
+        logger.warning("Urun sayfasi okuma hatasi: %s", e)
+        return {"error": "Urun sayfasi okunamadi: %s" % str(e)}

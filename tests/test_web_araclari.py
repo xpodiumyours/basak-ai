@@ -224,3 +224,33 @@ class TestDerinOku:
         _ddgs(monkeypatch, [])
         assert isinstance(
             calistir("web_search", {"query": "k", "adet": 3}), dict)
+
+
+def test_urun_sayfasi_schema_product_tek_get(monkeypatch):
+    from tools import web_search as ws
+    monkeypatch.setattr(ws, "_engelli_ip_nedeni", lambda h: None)
+
+    class Yanit:
+        headers = {"Content-Type": "text/html"}
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def geturl(self): return "https://marka.example/urun/x"
+        def read(self, n=-1):
+            return b"""<html><head>
+            <meta property="og:image" content="/x.jpg">
+            <script type="application/ld+json">
+            {"@context":"https://schema.org","@type":"Product",
+             "name":"Urun X","brand":{"@type":"Brand","name":"Marka"},
+             "sku":"SKU-X","gtin13":"8680508918124","color":"Siyah","size":"M",
+             "image":"https://marka.example/i/x2.jpg"}
+            </script></head><body>Marka SKU-X 8680508918124</body></html>"""
+
+    r = ws.urun_sayfasi_oku(
+        "https://marka.example/urun/x",
+        _acici=lambda *a, **k: Yanit())
+    assert "result" in r, r
+    veri = json.loads(r["result"])
+    assert veri["urunler"][0]["sku"] == "SKU-X"
+    assert "8680508918124" in veri["urunler"][0]["gtin"]
+    assert veri["urunler"][0]["brand"] == "Marka"
+    assert len(veri["gorseller"]) >= 1

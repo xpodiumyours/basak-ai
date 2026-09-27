@@ -477,12 +477,16 @@ YETKI_BELGESI = _arac(
 
 URUN_ESLESTIR = _arac(
     "urun_eslestir",
-    "Karti kayitli tedarikcinin resmi sitesinde arar (su an yalniz "
-    "Tutku); kaynak, guven ve gorselleri karta isler. Kayit disi "
-    "markada hata doner.",
+    "Bir karti veya tum katalog kartlarini marka listesine bagli kalmadan "
+    "kamuya acik webde cozer. Barkod/GTIN, SKU/MPN, marka, Schema.org "
+    "Product verisi ve kaynak rolunu kanit olarak kullanir; uydurma yapmaz. "
+    "tum_kartlar=true ise kartlari sinirli paralellikle topluca eslestirir.",
     {"is_id": {"type": "string", "description": "Is kimligi"},
-     "kart_id": {"type": "string", "description": "Kart kimligi"}},
-    ["is_id", "kart_id"],
+     "kart_id": {"type": "string",
+                 "description": "Tek kart kimligi; tum kartlarda bos birak"},
+     "tum_kartlar": {"type": "boolean",
+                     "description": "Katalogdaki tum kartlari eslestir"}},
+    ["is_id"],
 )
 
 YAYIN_PAKETI = _arac(
