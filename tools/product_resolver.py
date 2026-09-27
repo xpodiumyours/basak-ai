@@ -20,10 +20,20 @@ _URL_RE = re.compile(r"https?://[^\s\"'<>]+")
 _GTIN_RE = re.compile(r"^\d{8,14}$")
 _URUN_YOL = ("urun", "product", "products", "p/", "item", "model")
 _KATEGORI_YOL = ("kategori", "category", "search", "arama", "koleksiyon")
-_URETIM_IPUCU = (
+# "üretici/üretim" gibi tek kelimeler reseller/SEO sayfalarında da geçebilir.
+# Resmî üretici kararı için birinci şahıs / sahiplik / tesis beyanı gerekir.
+_GUCLU_URETIM_IPUCU = (
+    "marka sahibi", "brand owner", "kendi markamız", "kendi markamiz",
+    "markalarımız", "markalarimiz", "fabrikamız", "fabrikamiz",
+    "üretim tesisimiz", "uretim tesisimiz", "üretim tesislerimiz",
+    "uretim tesislerimiz", "kendi bünyemizde üreti", "kendi bunyemizde ureti",
+    "firmamız üret", "firmamiz uret", "şirketimiz üret", "sirketimiz uret",
+    "konfeksiyon fabrikalarımızda", "konfeksiyon fabrikalarimizda",
+    "we manufacture", "our factory", "our factories", "our brands",
+)
+_URETIM_GENEL_IPUCU = (
     "üretici", "uretici", "üretim", "uretim", "manufacturer",
-    "fabrika", "imalat", "marka sahibi", "brand owner", "üretmektedir",
-    "uretmektedir",
+    "fabrika", "imalat", "üretmektedir", "uretmektedir",
 )
 _RESMI_SATIS_IPUCU = (
     "resmi satış", "resmi satis", "official store", "resmi mağaza",
@@ -85,6 +95,7 @@ def kart_kimligi(kart):
         "marka": str(kart.get("marka") or "").strip(),
         "sku": str(kart.get("kod") or "").strip(),
         "ad": str(kart.get("ad") or "").strip(),
+        "kategori": str(kart.get("kategori") or "").strip(),
         "barkodlar": barkodlar,
         "gtinler": [b for b in barkodlar if gtin_gecerli(b)],
         "renkler": sorted({str(v.get("renk") or "").strip()
@@ -126,28 +137,34 @@ def _firma_sorgulari(kimlik):
     marka = str(kimlik.get("marka") or "").strip()
     sku = str(kimlik.get("sku") or "").strip()
     gtin = (kimlik.get("gtinler") or [""])[0]
+    kategori = str(kimlik.get("kategori") or "").strip()
+    ad = str(kimlik.get("ad") or "").strip()
+    baglam = " ".join(x for x in (kategori, ad[:60]) if x).strip()
     q = []
     if gtin:
         q.append('"%s" "%s"' % (gtin, marka) if marka else '"%s"' % gtin)
     if marka and sku:
-        q.append('"%s" "%s" ürün' % (marka, sku))
+        q.append('"%s" "%s" %s' % (marka, sku, baglam or "ürün"))
     if marka:
-        q.append('"%s" üretici resmi site' % marka)
-        q.append('"%s" üretim iletişim' % marka)
-    return list(dict.fromkeys(x for x in q if x.strip()))[:4]
+        q.append('"%s" %s üretici resmi site' % (marka, kategori or "ürün"))
+        q.append('"%s" %s üretim iletişim' % (marka, kategori or "ürün"))
+    return list(dict.fromkeys(x.strip() for x in q if x.strip()))[:4]
 
 
 def _kaynak_sinifi(host, metin, marka):
+    """Kaynağın rolünü sınıflandırır; resellerı üretici diye yükseltmez."""
     h = _norm(host)
     m = _norm(marka)
     t = str(metin or "").lower()
     marka_var = bool(m and (m in _norm(metin) or m in h))
-    if marka_var and any(k in t for k in _URETIM_IPUCU):
-        return "uretici_adayi", ["marka", "uretim_beyani"]
-    if marka_var and m and m in h:
-        return "marka_alani_adayi", ["marka", "marka_domaini"]
+    if marka_var and any(k in t for k in _GUCLU_URETIM_IPUCU):
+        return "uretici_adayi", ["marka", "guclu_uretim_beyani"]
     if marka_var and any(k in t for k in _RESMI_SATIS_IPUCU):
         return "resmi_satis_adayi", ["marka", "resmi_satis_beyani"]
+    if marka_var and m and m in h:
+        return "marka_alani_adayi", ["marka", "marka_domaini"]
+    if marka_var and any(k in t for k in _URETIM_GENEL_IPUCU):
+        return "ticari_kaynak", ["marka", "zayif_uretim_ifadesi"]
     return "ticari_kaynak", (["marka"] if marka_var else [])
 
 
@@ -168,10 +185,28 @@ def _firma_ilk_skor(kayit, kimlik):
             skor += 10
             kanit.append("urun_kimligi_arama_sonucu")
             break
+    # Arama snippetindeki genel "üretici" sözü resmi kaynak kanıtı değildir.
     t = metin.lower()
-    if any(k in t for k in _URETIM_IPUCU):
-        skor += 8
-        kanit.append("uretim_beyani")
+    if any(k in t for k in _GUCLU_URETIM_IPUCU):
+        skor += 12
+        kanit.append("guclu_uretim_beyani")
+    elif any(k in t for k in _URETIM_GENEL_IPUCU):
+        skor += 3
+        kanit.append("zayif_uretim_ifadesi")
+
+    # Aynı marka adının farklı sektörlerde kullanılmasına karşı fatura
+    # bağlamı (kategori/ürün adı) yalnız aday sıralamasında destek kanıtıdır.
+    baglam = " ".join((str(kimlik.get("kategori") or ""),
+                       str(kimlik.get("ad") or "")))
+    baglam_kelimeleri = [
+        x for x in re.findall(r"[A-Za-zÇĞİÖŞÜçğıöşü0-9]{4,}", baglam)
+        if _norm(x) not in {_norm(kimlik.get("marka")),
+                            _norm(kimlik.get("sku"))}
+    ][:8]
+    ortak = [x for x in baglam_kelimeleri if _norm(x) in _norm(metin)]
+    if ortak:
+        skor += min(8, 2 * len(ortak))
+        kanit.append("urun_baglami")
     if any(k in t for k in _RESMI_SATIS_IPUCU):
         skor += 4
         kanit.append("resmi_satis_beyani")
@@ -346,10 +381,23 @@ def _sayfa_skor(kimlik, url, veri, firma):
     if vn and any(_norm(b) in vn for b in kimlik.get("bedenler") or [] if _norm(b)):
         skor += 3; kanit.append("beden")
 
-    resmi = bool(kimlik_kaniti and (
-        kaynak_turu == "uretici_adayi" or
-        (kaynak_turu == "marka_alani_adayi" and marka and marka in yap_marka)
-    ))
+    # "Resmî doğrulandı" yalnız güçlü üretici/sahiplik kaynağında ve
+    # ürün kimliği ayrıca kanıtlıysa verilir. Marka adını taşıyan domain,
+    # reseller/official-store iddiası veya pazar yeri tek başına yeterli değil.
+    gtin_yapisal = bool(gtinler and gtinler & yap_gtin)
+    gtin_metin = bool(gtinler and any(g and g in norm_metin for g in gtinler))
+    sku_yapisal = bool(sku and (sku in yap_sku or sku in yap_mpn))
+    sku_metin = bool(sku and sku in norm_metin)
+    marka_yapisal = bool(marka and marka in yap_marka)
+    guclu_urun_kimligi = (
+        gtin_yapisal or
+        (sku_yapisal and marka_yapisal) or
+        (gtin_metin and marka_yapisal) or
+        (sku_metin and marka_yapisal)
+    )
+    resmi = bool(kaynak_turu == "uretici_adayi" and guclu_urun_kimligi)
+    if resmi:
+        kanit.append("resmi_uretici_urun_kimligi")
     return skor, kimlik_kaniti, resmi, kanit
 
 
@@ -423,13 +471,19 @@ def urun_bul(kart, firma_adaylari=None, ws=None, deadline=None):
         markalar = _structured_degerler(urunler, "brand")
         skular = _structured_degerler(urunler, "sku")
         gtin = _structured_degerler(urunler, "gtin")
+        guven = ("yuksek" if resmi and skor >= 85
+                 else "orta" if kimlik_kaniti and skor >= 65
+                 else "dusuk")
         sonuc = {
+            "cozucu_surumu": "urun-kimlik-v2",
             "kaynak": url,
             "kaynak_turu": firma.get("kaynak_turu", "ticari_kaynak"),
             "resmi_dogrulandi": resmi,
+            "dogrulama_seviyesi": (
+                "resmi" if resmi else
+                "urun_kanitli" if kimlik_kaniti else "aday"),
             "skor": skor,
-            "guven": ("yuksek" if resmi and skor >= 85
-                      else "orta" if skor >= 65 else "dusuk"),
+            "guven": guven,
             "urun_adi": adlar[0] if adlar else aday.get("baslik", ""),
             "marka": markalar[0] if markalar else kimlik["marka"],
             "sku": skular[0] if skular else kimlik["sku"],

@@ -46,7 +46,8 @@ def test_hardcode_olmayan_marka_resmi_domain_ve_sku_ile_cozulur():
         },
         {
             url: {
-                "metin": "Örnek Marka üretici OM-42 Siyah M",
+                "metin": "Örnek Marka kendi markamızdır; fabrikamızda "
+                         "üretiyoruz. OM-42 Siyah M",
                 "urunler": [{
                     "name": "Örnek Marka Siyah Ürün",
                     "brand": "Örnek Marka", "sku": "OM-42", "mpn": "",
@@ -84,3 +85,49 @@ def test_kanit_yoksa_uydurma_yok():
     sonuc = pr.urun_bul(kart, [], ws=ws)
     assert "error" in sonuc
     assert "doğrulanamadı" in sonuc["error"]
+
+
+def test_reseller_domain_marka_adi_tasisa_da_resmi_sayilmaz():
+    kart = {
+        "marka": "Örnek Marka", "kod": "OM-42", "kategori": "İç Giyim",
+        "varyantlar": []
+    }
+    url = "https://ornekmarkaonline.com/urun/om-42"
+    ws = SahteWeb(
+        {"OM-42": blok("Örnek Marka OM-42", url,
+                        "Örnek Marka ürün satışı üretici kalitesi")},
+        {url: {
+            "metin": "Örnek Marka OM-42 üretici kalitesi hızlı kargo",
+            "urunler": [{"name": "OM-42", "brand": "Örnek Marka",
+                         "sku": "OM-42", "gtin": []}],
+            "gorseller": []
+        }})
+    sonuc = pr.urun_bul(kart, [], ws=ws)
+    assert sonuc["resmi_dogrulandi"] is False
+    assert sonuc["dogrulama_seviyesi"] == "urun_kanitli"
+
+
+def test_guclu_uretici_beyani_artik_genel_uretim_kelimesi_degil():
+    tur, kanit = pr._kaynak_sinifi(
+        "magaza.example", "Örnek Marka üretici kalitesi ürün", "Örnek Marka")
+    assert tur == "ticari_kaynak"
+    tur2, kanit2 = pr._kaynak_sinifi(
+        "firma.example",
+        "Örnek Marka kendi markamız; fabrikamızda üretim yapıyoruz",
+        "Örnek Marka")
+    assert tur2 == "uretici_adayi"
+    assert "guclu_uretim_beyani" in kanit2
+
+
+def test_sektor_baglami_firma_adayini_yukseltir():
+    kimlik = pr.kart_kimligi({
+        "marka": "Berrak", "kod": "BR-7", "kategori": "İç Giyim",
+        "ad": "Kadın atlet", "varyantlar": []
+    })
+    a = {"url": "https://tekstil.example/urun",
+         "baslik": "Berrak İç Giyim", "ozet": "Kadın atlet üretim tesisi"}
+    b = {"url": "https://gida.example/urun",
+         "baslik": "Berrak Gıda", "ozet": "makarna ve gıda"}
+    sa, _ = pr._firma_ilk_skor(a, kimlik)
+    sb, _ = pr._firma_ilk_skor(b, kimlik)
+    assert sa > sb

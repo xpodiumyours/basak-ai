@@ -1263,9 +1263,11 @@ def tedarikci_coz(marka):
 
 def _eslesme_karta_yaz(kart, sonuc):
     kart["eslesme"] = {
+        "cozucu_surumu": sonuc.get("cozucu_surumu", "urun-kimlik-v2"),
         "kaynak": sonuc.get("kaynak", ""),
         "kaynak_turu": sonuc.get("kaynak_turu", "ticari_kaynak"),
         "resmi_dogrulandi": bool(sonuc.get("resmi_dogrulandi")),
+        "dogrulama_seviyesi": sonuc.get("dogrulama_seviyesi", "aday"),
         "guven": sonuc.get("guven", "dusuk"),
         "skor": int(sonuc.get("skor") or 0),
         "urun_adi": sonuc.get("urun_adi", ""),
@@ -1388,8 +1390,6 @@ def eslesme_adayi(marka, kod):
                            str(kod or "").strip()),
                 "%s üretici resmi site" % str(marka or "").strip(),
             ]}
-
-# ── Faz B: şirket kartı araştırma
 
 # ── Faz B: şirket kartı araştırma ────────────────────────────────
 # Markanın resmi sitesi + iletişim/vergi bilgisi. Salt-okunur:
