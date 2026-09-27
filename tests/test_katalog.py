@@ -696,7 +696,12 @@ class TestUrunEslestir:
             {"marka": "Tutku", "kod": "TER0101", "adet": 6,
              "barkod": "8680508918124", "alis_fiyat": "63,5000 TL"},
             {"marka": "Berrak", "kod": "BR-7", "adet": 2}])
-        return _j(r)["is_id"]
+        ozet = _j(r)
+        assert ozet["urun_dogrulama"] == "bekliyor"
+        assert ozet["sonraki_adim"]["arac"] == "urun_eslestir"
+        assert ozet["sonraki_adim"]["args"] == {
+            "is_id": ozet["is_id"], "tum_kartlar": True}
+        return ozet["is_id"]
 
     def test_genel_resolver_sonucu_karta_islenir(self, tmp_path, monkeypatch):
         from tools import product_resolver as pr
@@ -744,6 +749,7 @@ class TestUrunEslestir:
         assert r["toplam_kart"] == 2
         assert r["eslesen"] == 1
         assert r["resmi_dogrulanan"] == 1
+        assert r["dogrulama_durumu"] == "kismi"
         assert len(r["dogrulanamayan"]) == 1
         assert r["dogrulanamayan"][0]["ad"]
 
@@ -777,8 +783,6 @@ class TestUrunEslestir:
         assert next(k for k in veri["kartlar"]
                     if k["kod"] == "BR-7")["eslesme"] is None
 
-
-class TestCheckupTemizlik:
 
 class TestCheckupTemizlik:
     """2026-09-15 checkup kilitleri: fail-fast PDF, oksuz yetki red,
@@ -825,4 +829,5 @@ def test_genel_eslestirme_firma_kesfi_de_sinirli_paralel():
     kaynak = inspect.getsource(katalog.urun_eslestir)
     assert "max_workers=min(3, max(1, len(gruplar)))" in kaynak
     assert "max_workers=min(4, len(hedefler))" in kaynak
-    assert "deadline = time.monotonic() + 120.0" in kaynak
+    assert "URUN_ESLESTIR_BUTCE_SN" in kaynak
+    assert katalog.URUN_ESLESTIR_BUTCE_SN == 65.0

@@ -713,6 +713,12 @@ def _jsonld_dugumleri(deger):
     graph = deger.get("@graph")
     if isinstance(graph, (list, dict)):
         yield from _jsonld_dugumleri(graph)
+    # ProductGroup siteleri varyantlari hasVariant icinde tutabilir.
+    # Yalniz urun-varyant agacini geziyoruz; Offer vb. tum JSON-LD
+    # nesnelerini kontrolsuzce taramiyoruz.
+    varyantlar = deger.get("hasVariant")
+    if isinstance(varyantlar, (list, dict)):
+        yield from _jsonld_dugumleri(varyantlar)
 
 
 def _jsonld_urun(ham):

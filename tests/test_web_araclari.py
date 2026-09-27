@@ -279,3 +279,20 @@ def test_sitemap_xml_urlset_parser():
     assert loclar == [
         "https://firma.example/urun/a",
         "https://firma.example/urun/b"]
+
+
+def test_jsonld_productgroup_hasvariant_acilir():
+    ham = """<script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"ProductGroup",
+     "name":"Model A","productGroupID":"A",
+     "hasVariant":[
+       {"@type":"Product","name":"Model A Siyah M","sku":"A-M-BLK",
+        "color":"Siyah","size":"M","image":"https://x/a-m.jpg"},
+       {"@type":"Product","name":"Model A Beyaz L","sku":"A-L-WHT",
+        "color":"Beyaz","size":"L","image":"https://x/a-l.jpg"}
+     ]}
+    </script>"""
+    urunler = ws._jsonld_urun(ham)
+    assert len(urunler) == 3
+    assert any(u["sku"] == "A-M-BLK" and u["color"] == "Siyah"
+               and u["size"] == "M" for u in urunler)

@@ -750,6 +750,10 @@ def katalog_kur(fatura_id, satirlar, ustbilgi=None):
                  "durum": "taslak", "olusturma": _simdi(),
                  "ustbilgi": ustbilgi if isinstance(ustbilgi, dict) else {},
                  "satirlar": temizler, "kartlar": kartlar,
+                 "urun_dogrulama": {
+                     "durum": "bekliyor", "toplam": len(kartlar),
+                     "eslesen": 0, "resmi": 0, "dogrulanamayan": len(kartlar),
+                 },
                  "uyarilar": uyarilar, "yetki_id": None}
     kok = katalog_kok()
     _kok_hazirla(kok)
@@ -769,7 +773,12 @@ def katalog_kur(fatura_id, satirlar, ustbilgi=None):
                           "toplam_adet": sum(
                               k["toplam_adet"] for k in kartlar),
                           "kartlar": ozet, "uyarilar": uyarilar,
-                          "sorulacaklar": sorulacaklar})}
+                          "sorulacaklar": sorulacaklar,
+                          "urun_dogrulama": "bekliyor",
+                          "sonraki_adim": {
+                              "arac": "urun_eslestir",
+                              "args": {"is_id": is_id,
+                                       "tum_kartlar": True}}})}
 
 
 def _is_yukle(is_id):
@@ -1226,6 +1235,8 @@ def yetki_belgesi_ekle(is_id, b64_veri, ad, marka=""):
 
 # ── F6: genel firma + ürün kimlik çözümü ─────────────────────────
 #
+URUN_ESLESTIR_BUTCE_SN = 65.0
+
 # Eski sürümde ürün eşleştirme Tutku için sabit domain kaydına bağlıydı.
 # Artık eşleştirme tools.product_resolver üzerinden marka bağımsızdır:
 # GTIN/barkod > SKU/MPN > marka/varyant kanıtı; Schema.org Product
@@ -1274,6 +1285,8 @@ def _eslesme_karta_yaz(kart, sonuc):
         "dogrulanmis_marka": sonuc.get("marka", ""),
         "sku": sonuc.get("sku", ""),
         "gtin": sonuc.get("gtin", ""),
+        "varyant_dogrulama": sonuc.get("varyant_dogrulama") or {},
+        "gorsel_dogrulama": sonuc.get("gorsel_dogrulama", "yok"),
         "gorseller": list(sonuc.get("gorseller") or [])[:10],
         "kanitlar": list(sonuc.get("kanitlar") or []),
         "eksik": list(sonuc.get("eksik") or []),
@@ -1306,7 +1319,7 @@ def urun_eslestir(is_id, kart_id="", tum_kartlar=False):
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
     from tools import product_resolver
-    deadline = time.monotonic() + 120.0
+    deadline = time.monotonic() + URUN_ESLESTIR_BUTCE_SN
 
     # Aynı markayı taşıyan 13 satır/kart için firma keşfini 13 kez yapma.
     gruplar = {}
@@ -1317,7 +1330,7 @@ def urun_eslestir(is_id, kart_id="", tum_kartlar=False):
     firma_haritasi = {}
 
     # Çok markalı faturada firma keşfi seri yapılmaz. En fazla 3 marka
-    # paralel araştırılır; hepsi aynı 120 sn iş bütçesini paylaşır.
+    # paralel araştırılır; hepsi aynı ortak iş bütçesini paylaşır.
     def _firma_coz(oge):
         anahtar, grup = oge
         if time.monotonic() >= deadline:
@@ -1366,6 +1379,26 @@ def urun_eslestir(is_id, kart_id="", tum_kartlar=False):
         if sonuc.get("resmi_dogrulandi"):
             resmi.append(kart["kart_id"])
 
+    if tum:
+        veri["urun_dogrulama"] = {
+            "durum": ("tam" if len(resmi) == len(hedefler)
+                      else "kismi" if eslesen else "dogrulanamadi"),
+            "toplam": len(hedefler),
+            "eslesen": len(eslesen),
+            "resmi": len(resmi),
+            "dogrulanamayan": len(dogrulanamayan),
+            "tarih": _simdi(),
+        }
+    else:
+        onceki = veri.get("urun_dogrulama")
+        if not isinstance(onceki, dict):
+            onceki = {"durum": "bekliyor", "toplam": len(kartlar),
+                      "eslesen": 0, "resmi": 0,
+                      "dogrulanamayan": len(kartlar)}
+        onceki["son_kart"] = kart_id
+        onceki["tarih"] = _simdi()
+        veri["urun_dogrulama"] = onceki
+
     try:
         with _KILIT:
             _atomik_yaz(os.path.join(katalog_kok(),
@@ -1378,6 +1411,8 @@ def urun_eslestir(is_id, kart_id="", tum_kartlar=False):
         return {"error": dogrulanamayan[0]["neden"]}
     return {"result": _j({
         "is_id": veri["is_id"],
+        "dogrulama_durumu": (veri.get("urun_dogrulama") or {}).get(
+            "durum", "bekliyor"),
         "toplam_kart": len(hedefler),
         "eslesen": len(eslesen),
         "resmi_dogrulanan": len(resmi),

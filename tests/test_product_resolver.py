@@ -180,3 +180,41 @@ def test_sitemap_adayi_ddg_indeksinden_once_kullanilir():
     sonuc = pr.urun_bul(kart, firma, ws=ws)
     assert sonuc["resmi_dogrulandi"] is True
     assert sonuc["kaynak"] == url
+
+
+def test_varyant_kaniti_urun_kimliginden_ayri_tasinir():
+    kimlik = pr.kart_kimligi({
+        "marka": "Marka", "kod": "A-1", "kategori": "Tekstil",
+        "varyantlar": [{"renk": "Siyah", "beden": "M", "barkod": ""}]
+    })
+    veri = {
+        "metin": "A-1 Marka Renk: Siyah Beden: M",
+        "urunler": [{"name": "A-1", "brand": "Marka", "sku": "A-1",
+                     "color": "", "size": "", "image": ""}]
+    }
+    v = pr._varyant_kaniti(kimlik, veri)
+    assert v["durum"] == "uyumlu"
+    assert v["renk_eslesen"] == ["Siyah"]
+    assert v["beden_eslesen"] == ["M"]
+
+
+def test_varyant_schema_gorseli_once_gelir():
+    kimlik = pr.kart_kimligi({
+        "marka": "Marka", "kod": "A-1",
+        "varyantlar": [{"renk": "Siyah", "beden": "M", "barkod": ""}]
+    })
+    veri = {
+        "metin": "A-1 Marka Siyah M",
+        "urunler": [
+            {"name": "A-1 Siyah M", "brand": "Marka", "sku": "A-1",
+             "color": "Siyah", "size": "M",
+             "image": "https://firma.example/siyah-m.jpg"},
+            {"name": "A-1 Beyaz L", "brand": "Marka", "sku": "A-1",
+             "color": "Beyaz", "size": "L",
+             "image": "https://firma.example/beyaz-l.jpg"},
+        ]
+    }
+    v = pr._varyant_kaniti(kimlik, veri)
+    assert v["durum"] == "uyumlu"
+    assert v["varyant_gorseller"] == [
+        "https://firma.example/siyah-m.jpg"]

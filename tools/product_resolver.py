@@ -343,6 +343,76 @@ def _structured_degerler(urunler, alan):
     return sonuc
 
 
+def _varyant_kaniti(kimlik, veri):
+    """Faturadaki renk/bedeni urun sayfasinda ayri bir kanit olarak olcer.
+
+    Urun kimligi ile varyant kimligi birbirine karistirilmaz. Bir urun
+    dogru bulunup renk/beden sayfada kanitlanamiyorsa durum acikca
+    "dogrulanamadi" kalir; fotograf varyanta aitmis gibi sunulmaz.
+    """
+    urunler = veri.get("urunler") or []
+    metin = str(veri.get("metin") or "")[:15000]
+    yap_renk = {_norm(x) for x in _structured_degerler(urunler, "color")
+                if _norm(x)}
+    yap_beden = {_norm(x) for x in _structured_degerler(urunler, "size")
+                 if _norm(x)}
+
+    istenen_renk = [x for x in kimlik.get("renkler") or [] if _norm(x)]
+    istenen_beden = [x for x in kimlik.get("bedenler") or [] if _norm(x)]
+
+    renk_eslesen = []
+    for renk in istenen_renk:
+        n = _norm(renk)
+        if n in yap_renk or (len(n) >= 3 and n in _norm(metin)):
+            renk_eslesen.append(renk)
+
+    beden_eslesen = []
+    for beden in istenen_beden:
+        n = _norm(beden)
+        if n in yap_beden or _kod_metin_de(beden, metin):
+            beden_eslesen.append(beden)
+
+    istek_sayisi = len(istenen_renk) + len(istenen_beden)
+    eslesen_sayisi = len(renk_eslesen) + len(beden_eslesen)
+    if istek_sayisi == 0:
+        durum = "faturada_yok"
+    elif eslesen_sayisi == istek_sayisi:
+        durum = "uyumlu"
+    elif eslesen_sayisi:
+        durum = "kismi"
+    else:
+        durum = "dogrulanamadi"
+
+    # Schema.org hasVariant icinde renk/beden + image bulunan kayit,
+    # varyanta ozel fotograf icin en guclu generic kanittir.
+    varyant_gorseller = []
+    for u in urunler:
+        if not isinstance(u, dict):
+            continue
+        renk = _norm(u.get("color"))
+        beden = _norm(u.get("size"))
+        renk_ok = not istenen_renk or any(
+            renk == _norm(x) for x in istenen_renk)
+        beden_ok = not istenen_beden or any(
+            beden == _norm(x) for x in istenen_beden)
+        if not (renk_ok and beden_ok):
+            continue
+        imgs = u.get("image")
+        imgs = imgs if isinstance(imgs, list) else [imgs]
+        for img in imgs:
+            if isinstance(img, str) and img and img not in varyant_gorseller:
+                varyant_gorseller.append(img)
+
+    return {
+        "durum": durum,
+        "fatura_renkler": istenen_renk,
+        "fatura_bedenler": istenen_beden,
+        "renk_eslesen": renk_eslesen,
+        "beden_eslesen": beden_eslesen,
+        "varyant_gorseller": varyant_gorseller[:10],
+    }
+
+
 def _sayfa_skor(kimlik, url, veri, firma):
     metin = str(veri.get("metin") or "")
     urunler = veri.get("urunler") or []
@@ -394,13 +464,12 @@ def _sayfa_skor(kimlik, url, veri, firma):
     elif kaynak_turu == "resmi_satis_adayi":
         skor += 6; kanit.append("resmi_satis_adayi")
 
-    # Varyant bilgisi varsa yalniz ek kanit olur; yoklugu urunu dusurmez.
-    varyant_metin = " ".join(_structured_degerler(urunler, "color") +
-                             _structured_degerler(urunler, "size"))
-    vn = _norm(varyant_metin)
-    if vn and any(_norm(r) in vn for r in kimlik.get("renkler") or [] if _norm(r)):
+    # Varyant urun kimliginden ayri izlenir. Eslesen renk/beden yalniz
+    # ek kanittir; eslesmemesi baska SKU'yu dogru urun diye secmez.
+    varyant = _varyant_kaniti(kimlik, veri)
+    if varyant["renk_eslesen"]:
         skor += 3; kanit.append("renk")
-    if vn and any(_norm(b) in vn for b in kimlik.get("bedenler") or [] if _norm(b)):
+    if varyant["beden_eslesen"]:
         skor += 3; kanit.append("beden")
 
     # "Resmî doğrulandı" yalnız güçlü üretici/sahiplik kaynağında ve
@@ -528,6 +597,18 @@ def urun_bul(kart, firma_adaylari=None, ws=None, deadline=None):
         guven = ("yuksek" if resmi and skor >= 85
                  else "orta" if kimlik_kaniti and skor >= 65
                  else "dusuk")
+        varyant = _varyant_kaniti(kimlik, veri)
+        varyant_gorseller = varyant.pop("varyant_gorseller")
+        sayfa_gorselleri = [g for g in (veri.get("gorseller") or [])
+                            if isinstance(g, str)]
+        gorseller = list(dict.fromkeys(
+            varyant_gorseller + sayfa_gorselleri))[:10]
+        gorsel_dogrulama = (
+            "varyant" if varyant_gorseller and varyant["durum"] == "uyumlu"
+            else "urun" if resmi and gorseller
+            else "aday" if gorseller
+            else "yok")
+
         sonuc = {
             "cozucu_surumu": "urun-kimlik-v2",
             "kaynak": url,
@@ -542,15 +623,19 @@ def urun_bul(kart, firma_adaylari=None, ws=None, deadline=None):
             "marka": markalar[0] if markalar else kimlik["marka"],
             "sku": skular[0] if skular else kimlik["sku"],
             "gtin": gtin[0] if gtin else ((kimlik["gtinler"] or [""])[0]),
-            "gorseller": [g for g in (veri.get("gorseller") or [])
-                          if isinstance(g, str)][:10],
-            "kanitlar": list(dict.fromkeys((firma.get("kanitlar") or []) + kanit)),
+            "varyant_dogrulama": varyant,
+            "gorsel_dogrulama": gorsel_dogrulama,
+            "gorseller": gorseller,
+            "kanitlar": list(dict.fromkeys(
+                (firma.get("kanitlar") or []) + kanit)),
             "eksik": [],
         }
         if not resmi:
             sonuc["eksik"].append("resmi_kaynak")
         if not sonuc["gorseller"]:
             sonuc["eksik"].append("gorsel")
+        if (kimlik.get("renkler") or kimlik.get("bedenler")) and                 varyant["durum"] not in ("uyumlu", "faturada_yok"):
+            sonuc["eksik"].append("varyant")
         if not urunler:
             sonuc["eksik"].append("yapilandirilmis_urun_verisi")
         if en_iyi is None or (resmi, skor) > (
