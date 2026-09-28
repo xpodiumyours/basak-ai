@@ -115,7 +115,20 @@ platformdur.
 Her faz ayrı dal, ayrı commit. Preview'da birlikte test edilmeden sıradakine
 geçilmez; `main`'e sen onaylamadan hiçbir iş girmez.
 
-## 6. Bilişsel yük haritası (kim ne yapar)
+## 6. Deploy disiplini (Vercel kotası)
+
+Hobby planda günlük deploy sınırı var; 2026-09-28'de aşıldı (faz içi
+ara push'lar ~25 deploy yedi). Kural — push = deploy:
+
+- **Push yalnız faz tamamlanınca:** testler yeşil + Casper preview'da
+  "olur" dedikten sonra. Ara durumlarda commit yerelde kalır.
+- **Görsel testler yerelde:** uvicorn (port 8791) + tarayıcı; ücretsiz
+  ve sınırsız. Vercel preview yalnız faz kabulünde açılır.
+- **Faz başına deploy bütçesi = 1.** Faz 3'ün bekleyen tek redeploy'i
+  limit açılınca yapılır. Faz 4 mevcut preview'da test edilir (deploy
+  yok). Faz 5 = 1 üretim deployu (yalnız Casper onayıyla).
+
+## 7. Bilişsel yük haritası (kim ne yapar)
 
 - **Casper:** kapsam, "olur/olmaz", hukuki taslak onayı, yayın onayı.
 - **Ajan (Buffy):** kod, dal/PR, test, güvenlik, deploy, preview raporu
