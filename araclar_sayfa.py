@@ -71,6 +71,34 @@ YEREL_ARACLAR = {
         "girdiler": [("Hex sayi (ornek ff)", "text", "")],
         "ipucu": "Cikti ondaliktir; 255 icin 'ff' yazin.",
     },
+    "case-converter": {
+        "baslik": "Büyük / Küçük Harf Çevirici",
+        "girdiler": [("Metin", "textarea", ""),
+                     ("Kip (bos: hepsi, upper, lower, title)", "text", "")],
+        "ipucu": "Kip bos birakilirsa uc bicim birden gosterilir.",
+    },
+    "text-binary": {
+        "baslik": "Metin ⇄ İkili (Binary) Çevirici",
+        "girdiler": [("Metin veya ikili (ornek 01000001)", "textarea", ""),
+                     ("Kip (bos: kodla, decode: çöz)", "text", "")],
+        "ipucu": "Türkçe karakterler UTF-8 ile 8 bit bloklara cevrilir.",
+    },
+    "text-ascii": {
+        "baslik": "Metin ⇄ ASCII Kodu Çevirici",
+        "girdiler": [("Metin veya kodlar (ornek 65 66)", "textarea", ""),
+                     ("Kip (bos: kodla, decode: çöz)", "text", "")],
+        "ipucu": "Bosluk ya da virgulle ayrilmis ondalik kodlari cozebilirsiniz.",
+    },
+    "remove-empty-lines": {
+        "baslik": "Boş Satır Temizleyici",
+        "girdiler": [("Metin", "textarea", "")],
+        "ipucu": "Bos ve yalniz-bosluk satirlari atilir; dolu satirlar korunur.",
+    },
+    "line-break-remover": {
+        "baslik": "Satır Birleştirici",
+        "girdiler": [("Metin", "textarea", "")],
+        "ipucu": "Satir sonlari tek bosluga indirilir; metin tek paragrafa doner.",
+    },
 }
 
 # Slug son kelimeleri icin kisa Turkce cevir (basligi anlasilir yapar).

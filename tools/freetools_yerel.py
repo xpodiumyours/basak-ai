@@ -146,6 +146,82 @@ def _hex_ondalik(form):
     return str(int(ham, 16))
 
 
+def _buyuk_kucuk(form):
+    """case-converter — kip ikinci alanda; verilmezse uc bicim birden doner."""
+    metin = _girdi(form, 0)
+    kip = _girdi(form, 1).strip().lower()
+    if kip in ("upper", "buyuk", "büyük"):
+        return metin.upper()
+    if kip in ("lower", "kucuk", "küçük"):
+        return metin.lower()
+    if kip in ("title", "baslik", "başlık"):
+        return metin.title()
+    if kip in ("capitalize", "cumle"):
+        return metin.capitalize()
+    if kip:
+        return None
+    return "\n".join((
+        "BÜYÜK: %s" % metin.upper(),
+        "küçük: %s" % metin.lower(),
+        "Başlık: %s" % metin.title(),
+    ))
+
+
+def _metin_ikili(form):
+    """text-binary — metin -> 8 bit ikili; 'decode' ise ikili -> metin."""
+    metin = _girdi(form, 0)
+    if _yon(form):
+        parcalar = re.split(r"\s+", metin.strip())
+        try:
+            bayt = bytes(int(p, 2) for p in parcalar if p)
+        except ValueError:
+            return None
+        try:
+            return bayt.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+    if not metin:
+        return None
+    return " ".join(format(b, "08b") for b in metin.encode("utf-8"))
+
+
+def _metin_ascii(form):
+    """text-ascii — metin -> ondalik kodlar; 'decode' ise kodlar -> metin."""
+    metin = _girdi(form, 0)
+    if _yon(form):
+        parcalar = re.split(r"[\s,]+", metin.strip())
+        try:
+            bayt = bytes(int(p) for p in parcalar if p)
+        except ValueError:
+            return None
+        try:
+            return bayt.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+    if not metin:
+        return None
+    return " ".join(str(b) for b in metin.encode("utf-8"))
+
+
+def _bos_satir_sil(form):
+    """remove-empty-lines — bos/yalniz-bosluk satirlari atar."""
+    metin = _girdi(form, 0)
+    satirlar = [s for s in metin.splitlines() if s.strip()]
+    if not satirlar:
+        return None
+    return "\n".join(satirlar)
+
+
+def _satir_birlestir(form):
+    """line-break-remover — satir sonlarini tek boslukla birlestirir."""
+    metin = _girdi(form, 0)
+    birlesik = " ".join(s.strip() for s in metin.splitlines())
+    birlesik = re.sub(r"\s+", " ", birlesik).strip()
+    if not birlesik:
+        return None
+    return birlesik
+
+
 # slug -> hesaplayici
 ARACLAR = {
     "sha-hash-generator": _sha,
@@ -157,6 +233,11 @@ ARACLAR = {
     "reverse-text": _ters,
     "binary-hex-converter": _bin_hex,
     "hexadecimal-to-decimal-converter": _hex_ondalik,
+    "case-converter": _buyuk_kucuk,
+    "text-binary": _metin_ikili,
+    "text-ascii": _metin_ascii,
+    "remove-empty-lines": _bos_satir_sil,
+    "line-break-remover": _satir_birlestir,
 }
 
 

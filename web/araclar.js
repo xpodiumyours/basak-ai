@@ -155,6 +155,95 @@
       }
       return BigInt("0x" + t).toString(10);
     },
+
+    "case-converter": function (d) {
+      var m = String(d[0] || "");
+      var kip = String(d[1] || "").trim().toLowerCase();
+      if (!kip) {
+        return [
+          "BÜYÜK: " + m.toLocaleUpperCase("tr"),
+          "küçük: " + m.toLocaleLowerCase("tr"),
+          "Başlık: " + m.toLocaleLowerCase("tr").replace(/(^|\s)\S/g, function (h) {
+            return h.toLocaleUpperCase("tr");
+          }),
+        ].join("\n");
+      }
+      if (/^(upper|buyuk|büyük)$/.test(kip)) return m.toLocaleUpperCase("tr");
+      if (/^(lower|kucuk|küçük)$/.test(kip)) return m.toLocaleLowerCase("tr");
+      if (/^(title|baslik|başlık)$/.test(kip)) {
+        return m.toLocaleLowerCase("tr").replace(/(^|\s)\S/g, function (h) {
+          return h.toLocaleUpperCase("tr");
+        });
+      }
+      if (/^(capitalize|cumle|cümle)$/.test(kip)) {
+        var k = m.toLocaleLowerCase("tr");
+        return k.charAt(0).toLocaleUpperCase("tr") + k.slice(1);
+      }
+      throw new Error("Bilinmeyen kip (upper, lower, title)");
+    },
+
+    "text-binary": function (d) {
+      var m = String(d[0] || "");
+      var coz = /decode|coz|çöz/i.test(d[1] || "");
+      if (!coz) {
+        var veri = new TextEncoder().encode(m);
+        var blok = [];
+        for (var i = 0; i < veri.length; i++) {
+          blok.push(veri[i].toString(2).padStart(8, "0"));
+        }
+        if (!blok.length) throw new Error("Metin bos olamaz");
+        return blok.join(" ");
+      }
+      var parcalar = m.trim().split(/\s+/);
+      if (!parcalar.length || !parcalar[0]) throw new Error("Ikili metin bos olamaz");
+      var bayt = parcalar.map(function (p) {
+        if (!/^[01]{8}$/.test(p)) throw new Error("Her blok 8 bit 0/1 olmali");
+        return parseInt(p, 2);
+      });
+      try {
+        return new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(bayt));
+      } catch (e) {
+        throw new Error("Cozulen veri UTF-8 metni degil");
+      }
+    },
+
+    "text-ascii": function (d) {
+      var m = String(d[0] || "");
+      var coz = /decode|coz|çöz/i.test(d[1] || "");
+      if (!coz) {
+        var veri = new TextEncoder().encode(m);
+        var kod = [];
+        for (var i = 0; i < veri.length; i++) kod.push(String(veri[i]));
+        if (!kod.length) throw new Error("Metin bos olamaz");
+        return kod.join(" ");
+      }
+      var parcalar = m.trim().split(/[\s,]+/);
+      if (!parcalar.length || !parcalar[0]) throw new Error("Kod listesi bos olamaz");
+      var bayt = parcalar.map(function (p) {
+        if (!/^\d{1,3}$/.test(p) || Number(p) > 255) {
+          throw new Error("Her kod 0-255 arasi sayi olmali");
+        }
+        return Number(p);
+      });
+      try {
+        return new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(bayt));
+      } catch (e) {
+        throw new Error("Cozulen veri UTF-8 metni degil");
+      }
+    },
+
+    "remove-empty-lines": function (d) {
+      var satir = String(d[0] || "").split(/\r\n|\r|\n/);
+      var dolu = satir.filter(function (s) { return s.trim(); });
+      if (!dolu.length) throw new Error("Temizlenecek dolu satir yok");
+      return dolu.join("\n");
+    },
+
+    "line-break-remover": function (d) {
+      var birlesik = String(d[0] || "").replace(/\s+/g, " ").trim();
+      if (!birlesik) throw new Error("Birlestirilecek metin yok");
+      return birlesik;
+    },
   };
 
   if (dugme) {
