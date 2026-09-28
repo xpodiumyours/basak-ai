@@ -9,7 +9,7 @@ Kaniti uc ayri katmanda raporlar:
    aracinin calistirilip final cevaba baglanmasini tamamlar mi?
 
 Canli protokol testi gercek dis etkili araclari (dosya yazma, gorev ekleme,
-uygulama acma vb.) CALISTIRMAZ. O araclarin 52/52 dispatcher baglantisi
+uygulama acma vb.) CALISTIRMAZ. O araclarin guncel dispatcher baglantisi
 kotasiz testte tam denetlenir. Bu ayrim raporda acikca belirtilir.
 """
 
@@ -25,14 +25,17 @@ from tests.live import matris_kosucu as _matris_kosucu
 SAGLAYICILAR = tuple(_matris_kosucu.KAPSAM)
 
 ALAN_SORULARI = {
-    "internet": "İnternette OpenAI resmi sitesini araştır ve uygun aracı seç.",
+    "internet_ara": "İnternette OpenAI resmi sitesini araştır; uygun arama aracını seç.",
+    "internet_oku": "Bilinen bir web sayfasını okumam gerekiyor; uygun okuma aracını seç.",
     "dosyalar": "Bilgisayardaki bir dosyanın içeriğini okumam gerekiyor; uygun aracı seç.",
     "projeler": "Bir Git projesinin durumunu kontrol et; uygun proje aracını seç.",
     "gorevler": "Şu anki tarih ve saati kontrol et; uygun aracı seç.",
     "hafiza": "Kalıcı hafızada belirli bir konuyu ara; uygun aracı seç.",
     "gorsel": "Yerel bir görseli analiz etmek gerekiyor; uygun görsel aracını seç.",
     "katalog": "Mevcut katalog işlerini listelemek gerekiyor; uygun katalog aracını seç.",
+    "yayin": "Mevcut katalog için yayın paketini denetlemek gerekiyor; uygun aracı seç.",
     "matris": "Mevcut fikir matrislerini listelemek gerekiyor; uygun matris aracını seç.",
+    "matris_satir": "Bir matris satırını düzenlemek gerekiyor; uygun satır aracını seç.",
     "masaustu": "Beyaz listedeki bir masaüstü uygulamasını açmak gerekiyor; uygun aracı seç.",
     "hesap": "120 çarpı 18 bölü 100 hesabını yap; uygun hesap aracını seç.",
 }
@@ -148,7 +151,7 @@ def _tek_mesaj(beyin, provider, mesaj, beklenen_arac):
 
 
 def _alan_sema_testi(beyin, provider, istemci):
-    """10 alanda guncel semalari gercek provider API'sinden gecir.
+    """Guncel yetenek alanlarinda semalari gercek provider API'sinden gecir.
 
     Araclari calistirmaz; amac provider/modelin Basak'in gercek JSON
     semalarini kabul edip o alandan bir tool_call uretebilmesidir.
@@ -263,13 +266,16 @@ def main():
             "simdi",
         )
 
+        alan_sayisi = len(alanlar)
         provider_ok = (
-            alan_ok == 10 and sema_ok == arac_sayisi and sohbet_ok and arac_ok
+            alan_ok == alan_sayisi and sema_ok == arac_sayisi
+            and sohbet_ok and arac_ok
         )
         if provider_ok:
             tam_gecen += 1
             durum = "✅ GEÇTİ"
-            not_ = "10 alan + %d şema + sohbet + gerçek simdi" % arac_sayisi
+            not_ = "%d alan + %d şema + sohbet + gerçek simdi" % (
+                alan_sayisi, arac_sayisi)
         else:
             kalan += 1
             durum = "❌ KALDI"
@@ -370,9 +376,13 @@ def main():
         "### Kabul",
         "",
         (
-            "✅ TAM KABUL: kotasız yapı + 8/8 sağlayıcı + 10/10 alan + "
+            "✅ TAM KABUL: kotasız yapı + %d/%d sağlayıcı + %d/%d alan + "
             "%d/%d canlı şema + gerçek sohbet/simdi döngüsü geçti."
-            % (arac_sayisi, arac_sayisi)
+            % (
+                len(SAGLAYICILAR), len(SAGLAYICILAR),
+                len(ALAN_SORULARI), len(ALAN_SORULARI),
+                arac_sayisi, arac_sayisi,
+            )
             if tam else
             "❌ TAM KABUL YOK: yukarıdaki eksik/kırmızı kalemler bitmeden "
             "Başak'ın tamamı canlı doğrulandı denemez."
