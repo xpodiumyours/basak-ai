@@ -230,8 +230,10 @@ def _kisa(metin, sinir=180):
 def main():
     from brain import Brain
     from tools import TOOLS
+    from tools.capabilities import CAPABILITY_NAMESPACES
 
     arac_sayisi = len(TOOLS)
+    alan_sayisi = len(CAPABILITY_NAMESPACES)
     b = Brain()
     mevcut = dict(b._bulut_zinciri(tools=True, tool_required=True))
 
@@ -244,8 +246,8 @@ def main():
     for ad in SAGLAYICILAR:
         if ad not in mevcut:
             satirlar.append(
-                "| %s | ❌ YOK | 0/10 | 0/%d | - | - | GitHub ortamında hazır değil |"
-                % (ad, arac_sayisi)
+                "| %s | ⚪ NOT TESTED | 0/%d | 0/%d | - | - | GitHub ortamında erişim/anahtar yok |"
+                % (ad, alan_sayisi, arac_sayisi)
             )
             detaylar.append("**%s:** canlı istemci yok." % ad)
             eksik += 1
@@ -322,10 +324,11 @@ def main():
 
     pytest_ozet = _pytest_ozeti()
     kotasiz_ok = "passed" in pytest_ozet and "failed" not in pytest_ozet.lower()
+    hazir = len(SAGLAYICILAR) - eksik
     tam = (
         kotasiz_ok
-        and tam_gecen == len(SAGLAYICILAR)
-        and eksik == 0
+        and hazir > 0
+        and tam_gecen == hazir
         and kalan == 0
     )
 
@@ -356,8 +359,9 @@ def main():
         "|---|---|---:|---:|---|---|---|",
         *satirlar,
         "",
-        "**Canlı sağlayıcı özeti:** %d/%d tam geçti · %d eksik · %d kaldı"
-        % (tam_gecen, len(SAGLAYICILAR), eksik, kalan),
+        "**Canlı sağlayıcı özeti:** %d/%d aktif sağlayıcı tam geçti · "
+        "%d erişim/anahtar yok · %d aktif sağlayıcı kaldı"
+        % (tam_gecen, hazir, eksik, kalan),
         "",
         "#### 3) Ne gerçekten çalıştırıldı?",
         "",
@@ -376,12 +380,14 @@ def main():
         "### Kabul",
         "",
         (
-            "✅ TAM KABUL: kotasız yapı + %d/%d sağlayıcı + %d/%d alan + "
-            "%d/%d canlı şema + gerçek sohbet/simdi döngüsü geçti."
+            "✅ TAM KABUL: kotasız yapı + %d/%d aktif sağlayıcı + "
+            "%d/%d alan + %d/%d canlı şema + gerçek sohbet/simdi "
+            "döngüsü geçti. Erişim/anahtarı olmayan %d sağlayıcı NOT TESTED."
             % (
-                len(SAGLAYICILAR), len(SAGLAYICILAR),
-                len(ALAN_SORULARI), len(ALAN_SORULARI),
+                tam_gecen, hazir,
+                alan_sayisi, alan_sayisi,
                 arac_sayisi, arac_sayisi,
+                eksik,
             )
             if tam else
             "❌ TAM KABUL YOK: yukarıdaki eksik/kırmızı kalemler bitmeden "

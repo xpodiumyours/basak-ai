@@ -56,7 +56,7 @@ def _kilo_global_kota_mi(hata) -> bool:
 
 
 def _model_yedegi_gerekir_mi(hata) -> bool:
-    """Yalniz model/uplink kaynakli gecici arizada diger free modeli dene."""
+    """Model/uplink veya required-tool protokol ihlalinde diger free modeli dene."""
     if _kilo_global_kota_mi(hata):
         return False
     durum = getattr(hata, "status_code", None)
@@ -72,8 +72,28 @@ def _model_yedegi_gerekir_mi(hata) -> bool:
         "kilo bos cevap", "model not found", "model unavailable",
         "model is unavailable", "no endpoints", "upstream",
         "timed out", "timeout", "connection reset",
-        "tool_choice", "tool choice",
+        "tool_choice", "tool choice", "required tool_call yok",
     ))
+
+
+def _kilo_mesajlari(messages):
+    """Kilo Gateway mesaj semasina uymayan opsiyonel reasoning'i ayikla.
+
+    Gateway reasoning_details alanini varsa dizi bekliyor. Bazi free
+    modeller bu alani string dondurebildigi icin ayni modele geri
+    gondermek 400 uretiyor. Muhakeme metni content'e eklenmez; yalniz
+    gecersiz opsiyonel metadata atilir.
+    """
+    temiz = []
+    for mesaj in messages or []:
+        if not isinstance(mesaj, dict):
+            continue
+        m = dict(mesaj)
+        if ("reasoning_details" in m
+                and not isinstance(m.get("reasoning_details"), list)):
+            m.pop("reasoning_details", None)
+        temiz.append(m)
+    return temiz
 
 
 class KiloClient:
@@ -122,7 +142,7 @@ class KiloClient:
                    tools: list = None, tool_choice=None, timeout=None) -> dict:
         kwargs = {
             "model": model_adi,
-            "messages": messages,
+            "messages": _kilo_mesajlari(messages),
 }
         if tools:
             kwargs["tools"] = tools
@@ -186,6 +206,10 @@ class KiloClient:
                 yanit = self._tek_model(
                     model_adi, messages, tools=tools,
                     tool_choice=tool_choice)
+                if (tools and tool_choice == "required"
+                        and not (yanit.get("tool_calls")
+                                 if isinstance(yanit, dict) else None)):
+                    raise RuntimeError("Kilo required tool_call yok")
                 self.model = model_adi
                 return yanit
             except Exception as e:
