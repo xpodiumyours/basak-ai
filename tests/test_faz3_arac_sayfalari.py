@@ -122,7 +122,7 @@ class TestSiteHaritasi:
         kok = ET.fromstring(r.text)
         ns = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
         loclar = [e.text for e in kok.findall("%surl/%sloc" % (ns, ns))]
-        assert len(loclar) == len(ARACLAR) + 8   # 163 arac + 8 sabit sayfa
+        assert len(loclar) == len(ARACLAR) + 8   # arac + 8 sabit sayfa
         for kat, slug in ARACLAR:
             assert "https://ornek.test/araclar/%s/%s" % (kat, slug) in loclar
         for zorunlu in ("/", "/araclar", "/gizlilik.html", "/cerez.html",
