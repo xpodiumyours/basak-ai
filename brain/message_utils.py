@@ -118,8 +118,16 @@ def mesajlari_temizle(messages: list, provider="") -> list:
 
         if ayni_provider:
             for alan in _REASONING_ALANLARI:
-                if alan in m:
-                    kopya[alan] = m[alan]
+                if alan not in m:
+                    continue
+                # Kilo Gateway reasoning_details alanini dizi olarak bekler.
+                # Bazi free modeller string donduruyor; bunu streaming
+                # yolunda geri gondermek gercek tool-result sonrasi 400
+                # uretiyor. Gecersiz opsiyonel metadata atilir.
+                if (provider == "kilo" and alan == "reasoning_details"
+                        and not isinstance(m[alan], list)):
+                    continue
+                kopya[alan] = m[alan]
 
         temiz.append(kopya)
     return temiz
