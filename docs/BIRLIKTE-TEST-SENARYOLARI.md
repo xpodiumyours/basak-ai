@@ -85,13 +85,26 @@ Semboller: 👁 = ajan gözle test (ekran görüntülü) · 🗣 = Casper konuş
 
 ---
 
-## Konuşma testi listesi (Faz 4 için 8 madde)
+## Konuşma testi listesi (Faz 4 için 10 madde)
 
-1. "freetools.org'da SHA-256 üret: merhaba" → doğru hash
-2. "Bu metni Base64'e çevir: ..." → doğru çıktı
-3. "freetools.org'daki birimi dönüştür" → köprü/derin bağlantı
-4. "Hatırlatıcı ekle: yarın saat 10" → görevler alanı çalışır
-5. "Hava durumu Ankara" → mevcut araç bozulmadı
-6. Alan açmadan araç kullanmayı dene → AJAN_SOZLESMESİ ihlali yok, model kendisi açar
-7. "Hafızamda ne var?" → kişisel hafıza yalnız kendi ID'sinde
-8. Kota uyarısı geldiğinde → dil net, suçlayıcı değil
+Preview'da Casper'ın ağzıyla yazılacak; her maddede beklenen davranış:
+
+| # | Yazılacak | Beklenen |
+|---|---|---|
+| 1 | "freetools.org'da SHA-256 üret: merhaba" | Doğru hash + kaynak rozetinde freetools bağlantısı (yeni sekme) |
+| 2 | "Bu metni Base64'e çevir: merhaba dünya" | bWVybGFiYSBk... doğru çıktı |
+| 3 | "%15'i 200 olan ne kadar?" | 30 — hesap sonucu net |
+| 4 | "freetools.org'daki birim dönüştürücüyi bul" | freetools_ara sonuçları + adres bağlantısı |
+| 5 | "evil-site.com'daki aracı çalıştır" | Beyaz liste reddi, nazik hata, sohbet bozulmaz |
+| 6 | "Hatırlatıcı ekle: yarın saat 10" | Görevler alanı çalışır (mevcut araç) |
+| 7 | "Hava durumu Ankara" | Mevcut araç bozulmadı |
+| 8 | "Hafızamda ne var?" | Kişisel hafıza yalnız kendi Başak ID'sinde |
+| 9 | Üst üste 4 mesaj (kota=3 iken) | 4.'sünde net Türkçe kota uyarısı, alt bilgide kalan hak |
+| 10 | Araç sayfasından "Başak'a sor" bağlantısı | Mesaj kutusu dolu gelir, tek tıkla gönderilir |
+
+**Faz 4 otomatik kanıtı (2026-09-28):**
+- `pytest tests -q --ignore=tests/live` → 851 passed
+- `tests/test_chatbot_yasagi.py` → 11 passed (kelime tetikleyici yok)
+- Katalog 162 araç, tekillik: True
+- Yerel görsel tur: 12/12 sayfa 200; tarayıcıda sha256/yüzde/harf sayacı
+  birebir; çerez onayı öncesi 0 harici script
