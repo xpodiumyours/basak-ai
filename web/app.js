@@ -1658,6 +1658,16 @@ document.querySelectorAll(".ornek").forEach((d) => {
   });
 });
 
+// Araç sayfalarından gelen derin bağlantı: /?soru=... yazıyı doldurur.
+const soruParam = new URLSearchParams(location.search).get("soru");
+if (soruParam && msgEl) {
+  msgEl.value = String(soruParam).slice(0, 4000);
+  autoResize();
+  gonderimDurumu();
+  history.replaceState({}, "", location.pathname);
+  msgEl.focus();
+}
+
 msgEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();

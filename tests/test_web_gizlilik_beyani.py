@@ -22,8 +22,11 @@ BILGI = (WEB / "bilgilendirme.html").read_text(encoding="utf-8")
 class TestOnaysizUcuncuTarafYok:
     """Faz 3 reklam/analitik kodu ancak onay SONRASI gelir (Faz 3)."""
 
+    # Yalniz KOD yukleyen etiketler kontrol edilir: <a href> gezinme
+    # baglantisi kod calistirmaz (freetools/kagit baglantilari boyle gelir).
     HARICI_KALIP = re.compile(
-        r"""(?:src|href)\s*=\s*["'](?:https?:)?//[^"']+""",
+        r"<(?:script|link|img|iframe|source|video|audio|object|embed)\b"
+        r"[^>]*?(?:src|href)\s*=\s*[\"'](?:https?:)?//[^\"']+",
         re.IGNORECASE)
 
     YASAK_IMZA = (

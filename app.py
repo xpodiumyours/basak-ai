@@ -19,7 +19,10 @@ import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import (
+    HTMLResponse, JSONResponse, PlainTextResponse, Response,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 
 BASE = Path(__file__).resolve().parent
@@ -977,6 +980,68 @@ async def cikis():
         secure=kullanici_modulu.uretim_mi(), samesite="lax",
     )
     return resp
+
+
+# ── Faz 3: arac sayfalari + site haritasi + robots ──────────────────────
+
+
+def _kok(request: Request) -> str:
+    """Sayfalari hangi adreste oldugumuza gore uretiriz (domain sabit degil)."""
+    return str(request.base_url).rstrip("/")
+
+
+@app.get("/araclar")
+async def araclar_listesi(request: Request):
+    from araclar_sayfa import liste_html
+    return HTMLResponse(liste_html(_kok(request)))
+
+
+@app.get("/araclar/{kategori}/{arac}")
+async def arac_sayfasi(kategori: str, arac: str, request: Request):
+    from araclar_sayfa import sayfa_html
+    icerik = sayfa_html(kategori, arac, _kok(request))
+    if icerik is None:
+        return HTMLResponse(
+            '<!doctype html><html lang="tr"><head><meta charset="utf-8">'
+            '<title>404 — araç yok</title></head><body>'
+            '<p>Böyle bir araç yok. <a href="/araclar">Tüm araçlar</a> '
+            '· <a href="/">Başak</a></p></body></html>',
+            status_code=404,
+        )
+    return HTMLResponse(icerik)
+
+
+@app.get("/sitemap.xml")
+async def sitemap(request: Request):
+    """Katalogdan uretilir: arac eklenince haritaya otomatik girer."""
+    from tools.freetools_katalog import ARACLAR
+    kok = _kok(request)
+    yollar = ["/", "/araclar", "/bilgilendirme.html", "/gizlilik.html",
+              "/cerez.html", "/sartlar.html", "/sorumluluk.html",
+              "/destek.html"]
+    yollar += ["/araclar/%s/%s" % (k, s) for k, s in ARACLAR]
+    satirlar = []
+    for yol in yollar:
+        oncelik = ("1.0" if yol == "/" else
+                   "0.8" if yol.startswith("/araclar") else "0.4")
+        sik = "daily" if yol in ("/", "/araclar") else "weekly"
+        satirlar.append(
+            "<url><loc>%s%s</loc><changefreq>%s</changefreq>"
+            "<priority>%s</priority></url>" % (kok, yol, sik, oncelik))
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+           + "".join(satirlar) + "</urlset>")
+    return Response(content=xml, media_type="application/xml",
+                    headers={"Cache-Control": "no-store"})
+
+
+@app.get("/robots.txt")
+async def robots(request: Request):
+    """Yasak yok: Allow / (MIMARI karari — otomatik erisimi kisitlamayiz)."""
+    metin = ("User-agent: *\nAllow: /\n\n"
+             "Sitemap: %s/sitemap.xml\n" % _kok(request))
+    return PlainTextResponse(metin,
+                             headers={"Cache-Control": "no-store"})
 
 
 class _Statik(StaticFiles):
