@@ -252,6 +252,34 @@ def _giris_engeli():
     return JSONResponse({"error": "giris gerekli"}, status_code=401)
 
 
+def _kota_kapisi(request: Request, kid):
+    """Anonim gunluk kota — model calismadan ONCE verilen karar.
+
+    Kota MODEL DARALTMA DEGILDIR (CHATBOT-YASAGI.md kapsamı dışı):
+    karar istegin basinda, cevap akisina/arc secimine/gecmise dokunmadan
+    verilir. Amac: ucretsiz saglayici zincirinin gunluk kotasinin tek bir
+    kullanici tarafindan tuketilmemesi.
+
+    X-Basak-Token sahibi (yonetici) kotanin disindadir.
+    Kota modulu hatasinda sohbet devam eder (fail-open; kota modulu zaten
+    Postgres yoksa bellek yedegine duser).
+    """
+    if _token_kimligi(request) is not None:
+        return True, None
+    try:
+        import kota as kota_modulu
+        return kota_modulu.kota_ekle(kid)
+    except Exception:
+        return True, None
+
+
+_KOTA_HATASI = (
+    "Günlük ücretsiz hakkın doldu ({tavan} mesaj). "
+    "Hakkın yarın (UTC) sıfırlanır; kayıt zorunlu değil, aynı Başak ID ile "
+    "ertesi gün aynı hafızayla devam edebilirsin."
+)
+
+
 _HANDOFF_SCHEMA = "p2-handoff-v1"
 _HANDOFF_OLAYLARI = frozenset(
     ("runContext", "toolDone", "source", "runState", "truncated")
@@ -731,6 +759,7 @@ async def sohbet(request: Request):
         return JSONResponse({"error": str(e)}, status_code=400)
     ek_yol = None
     akis_kuruldu = False
+    kota_kalan = None
     try:
         ek = _gorsel_kaydet((body or {}).get("ek"))
         if ek:
@@ -756,6 +785,17 @@ async def sohbet(request: Request):
             )
         if not metin:
             return JSONResponse({"error": "Bos mesaj"}, status_code=400)
+
+        # Kota kapisi — model/ek islemden hemen once, yani ucretsiz
+        # saglayicinin kotasi harcanmadan once karar verilir.
+        izin, kota_kalan = _kota_kapisi(request, kid)
+        if not izin:
+            import kota as kota_modulu
+            return JSONResponse({
+                "error": _KOTA_HATASI.format(tavan=kota_modulu.tavan()),
+                "kota": True,
+                "kalan": 0,
+            }, status_code=429, headers={"Retry-After": "3600"})
 
         beyin, tools = _cekirdek()
         from chat.agent_runtime import normalize_tool_policy
@@ -831,13 +871,16 @@ async def sohbet(request: Request):
                 asyncio.to_thread(_kos, True, True)
             )
             akis_kuruldu = True
+            basliklar = {
+                "Cache-Control": "no-cache, no-transform",
+                "X-Content-Type-Options": "nosniff",
+            }
+            if kota_kalan is not None:
+                basliklar["X-Basak-Kota-Kalan"] = str(kota_kalan)
             return StreamingResponse(
                 _canli_olaylar(kuyruk, gorev, kayit.istek, iptal),
                 media_type=_AKIS_MIME,
-                headers={
-                    "Cache-Control": "no-cache, no-transform",
-                    "X-Content-Type-Options": "nosniff",
-                },
+                headers=basliklar,
             )
 
         await asyncio.to_thread(_kos)
@@ -848,13 +891,16 @@ async def sohbet(request: Request):
                 "error": kayit.hata,
                 "olaylar": kayit.olaylar,
             }
-        return {
+        yanit = {
             "ok": bool(kayit.cevap),
             "istek": kayit.istek,
             "cevap": kayit.cevap,
             "kaynak": kayit.kaynak,
             "olaylar": kayit.olaylar,
         }
+        if kota_kalan is not None:
+            yanit["kota_kalan"] = kota_kalan
+        return yanit
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     except Exception as e:

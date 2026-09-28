@@ -17,11 +17,12 @@
 
 | Veri | Nerede tutuluyor | Süre | Yasal dayanak | Not |
 |---|---|---|---|---|
-| **Basak ID** (kayıtsız, cihaz/tarayıcıya bağlı 12 haneli kimlik) | Kullanıcının tarayıcısı + geçici sunucu deposu | Oturum + hafıza süresince | Hukuka uygunluk / meşru menfaat | Kişi adı E-posta **istemez**; anonimleştirilmiş tanımlayıcıdır |
+| **Basak ID** (kayıtsız, cihaz/tarayıcıya bağlı `u` ile başlayan 16 haneli anonim kimlik) | Kullanıcının tarayıcısı + geçici sunucu deposu | Oturum + hafıza süresince | Hukuka uygunluk / meşru menfaat | Kişi adı E-posta **istemez**; anonimleştirilmiş tanımlayıcıdır |
 | **Sohbet geçmişi** | Vercel geçici dosya sistemi + tarayıcı | geçici (kalıcı değil) | Açık rıza (hizmetin ifası) | Silinirse sohbet biter |
 | **Kalıcı hafıza notları** | memory/ (sunucuda geçici; masaüstünde kalıcı) | Kullanıcı silene kadar | Açık rıza | Kullanıcı "hafızayı temizle" diyebilir |
 | **Görsel ekler (fatura/fotoğraf)** | Geçici dosya | iş bitince | Açık rıza | analiz sonrası saklanmaz (varsayılan) |
 | **IP / günlük verisi** | Vercel altyapısı | kısa süre (Vercel politikası) | Meşru menfaat (güvenlik, kota) | Başak tarafından ayrı saklanmaz |
+| **Anonim günlük kota sayacı** (Basak ID + sayaç) | basak_kota tablosu (Postgres) / bellek | gün sonunda sıfırlanır | Meşru menfaat (hizmetin sürdürülebilirliği) | Mesaj içeriği değil, yalnız sayaç |
 | **Sağlayıcıya giden mesaj** | AI sağlayıcısının sunucusu | sağlayıcının politikası | Açık rıza | **Ayrıntı:** hangi sağlayıcı, nereye gidiyor → README §12 + s.3 |
 
 ## 3. Yurt dışına veri aktarımı (KVKK m.9)

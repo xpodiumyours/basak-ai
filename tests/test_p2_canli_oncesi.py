@@ -46,11 +46,19 @@ def test_sayfa_cursor_semasi_var():
 
 def test_kaynaklar_yalniz_okunan_sayfa():
     from chat import tools as ct
-    assert ct._KAYNAK_ARACLARI == {"sayfa_oku", "derin_oku"}
+    # freetools_calistir de ustunde calistigi sayfayi gercekten acar
+    # (Faz 2 derin baglanti); "okunmayan sayfa kaynak olamaz" kurali korunur.
+    assert ct._KAYNAK_ARACLARI == {"sayfa_oku", "derin_oku",
+                                   "freetools_calistir"}
     assert ct._kaynaklari_cikar(
         "web_search", {"query": "x"},
         "Baslik\nhttps://aday.test/x\nmetin"
     ) == []
+    assert ct._kaynaklari_cikar(
+        "freetools_calistir",
+        {"adres": "https://www.freetools.org/text-tools/letter-counter"},
+        "Sonuc",
+    ) == ["https://www.freetools.org/text-tools/letter-counter"]
     assert ct._kaynaklari_cikar(
         "sayfa_oku",
         {"url": "https://okunan.test/x?token=gizli"},

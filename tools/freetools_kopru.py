@@ -363,6 +363,29 @@ def _hata_cevir(e):
     return {"error": "Freetools araci calismadi: %s" % metin[:300]}
 
 
+def _yerel_deneme(adres, form, hata):
+    """Kopru dusunce yerel standart algoritmayla dener (Faz 2 / web).
+
+    Vercel'de playwright yoktur; burada freetools.org'un JS'i degil,
+    Python standart kutuphanesinin evrensel algoritmalari calisir.
+    Sonuc "yerel-hesaplama" etiketiyle doner ve aracin freetools.org
+    adresi (derin baglanti) eklenir. Bilinmeyen arac None doner.
+    """
+    try:
+        from tools import freetools_yerel
+    except Exception:
+        return None
+    sonuc = freetools_yerel.hesapla(adres, form)
+    if not isinstance(sonuc, dict) or "sonuc" not in sonuc:
+        return None
+    sonuc = dict(sonuc)
+    sonuc["not"] = (
+        "Tarayıcı köprüsü çalışmadı (%s); sonuç standart algoritmayla "
+        "yerelde hesaplandı." % str(hata)[:160]
+    )
+    return sonuc
+
+
 # ── Dis kapisi ───────────────────────────────────────────────────────
 
 def freetools_calistir(adres, form=None):
@@ -394,6 +417,10 @@ def freetools_calistir(adres, form=None):
         return {"error": kota}
 
     sonuc = _sarmalayici(adres, form)
+    if "error" in sonuc:
+        yerel = _yerel_deneme(adres, form, sonuc.get("error") or "bilinmiyor")
+        if yerel is not None:
+            sonuc = yerel
     if "error" not in sonuc:
         _onbellek_koy(anahtar, sonuc)
     return sonuc

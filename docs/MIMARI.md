@@ -61,7 +61,15 @@ platformdur.
    bağımlılığı değildir.
 5. **Yerel-önce.** Veri cihazdan çıkmayı gerektirmiyorsa çıkmaz. Web'de
    araç hesaplaması mümkün olduğunca kullanıcının tarayıcısında yapılır
-   (freetools.org'un da uyguladığı model).
+   (freetools.org'un da uyguladığı model). **Faz 2'de netleştirildi:**
+   sohbet akışı model kararından oluştuğu için "tarayıcıda hesapla" ara
+   tur (round-trip) gerektirir; Vercel serverless'te ikinci istek farklı
+   örneğe düşebilir ve akış devam ettirilemez (checkpoint yok). Ayrıca
+   sayfamızdan `freetools.org` DOM'unu okumak CORS'a takılır. Bu yüzden
+   web'de hesap **standart algoritmayla sunucuda** yapılır (girdi zaten
+   sunucuya gitmektedir), kullanıcıya **derin bağlantı** verilir ve
+   çalıştırma tarayıcısında/`freetools.org` üzerinde bizzat tekrar
+   yapılabilir. Bkz. §4a.
 6. **Nazik otomatik erişim.** Üçüncü taraf sitelere yalnız robots.txt'nin
    izin verdiği ölçüde, timeout + önbellek + istek limitiyle erişilir.
 
@@ -78,6 +86,20 @@ platformdur.
 | Hata modu | Fail-open (köprü yoksa araç açılmaz, sohbet bozulmaz) | 4. ilke |
 | Kod lisansı | freetools kodu KOPYALANMAZ; standart algoritma kendi kodumuz | Telif |
 | Marka | "freetools.org" yalnız kaynak/atıf olarak; ortaklık izlenimi yok | Marka hukuku |
+
+## 4a. Web'de araç çalıştırma ve kota — mimari kararlar (Faz 2)
+
+| Karar | Değer | Gerekçe |
+|---|---|---|
+| Vercel'de köprü | Playwright yok → **yerel standart algoritma** (`tools/freetools_yerel.py`) | 60 sn / 500 MB; Chromium sığmaz |
+| Kapsam | Yalnızca emin olunan araçlar (SHA-256/MD5/SHA-*, Base64, URL kodlama, yüzde, harf sayacı, ters metin, hex↔ondalık, binary↔hex) | Uydurma yok: bilmeyen araç köprü hatasını aynen döner |
+| Kod lisansı | Yerel modülde yalnız Python stdlib (`hashlib`, `base64`, `urllib.parse`, `decimal`) | freetools.org JS'i kopyalanmaz; AST testiyle kilitli |
+| Sonucun kaynağı | Her yerel sonuç `yerel-hesaplama` etiketiyle döner + köprü hatası notu | Dürüstlük: kullanıcı/hangi yolla hesaplandığı gizlenmez |
+| Derin bağlantı | Araç sonucunda `[Araç sayfası: <adres>]` + `source` olayı → UI'da yeni sekme | 2.2 kabulü; kullanıcı hesabı tarayıcısında bizzat tekrar yapabilir |
+| Kota | `/api/sohbet` girişinde, **model çalışmadan önce** (429 + Türkçe uyarı) | Ücretsiz zincirin günlük kotasının tek kişi tarafından tüketilmemesi |
+| Kota konumu | `basak_kota` tablosu, atomik `INSERT ... ON CONFLICT ... RETURNING` | Vercel'de aynı anda iki istek sayaç kaybı yaşamaz; Postgres yoksa bellek yedeği |
+| Kota muafiyeti | `X-Basak-Token` sahibi (sahip/yönetici) | Kendi testlerimiz kota tarafından durdurulmaz |
+| Kota ve CHATBOT-YASAGI | Kota isteğin başında verilen bir izin kararıdır; cevap metnine, araç seçimine, akışa dokunmaz | "Model daraltma" değildir — kapsam dışı |
 
 ## 5. Faz haritası ve kapılar
 

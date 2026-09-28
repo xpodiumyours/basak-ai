@@ -39,6 +39,23 @@ Semboller: 👁 = ajan gözle test (ekran görüntülü) · 🗣 = Casper konuş
 | 2.5 | Çerez onayı VERİLMEDEN analitik/reklam | 🤖👁 | üçüncü taraf kod çalışmaz |
 | 2.6 | Gizlilik metnindeki veri listesi envanterle eşit | 🗣 | tutarsızlık yok |
 
+**Faz 2 notları (uygulama sırasındayken yazıldı):**
+
+- **2.1:** Vercel'de Playwright yok → araç sonucu `tools/freetools_yerel.py`
+  ile **standart algoritmayla** (stdlib) sunucuda hesaplanır; freetools.org
+  JS'i kopyalanmaz, her sonuç `yerel-hesaplama` etiketiyle döner.
+  Doğrulama: verilen hash'i yanıtta görürüz, ayrıca model aracın
+  freetools.org adresini de verir.
+- **2.2:** Araç sonucunda `[Araç sayfası: …]` satırı + `source` olayı →
+  ekranda "kaynak" rozeti tıklanınca **yeni sekmede** açılır.
+- **2.4 testi için:** Preview'da Vercel → Environment Variables →
+  `BASAK_ANONIM_KOTA_TAVAN=3` ekle (varsayılan 50). Sonra 4 mesaj yaz →
+  4. mesajda kırmızı değil, **net Türkçe uyarı** görünür; ertesi gün UTC
+  sıfırlanır. Kota cevap/metin/araç seçimine **dokunmaz** (model hiç
+  çalışmaz), `X-Basak-Token` sahibi kotasızdır.
+- **2.5/2.6:** `tests/test_web_gizlilik_beyani.py` otomatik doğrular
+  (üçüncü taraf kaynak yok + bilgilendirme sayfası = KVKK envanteri).
+
 ## Faz 3 — Gelir altyapısı
 
 | # | Senaryo | Tip | Beklenen |

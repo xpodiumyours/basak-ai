@@ -162,16 +162,29 @@ class TestFailOpen:
         assert "error" in r
 
     def test_playwright_yoksa_sohbet_kirilmaz(self, monkeypatch):
-        """Playwright kurulu degilse arac hata doner; Basak devam eder."""
+        """Playwright yokken (Vercel): bilinen arac yerel standart
+        algoritmayla doner, bilmeyen arac hata doner — ikisinde de Basak
+        devam eder, chatbot yasağı ihlal edilmez."""
+        import hashlib
+
         monkeypatch.setattr(
             kopru, "_tarayici_kos",
             lambda *a, **k: (_ for _ in ()).throw(
                 ModuleNotFoundError("playwright")))
         r = kopru.freetools_calistir(
             "https://www.freetools.org/security-tools/sha-hash-generator",
-            ["merhaba"])
-        assert "error" in r
-        assert "playwright" in r["error"].lower()
+            ["yerel-girdi-1"])
+        assert "sonuc" in r and "error" not in r
+        assert r["sonuc"] == hashlib.sha256(
+            b"yerel-girdi-1").hexdigest()
+        assert "yerel-hesaplama" in r["kaynak"]
+        assert r["adres"].endswith("sha-hash-generator")
+        assert "playwright" in r["not"].lower()
+
+        r2 = kopru.freetools_calistir(
+            "https://www.freetools.org/xx/yy", ["a"])
+        assert "error" in r2
+        assert "playwright" in r2["error"].lower()
 
     def test_kopru_hatasi_cevap_yolunu_kirpmaz(self, monkeypatch):
         """Kopru patlarsa sohbet aynen devam eder (MIMARI ilke 4)."""

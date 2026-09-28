@@ -544,11 +544,14 @@ FREETOOLS_ARA = _arac(
 
 FREETOOLS_CALISTIR = _arac(
     "freetools_calistir",
-    "freetools.org adresindeki araci tarayicida gercekte calistirir: "
-    "giris alanlarini doldurur, sonucu metin olarak doner. Yalniz "
-    "*.freetools.org adresleri; beyaz liste disi site calistirilmaz. "
-    "Ayni girdi icin onbellek kullanir; gunluk istek siniri vardir; "
-    "kopru kurulu degilse hata doner ve diger araclari etkilemez.",
+    "freetools.org adresindeki araci calistirir ve sonucu metin olarak "
+    "doner. Yalniz *.freetools.org adresleri; beyaz liste disi site "
+    "calistirilmaz. Ayni girdi icin onbellek kullanir; gunluk istek "
+    "siniri vardir; kopru/yerel hesap calismazsa hata doner ve diger "
+    "araclari etkilemez. Sunucuda tarayici yokken ayni islemi standart "
+    "algoritmayla yerelde hesaplar ve bu durumu acikca yazar. Donen "
+    "sonucta [Arac sayfasi: <adres>] satiri olur; kullaniciya o adresi "
+    "ver ki araci yeni sekmede kendisi de acabilsin.",
     {"adres": {"type": "string",
                "description": "Arac sayfasi adresi (freetools_ara doner)"},
      "form": {"type": "array",
