@@ -632,19 +632,24 @@ class TestEslesme:
         assert a["kod_norm"] == "TK-102"
         assert any("TK-102" in s or "tk 102" in s for s in a["sorgular"])
 
-    def test_skor(self):
-        yuksek = katalog._eslesme_skor(
-            "TER0101", "Tutku",
-            "https://www.tutkuelit.com.tr/urun/ter0101-tut-erkek-atlet",
-            "TER0101 Tutku erkek penye atlet beyaz")
-        assert yuksek >= 5
-        kategori = katalog._eslesme_skor(
-            "TER0101", "Tutku",
-            "https://www.tutkuelit.com.tr/kategori/erkek-atletleri",
-            "TER0101 Tutku erkek penye atlet beyaz")
-        assert kategori < yuksek
-        assert katalog._eslesme_skor("QZX", "WQW", "https://a.com/b",
-                                     "alakasiz yazi") == 0
+    def test_eslesme_karta_yaz_guncel_kod_alanlarini_tasir(self):
+        kart = {"kod": "TER0101"}
+        katalog._eslesme_karta_yaz(kart, {
+            "cozucu_surumu": "urun-kimlik-v2",
+            "resmi_dogrulandi": True,
+            "dogrulama_seviyesi": "resmi",
+            "guven": "yuksek",
+            "skor": 90,
+            "fatura_kodu": "TER0101",
+            "dogrulanmis_kod": "TER0101",
+            "kod_turu": "sku",
+            "sku": "TER0101",
+            "mpn": "",
+            "gtin": "",
+        })
+        assert kart["eslesme"]["fatura_kodu"] == "TER0101"
+        assert kart["eslesme"]["dogrulanmis_kod"] == "TER0101"
+        assert kart["eslesme"]["kod_turu"] == "sku"
 
 
 class TestSayfaGorseller:

@@ -1254,6 +1254,8 @@ MARKA_TAKMA = {
     "ELIT": "Tutku Elit",
 }
 
+_URL_RE = re.compile(r"https?://[^\\s\\\"'<>]+")
+
 
 def tedarikci_coz(marka):
     """Eski bilinen marka ipucunu çözer; yeni ürün hattının kapısı değildir."""
@@ -1502,18 +1504,23 @@ def sirket_ara(marka):
         return {"error": "Marka boş olamaz."}
     from tools import web_search as ws
 
-    # Genel resolver marka listesine bağlı değildir; önce kamuya açık
-    # webden üretici/marka domain adaylarını çıkarır.
-    from tools import product_resolver
-    cozulen_ad = marka
-    firma_adaylari = product_resolver.firma_bul(
-        {"marka": marka, "kod": "", "varyantlar": []})
+    # Bilinen tedarikçi ipucu yalnız şirket iletişim aramasında
+    # geriye uyumluluk sağlar. Ürün doğrulama genel resolver'da kalır.
+    kayit, cozulen_ad = tedarikci_coz(marka)
     adaylar = []
-    for firma in firma_adaylari:
-        site = firma.get("site") or ""
-        if site:
-            adaylar.extend(_sirket_iletisim_yollari(site.replace("https://", "")
-                                                    .replace("http://", "")))
+    site = (kayit or {}).get("site", "")
+    if site:
+        adaylar.extend(_sirket_iletisim_yollari(site))
+    else:
+        from tools import product_resolver
+        firma_adaylari = product_resolver.firma_bul(
+            {"marka": marka, "kod": "", "varyantlar": []})
+        for firma in firma_adaylari:
+            firma_site = firma.get("site") or ""
+            if firma_site:
+                adaylar.extend(_sirket_iletisim_yollari(
+                    firma_site.replace("https://", "")
+                              .replace("http://", "")))
     if not adaylar:
         arama = ws.web_search(
             "%s iletişim adres telefon üretici resmi site" % cozulen_ad)

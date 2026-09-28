@@ -29,6 +29,9 @@ class SahteDDGS:
 
     kayit = {}
 
+    def __init__(self, *args, **kwargs):
+        SahteDDGS.kayit["init"] = {"args": args, "kwargs": kwargs}
+
     def __enter__(self):
         return self
 

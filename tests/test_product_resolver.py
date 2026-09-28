@@ -14,6 +14,9 @@ class SahteWeb:
                 return {"result": sonuc}
         return {"result": "Sonuc bulunamadi"}
 
+    def site_haritasi_ara(self, host, terim, adet=4):
+        return {"result": "[]"}
+
     def urun_sayfasi_oku(self, url):
         veri = self.sayfalar.get(url)
         if veri is None:
@@ -152,7 +155,7 @@ def test_uretici_sitesi_schema_sku_vermezse_tam_sku_metin_kaniti_yeter():
         kimlik, "https://uretici.example/urun/ter0117", veri, firma)
     assert kimlik_kaniti is True
     assert resmi is True
-    assert "sku_sayfa_tam" in kanit
+    assert "fatura_kodu_sayfa_tam" in kanit
 
 
 def test_kisa_sku_substring_yanlis_eslesmez():
