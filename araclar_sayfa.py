@@ -99,6 +99,59 @@ YEREL_ARACLAR = {
         "girdiler": [("Metin", "textarea", "")],
         "ipucu": "Satir sonlari tek bosluga indirilir; metin tek paragrafa doner.",
     },
+    "character-remover": {
+        "baslik": "Karakter Silici",
+        "girdiler": [("Metin", "textarea", ""),
+                     ("Silinecek karakterler (bos: noktalama sil)", "text", "")],
+        "ipucu": "Ikinci alan bos birakilirsa noktalama isaretleri silinir; "
+                 "doluysa yalniz o karakterler silinir.",
+    },
+    "character-replacer": {
+        "baslik": "Karakter Değiştirici",
+        "girdiler": [("Metin", "textarea", ""),
+                     ("Eski > yeni (ornek a>e; birden fazli icin | ile ayir)", "text", "")],
+        "ipucu": "Ornek: a>e yazar; birden fazlaysa a>e|b>f biciminde ayir.",
+    },
+    "tabs-to-space": {
+        "baslik": "Sekme Boşluk Çevirici",
+        "girdiler": [("Metin", "textarea", ""),
+                     ("Sekme basina bosluk (bos: 4)", "text", "")],
+        "ipucu": "Her sekme karakteri secilen sayida bosluga doner; bos "
+                 "birakilirsa 4 kullanilir.",
+    },
+    "text-splitter": {
+        "baslik": "Metin Bölücü",
+        "girdiler": [("Metin", "textarea", ""),
+                     ("Ayrac (bos: satir, 'kelime': kelime, 'cumle': cumle)", "text", "")],
+        "ipucu": "Ayrac bos birakilirsa satirlara, 'kelime' yazilirsa "
+                 "kelimelere, 'cumle' yazilirsa cumlelere boler ve numaralar.",
+    },
+    "space-remover": {
+        "baslik": "Fazla Boşluk Temizleyici",
+        "girdiler": [("Metin", "textarea", "")],
+        "ipucu": "Satir basi/sonu bosluklari silinir; kelime arasi coklu "
+                 "bosluklar teke indirilir.",
+    },
+    "comma-inserter": {
+        "baslik": "Virgül Ekleyici",
+        "girdiler": [("Liste (satir veya boslukla ayrilmis)", "textarea", ""),
+                     ("Ayrac (bos: virgul)", "text", "")],
+        "ipucu": "Satirlari veya boslukla ayrilmis ogeleri tek satirda "
+                 "virgulle birlestirir.",
+    },
+    "json-formatter": {
+        "baslik": "JSON Biçimlendirici",
+        "girdiler": [("JSON metni", "textarea", ""),
+                     ("Girinti (bos: 2)", "text", "")],
+        "ipucu": "Gecersiz JSON'da hata verir, uydurmaz; girinti 0-8 arasi.",
+    },
+    "html-entities": {
+        "baslik": "HTML Entity Kodlayıcı",
+        "girdiler": [("Metin", "textarea", ""),
+                     ("Kip (bos: kodla, decode: çöz)", "text", "")],
+        "ipucu": "& < > \" ' karakterlerini HTML entity'ye cevirir; decode "
+                 "ile geri cozer.",
+    },
 }
 
 # Slug son kelimeleri icin kisa Turkce cevir (basligi anlasilir yapar).

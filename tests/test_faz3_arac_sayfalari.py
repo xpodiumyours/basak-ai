@@ -165,6 +165,53 @@ class TestYerelAracKapsami:
         assert not re.search(r"XMLHttpRequest|importScripts", js)
 
 
+class TestYeniMetinKodAraclari:
+    """8 yeni arac: sayfa acilir, form var, ipucu var, JS hesabi var."""
+
+    YENILER = (
+        ("text-tools", "character-remover", "Karakter Silici"),
+        ("text-tools", "character-replacer", "Karakter Değiştirici"),
+        ("text-tools", "tabs-to-space", "Sekme Boşluk Çevirici"),
+        ("text-tools", "text-splitter", "Metin Bölücü"),
+        ("text-tools", "space-remover", "Fazla Boşluk Temizleyici"),
+        ("text-tools", "comma-inserter", "Virgül Ekleyici"),
+        ("code-tools", "json-formatter", "JSON Biçimlendirici"),
+        ("code-tools", "html-entities", "HTML Entity Kodlayıcı"),
+    )
+
+    def test_yeni_sayfalar_acilir_form_var(self):
+        with _istemci() as c:
+            for kat, slug, baslik in self.YENILER:
+                r = c.get("/araclar/%s/%s" % (kat, slug))
+                assert r.status_code == 200, (kat, slug)
+                h = r.text
+                assert baslik in h, (slug, "baslik yok")
+                assert 'id="hesapla"' in h, (slug, "form yok")
+                assert 'id="sonuc"' in h, (slug, "sonuc alani yok")
+                assert 'window.ARAC_SLUG="%s"' % slug in h, (slug,)
+                assert "freetools.org" in h            # atif baglantisi
+                assert "ortaklık yoktur" in h
+
+    def test_yeni_araclar_js_hesabinda(self):
+        js = (WEB / "araclar.js").read_text(encoding="utf-8")
+        for _kat, slug, _baslik in self.YENILER:
+            assert '"%s":' % slug in js, slug
+        # yeni hesaplar aga cikmaz (standart algoritma)
+        assert "fetch(" not in js
+
+    def test_yeni_araclar_jsonld_gecerli(self):
+        with _istemci() as c:
+            for kat, slug, _baslik in self.YENILER:
+                h = c.get("/araclar/%s/%s" % (kat, slug)).text
+                ham = re.search(
+                    r'<script type="application/ld\+json">(.*?)</script>', h,
+                    re.DOTALL).group(1)
+                veri = json.loads(ham)
+                assert veri["@type"] == "WebApplication"
+                assert veri["isAccessibleForFree"] is True
+                assert veri["offers"]["price"] == "0"
+
+
 class TestCerezOnayiVeReklam:
     """3.3: onay VERILMEDEN reklam kodu yuklenmez."""
 

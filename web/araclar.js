@@ -244,6 +244,143 @@
       if (!birlesik) throw new Error("Birlestirilecek metin yok");
       return birlesik;
     },
+
+    "character-remover": function (d) {
+      var m = String(d[0] || "");
+      var sil = String(d[1] || "");
+      if (!m) throw new Error("Metin bos olamaz");
+      if (!sil) {
+        var temiz = m.replace(/[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/g, "");
+        if (!temiz) throw new Error("Temizlenecek noktalama yok");
+        return temiz;
+      }
+      var kume = {};
+      for (var i = 0; i < sil.length; i++) kume[sil[i]] = true;
+      var cikti = "";
+      for (var j = 0; j < m.length; j++) {
+        if (!kume[m[j]]) cikti += m[j];
+      }
+      return cikti;
+    },
+
+    "character-replacer": function (d) {
+      var m = String(d[0] || "");
+      var kural = String(d[1] || "").trim();
+      if (!m) throw new Error("Metin bos olamaz");
+      if (!kural) throw new Error("Degisim kurali bos olamaz (ornek: a>e)");
+      var cikti = m;
+      var adimlar = kural.split("|");
+      for (var i = 0; i < adimlar.length; i++) {
+        var parca = adimlar[i].split(">");
+        if (parca.length !== 2 || !parca[0]) {
+          throw new Error("Gecersiz kural: '" + adimlar[i] + "' (ornek: a>e)");
+        }
+        cikti = cikti.split(parca[0]).join(parca[1]);
+      }
+      return cikti;
+    },
+
+    "tabs-to-space": function (d) {
+      var m = String(d[0] || "");
+      var adet = String(d[1] || "").trim();
+      if (!m) throw new Error("Metin bos olamaz");
+      var n = adet ? Number(adet) : 4;
+      if (!isFinite(n) || Math.floor(n) !== n || n < 1 || n > 16) {
+        throw new Error("Bosluk sayisi 1-16 arasi tam sayi olmali");
+      }
+      if (m.indexOf("\t") === -1) throw new Error("Metinde sekme yok");
+      var bos = "";
+      for (var i = 0; i < n; i++) bos += " ";
+      return m.split("\t").join(bos);
+    },
+
+    "text-splitter": function (d) {
+      var m = String(d[0] || "");
+      var ayrac = String(d[1] || "").trim().toLowerCase();
+      if (!m) throw new Error("Metin bos olamaz");
+      var parcalar;
+      if (!ayrac) {
+        parcalar = m.split(/\r\n|\r|\n/);
+      } else if (/^(kelime|word)$/.test(ayrac)) {
+        parcalar = m.trim().split(/\s+/);
+      } else if (/^(cumle|cümle|sentence)$/.test(ayrac)) {
+        parcalar = m.match(/[^.!?…]+[.!?…]+["»”']?|\s*[^.!?…]+$/g) || [];
+        parcalar = parcalar.map(function (p) { return p.trim(); })
+          .filter(function (p) { return p; });
+      } else {
+        parcalar = m.split(ayrac);
+      }
+      if (!parcalar.length || (parcalar.length === 1 && !parcalar[0])) {
+        throw new Error("Bolunecek parca yok");
+      }
+      return parcalar.map(function (p, i) { return (i + 1) + ". " + p; })
+        .join("\n");
+    },
+
+    "space-remover": function (d) {
+      var m = String(d[0] || "");
+      if (!m.trim()) throw new Error("Metin bos olamaz");
+      return m.split(/\r\n|\r|\n/).map(function (s) {
+        return s.trim().replace(/[ \t]+/g, " ");
+      }).join("\n");
+    },
+
+    "comma-inserter": function (d) {
+      var m = String(d[0] || "");
+      var ayrac = String(d[1] || "").trim() || ",";
+      if (!m.trim()) throw new Error("Liste bos olamaz");
+      var ogeler = m.split(/\r\n|\r|\n/).map(function (s) { return s.trim(); })
+        .filter(function (s) { return s; });
+      if (ogeler.length <= 1) {
+        ogeler = m.trim().split(/\s+/).filter(function (s) { return s; });
+      }
+      if (!ogeler.length) throw new Error("Birlestirilecek oge yok");
+      return ogeler.join(ayrac + " ");
+    },
+
+    "json-formatter": function (d) {
+      var m = String(d[0] || "");
+      var girinti = String(d[1] || "").trim();
+      if (!m.trim()) throw new Error("JSON metni bos olamaz");
+      var n = girinti ? Number(girinti) : 2;
+      if (!isFinite(n) || Math.floor(n) !== n || n < 0 || n > 8) {
+        throw new Error("Girinti 0-8 arasi tam sayi olmali");
+      }
+      var veri;
+      try { veri = JSON.parse(m); }
+      catch (e) { throw new Error("Gecersiz JSON: " + (e.message || "cozumlenemedi")); }
+      if (veri === undefined) throw new Error("Gecersiz JSON");
+      return JSON.stringify(veri, null, n);
+    },
+
+    "html-entities": function (d) {
+      var m = String(d[0] || "");
+      var coz = /decode|coz|çöz/i.test(d[1] || "");
+      if (!m) throw new Error("Metin bos olamaz");
+      if (!coz) {
+        return m.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+      var cikti = m.replace(/&(amp|lt|gt|quot|#39|#x27|#34|#60|#62|#38);/g,
+        function (eslesme, ad) {
+          var harita = {
+            amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'",
+            "#x27": "'", "#34": '"', "#60": "<", "#62": ">", "#38": "&",
+          };
+          return harita[ad] || eslesme;
+        });
+      var kalan = cikti.match(/&#[0-9]+;|&#x[0-9a-fA-F]+;/g) || [];
+      for (var i = 0; i < kalan.length; i++) {
+        var kod = kalan[i].toLowerCase().indexOf("&#x") === 0
+          ? parseInt(kalan[i].slice(3, -1), 16)
+          : parseInt(kalan[i].slice(2, -1), 10);
+        if (isFinite(kod) && kod >= 0 && kod <= 0x10FFFF) {
+          cikti = cikti.split(kalan[i]).join(String.fromCodePoint(kod));
+        }
+      }
+      return cikti;
+    },
   };
 
   if (dugme) {
