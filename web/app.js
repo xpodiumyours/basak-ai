@@ -24,6 +24,8 @@ const kullaniciAdEl = document.getElementById("kullaniciAd");
 const CHATS_BASE = "basak_cloud_chats_v2";
 const ACTIVE_BASE = "basak_cloud_active_chat_v2";
 const UYARI_NOTU = "Başak hata yapabilir. Önemli bilgileri doğrulayın.";
+// Sunucunun yanit basligindan okunan gunluk kota (X-Basak-Kota-Kalan).
+let kotaKalan = null;
 
 function kimlikDegeri() {
   return String(window.basakKimlik?.kullanici || "").trim();
@@ -896,7 +898,19 @@ function gonderimDurumu() {
 }
 
 function notYaz(metin) {
-  if (composerNoteEl) composerNoteEl.textContent = metin;
+  if (!composerNoteEl) return;
+  const kotaEki = (kotaKalan !== null && metin === UYARI_NOTU)
+    ? " · Bugün kalan ücretsiz hak: " + kotaKalan
+    : "";
+  composerNoteEl.textContent = metin + kotaEki;
+}
+
+function kotaOku(r) {
+  const v = r && r.headers ? r.headers.get("x-basak-kota-kalan") : null;
+  if (v !== null && v !== "" && !Number.isNaN(Number(v))) {
+    kotaKalan = Number(v);
+    notYaz(UYARI_NOTU);
+  }
 }
 
 function onizlemeTemizle() {
@@ -1528,6 +1542,19 @@ async function send(secenek = {}) {
       signal:aktifIstekDenetleyici.signal,
     });
 
+    kotaOku(r);
+    if (r.status === 429) {
+      let d = {};
+      try { d = await r.json(); } catch {}
+      if (typeof d.kalan === "number") {
+        kotaKalan = d.kalan;
+        notYaz(UYARI_NOTU);
+      }
+      const h = new Error(d.error || "Günlük ücretsiz hakkın doldu.");
+      h.kota = true;
+      throw h;
+    }
+
     const tur = String(r.headers.get("content-type") || "").toLowerCase();
     if (tur.includes("application/x-ndjson")) {
       if (!r.ok) throw new Error("Sohbet isteği başarısız (" + r.status + ")");
@@ -1586,7 +1613,10 @@ async function send(secenek = {}) {
       durumuKapat(bekleyenBalon);
       const row = bekleyenBalon.closest(".message-row");
       if (row) row.remove();
-      bubble("assistant", "Bir sorun oluştu: " + (err.message || err));
+      // Kota asimi sohbeti bozmaz: kisa, suclayici olmayan uyari gosterilir.
+      bubble("assistant", err && err.kota
+        ? (err.message || "Günlük ücretsiz hakkın doldu.")
+        : "Bir sorun oluştu: " + (err.message || err));
     }
   } finally {
     const devam = yonlendirmeIcinDurduruldu ? yonlendirmeBekliyor : null;
@@ -1627,6 +1657,16 @@ document.querySelectorAll(".ornek").forEach((d) => {
     msgEl.focus();
   });
 });
+
+// Araç sayfalarından gelen derin bağlantı: /?soru=... yazıyı doldurur.
+const soruParam = new URLSearchParams(location.search).get("soru");
+if (soruParam && msgEl) {
+  msgEl.value = String(soruParam).slice(0, 4000);
+  autoResize();
+  gonderimDurumu();
+  history.replaceState({}, "", location.pathname);
+  msgEl.focus();
+}
 
 msgEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {

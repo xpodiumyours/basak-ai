@@ -71,6 +71,8 @@ DURUM_METNI = {
     "cikti_oku": "Çıktı okunuyor",
     "sirket_ara": "Şirket bilgisi araştırılıyor",
     "hava_durumu": "Hava durumu okunuyor",
+    "freetools_ara": "freetools kataloğu aranıyor",
+    "freetools_calistir": "freetools aracı çalıştırılıyor",
     "yetenek_ac": "Araçlar açılıyor",
 }
 
@@ -104,7 +106,7 @@ def _durum(tool_name, args):
     return "%s: %s" % (etiket, detay) if detay else etiket + "..."
 
 
-_KAYNAK_ARACLARI = {"derin_oku", "sayfa_oku"}
+_KAYNAK_ARACLARI = {"derin_oku", "sayfa_oku", "freetools_calistir"}
 _URL_RE = re.compile(r"https?://[^\\s<>'\\\"]+", re.IGNORECASE)
 
 
@@ -141,8 +143,12 @@ def _kaynaklari_cikar(tool_name, args, net):
     if tool_name not in _KAYNAK_ARACLARI:
         return []
     adaylar = []
-    if isinstance(args, dict) and args.get("url"):
-        adaylar.append(str(args["url"]))
+    if isinstance(args, dict):
+        # freetools_calistir aracin adresini "adres" alaninda verir:
+        # kullanici araci yeni sekmede acabilsin (derin baglanti).
+        for alan in ("url", "adres"):
+            if args.get(alan):
+                adaylar.append(str(args[alan]))
     adaylar.extend(_URL_RE.findall(str(net or "")))
 
     sonuc = []
@@ -169,7 +175,29 @@ def sonucu_donustur(sonuc):
                 "meta": sonuc["meta"],
                 "metin": str(sonuc.get("result", "")),
             }, ensure_ascii=False)
-        return str(sonuc.get("result", ""))
+        if "result" in sonuc:
+            return str(sonuc.get("result") or "")
+        # freetools gibi arac sonuclari {sonuc, kaynak, adres, not} seklindedir.
+        # Onceki surumde bu sozlukler bos stringe dusuyordu: model arac
+        # sonucunu hic gormuyordu (Faz 2'de duzeltilen hata).
+        metin = str(sonuc.get("sonuc") or "").strip()
+        if metin:
+            parcalar = [metin]
+            adres = str(sonuc.get("adres") or "").strip()
+            if adres:
+                parcalar.append("[Araç sayfası: %s]" % adres)
+            kaynak = str(sonuc.get("kaynak") or "").strip()
+            if kaynak:
+                parcalar.append("(hesap kaynağı: %s)" % kaynak)
+            notu = str(sonuc.get("not") or "").strip()
+            if notu:
+                parcalar.append("(%s)" % notu)
+            return "\n".join(parcalar)
+        # Tanimsiz sozluk: bos metin uretme, icerigi gorunur kil.
+        try:
+            return json.dumps(sonuc, ensure_ascii=False)
+        except (TypeError, ValueError):
+            return str(sonuc)
     return str(sonuc)
 
 

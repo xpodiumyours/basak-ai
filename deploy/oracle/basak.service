@@ -1,0 +1,21 @@
+[Unit]
+Description=Basak web (FastAPI / uvicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=basak
+Group=basak
+WorkingDirectory=/opt/basak
+EnvironmentFile=/etc/basak/basak.env
+ExecStart=/opt/basak/.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=always
+RestartSec=3
+# 1 GB RAM: uygulamaya ust tavan (OS + Caddy disarida kalir; asimda OOM onleyici)
+MemoryMax=700M
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

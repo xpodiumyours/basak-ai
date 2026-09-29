@@ -46,11 +46,19 @@ def test_sayfa_cursor_semasi_var():
 
 def test_kaynaklar_yalniz_okunan_sayfa():
     from chat import tools as ct
-    assert ct._KAYNAK_ARACLARI == {"sayfa_oku", "derin_oku"}
+    # freetools_calistir de ustunde calistigi sayfayi gercekten acar
+    # (Faz 2 derin baglanti); "okunmayan sayfa kaynak olamaz" kurali korunur.
+    assert ct._KAYNAK_ARACLARI == {"sayfa_oku", "derin_oku",
+                                   "freetools_calistir"}
     assert ct._kaynaklari_cikar(
         "web_search", {"query": "x"},
         "Baslik\nhttps://aday.test/x\nmetin"
     ) == []
+    assert ct._kaynaklari_cikar(
+        "freetools_calistir",
+        {"adres": "https://www.freetools.org/text-tools/letter-counter"},
+        "Sonuc",
+    ) == ["https://www.freetools.org/text-tools/letter-counter"]
     assert ct._kaynaklari_cikar(
         "sayfa_oku",
         {"url": "https://okunan.test/x?token=gizli"},
@@ -205,7 +213,7 @@ def test_live_matris_arac_sayisini_koddan_alir():
     from tests.live import matris_kosucu
     from tools import TOOLS
     assert len(matris_kosucu._hedef_araclar(False)) == len(TOOLS)
-    assert len(TOOLS) == 53
+    assert len(TOOLS) == 55
 
 
 def test_optional_agent_stream_native_tool_calli_kaybetmez():
@@ -369,8 +377,8 @@ def test_none_policy_arac_yuzeyini_tamamen_kapatir():
     from chat.agent_runtime import capability_surface
     from tools import TOOLS
     assert capability_surface(TOOLS, "none") == []
-    assert len(capability_surface(TOOLS, "auto")) == 53
-    assert len(capability_surface(TOOLS, "required")) == 53
+    assert len(capability_surface(TOOLS, "auto")) == 55
+    assert len(capability_surface(TOOLS, "required")) == 55
 
 
 def test_tool_policy_kelime_routeri_degil_acik_run_politikasidir():
@@ -438,10 +446,10 @@ def test_namespace_metadata_runtime_araclarini_daraltmaz():
     from tools import TOOLS
 
     assert validate_registry(TOOLS)["ok"] is True
-    assert len(CAPABILITY_NAMESPACES) == 13
+    assert len(CAPABILITY_NAMESPACES) == 14
     # OpenAI tool search onerisi: grup basina 10'dan az arac.
     assert max(len(x) for x in CAPABILITY_NAMESPACES.values()) < 10
-    assert len(capability_surface(TOOLS, "auto")) == len(TOOLS) == 53
+    assert len(capability_surface(TOOLS, "auto")) == len(TOOLS) == 55
 
 
 def test_yonlendirme_baglami_ucltan_uca_kesilmez_ve_imzalanir():

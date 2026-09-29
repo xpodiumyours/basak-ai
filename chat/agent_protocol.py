@@ -55,6 +55,7 @@ YETENEK_ALANLARI = {
     ),
     "masaustu": ("ac_uygulama",),
     "hesap": ("hesapla",),
+    "freetools": ("freetools_ara", "freetools_calistir"),
 }
 
 ALAN_ACIKLAMALARI = {
@@ -77,6 +78,8 @@ ALAN_ACIKLAMALARI = {
                     "tasima ve duzeltme",
     "masaustu": "beyaz listedeki masaustu uygulamasini acma",
     "hesap": "guvenli matematik hesabi",
+    "freetools": "freetools.org katalogunda arama ve oradaki bir araci "
+                 "tarayicida calistirip sonucunu okuma",
 }
 
 _ALAN_METNI = "; ".join(

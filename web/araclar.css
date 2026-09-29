@@ -1,0 +1,52 @@
+/* web/araclar.css — /araclar sayfalarinin ortak gorunumu (Faz 3)
+   Harici kaynak YOK: yazi tipleri sistemden alinir, dosya yereldir. */
+:root{
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  color:#19191c;background:#fbfbfc
+}
+*{box-sizing:border-box}
+body{margin:0}
+main{width:min(760px,calc(100% - 32px));margin:0 auto;padding:36px 0 56px}
+a{color:inherit}
+.crumb{font-size:13px;color:#666}
+.card{
+  margin-top:18px;padding:24px;border:1px solid #e5e5e8;border-radius:18px;
+  background:#fff;box-shadow:0 10px 36px rgba(0,0,0,.04)
+}
+h1{margin:14px 0 6px;font-size:28px;letter-spacing:-.03em}
+h2{font-size:16px;margin:22px 0 8px}
+p,li{color:#55555c;line-height:1.6;font-size:14px}
+ul{padding-left:20px}
+label{display:block;font-size:13px;color:#44444a;margin:12px 0 4px}
+input[type=text],textarea{
+  width:100%;padding:10px 12px;border:1px solid #dcdce0;border-radius:10px;
+  font:inherit;font-size:14px;background:#fff
+}
+textarea{min-height:96px;resize:vertical}
+button{
+  margin-top:14px;padding:10px 18px;border:0;border-radius:999px;
+  background:#17171b;color:#fff;font:inherit;font-size:14px;cursor:pointer
+}
+button:hover{background:#2c2c33}
+.sonuc{
+  margin-top:16px;padding:14px;border-radius:12px;background:#f4f4f6;
+  white-space:pre-wrap;word-break:break-word;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;
+  color:#26262b;min-height:20px
+}
+.hata{background:#fdecec;color:#8a1f1f}
+.not{font-size:13px;color:#6b6b73}
+.reklam{
+  margin-top:18px;min-height:90px;border:1px dashed #d9d9de;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;color:#8b8b93;
+  font-size:12px;text-align:center;padding:10px
+}
+.cerez{
+  position:fixed;left:12px;right:12px;bottom:12px;max-width:560px;margin:0 auto;
+  background:#fff;border:1px solid #e3e3e7;border-radius:16px;padding:16px;
+  box-shadow:0 12px 40px rgba(0,0,0,.14);font-size:13px;color:#4a4a52;
+  z-index:20
+}
+.cerez button{margin-top:10px;margin-right:8px;background:#3a3a42}
+footer{margin-top:26px;font-size:12px;color:#7a7a82}
+footer a{margin-right:12px}

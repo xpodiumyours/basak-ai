@@ -360,6 +360,17 @@ def calistir(tool_name, args):
         if tool_name == "hava_durumu":
             from tools import hava
             return hava.hava_durumu(str(args.get("sehir", "")))
+
+        if tool_name == "freetools_ara":
+            from tools import freetools_katalog
+            return freetools_katalog.ara(str(args.get("sorgu", "")),
+                                         str(args.get("kategori", "") or ""),
+                                         args.get("adet", 8))
+
+        if tool_name == "freetools_calistir":
+            from tools import freetools_kopru
+            return freetools_kopru.freetools_calistir(
+                str(args.get("adres", "")), args.get("form"))
     except Exception as e:
         logger.warning("Arac hatasi (%s): %s", tool_name, e)
         return {"error": "Arac calismadi: %s" % str(e)}

@@ -19,7 +19,10 @@ import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import (
+    HTMLResponse, JSONResponse, PlainTextResponse, Response,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 
 BASE = Path(__file__).resolve().parent
@@ -250,6 +253,34 @@ def _giris_engeli():
             status_code=503,
         )
     return JSONResponse({"error": "giris gerekli"}, status_code=401)
+
+
+def _kota_kapisi(request: Request, kid):
+    """Anonim gunluk kota — model calismadan ONCE verilen karar.
+
+    Kota MODEL DARALTMA DEGILDIR (CHATBOT-YASAGI.md kapsamı dışı):
+    karar istegin basinda, cevap akisina/arc secimine/gecmise dokunmadan
+    verilir. Amac: ucretsiz saglayici zincirinin gunluk kotasinin tek bir
+    kullanici tarafindan tuketilmemesi.
+
+    X-Basak-Token sahibi (yonetici) kotanin disindadir.
+    Kota modulu hatasinda sohbet devam eder (fail-open; kota modulu zaten
+    Postgres yoksa bellek yedegine duser).
+    """
+    if _token_kimligi(request) is not None:
+        return True, None
+    try:
+        import kota as kota_modulu
+        return kota_modulu.kota_ekle(kid)
+    except Exception:
+        return True, None
+
+
+_KOTA_HATASI = (
+    "Günlük ücretsiz hakkın doldu ({tavan} mesaj). "
+    "Hakkın yarın (UTC) sıfırlanır; kayıt zorunlu değil, aynı Başak ID ile "
+    "ertesi gün aynı hafızayla devam edebilirsin."
+)
 
 
 _HANDOFF_SCHEMA = "p2-handoff-v1"
@@ -731,6 +762,7 @@ async def sohbet(request: Request):
         return JSONResponse({"error": str(e)}, status_code=400)
     ek_yol = None
     akis_kuruldu = False
+    kota_kalan = None
     try:
         ek = _gorsel_kaydet((body or {}).get("ek"))
         if ek:
@@ -756,6 +788,17 @@ async def sohbet(request: Request):
             )
         if not metin:
             return JSONResponse({"error": "Bos mesaj"}, status_code=400)
+
+        # Kota kapisi — model/ek islemden hemen once, yani ucretsiz
+        # saglayicinin kotasi harcanmadan once karar verilir.
+        izin, kota_kalan = _kota_kapisi(request, kid)
+        if not izin:
+            import kota as kota_modulu
+            return JSONResponse({
+                "error": _KOTA_HATASI.format(tavan=kota_modulu.tavan()),
+                "kota": True,
+                "kalan": 0,
+            }, status_code=429, headers={"Retry-After": "3600"})
 
         beyin, tools = _cekirdek()
         from chat.agent_runtime import normalize_tool_policy
@@ -831,13 +874,16 @@ async def sohbet(request: Request):
                 asyncio.to_thread(_kos, True, True)
             )
             akis_kuruldu = True
+            basliklar = {
+                "Cache-Control": "no-cache, no-transform",
+                "X-Content-Type-Options": "nosniff",
+            }
+            if kota_kalan is not None:
+                basliklar["X-Basak-Kota-Kalan"] = str(kota_kalan)
             return StreamingResponse(
                 _canli_olaylar(kuyruk, gorev, kayit.istek, iptal),
                 media_type=_AKIS_MIME,
-                headers={
-                    "Cache-Control": "no-cache, no-transform",
-                    "X-Content-Type-Options": "nosniff",
-                },
+                headers=basliklar,
             )
 
         await asyncio.to_thread(_kos)
@@ -848,13 +894,16 @@ async def sohbet(request: Request):
                 "error": kayit.hata,
                 "olaylar": kayit.olaylar,
             }
-        return {
+        yanit = {
             "ok": bool(kayit.cevap),
             "istek": kayit.istek,
             "cevap": kayit.cevap,
             "kaynak": kayit.kaynak,
             "olaylar": kayit.olaylar,
         }
+        if kota_kalan is not None:
+            yanit["kota_kalan"] = kota_kalan
+        return yanit
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     except Exception as e:
@@ -931,6 +980,68 @@ async def cikis():
         secure=kullanici_modulu.uretim_mi(), samesite="lax",
     )
     return resp
+
+
+# ── Faz 3: arac sayfalari + site haritasi + robots ──────────────────────
+
+
+def _kok(request: Request) -> str:
+    """Sayfalari hangi adreste oldugumuza gore uretiriz (domain sabit degil)."""
+    return str(request.base_url).rstrip("/")
+
+
+@app.get("/araclar")
+async def araclar_listesi(request: Request):
+    from araclar_sayfa import liste_html
+    return HTMLResponse(liste_html(_kok(request)))
+
+
+@app.get("/araclar/{kategori}/{arac}")
+async def arac_sayfasi(kategori: str, arac: str, request: Request):
+    from araclar_sayfa import sayfa_html
+    icerik = sayfa_html(kategori, arac, _kok(request))
+    if icerik is None:
+        return HTMLResponse(
+            '<!doctype html><html lang="tr"><head><meta charset="utf-8">'
+            '<title>404 — araç yok</title></head><body>'
+            '<p>Böyle bir araç yok. <a href="/araclar">Tüm araçlar</a> '
+            '· <a href="/">Başak</a></p></body></html>',
+            status_code=404,
+        )
+    return HTMLResponse(icerik)
+
+
+@app.get("/sitemap.xml")
+async def sitemap(request: Request):
+    """Katalogdan uretilir: arac eklenince haritaya otomatik girer."""
+    from tools.freetools_katalog import ARACLAR
+    kok = _kok(request)
+    yollar = ["/", "/araclar", "/bilgilendirme.html", "/gizlilik.html",
+              "/cerez.html", "/sartlar.html", "/sorumluluk.html",
+              "/destek.html", "/reklam-ver.html"]
+    yollar += ["/araclar/%s/%s" % (k, s) for k, s in ARACLAR]
+    satirlar = []
+    for yol in yollar:
+        oncelik = ("1.0" if yol == "/" else
+                   "0.8" if yol.startswith("/araclar") else "0.4")
+        sik = "daily" if yol in ("/", "/araclar") else "weekly"
+        satirlar.append(
+            "<url><loc>%s%s</loc><changefreq>%s</changefreq>"
+            "<priority>%s</priority></url>" % (kok, yol, sik, oncelik))
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+           + "".join(satirlar) + "</urlset>")
+    return Response(content=xml, media_type="application/xml",
+                    headers={"Cache-Control": "no-store"})
+
+
+@app.get("/robots.txt")
+async def robots(request: Request):
+    """Yasak yok: Allow / (MIMARI karari — otomatik erisimi kisitlamayiz)."""
+    metin = ("User-agent: *\nAllow: /\n\n"
+             "Sitemap: %s/sitemap.xml\n" % _kok(request))
+    return PlainTextResponse(metin,
+                             headers={"Cache-Control": "no-store"})
 
 
 class _Statik(StaticFiles):

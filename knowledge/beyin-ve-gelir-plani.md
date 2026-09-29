@@ -191,3 +191,22 @@ Para 4. maddedeki hizmetlerden gelir.
 
 Hepsi Casper onayı bekler. Hiçbiri "cevaba dokunan kod" değildir; hepsi
 ölçüm/kapasite işidir.
+
+---
+
+## 7. ÜYELİKSİZ GELİR RAYI (2026-09-29 — uygulandı)
+
+Kabullenilen gerçek: her ödeme rayı yasal olarak Casper'ın kimliğinde bir
+hesap ister (banka ya da payout hesabı). Ajan bu tek adımı devralamaz —
+platformlar reCAPTCHA + e-posta doğrulamasıyla tam bunu kilitler. Bu adım
+**bugün gerekmiyor**: trafik olmadan o hesap para üretmez.
+
+Bugün kurulan ray: **doğrudan sponsorluk** (`web/reklam-ver.html`).
+Sitede platform/üyelik yok; reklamveren anlaşmayı doğrudan yapar, ödeme ve
+belgelendirme taraflar arasında netleşir. Site tarafındaki iş bitti:
+sayfa + sitemap + bağlantılar (destek + ana sayfa) + testler.
+
+Bekleme sırası: (1) ürün + trafik büyüt [ajan], (2) reklamveren gelirse
+sayfa hazır [anlaşma], (3) bir gün ödeme hesabı gerekirse hedef tek tık
+(Google ile kayıt); adımlar o gün buraya işlenir.
+

@@ -527,6 +527,40 @@ SIRKET_ARA = _arac(
     ["marka"],
 )
 
+FREETOOLS_ARA = _arac(
+    "freetools_ara",
+    "freetools.org arac katalogunu arar; eslesen araclarin adini, "
+    "kategorisini ve tam adresini doner (en fazla 20 sonuc). Katalog "
+    "yereldir; ag baglantisi gerekmez. Sorgu bossa kategorileri ve toplam "
+    "arac sayisini doner.",
+    {"sorgu": {"type": "string", "description": "Arac adi/anahtar kelime"},
+     "kategori": {"type": "string",
+                  "description": "Kategori filtresi (orn. text-tools); "
+                                 "bossa tumu"},
+     "adet": {"type": "integer",
+              "description": "Sonuc sayisi (1-20, bossa 8)"}},
+    ["sorgu"],
+)
+
+FREETOOLS_CALISTIR = _arac(
+    "freetools_calistir",
+    "freetools.org adresindeki araci calistirir ve sonucu metin olarak "
+    "doner. Yalniz *.freetools.org adresleri; beyaz liste disi site "
+    "calistirilmaz. Ayni girdi icin onbellek kullanir; gunluk istek "
+    "siniri vardir; kopru/yerel hesap calismazsa hata doner ve diger "
+    "araclari etkilemez. Sunucuda tarayici yokken ayni islemi standart "
+    "algoritmayla yerelde hesaplar ve bu durumu acikca yazar. Donen "
+    "sonucta [Arac sayfasi: <adres>] satiri olur; kullaniciya o adresi "
+    "ver ki araci yeni sekmede kendisi de acabilsin.",
+    {"adres": {"type": "string",
+               "description": "Arac sayfasi adresi (freetools_ara doner)"},
+     "form": {"type": "array",
+              "items": {"type": "string"},
+              "description": "Sirayla doldurulacak giris degerleri "
+                             "(en fazla 8)"}},
+    ["adres"],
+)
+
 TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
           KITAP_ARA, DERIN_OKU, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
@@ -539,7 +573,8 @@ TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
           SIMDI, HESAPLA, HAFIZA_ARA, SIRKET_ARA, HAVA_DURUMU,
          FATURA_OKU, KATALOG_KUR, KATALOG_GETIR, KATALOG_LISTELE,
          KATALOG_FIYAT, KATALOG_ONAYLA, YETKI_BELGESI, URUN_ESLESTIR,
-         YAYIN_PAKETI, CIKTI_OKU]
+         YAYIN_PAKETI, CIKTI_OKU,
+         FREETOOLS_ARA, FREETOOLS_CALISTIR]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.
