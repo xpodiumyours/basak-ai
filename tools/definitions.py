@@ -404,8 +404,10 @@ SAGLIK_RAPORU = _arac(
 
 FATURA_OKU = _arac(
     "fatura_oku",
-    "Kayitli fatura fotografini okur; yazi ve aday satirlari JSON doner. "
-    "Once yerel goz dener, yoksa bulut; kaynak alanda yazar. PDF yok.",
+    "Kayitli fatura fotografini OCR/goru ile okur; yazi, aday satirlar ve "
+    "ustbilgi doner. Bu arac gercek urun dogrulamasi yapmaz. Faturadan "
+    "gercek urune giden bir istekte sonra katalog_kur, ardindan "
+    "urun_eslestir(tum_kartlar=true) gerekir. PDF yok.",
     {"fatura_id": {"type": "string",
                    "description": "Yukleme kimligi"}},
     ["fatura_id"],
@@ -413,12 +415,11 @@ FATURA_OKU = _arac(
 
 KATALOG_KUR = _arac(
     "katalog_kur",
-    "Fatura satirlarindan urun kartlari kurar (en fazla 500 satir); ayni "
-    "marka+kod tek kart olur, kategori cogunlukla secilir, stok 3 ve "
-    "alti az gosterir. Donen JSON sorulacaklar listesi ve is ozeti "
-    "icerir. ustbilgi "
-    "parametresi fatura_oku ustbilgi alanindan gelir; is verisine "
-    "yazilir. Is ozeti JSON doner.",
+    "Fatura satirlarindan taslak urun kartlari kurar (en fazla 500 satir); "
+    "ayni marka+kod tek kart olur. Bu arac gercek dijital urunu henuz "
+    "dogrulamaz. Sonuctaki is_id ile gercek urun tespiti isteniyorsa "
+    "urun_eslestir(is_id, tum_kartlar=true) cagir. Donen JSON sonraki "
+    "adimi acikca tasir. ustbilgi fatura_oku sonucundan gelir.",
     {"fatura_id": {"type": "string",
                    "description": "Yukleme kimligi"},
      "satirlar": {"type": "array",
@@ -477,12 +478,17 @@ YETKI_BELGESI = _arac(
 
 URUN_ESLESTIR = _arac(
     "urun_eslestir",
-    "Karti kayitli tedarikcinin resmi sitesinde arar (su an yalniz "
-    "Tutku); kaynak, guven ve gorselleri karta isler. Kayit disi "
-    "markada hata doner.",
+    "Bir karti veya tum katalog kartlarini marka listesine bagli kalmadan "
+    "kamuya acik webde cozer. Barkod/GTIN, SKU/MPN, marka, Schema.org "
+    "Product verisi ve kaynak rolunu kanit olarak kullanir; uydurma yapmaz. "
+    "tum_kartlar=true ise kartlari sinirli paralellikle topluca eslestirir. "
+    "Fatura -> gercek urun zincirinin resmi urun dogrulama asamasi budur.",
     {"is_id": {"type": "string", "description": "Is kimligi"},
-     "kart_id": {"type": "string", "description": "Kart kimligi"}},
-    ["is_id", "kart_id"],
+     "kart_id": {"type": "string",
+                 "description": "Tek kart kimligi; tum kartlarda bos birak"},
+     "tum_kartlar": {"type": "boolean",
+                     "description": "Katalogdaki tum kartlari eslestir"}},
+    ["is_id"],
 )
 
 YAYIN_PAKETI = _arac(

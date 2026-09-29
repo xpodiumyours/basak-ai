@@ -1,8 +1,9 @@
-"""tests/live/test_goz_imtihani.py — Gercek fis fotografi → katalog (GERCEK).
+"""tests/live/test_goz_imtihani.py — Gercek fatura → gercek urun (GERCEK).
 
-Kapi (2026-09-26, Casper hedefi): fis_4 (15.09.2026) fotografindan
-GERCEK ajan dongusu (mesaj_isle) katalog kurar: 13 satir / 75 ad /
-6.034,00 TL. Gercek model + gercek bulut gozu + kota harcar;
+Kapi: fis_4 (15.09.2026) fotografindan GERCEK ajan dongusu faturayi
+okur, katalog kartlarini kurar ve kartlari gercek uretici urunleriyle
+resmi kaynakta dogrular: 13 satir / 75 ad / 6.034,00 TL / 12 benzersiz
+kart. Gercek model + gercek bulut gozu + gercek web aramasi kota harcar;
 yalniz --live ile calisir:
 
     python -m pytest tests/live/test_goz_imtihani.py --live -q
@@ -26,9 +27,11 @@ FOTOGRAF = os.path.join(BASE, "data", "fatura-ornekleri",
 BEKLENEN_SATIR = 13
 BEKLENEN_ADET = 75
 BEKLENEN_TOPLAM = 6034.00
+BEKLENEN_KART = 12
+BEKLENEN_RESMI = 12
 
 
-def test_gercek_fis_katalog_kurulur(tmp_path, monkeypatch, rapor):
+def test_gercek_fis_gercek_urunlere_cozulur(tmp_path, monkeypatch, rapor):
     if not os.path.isfile(FOTOGRAF):
         pytest.skip("fis fotografi yok (data/fatura-ornekleri/ git disi)")
 
@@ -66,7 +69,9 @@ def test_gercek_fis_katalog_kurulur(tmp_path, monkeypatch, rapor):
 
     olaylar = []
     mesaj_isle(
-        "Şu fatura fotoğrafını katalogla: %s" % fatura_id,
+        ("Şu fatura fotoğrafını oku, katalog kartlarını kur ve bütün "
+         "kartları gerçek üretici ürünleriyle resmi kaynakta doğrula. "
+         "Doğrulanmayanı uydurma. fatura_id: %s") % fatura_id,
         b, "Sen Başak'sın. Türkçe konuş.",
         lambda kod: olaylar.append(kod), TOOLS)
 
@@ -74,6 +79,7 @@ def test_gercek_fis_katalog_kurulur(tmp_path, monkeypatch, rapor):
         "ajan son cevaba ulasamadi")
     assert "fatura_oku" in kosulan, kosulan
     assert "katalog_kur" in kosulan, kosulan
+    assert "urun_eslestir" in kosulan, kosulan
 
     liste = json.loads(katalog.katalog_listele()["result"])
     is_id = None
@@ -86,18 +92,38 @@ def test_gercek_fis_katalog_kurulur(tmp_path, monkeypatch, rapor):
 
     isv = json.loads(katalog.katalog_getir(is_id)["result"])
     satirlar = isv.get("satirlar", [])
+    kartlar = isv.get("kartlar", [])
     adet = sum(int(s.get("adet") or 0) for s in satirlar)
     toplam = (isv.get("ustbilgi") or {}).get("toplam")
+    resmi = [k for k in kartlar
+             if (k.get("eslesme") or {}).get("resmi_dogrulandi")]
+    kaynaklar = {
+        k.get("kod"): (k.get("eslesme") or {}).get("kaynak")
+        for k in kartlar
+    }
+
     rapor("goz_imtihani", {
         "fatura_id": fatura_id, "is_id": is_id,
         "satir": len(satirlar), "adet": adet, "toplam": toplam,
-        "kart": len(isv.get("kartlar", [])),
-        "kosulan": kosulan,
+        "kart": len(kartlar), "resmi": len(resmi),
+        "kaynaklar": kaynaklar, "kosulan": kosulan,
+        "urun_dogrulama": isv.get("urun_dogrulama"),
     })
 
     assert len(satirlar) == BEKLENEN_SATIR, (
-        "satir sayisi %d (beklenen %d)" % (len(satirlar), BEKLENEN_SATIR))
+        "satir sayisi %d (beklenen %d)" % (
+            len(satirlar), BEKLENEN_SATIR))
     assert adet == BEKLENEN_ADET, (
         "adet toplami %d (beklenen %d)" % (adet, BEKLENEN_ADET))
     assert toplam is not None and abs(toplam - BEKLENEN_TOPLAM) < 0.01, (
-        "ustbilgi toplami %s (beklenen %.2f)" % (toplam, BEKLENEN_TOPLAM))
+        "ustbilgi toplami %s (beklenen %.2f)" % (
+            toplam, BEKLENEN_TOPLAM))
+    assert len(kartlar) == BEKLENEN_KART, (
+        "kart sayisi %d (beklenen %d)" % (
+            len(kartlar), BEKLENEN_KART))
+    assert len(resmi) == BEKLENEN_RESMI, (
+        "resmi dogrulanan %d/%d; eksikler=%s" % (
+            len(resmi), BEKLENEN_RESMI,
+            [k.get("kod") for k in kartlar if k not in resmi]))
+    assert all(kaynaklar.values()), kaynaklar
+    assert (isv.get("urun_dogrulama") or {}).get("durum") == "tam"

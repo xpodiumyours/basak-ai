@@ -29,6 +29,9 @@ class SahteDDGS:
 
     kayit = {}
 
+    def __init__(self, *args, **kwargs):
+        SahteDDGS.kayit["init"] = {"args": args, "kwargs": kwargs}
+
     def __enter__(self):
         return self
 
@@ -224,3 +227,101 @@ class TestDerinOku:
         _ddgs(monkeypatch, [])
         assert isinstance(
             calistir("web_search", {"query": "k", "adet": 3}), dict)
+
+
+def test_urun_sayfasi_schema_product_tek_get(monkeypatch):
+    from tools import web_search as ws
+    monkeypatch.setattr(ws, "_engelli_ip_nedeni", lambda h: None)
+
+    class Yanit:
+        headers = {"Content-Type": "text/html"}
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def geturl(self): return "https://marka.example/urun/x"
+        def read(self, n=-1):
+            return b"""<html><head>
+            <meta property="og:image" content="/x.jpg">
+            <script type="application/ld+json">
+            {"@context":"https://schema.org","@type":"Product",
+             "name":"Urun X","brand":{"@type":"Brand","name":"Marka"},
+             "sku":"SKU-X","gtin13":"8680508918124","color":"Siyah","size":"M",
+             "image":"https://marka.example/i/x2.jpg"}
+            </script></head><body>Marka SKU-X 8680508918124</body></html>"""
+
+    r = ws.urun_sayfasi_oku(
+        "https://marka.example/urun/x",
+        _acici=lambda *a, **k: Yanit())
+    assert "result" in r, r
+    veri = json.loads(r["result"])
+    assert veri["urunler"][0]["sku"] == "SKU-X"
+    assert "8680508918124" in veri["urunler"][0]["gtin"]
+    assert veri["urunler"][0]["brand"] == "Marka"
+    assert len(veri["gorseller"]) >= 1
+
+
+def test_site_haritasi_exact_sku_filtreler(monkeypatch):
+    monkeypatch.setattr(
+        ws, "_sitemap_url_listesi",
+        lambda host: [
+            "https://firma.example/urun/ter0117-erkek-boxer",
+            "https://firma.example/urun/ter0118-atlet",
+            "https://firma.example/kategori/erkek",
+        ])
+    r = ws.site_haritasi_ara("firma.example", "TER0117")
+    assert json.loads(r["result"]) == [
+        "https://firma.example/urun/ter0117-erkek-boxer"]
+
+
+def test_sitemap_xml_urlset_parser():
+    tur, loclar = ws._xml_loclar(b"""<?xml version="1.0"?>
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url><loc>https://firma.example/urun/a</loc></url>
+      <url><loc>https://firma.example/urun/b</loc></url>
+    </urlset>""")
+    assert tur == "urlset"
+    assert loclar == [
+        "https://firma.example/urun/a",
+        "https://firma.example/urun/b"]
+
+
+def test_jsonld_productgroup_hasvariant_acilir():
+    ham = """<script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"ProductGroup",
+     "name":"Model A","productGroupID":"A",
+     "hasVariant":[
+       {"@type":"Product","name":"Model A Siyah M","sku":"A-M-BLK",
+        "color":"Siyah","size":"M","image":"https://x/a-m.jpg"},
+       {"@type":"Product","name":"Model A Beyaz L","sku":"A-L-WHT",
+        "color":"Beyaz","size":"L","image":"https://x/a-l.jpg"}
+     ]}
+    </script>"""
+    urunler = ws._jsonld_urun(ham)
+    assert len(urunler) == 3
+    assert any(u["sku"] == "A-M-BLK" and u["color"] == "Siyah"
+               and u["size"] == "M" for u in urunler)
+
+
+def test_jsonld_kurum_ayni_sayfadan_okunur():
+    ham = """<script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"Organization",
+     "name":"Örnek Marka Giyim Ltd.","url":"https://ornek.example/"}
+    </script>"""
+    kurumlar = ws._jsonld_kurumlar(ham)
+    assert kurumlar == [{
+        "type": "Organization",
+        "name": "Örnek Marka Giyim Ltd.",
+        "url": "https://ornek.example/",
+        "sameAs": []}]
+
+
+def test_ddgs_cagrilari_bes_saniye_timeout_kullanir():
+    import inspect
+    kaynak = inspect.getsource(ws)
+    assert kaynak.count("DDGS(timeout=5)") >= 5
+
+
+def test_sitemap_ayni_host_icin_host_kilidi_var():
+    import inspect
+    kaynak = inspect.getsource(ws._sitemap_url_listesi)
+    assert "_SITEMAP_HOST_KILIT" in kaynak
+    assert "with host_kilit:" in kaynak

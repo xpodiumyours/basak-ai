@@ -204,6 +204,56 @@ class TestUcretsizModelFallback:
 
         assert cagrilar == ["stepfun/step-3.7-flash:free"]
 
+    def test_required_tool_call_yoksa_siradaki_free_model_denenir(self):
+        from brain.kilo import KiloClient
+
+        cagrilar = []
+
+        class Comp:
+            def create(self, **kwargs):
+                cagrilar.append(kwargs["model"])
+                if len(cagrilar) == 1:
+                    msg = types.SimpleNamespace(
+                        content="Araci kullanmak gerekir.", tool_calls=None)
+                else:
+                    tc = types.SimpleNamespace(
+                        id="t1", function=types.SimpleNamespace(
+                            name="simdi", arguments="{}"))
+                    msg = types.SimpleNamespace(content="", tool_calls=[tc])
+                return types.SimpleNamespace(
+                    choices=[types.SimpleNamespace(
+                        message=msg, finish_reason="stop")],
+                    usage=None,
+                )
+
+        istemci = KiloClient.__new__(KiloClient)
+        istemci.client = types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=Comp()))
+        istemci.model = "stepfun/step-3.7-flash:free"
+
+        yanit = istemci.cevapla(
+            [{"role": "user", "content": "saati aracla kontrol et"}],
+            tools=[{"type": "function", "function": {
+                "name": "simdi", "description": "saati okur",
+                "parameters": {"type": "object", "properties": {}}}}],
+            tool_choice="required",
+        )
+
+        assert yanit["tool_calls"][0]["function"]["name"] == "simdi"
+        assert cagrilar[:2] == [
+            "stepfun/step-3.7-flash:free",
+            "tencent/hy3:free",
+        ]
+
+    def test_string_reasoning_details_kilo_istegine_geri_gonderilmez(self):
+        c, sahte = _istemci(_yanit(_mesaj(content="tamam")))
+        c.cevapla([{
+            "role": "assistant",
+            "content": "",
+            "reasoning_details": "gateway string dondurdu",
+        }])
+        assert "reasoning_details" not in sahte.son_kwargs["messages"][0]
+
     def test_gecersiz_istekte_diger_modeller_bosuna_denenmez(self):
         from brain.kilo import KiloClient
 

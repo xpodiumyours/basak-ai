@@ -339,7 +339,8 @@ def calistir(tool_name, args):
             from tools import katalog
             return katalog.urun_eslestir(
                 str(args.get("is_id", "")),
-                str(args.get("kart_id", "")))
+                str(args.get("kart_id", "") or ""),
+                bool(args.get("tum_kartlar", False)))
 
         if tool_name == "yayin_paketi":
             from tools import katalog

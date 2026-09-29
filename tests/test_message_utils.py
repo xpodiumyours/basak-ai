@@ -37,3 +37,24 @@ class TestKarisikBloklar:
                                   "tool_call_id": "1"}])
         assert out[0]["tool_calls"] == [{"id": "1"}]
         assert out[0]["tool_call_id"] == "1"
+
+
+class TestKiloReasoningDetails:
+    def test_string_reasoning_details_stream_yolunda_atilir(self):
+        out = mesajlari_temizle([{
+            "role": "assistant",
+            "content": "",
+            "_provider": "kilo",
+            "reasoning_details": "string-dondu",
+        }], provider="kilo")
+        assert "reasoning_details" not in out[0]
+
+    def test_liste_reasoning_details_kilo_icin_korunur(self):
+        detay = [{"type": "reasoning.summary", "text": "ok"}]
+        out = mesajlari_temizle([{
+            "role": "assistant",
+            "content": "",
+            "_provider": "kilo",
+            "reasoning_details": detay,
+        }], provider="kilo")
+        assert out[0]["reasoning_details"] == detay

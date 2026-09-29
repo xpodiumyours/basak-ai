@@ -11,9 +11,12 @@ import json
 import logging
 import re
 import socket
+import threading
+import time
 import urllib.error
 import urllib.request
-from urllib.parse import urlparse
+import xml.etree.ElementTree as ET
+from urllib.parse import unquote, urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +61,7 @@ def _duckduckgo_ara(query, adet=_VARSAYILAN_SONUC):
     try:
         from ddgs import DDGS
 
-        with DDGS() as ddgs:
+        with DDGS(timeout=5) as ddgs:
             results = list(ddgs.text(query, region="tr-tr",
                                      max_results=_adet_sinirla(adet)))
 
@@ -91,7 +94,7 @@ def haber_ara(query: str, adet: int = 10) -> dict:
     try:
         from ddgs import DDGS
 
-        with DDGS() as ddgs:
+        with DDGS(timeout=5) as ddgs:
             results = list(ddgs.news(str(query).strip(), region="tr-tr",
                                      max_results=_adet_sinirla(adet, 10)))
         if not results:
@@ -128,7 +131,7 @@ def zamanli_ara(query: str, aralik: str = "hafta",
     try:
         from ddgs import DDGS
 
-        with DDGS() as ddgs:
+        with DDGS(timeout=5) as ddgs:
             results = list(ddgs.text(str(query).strip(), region="tr-tr",
                                      timelimit=sinir,
                                      max_results=_adet_sinirla(adet, 10)))
@@ -166,7 +169,7 @@ def gorsel_ara(query: str, adet: int = 10) -> dict:
     try:
         from ddgs import DDGS
 
-        with DDGS() as ddgs:
+        with DDGS(timeout=5) as ddgs:
             results = list(ddgs.images(str(query).strip(), region="tr-tr",
                                        max_results=_adet_sinirla(adet, 10)))
         adresler = []
@@ -191,7 +194,7 @@ def kitap_ara(query: str, adet: int = 10) -> dict:
     try:
         from ddgs import DDGS
 
-        with DDGS() as ddgs:
+        with DDGS(timeout=5) as ddgs:
             results = list(ddgs.books(str(query).strip(),
                                       max_results=_adet_sinirla(adet, 10)))
         if not results:
@@ -221,6 +224,13 @@ _MAX_SAYFA = 200000
 # Derin okuma tavani (derin_oku): uzun sayfa/katalog metinleri icin.
 _MAX_DERIN = 500000
 _MAX_HAM = 50 * 1024 * 1024  # Ham HTML ust siniri (50 MB)
+_SITEMAP_MAX_HAM = 2 * 1024 * 1024
+_SITEMAP_MAX_DOSYA = 12
+_SITEMAP_MAX_URL = 10000
+_SITEMAP_CACHE_SN = 600
+_SITEMAP_CACHE = {}
+_SITEMAP_KILIT = threading.Lock()
+_SITEMAP_HOST_KILIT = {}
 
 # SSRF korumasi (2026-08-24, Casper'in bulgusu): string tabanli "localhost"
 # aramasi 127.0.0.2, [::1], onluk IP, ozel aglar ve ic IP'ye cozunen
@@ -277,6 +287,130 @@ class _GuvenliYonlendirme(urllib.request.HTTPRedirectHandler):
             logger.warning("Yonlendirme engellendi: %s", engel)
             return None   # None = takip etme -> HTTPError firlar
         return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+
+
+def _xml_loclar(ham):
+    """Sitemap XML'den loc adreslerini ve kok turunu okur."""
+    try:
+        kok = ET.fromstring(ham)
+    except ET.ParseError:
+        return "", []
+    tur = kok.tag.rsplit("}", 1)[-1].lower()
+    loclar = []
+    for eleman in kok.iter():
+        if eleman.tag.rsplit("}", 1)[-1].lower() != "loc":
+            continue
+        deger = (eleman.text or "").strip()
+        if deger:
+            loclar.append(deger)
+    return tur, loclar
+
+
+def _sitemap_cek(url):
+    engel = _guvenli_adres(url)
+    if engel:
+        return None
+    try:
+        opener = urllib.request.build_opener(_GuvenliYonlendirme())
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Basak/1.0",
+            "Accept": "application/xml,text/xml,text/plain,*/*",
+            "Accept-Encoding": "identity",
+        })
+        with opener.open(req, timeout=12) as resp:
+            ctype = (resp.headers.get("Content-Type", "") or "").lower()
+            if not any(x in ctype for x in ("xml", "text/plain", "octet-stream")):
+                return None
+            return resp.read(_SITEMAP_MAX_HAM)
+    except Exception:
+        return None
+
+
+def _sitemap_url_listesi(host):
+    """Bir hostun sitemap URL envanterini kısa süreli kamu verisi olarak cache'ler.
+
+    Aynı hostu paralel ürün kartları aynı anda isterse tek ağ fetch'i yapılır.
+    Farklı hostlar birbirini bloke etmez.
+    """
+    host = (host or "").strip().lower().lstrip("www.")
+    if not host or " " in host or "." not in host:
+        return []
+
+    with _SITEMAP_KILIT:
+        host_kilit = _SITEMAP_HOST_KILIT.setdefault(host, threading.Lock())
+
+    with host_kilit:
+        simdi = time.time()
+        with _SITEMAP_KILIT:
+            kayit = _SITEMAP_CACHE.get(host)
+            if kayit and simdi - kayit["zaman"] < _SITEMAP_CACHE_SN:
+                return list(kayit["url"])
+
+        ana = "https://%s/sitemap.xml" % host
+        ham = _sitemap_cek(ana)
+        if not ham:
+            return []
+        tur, loclar = _xml_loclar(ham)
+        urller = []
+        if tur == "urlset":
+            urller = loclar[:_SITEMAP_MAX_URL]
+        elif tur == "sitemapindex":
+            # Önce ürün/katalog sitemapleri; sonra diğerleri. Ağ yükü sınırlı.
+            sirali = sorted(
+                loclar,
+                key=lambda u: (
+                    0 if any(k in u.lower()
+                             for k in ("product", "urun", "shop")) else 1,
+                    u))
+            for alt in sirali[:_SITEMAP_MAX_DOSYA]:
+                alt_ham = _sitemap_cek(alt)
+                if not alt_ham:
+                    continue
+                alt_tur, alt_loclar = _xml_loclar(alt_ham)
+                if alt_tur != "urlset":
+                    continue
+                for u in alt_loclar:
+                    if u not in urller:
+                        urller.append(u)
+                        if len(urller) >= _SITEMAP_MAX_URL:
+                            break
+                if len(urller) >= _SITEMAP_MAX_URL:
+                    break
+
+        with _SITEMAP_KILIT:
+            # Cache yalnız kamuya açık URL envanteridir; kullanıcı/fatura verisi yok.
+            if len(_SITEMAP_CACHE) >= 20:
+                en_eski = min(_SITEMAP_CACHE,
+                              key=lambda h: _SITEMAP_CACHE[h]["zaman"])
+                _SITEMAP_CACHE.pop(en_eski, None)
+            _SITEMAP_CACHE[host] = {"zaman": simdi, "url": list(urller)}
+        return urller
+
+
+def site_haritasi_ara(site, terim, adet=8):
+    """Doğrulanmış firma sitesinin sitemap'inde tam ürün kodu/GTIN ara.
+
+    Arama motoru indekslemesine bağlı değildir. İç yardımcıdır; yeni ajan
+    aracı eklemez. Sonuç yalnız URL adaylarıdır, ürün doğrulaması sayfa
+    içeriğinde ayrıca yapılır.
+    """
+    host = str(site or "").strip()
+    if "://" in host:
+        host = (urlparse(host).hostname or "")
+    host = host.lower().lstrip("www.")
+    hedef = re.sub(r"[^a-z0-9]", "", str(terim or "").lower())
+    if not host or not hedef:
+        return {"result": json.dumps([], ensure_ascii=False)}
+    eslesen = []
+    for u in _sitemap_url_listesi(host):
+        yol = re.sub(r"[^a-z0-9]", "", unquote(str(u)).lower())
+        if hedef in yol:
+            eslesen.append(u)
+            if len(eslesen) >= max(1, min(20, int(adet or 8))):
+                break
+    return {"result": json.dumps(eslesen, ensure_ascii=False)}
 
 
 def sayfa_oku(url: str, baslangic=0, uzunluk=None) -> dict:
@@ -571,3 +705,191 @@ def sayfa_gorseller(url: str, _acici=None) -> dict:
     except Exception as e:
         logger.error("Gorsel toplama hatasi: %s", e)
         return {"error": "Gorseller alinamadi: %s" % str(e)}
+
+
+# ── Ürün sayfası kanıt okuyucusu ──────────────────────────────────
+_JSONLD_RE = re.compile(
+    r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+    re.IGNORECASE | re.DOTALL)
+
+
+def _jsonld_dugumleri(deger):
+    if isinstance(deger, list):
+        for x in deger:
+            yield from _jsonld_dugumleri(x)
+        return
+    if not isinstance(deger, dict):
+        return
+    yield deger
+    graph = deger.get("@graph")
+    if isinstance(graph, (list, dict)):
+        yield from _jsonld_dugumleri(graph)
+    # ProductGroup siteleri varyantlari hasVariant icinde tutabilir.
+    # Yalniz urun-varyant agacini geziyoruz; Offer vb. tum JSON-LD
+    # nesnelerini kontrolsuzce taramiyoruz.
+    varyantlar = deger.get("hasVariant")
+    if isinstance(varyantlar, (list, dict)):
+        yield from _jsonld_dugumleri(varyantlar)
+
+
+def _jsonld_kurumlar(ham):
+    """Schema.org Organization/Corporation/Brand/WebSite kimliklerini çıkarır."""
+    import html as _html
+    sonuc = []
+    izinli = {"organization", "corporation", "localbusiness", "brand", "website"}
+    for parca in _JSONLD_RE.findall(ham or ""):
+        try:
+            veri = json.loads(_html.unescape(parca).strip())
+        except (TypeError, ValueError):
+            continue
+        for dugum in _jsonld_dugumleri(veri):
+            tur = dugum.get("@type")
+            turler = tur if isinstance(tur, list) else [tur]
+            if not any(str(t or "").lower() in izinli for t in turler):
+                continue
+            ad = str(dugum.get("name") or "").strip()
+            url = str(dugum.get("url") or dugum.get("@id") or "").strip()
+            same_as = dugum.get("sameAs")
+            same_as = same_as if isinstance(same_as, list) else [same_as]
+            kayit = {
+                "type": next((str(t) for t in turler if t), ""),
+                "name": ad,
+                "url": url,
+                "sameAs": [str(x) for x in same_as if x],
+            }
+            if (ad or url) and kayit not in sonuc:
+                sonuc.append(kayit)
+            if len(sonuc) >= 20:
+                return sonuc
+    return sonuc
+
+
+def _jsonld_urun(ham):
+    """Schema.org Product/ProductGroup bloklarini dar JSON'a cevirir."""
+    import html as _html
+    urunler = []
+    for parca in _JSONLD_RE.findall(ham or ""):
+        try:
+            veri = json.loads(_html.unescape(parca).strip())
+        except (TypeError, ValueError):
+            continue
+        for dugum in _jsonld_dugumleri(veri):
+            tur = dugum.get("@type")
+            turler = tur if isinstance(tur, list) else [tur]
+            if not any(str(t or "").lower() in ("product", "productgroup")
+                       for t in turler):
+                continue
+            brand = dugum.get("brand")
+            if isinstance(brand, dict):
+                brand = brand.get("name") or brand.get("@id") or ""
+            image = dugum.get("image")
+            if isinstance(image, dict):
+                image = image.get("url") or image.get("contentUrl") or ""
+            gtinler = []
+            for anahtar in ("gtin", "gtin8", "gtin12", "gtin13", "gtin14"):
+                deger = dugum.get(anahtar)
+                if isinstance(deger, list):
+                    gtinler.extend(str(x) for x in deger if x)
+                elif deger:
+                    gtinler.append(str(deger))
+            urunler.append({
+                "name": dugum.get("name") or "",
+                "brand": brand or "",
+                "sku": dugum.get("sku") or "",
+                "mpn": dugum.get("mpn") or "",
+                "gtin": gtinler,
+                "color": dugum.get("color") or "",
+                "size": dugum.get("size") or "",
+                "productGroupID": dugum.get("productGroupID") or
+                                  dugum.get("inProductGroupWithID") or "",
+                "image": image or "",
+                "url": dugum.get("url") or "",
+            })
+            if len(urunler) >= 30:
+                return urunler
+    return urunler
+
+
+def urun_sayfasi_oku(url: str, _acici=None) -> dict:
+    """Bir urun aday sayfasini tek HTTP GET ile kanit paketine cevirir.
+
+    Donus: metin + Schema.org Product/ProductGroup + urun gorselleri.
+    SSRF ve yonlendirme savunmasi sayfa_oku ile aynidir.
+    """
+    if not url or not str(url).strip():
+        return {"error": "URL bos olamaz"}
+    url = str(url).strip()
+    engel = _guvenli_adres(url)
+    if engel:
+        return {"error": engel}
+    try:
+        import html as html_mod
+        from urllib.parse import urljoin
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Basak/1.0",
+            "Accept": "text/html",
+            "Accept-Encoding": "identity",
+        })
+        if _acici is not None:
+            acilis = _acici(req, timeout=15)
+        else:
+            opener = urllib.request.build_opener(_GuvenliYonlendirme())
+            acilis = opener.open(req, timeout=15)
+        with acilis as resp:
+            content_type = resp.headers.get("Content-Type", "")
+            son_url = resp.geturl() if hasattr(resp, "geturl") else url
+            if "text/html" not in content_type:
+                return {"error": "Desteklenen icerik tipi degil: %s"
+                                 % content_type}
+            ham = resp.read(_MAX_HAM).decode("utf-8", errors="replace")
+
+        urunler = _jsonld_urun(ham)
+        kurumlar = _jsonld_kurumlar(ham)
+        temiz = re.sub(
+            r'<(script|style|noscript)[^>]*>.*?</\1>',
+            '', ham, flags=re.DOTALL | re.IGNORECASE)
+        temiz = re.sub(r'<!--.*?-->', '', temiz, flags=re.DOTALL)
+        temiz = re.sub(r'<[^>]+>', ' ', temiz)
+        temiz = re.sub(r'\s+', ' ', html_mod.unescape(temiz)).strip()
+
+        adaylar = _OG_RE.findall(ham) + _IMG_RE.findall(ham)
+        adaylar += _IMG_DATA_RE.findall(ham)
+        adaylar += [_srcset_ilk(s) for s in _SRCSET_RE.findall(ham)]
+        for u in urunler:
+            img = u.get("image")
+            if isinstance(img, list):
+                adaylar.extend(img)
+            elif img:
+                adaylar.append(img)
+
+        gorseller = []
+        for aday in adaylar:
+            aday = str(aday or "").strip()
+            if not aday or aday.startswith("data:"):
+                continue
+            mutlak = urljoin(son_url, aday).split("#")[0]
+            k = urlparse(mutlak)
+            if k.scheme not in ("http", "https") or not k.hostname:
+                continue
+            yol = k.path.lower().split("?")[0]
+            if any(kelime in yol for kelime in _GORSEL_ATIK_KELIME):
+                continue
+            if mutlak not in gorseller:
+                gorseller.append(mutlak)
+            if len(gorseller) >= 10:
+                break
+
+        return {"result": json.dumps({
+            "url": son_url,
+            "metin": temiz[:50000],
+            "urunler": urunler,
+            "kurumlar": kurumlar,
+            "gorseller": gorseller,
+        }, ensure_ascii=False)}
+    except urllib.error.HTTPError as e:
+        return {"error": "HTTP hatasi %d: %s" % (e.code, url)}
+    except urllib.error.URLError as e:
+        return {"error": "Baglanti hatasi: %s" % str(e.reason)}
+    except Exception as e:
+        logger.warning("Urun sayfasi okuma hatasi: %s", e)
+        return {"error": "Urun sayfasi okunamadi: %s" % str(e)}
