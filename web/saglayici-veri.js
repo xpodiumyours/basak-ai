@@ -9,7 +9,9 @@
     "kaydetmez": "Saklamadığını resmen bildiriyor",
     "kaydeder": "Saklayabilir",
     "egitime_kullanilir": "Eğitim/model geliştirme için kullanabilir",
-    "dogrulanmadi": "Doğrulanmadı — bilinmiyor"
+    // Iddia yok: dogruyu da yalani da soylemeyiz. Kullaniciya
+    // "tahmin yok, guvenli tarafi dusun" diyoruz.
+    "dogrulanmadi": "Doğrulanmadı — iddia yok"
   };
 
   function hucre(metin) {

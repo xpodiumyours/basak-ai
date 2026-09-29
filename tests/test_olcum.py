@@ -306,10 +306,26 @@ class TestSaglayiciSeffafligi:
         assert "document.cookie" not in js
 
     def test_betik_dogrulanmadigi_olguyle_gosterir(self):
-        """Bilinmeyen 'temiz' gibi gosterilmemeli."""
+        """Bilinmeyen icin IDDIA yok: ne saklar ne saklamaz denmez."""
         js = (WEB / "saglayici-veri.js").read_text(encoding="utf-8")
         assert "dogrulanmadi" in js
         assert "Doğrulanmadı" in js
+        # Kullaniciya gosterilen METIN icinde tahmin/varsayim olmamali
+        # (yorum satirlari test kapsam disi)
+        gosterilen = "\n".join(
+            satir for satir in js.splitlines()
+            if not satir.strip().startswith(("//", "*", "/*"))
+        ).lower()
+        assert "varsay" not in gosterilen
+        assert "tahmin" not in gosterilen
+
+    def test_gizlilik_metni_bilinmeyende_iddia_surmuyor(self):
+        """Beyan metni de ayni durustu tasi: iddia yok, resmi belge var."""
+        html = (WEB / "gizlilik.html").read_text(encoding="utf-8")
+        assert "hiçbir iddia" in html
+        assert "resmî belgelerdir" in html
+        # Eskiden "en kotu durum varsayilir" yaziyordu; kaldirildi
+        assert "en kötü durum (saklama) varsayılır" not in html
 
     def test_uc_zincir_sirasini_degistirmiyor(self):
         """Saglayici veri ucu sirayi TETIKLEMEZ."""
