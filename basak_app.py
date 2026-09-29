@@ -67,6 +67,27 @@ KISILIK = (
 )
 
 
+class _MasaustuKopru:
+    """js_callback: BasakUI.* kodlarini calistirir, zengin olaylari da
+    BasakUI.olay(tur, veri) olarak ayni pencereye yollar.
+
+    Cekirdek (chat/tools.py `_web_olay`, chat/agent_runtime
+    `emit_run_state`) yalniz `js_callback.olay` callable'ini arar; web
+    koprusunde (`basak_web._OlayAyiklayici`) vardi, masaustunde yoktu —
+    `source` olayi hic uretilmiyor, sohbet balonuna hic kaynak
+    yazilmiyordu. Sessiz kayip buradan kapatildi.
+    """
+
+    def __init__(self, api):
+        self._api = api
+
+    def __call__(self, kod):
+        self._api._js(kod)
+
+    def olay(self, tur, **veri):
+        self._api._olay(tur, **veri)
+
+
 class Api:
     def __init__(self):
         # 2026-09-10: pencere ONCE acilsin diye beyin tembel baslar.
@@ -99,6 +120,28 @@ class Api:
         if webview.windows:
             webview.windows[0].evaluate_js(code)
 
+    def _kopru(self):
+        """mesaj_isle'a verilecek js_callback: BasakUI.* + zengin olay."""
+        k = getattr(self, "_kopru_nesne", None)
+        if k is None:
+            k = _MasaustuKopru(self)
+            self._kopru_nesne = k
+        return k
+
+    def _olay(self, tur, **veri):
+        """Zengin olayi arayuze yollar (kaynak, plan, runState...).
+
+        `tur` disindaki alanlar dogrudan ikinci arguman olarak gider:
+        BasakUI.olay("source", {url, baslik, ...}). JSON her kosulda
+        gecerli olmali — seriilestirme patlarsa olay sessizce dusmus
+        sayilir, sohbet hatti kirilmaz.
+        """
+        try:
+            paket = json.dumps(veri, ensure_ascii=False, default=str)
+            self._js("BasakUI.olay(" + json.dumps(str(tur)) + ", " + paket + ")")
+        except Exception:
+            logger.debug("olay yayinlanamadi: %s", tur, exc_info=True)
+
     def _ses_seviyesi(self, seviye):
         """TTS çalma genligini arayuze canli iletir (0..1)."""
         try:
@@ -114,7 +157,7 @@ class Api:
 
     def _chat(self, text):
         try:
-            mesaj_isle(text, self._beyin_al(), KISILIK, self._js, TOOLS)
+            mesaj_isle(text, self._beyin_al(), KISILIK, self._kopru(), TOOLS)
         except Exception as e:
             # 2026-09-10: iz birak — bir dahaki "beklenmeyen hata"da
             # hata.log'dan kok sebep okunsun.

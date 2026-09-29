@@ -87,6 +87,16 @@ class _OlayAyiklayici:
         self.istek = istek
         self.bitti = False
 
+    def olay(self, tur, **veri):
+        """Cekirdegin zengin olayini (source, runState...) SSE'ye yollar.
+
+        `hasattr(js_callback, "olay")` korumali cagri — bu metod yokken
+        `source` uretilmiyor, web'deki Kaynaklar bolumu hep bos kaliyordu.
+        """
+        yay = {"istek": self.istek, "tur": str(tur)}
+        yay.update(veri)
+        _yayin(yay)
+
     def __call__(self, kod):
         try:
             if not kod.startswith("BasakUI."):

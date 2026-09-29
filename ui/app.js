@@ -2,7 +2,9 @@
 
 const $ = (id) => document.getElementById(id);
 let sesZamanlayici = null;
-const state = { busy: false, ready: false, model: null, dinliyor: false, ttsOn: false };
+const state = { busy: false, ready: false, model: null, dinliyor: false, ttsOn: false,
+  /* Bu turun toplanan kaynaklari + cevap balonu (kaynak paneli). */
+  kaynaklar: [], cevapDiv: null };
 /* Son gonderilen mesaj. Hata/zaman asimi sonrasi "tekrar dene" bunu
    kullanir — eskiden metin input'tan silindigi icin elle yeniden
    yazmaktan baska yol yoktu. */
@@ -394,8 +396,69 @@ function setOrb(s) {
   if (Orb && Orb.durum) Orb.durum(s);
 }
 
+/* ---------------- Zengin olaylar (kaynak paneli) ---------------- */
+/* Cekirdek `source` olayi uretir (chat/tools.py:_web_olay); balon
+   metnine DOKUNULMAZ, kaynaklar altta ayri blokta durur. Boylece
+   yalansizlik (cevaba kaynak yapistirma yasagi) bozulmaz. */
+function kaynakUrlTemizle(ham) {
+  try {
+    const u = new URL(String(ham || "").trim());
+    if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+    return u.origin + u.pathname;
+  } catch (e) {
+    return "";
+  }
+}
+
+function kaynaklariCiz(div) {
+  if (!div || !document.contains(div)) return;
+  const liste = state.kaynaklar || [];
+  // Gercek DOM'da .msg-body yok (Chat.add ikinci innerHTML'de onu eziyor);
+  // web'deki answer-sources gibi kaynak, balonun icinde AYRI bolumdur —
+  // metne dokunulmaz, ustunde kesikli cizgiyle ayrilir.
+  const hedef = div.querySelector(".msg-bubble");
+  if (!hedef) return;
+  let blok = hedef.querySelector(".msg-kaynaklar");
+  if (!liste.length) {
+    if (blok) blok.remove();
+    return;
+  }
+  if (!blok) {
+    blok = document.createElement("div");
+    blok.className = "msg-kaynaklar";
+    hedef.appendChild(blok);
+  }
+  blok.textContent = "";
+  const baslik = document.createElement("span");
+  baslik.className = "msg-kaynaklar-baslik";
+  baslik.textContent = "Kaynaklar";
+  blok.appendChild(baslik);
+  liste.forEach((k, i) => {
+    const a = document.createElement("a");
+    a.className = "msg-kaynak";
+    a.href = k.url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.textContent = (i + 1) + " · " + k.baslik;
+    blok.appendChild(a);
+  });
+}
+
 /* ---------------- Python'dan gelen geri çağrılar ---------------- */
 window.BasakUI = {
+  /* Zengin olay köprüsü (masaüstü: Api._olay, web: SSE). Yalniz
+     "source" bu ekranda gorunur; baska tur olay sessizce gecilir. */
+  olay(tur, veri) {
+    if (tur !== "source" || !veri) return;
+    const url = kaynakUrlTemizle(veri.url);
+    if (!url) return;
+    const baslik = String(veri.baslik || "").slice(0, 120);
+    if (!state.kaynaklar.some((k) => k.url === url)) {
+      state.kaynaklar.push({ url, baslik });
+    }
+    if (state.cevapDiv) kaynaklariCiz(state.cevapDiv);
+  },
+
   // E-3: tools/zamanlayici.py bu karti SORULMADAN gonderir (2 saatte bir,
   // 10:00-20:00 arasi). Python tarafi hazirdi, ekrana basacak taraf eksikti:
   // evaluate_js tanimsiz fonksiyona dusuyor, hata basak_app'teki try/except'e
@@ -416,6 +479,9 @@ window.BasakUI = {
     setTimeout(() => setOrb("bekliyor"), 2200);
   },
   thinking() {
+    // Yeni tur: onceki turun kaynaklari yeni cevaba tasinmamali.
+    state.kaynaklar = [];
+    state.cevapDiv = null;
     Chat.thinking();
     kilidiKapat();
     setStatus("busy", "BAŞAK DÜŞÜNÜYOR...");
@@ -455,7 +521,11 @@ window.BasakUI = {
   },
   reply(text, modelInfo) {
     const _t = document.querySelector(".msg.basak.thinking"); if (_t) _t.remove();
-    Chat.add("basak", text);
+    const div = Chat.add("basak", text);
+    // Kaynaklar tur boyunca birikti (source olaylari cevaptan once
+    // gelir); balon hazir olunca altina ayri blok olarak yazilir.
+    state.cevapDiv = div;
+    kaynaklariCiz(div);
     brainKaynakEtiketi(modelInfo);
     kilidiAc();
     setOrb("cevapliyor");
@@ -467,6 +537,8 @@ window.BasakUI = {
   },
   error(msg) {
     const _t = document.querySelector(".msg.basak.thinking"); if (_t) _t.remove();
+    // Tur kapandi; gec gelen source olayi eski balona yapismamali.
+    state.cevapDiv = null;
     // Hata Basak'in AGZINDAN cikmis gibi gorunmemeli: eskiden sohbet
     // balonuna "Uzgunum, bir sorun var: ..." diye ekleniyordu ve baglanti
     // hatasi ile gercek cevap ayni yerde duruyordu.
