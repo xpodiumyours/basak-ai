@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 
 import app
 from araclar_sayfa import YEREL_ARACLAR, baslik_uret
+from rehberler import REHBERLER
 from tools.freetools_katalog import ARACLAR
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -122,19 +123,21 @@ class TestSiteHaritasi:
         kok = ET.fromstring(r.text)
         ns = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
         loclar = [e.text for e in kok.findall("%surl/%sloc" % (ns, ns))]
-        assert len(loclar) == len(ARACLAR) + 9   # arac + 9 sabit sayfa
+        assert len(loclar) == len(ARACLAR) + 10 + len(REHBERLER)
+        # arac + 10 sabit sayfa (rehber listesi dahil) + rehber sayfalari
         for kat, slug in ARACLAR:
             assert "https://ornek.test/araclar/%s/%s" % (kat, slug) in loclar
-        for zorunlu in ("/", "/araclar", "/gizlilik.html", "/cerez.html",
-                        "/sartlar.html", "/sorumluluk.html", "/destek.html",
-                        "/reklam-ver.html", "/bilgilendirme.html"):
+        for zorunlu in ("/", "/araclar", "/rehber", "/gizlilik.html",
+                        "/cerez.html", "/sartlar.html", "/sorumluluk.html",
+                        "/destek.html", "/reklam-ver.html",
+                        "/bilgilendirme.html"):
             assert "https://ornek.test" + zorunlu in loclar
 
     def test_sitemap_katalogla_purussuz(self):
         """Yeni arac eklenince harita otomatik genisler (tek kaynak)."""
         with _istemci() as c:
             h = c.get("/sitemap.xml").text
-        assert h.count("<loc>") == len(ARACLAR) + 9
+        assert h.count("<loc>") == len(ARACLAR) + 10 + len(REHBERLER)
 
 
 class TestRobots:
@@ -252,6 +255,18 @@ class TestHukukiSayfalar:
             assert r.status_code == 200, ad
             assert "TASLAK" in r.text, ad
             assert 'rel="canonical" href="/%s"' % ad in r.text, ad
+
+    def test_cerez_politikasi_guncel_olcum_modelini_yaziyor(self):
+        metin = (WEB / "cerez.html").read_text(encoding="utf-8")
+        assert "Çerezsiz anonim sayım (onay gerektirmez)" in metin
+        assert "yalnız onaydan sonra yüklenir" in metin
+        assert 'id="reklamAgiAdi"' in metin
+
+    def test_rehber_sayfalari_sitemapte(self):
+        with _istemci() as c:
+            h = c.get("/sitemap.xml").text
+        for r in REHBERLER:
+            assert "https://ornek.test/rehber/%s" % r["slug"] in h
 
     def test_gizlilik_metni_envanterle_ayni_verileri_soyler(self):
         metin = (WEB / "gizlilik.html").read_text(encoding="utf-8").lower()

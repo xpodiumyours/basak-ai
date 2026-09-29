@@ -23,6 +23,8 @@
 | **Görsel ekler (fatura/fotoğraf)** | Geçici dosya | iş bitince | Açık rıza | analiz sonrası saklanmaz (varsayılan) |
 | **IP / günlük verisi** | Vercel altyapısı | kısa süre (Vercel politikası) | Meşru menfaat (güvenlik, kota) | Başak tarafından ayrı saklanmaz |
 | **Anonim günlük kota sayacı** (Basak ID + sayaç) | basak_kota tablosu (Postgres) / bellek | gün sonunda sıfırlanır | Meşru menfaat (hizmetin sürdürülebilirliği) | Mesaj içeriği değil, yalnız sayaç |
+| **Anonim sayfa görüntüleme sayacı** (sayfa yolu + gün + toplam sayı) | basak_olcum tablosu (Postgres) / bellek | kalıcı toplam sayaç | Meşru menfaat (hangi araç işe yarıyor) | **Çerez yok**; kimlik, IP veya tarayıcı bilgisi saklanmaz; üçüncü tarafa veri gönderilmez; DNT/GPC sinyaline saygılı |
+| **Araç mikro-geri bildirimi** (sayfa + toplam artı/eksi oyu) | basak_oy tablosu (Postgres) / bellek | kalıcı toplam oy | Meşru menfaat (ürün iyileştirme) | Kimlik yok; yalnız toplam oy sayısı |
 | **Sağlayıcıya giden mesaj** | AI sağlayıcısının sunucusu | sağlayıcının politikası | Açık rıza | **Ayrıntı:** hangi sağlayıcı, nereye gidiyor → README §12 + s.3 |
 
 ## 3. Yurt dışına veri aktarımı (KVKK m.9)
@@ -45,7 +47,8 @@ Kullanıcı, sohbet ekranındaki "Ayrıntılar" bağlantısından bu listeyi gö
 | Amaç | Durum |
 |---|---|
 | Zorunlu çerez (oturum/Basak ID) | hizmetin çalışması için şart |
-| Analitik (ör. Google Analytics) | **onay sonrası** — onaysız yüklenmez |
+| Analitik (üçüncü taraf, ör. GA) | şu an kullanılmıyor; eklenirse **onay sonrası** — onaysız yüklenmez |
+| Anonim sayfa sayacı (çerezsiz) | çerez kullanmaz; kişisel veri içermediği için onay gerektirmez; DNT/GPC'ye saygılı |
 | Reklam (AdSense) | **onay sonrası** — onaysız reklam kodu çalışmaz |
 
 Kural: **çerez onay kutusu → sonra üçüncü taraf kod.** Onay geri alınabilir

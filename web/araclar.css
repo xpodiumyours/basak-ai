@@ -50,3 +50,13 @@ button:hover{background:#2c2c33}
 .cerez button{margin-top:10px;margin-right:8px;background:#3a3a42}
 footer{margin-top:26px;font-size:12px;color:#7a7a82}
 footer a{margin-right:12px}
+.geri-bildirim{
+  margin-top:12px;font-size:13px;color:#6b6b73;
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px
+}
+.geri-bildirim button{
+  margin-top:0;padding:6px 12px;font-size:13px;
+  background:#f0f0f3;color:#26262b;border:1px solid #dcdce0
+}
+.geri-bildirim button:hover{background:#e6e6ea}
+

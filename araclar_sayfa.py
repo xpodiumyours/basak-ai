@@ -356,6 +356,7 @@ adresinde de bulunur. Bu sayfa bağımsız çalışır; ortaklık yoktur.</p>
 <a href="/sartlar.html">Kullanım şartları</a>
 <a href="/sorumluluk.html">Sorumluluk reddi</a>
 <a href="/destek.html">Destek ol</a>
+<a href="/rehber">Rehberler</a>
 </footer>
 <div class="cerez" id="cerezBandi" hidden>
 Bu sitede yalnız onayladığınız çerezler kullanılır. Reklam kodları
@@ -365,6 +366,7 @@ onay verilmeden yüklenmez.
 <a href="/cerez.html">Ayrıntı</a>
 </div>
 {betik}
+<script src="/olcum.js?v=1" defer></script>
 </main></body>
 </html>
 """
@@ -385,11 +387,13 @@ _LISTE_SABLON = """<!doctype html>
 <div class="card">
 <h1>Ücretsiz araçlar</h1>
 <p>{toplam} aracın hepsi tarayıcınızda çalışır, kayıt gerekmez.
-Dilerseniz sohbette de Başak'a yaptırabilirsiniz.</p>
+Dilerseniz sohbette de Başak'a yaptırabilirsiniz.
+Adım adım anlatımlar için <a href="/rehber">rehberlere</a> bakın.</p>
 {bloklar}
 </div>
 <footer><a href="/">Sohbete dön</a><a href="/gizlilik.html">Gizlilik</a>
-<a href="/destek.html">Destek ol</a></footer>
+<a href="/destek.html">Destek ol</a><a href="/rehber">Rehberler</a></footer>
+<script src="/olcum.js?v=1" defer></script>
 </main></body>
 </html>
 """
