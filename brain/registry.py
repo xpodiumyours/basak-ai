@@ -99,8 +99,18 @@ SAGLAYICILAR = {
         "ajan_tool_mode": "auto_enforced",
         "gucleri": ["kod", "genel"],
         "gunluk_istek": None,
-        "veri_saklama": _VERI_SAKLAMA_BILINMEYEN,
-        "veri_karti": "bu oturumda resmi veri karti okunmadi",
+        # RESMI VERI KARTI (2026-09-30, docs.z.ai/legal-agreement/privacy-policy,
+        # Data Processing Addendum for API Services, madde 4b):
+        # ACIK BEYAN: "The Company do not store any of the content the
+        # Customer or its End Users provide or generate while using our
+        # Services ... processed in real-time ... and is not saved on our
+        # servers."
+        # Yani yazdiginiz metin SAKLANMAZ. Baska turveri (hesap vb.)
+        # gecici tutulur ve sozlesme bitince silinir.
+        "veri_saklama": "kaydetmez",
+        "veri_karti": "docs.z.ai/legal-agreement/privacy-policy DPA 4b — "
+                      "icerik gercek zamanli islenir, sunucularda saklanmaz "
+                      "(2026-09-30 okundu)",
         "not": "Z.ai ucretsiz: 4.7-flash (~200K, kod+ajan) + 4.5-flash.",
     },
     "cloudflare": {
@@ -139,8 +149,9 @@ SAGLAYICILAR = {
         "aylik_istek": 1000,
         "yerel_kota_koru": True,
         "veri_saklama": _VERI_SAKLAMA_BILINMEYEN,
-        "veri_karti": "bu oturumda resmi veri karti okunmadi "
-                      "(docs.cohere.com data-privacy sayfasi 404 verdi)",
+        "veri_karti": "Trust Center'da SOC2/ISO27001/DPA var; deneme anahtari "
+                      "icin saklama/egitim maddesi 2026-09-30'da acikca "
+                      "yayimlanmadi (belge imzali NDA ile isteniyor)",
         "not": "Trial key: ayda 1000 soru; Command A tool destekli.",
     },
     "deepseek": {
@@ -198,9 +209,20 @@ SAGLAYICILAR = {
         "ajan_tool_mode": "auto_enforced",
         "gucleri": ["kod", "goruntu", "video"],
         "gunluk_istek": None,
-        "veri_saklama": _VERI_SAKLAMA_BILINMEYEN,
-        "veri_karti": "build.nvidia.com/privacy-policy 2026-09-30'da bos "
-                      "dondu; icerik alinamadi",
+        # RESMI KAYNAK (2026-09-30, NVIDIA API Trial Terms of Service,
+        # madde 2.2/2.3 + NVIDIA Developer Forum'da resmi temsilci
+        # Sophwats'in 10.06.2025 tarihli aciklamasi):
+        # 2.2: icerik OTURUM BOYUNCA yalniz hizmet vermek icin kullanilir.
+        # 2.3: "NVIDIA will not store or use User or Generated Content at
+        # the end of each API session" — oturum sonunda saklanmaz/kullanilmaz.
+        # Madde 3.3: yalniz oturum metrikleri ve hata loglari toplanir.
+        # NOT: 2.7 "may, but is not obligated to, block, monitor, scan or
+        # review" der — yani TEORIK olarak inceleme yetkisi var; siz yazmiyor.
+        # Bu yuzden "kaydetmez" degil, oturum sonrasi kalici saklama yok
+        # anlaminda "kaydeder" isaretlendi: denetim acik bir belirsizlik.
+        "veri_saklama": "kaydeder",
+        "veri_karti": "NVIDIA API Trial ToS 2.3 (oturum sonu saklanmaz) + "
+                      "2.7 (inceleme yetkisi) — forum 2025-06-10 (2026-09-30 okundu)",
         "not": "NVIDIA Developer free endpointleri prototipleme icin; sabit kota resmi olarak yayinlanmiyor.",
     },
     "kilo": {
