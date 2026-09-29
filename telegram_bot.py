@@ -64,6 +64,25 @@ def _bol(metin):
             for i in range(0, max(len(metin), 1), PARCA_LIMITI)]
 
 
+def _kimlik_bul(chat_id, izinli):
+    """Her Telegram sohbeti kendi kimliğine sahiptir.
+
+    - `telegram_kimlikler` ayarı (chat_id -> kişi adı) en üst sıradadır.
+    - İzinli tek hesap (Casper) yerel kişi kimliğini korur.
+    - Diğer sohbetler kendi ayrı kimliğine gider: tg-<chat_id>.
+    Kimlik seçilmeden işlenen mesaj, kimliği seçen handler'da
+    `kullanici_kur` ile bağlanır; cevaba dokunulmaz.
+    """
+    esleme = _ayar("telegram_kimlikler", None) or {}
+    ad = esleme.get(str(chat_id)) or esleme.get(chat_id)
+    if ad:
+        return str(ad)
+    if izinli and str(chat_id) == str(izinli):
+        from chat.kimlik import VARSAYILAN_KULLANICI
+        return VARSAYILAN_KULLANICI
+    return "tg-%s" % chat_id
+
+
 async def _islet(brain, kisilik, metin, tools=None):
     """Sohbet hattini ayri thread'de kostur, son cevabi dondur."""
     from chat.flow import mesaj_isle
@@ -144,11 +163,14 @@ def main():
     izinli = str(_ayar("telegram_izinli_id", "") or "")
 
     init_cache()
-    # 2026-09-23: telegram her zaman yerel kişi = casper (davranış değişmez).
-    from chat.kimlik import kullanici_kur
-    kullanici_kur("casper")
     beyin = Brain()
     print("Telegram koprusu hazir. Kapatmak icin pencereyi kapat.")
+
+    def _kimligi_bagla(chat_id):
+        # Kimlik istek bazinda: her sohbet kendi kisiline gider
+        # (kullanici_kur contextvar; asyncio.to_thread kopyasini alir).
+        from chat.kimlik import kullanici_kur
+        kullanici_kur(_kimlik_bul(chat_id, izinli))
 
     async def _karsila(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if izinli and str(update.effective_chat.id) != izinli:
@@ -156,6 +178,7 @@ def main():
         metin = (update.message.text or "").strip()
         if not metin:
             return
+        _kimligi_bagla(update.effective_chat.id)
         await context.bot.send_chat_action(
             chat_id=update.effective_chat.id, action="typing")
         cevap = await _islet(beyin, KISILIK, metin, TOOLS)
@@ -168,6 +191,7 @@ def main():
     async def _foto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if izinli and str(update.effective_chat.id) != izinli:
             return
+        _kimligi_bagla(update.effective_chat.id)
         await _medya_karsila(update, context, beyin, KISILIK, TOOLS)
 
     app.add_handler(MessageHandler(filters.PHOTO, _foto))
