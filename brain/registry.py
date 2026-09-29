@@ -11,6 +11,28 @@ saglayici basliklari calisma aninda hakikat sayilir.
 
 # Gucleri yalniz durum/arayuz metadata'sidir; runtime siralamasi veya
 # kullanici niyeti secimi icin okunmaz.
+
+# Veri saklama durumu (2026-09-30, Casper karari) — SADECE SEFFAFLIK.
+# Bu alan karar/zincir siralamasini ETKILEMEZ: ne kullanici cumlesine
+# bakar ne de bir saglayiciyi otomatik kapatir (AGENTS.md yasak listesi,
+# madde 1 ve 6). Amac tek: kullaniciya dogru bilgiyi gosterebilmek.
+#
+# Degerler:
+#   "kaydetmez"              -> saglayici gonderilen metni saklamadigini
+#                               resmen bildiriyor (belge + tarih zorunlu).
+#   "kaydeder"               -> gonderilen metni saklayabilir.
+#   "egitime_kullanilir"     -> model gelistirme/egitim icin kullanabilir.
+#   "dogrulanmadi"           -> resmi veri karti bu oturumda OKUNMADI.
+#                               BILINMEYEN bilinmeyen olarak kalir; asla
+#                               "kaydetmez" varsayilmaz.
+#
+# Kural: bu alan yalniz RESMI VERI KARTINDAN dogrulanmis bilgi tasir.
+# Guvenilmeyen bir kaynaktan deger yazilmaz.
+VERI_SAKLAMA_DEGERLER = (
+    "kaydetmez", "kaydeder", "egitime_kullanilir", "dogrulanmadi",
+)
+_VERI_SAKLAMA_BILINMEYEN = "dogrulanmadi"
+
 SAGLAYICILAR = {
     "groq": {
         "ad": "Groq",
@@ -32,6 +54,14 @@ SAGLAYICILAR = {
         # Resmi tablo yuksek-seviye tabandir; org'a ozel limit farkli
         # olabilir. Yerelde sert kesme yapma, 429 + reset basligi hakikattir.
         "yerel_kota_koru": False,
+        # RESMI VERI KARTI (2026-09-30, groq.com/privacy-policy):
+        # API/Customer Data icin Groq "data processor" rolunu ustlenir;
+        # isleme Groq Services Agreement + Data Processing Addendum
+        # (DPA) cercevesinde yurur. Bu, sirketin kendi hizmetine ait
+        # (kaydetmez anlamina GELMEZ; islenme sarti Sozlesme/DPA'da).
+        "veri_saklama": "dogrulanmadi",
+        "veri_karti": "https://groq.com/privacy-policy (2026-09-30 okundu; "
+                      "DPA kapsami teyit edilmedi)",
         "not": "Ucretsiz ve cok hizli; 20b hizli, 120b guclu. Exact limit org bazli degisebilir.",
     },
     "gemini": {
@@ -47,6 +77,17 @@ SAGLAYICILAR = {
         # resmi belge kesin rakam icin AI Studio Limits sayfasini isaret eder.
         "gunluk_istek": None,
         "yerel_kota_koru": False,
+        # RESMI VERI KARTI (2026-09-30, ai.google.dev/gemini-api/terms,
+        # "Data Collection and How Google Uses Your Data"):
+        # Google, prompt + baglam + uretilen icerigi 30 GUN saklayabilir
+        # (belgede Maps Grounding amli). AYRICA: ayni sartname ucretsiz
+        # katmanin AB'de API Client olarak sunulmasini ve yalniz PAID
+        # servislerin AB'de kullanilmasini sart koşuyor. Bu iki madde
+        # kullaniciya acikca bildirilmelidir; siddet bilinmeyen olarak
+        # isaretlenir.
+        "veri_saklama": "kaydeder",
+        "veri_karti": "ai.google.dev/gemini-api/terms — 30 gun depolama "
+                      "(Maps Grounding); AB'de yalniz Paid (sartname)",
         "not": "Ucretsiz katman; kota model/proje bazli, 429 anlik hakikat.",
     },
     "glm": {
@@ -58,6 +99,8 @@ SAGLAYICILAR = {
         "ajan_tool_mode": "auto_enforced",
         "gucleri": ["kod", "genel"],
         "gunluk_istek": None,
+        "veri_saklama": _VERI_SAKLAMA_BILINMEYEN,
+        "veri_karti": "bu oturumda resmi veri karti okunmadi",
         "not": "Z.ai ucretsiz: 4.7-flash (~200K, kod+ajan) + 4.5-flash.",
     },
     "cloudflare": {
@@ -71,6 +114,16 @@ SAGLAYICILAR = {
         "gunluk_istek": None,
         "gunluk_neuron": 10000,
         "yerel_kota_koru": False,
+        # RESMI VERI KARTI (2026-09-30, developers.cloudflare.com/workers-ai/privacy):
+        # "Cloudflare does not use your Customer Content to (1) train any AI
+        # models ... or (2) improve any Cloudflare or third-party services,
+        # and would not do so unless we received your explicit consent."
+        # Yani: EGRITIM/INSA KULLANIMI ACIKCA YOK. Saklama yalniz
+        # kullanicinin AYRI bir depolama servisi (R2/KV/...) kullanmasiyla
+        # olur — Basak oyle bir sey yapmiyor.
+        "veri_saklama": "kaydetmez",
+        "veri_karti": "developers.cloudflare.com/workers-ai/privacy "
+                      "(2026-09-30 okundu)",
         "not": "Workers Free: 10.000 neuron/gun; GLM-4.7-Flash tool calling destekli.",
     },
     "cohere": {
@@ -85,6 +138,9 @@ SAGLAYICILAR = {
         # ayda toplam 1000 soru + dakikada 20 soru. Gunluk degil AYLIK.
         "aylik_istek": 1000,
         "yerel_kota_koru": True,
+        "veri_saklama": _VERI_SAKLAMA_BILINMEYEN,
+        "veri_karti": "bu oturumda resmi veri karti okunmadi "
+                      "(docs.cohere.com data-privacy sayfasi 404 verdi)",
         "not": "Trial key: ayda 1000 soru; Command A tool destekli.",
     },
     "deepseek": {
@@ -93,6 +149,8 @@ SAGLAYICILAR = {
         "tools": True,
         "gucleri": ["kod", "genel"],
         "gunluk_istek": None,
+        "veri_saklama": _VERI_SAKLAMA_BILINMEYEN,
+        "veri_karti": "ucretsiz degil + zincire kapali; belge okunmadi",
         "not": "UCRETLI + KARTSIZ KAPALI — veri karti + deepseek_acik olmadan zincire girmez.",
     },
     "genel": {
@@ -101,6 +159,9 @@ SAGLAYICILAR = {
         "tools": True,
         "gucleri": ["genel"],
         "gunluk_istek": None,
+        "veri_saklama": "dogrulanmadi",
+        "veri_karti": "kisisel ozel bileti — kullanicinin kendi saglayicisi; "
+                      "veri akisi tamamen o saglayiciya ait",
         "not": "Casper'in kendi bileti (ucretli/ozel). Anahtar yoksa zincire "
                "girmez; varsa EN SONDA yedek durur — bedava duzen degismez.",
     },
@@ -110,6 +171,8 @@ SAGLAYICILAR = {
         "tools": True,
         "gucleri": ["genel", "kod"],
         "gunluk_istek": None,
+        "veri_saklama": _VERI_SAKLAMA_BILINMEYEN,
+        "veri_karti": "ucretsiz degil + zincire kapali; belge okunmadi",
         "not": "UCRETLI + KARTSIZ KAPALI — veri karti + kimi_acik olmadan zincire girmez.",
     },
     "qwen": {
@@ -122,6 +185,8 @@ SAGLAYICILAR = {
         # Alibaba Model Studio yeni-kullanici ucretsiz kotasi surelidir.
         # Anahtar bulunmasi kalici sifir maliyet kaniti degildir.
         "etkin": False,
+        "veri_saklama": _VERI_SAKLAMA_BILINMEYEN,
+        "veri_karti": "otomatik zincirde kapali; belge okunmadi",
         "not": "Sureli ucretsiz kota olabilir; otomatik sifir-maliyet zincirinde kapali.",
     },
     "nvidia": {
@@ -133,6 +198,9 @@ SAGLAYICILAR = {
         "ajan_tool_mode": "auto_enforced",
         "gucleri": ["kod", "goruntu", "video"],
         "gunluk_istek": None,
+        "veri_saklama": _VERI_SAKLAMA_BILINMEYEN,
+        "veri_karti": "build.nvidia.com/privacy-policy 2026-09-30'da bos "
+                      "dondu; icerik alinamadi",
         "not": "NVIDIA Developer free endpointleri prototipleme icin; sabit kota resmi olarak yayinlanmiyor.",
     },
     "kilo": {
@@ -146,6 +214,11 @@ SAGLAYICILAR = {
         # Resmi davranis: saatte 200 soru/IP. Gunluk karta islenmez.
         "saatlik_istek": 200,
         "yerel_kota_koru": True,
+        # Mevcut kart notu bunu zaten yaziyordu: ucretsiz katman gonderilen
+        # yazilari kaydedebilir; Casper 2026-08-23'te BILEREK onayladi.
+        "veri_saklama": "kaydeder",
+        "veri_karti": "registry notu (Casper onayi 2026-08-23); belge "
+                      "bu oturumda yeniden okunmadi",
         "not": "Anahtarsiz calisir; 200 istek/saat/IP. Basari dusuk "
                "(%25, 2026-09 gozlemi) — one alinmaz, yedek durur. "
                "Ucretsiz katman gonderilen yazilari kaydedebilir — "
@@ -162,6 +235,14 @@ SAGLAYICILAR = {
         "gucleri": ["genel"],
         "gunluk_istek": 50,
         "yerel_kota_koru": True,
+        # RESMI VERI KARTI (2026-09-30, openrouter.ai/privacy, 31.08.2026):
+        # Politika, saglayicinin girdi metinlerini ("Inputs") KENDISININ
+        # topladigini ve "for Model training and improvement by Model
+        # Providers" kullandigini acikca yaziyor. Yani zincirdeki bu hatta
+        # gonderilen mesaj icerigi egitim amaciyla ISLENEBILIR.
+        "veri_saklama": "egitime_kullanilir",
+        "veri_karti": "openrouter.ai/privacy — Inputs toplanir; model "
+                      "egitimi/iyilestirme icin saglayici kullanimi acik",
         "not": "Free hesap: 50 istek/gun; yalniz :free ve tool destekli modeller.",
     },
     "mistral": {
@@ -177,6 +258,11 @@ SAGLAYICILAR = {
         "dakikalik_istek": 60,
         "gunluk_istek": None,
         "yerel_kota_koru": False,
+        # Mevcut kart notu bunu zaten yaziyordu; yalniz SEFFAFLIK icin
+        # makine-okunur alana tasindi. Bu oturumda yeni belge okunmadi.
+        "veri_saklama": "egitime_kullanilir",
+        "veri_karti": "registry notu (2026-09-22): panelden kapatilmazsa "
+                      "model gelistirmede kullanilabilir — belge dogrulanmadi",
         "not": "Ucretsiz Experiment: ~1 milyar token/ay, ~1 istek/sn. "
                "Telefon dogrulamasi ister. Veri, panelden kapatilmazsa "
                "model gelistirmesinde kullanilabilir (Settings > Privacy). "
@@ -191,6 +277,8 @@ SAGLAYICILAR = {
         "tools": True,
         "gucleri": ["genel"],
         "gunluk_istek": None,
+        "veri_saklama": _VERI_SAKLAMA_BILINMEYEN,
+        "veri_karti": "otomatik kullanima kapali; belge okunmadi",
         "not": "Router: tek HF jetonuyla 18+ saglayiciya gider. Ucretsiz "
                "kredi ayda yalnizca 0,10 dolar — otomatik zincire KAPALI "
                "(kart acilmadan cagrilmaz).",
@@ -201,6 +289,8 @@ SAGLAYICILAR = {
         "tools": True,
         "gucleri": ["genel"],
         "gunluk_istek": None,
+        "veri_saklama": _VERI_SAKLAMA_BILINMEYEN,
+        "veri_karti": "ucretli; TEE icinde calisir, belge okunmadi",
         "not": "UCRETLI (kullanim basina odeme): 1M token 0,0245 dolardan "
                "baslar. Modeller donanim dogrulamali TEE icinde calisir. "
                "Anahtar yoksa zincire girmez; otomatik bedava duzen degismez.",
@@ -241,6 +331,8 @@ def kart(ad):
             "tools": False,
             "gucleri": [],
             "gunluk_istek": None,
+            "veri_saklama": _VERI_SAKLAMA_BILINMEYEN,
+            "veri_karti": "registry'de kaydi yok",
             "not": "Registry'de kaydi yok; otomatik kullanima kapali.",
         },
     )
@@ -248,6 +340,87 @@ def kart(ad):
 
 def ucretli_mi(ad):
     return not kart(ad)["ucretsiz"]
+
+
+# ---------------------------------------------------------------------
+# SEFFAFLIK (2026-09-30, Casper karari)
+# ---------------------------------------------------------------------
+# Bu blok YALNIZ gosterir, karar vermez. Dizenin sirasi, uygunlugu ve
+# secimi bu fonksiyonlarla DEGISTIRILEMEZ — AGENTS.md yasak listesi
+# madde 1 (kullanici metnine bakan kod) ve madde 6 (keyfi kapatan
+# bayrak) burada da gecerlidir. Amac: kullaniciya dogru bilgiyi
+# vermek, riski GIZLEMEK degil ACIKLAMAK.
+#
+# Kullanan kullanici bunu tercih edebilir; Basak bir saglayiciyi
+# otomatik olarak devre disi birakmaz.
+
+_VERI_SAKLAMA_ACIKLAMA = {
+    "kaydetmez": "Gönderilen metni saklamadığını resmen bildiriyor.",
+    "kaydeder": "Gönderilen metni saklayabilir (kayıt süresi sağlayıcının "
+                "veri kartında).",
+    "egitime_kullanilir": "Gönderilen metni model geliştirme/eğitim için "
+                           "kullanabilir.",
+    "dogrulanmadi": "Resmî veri kartı henüz doğrulanmadı — bilinmiyor. "
+                    "Güvenli varsayım yapılmaz.",
+}
+
+
+def veri_saklama(ad):
+    """Saglayicinin veri saklama durumu. Bilinmiyorsa 'dogrulanmadi'.
+
+    ASLA 'kaydetmez' varsaymaz: dogrulanmayan bilgi bilinmeyendir.
+    """
+    deger = kart(ad).get("veri_saklama")
+    if deger not in VERI_SAKLAMA_DEGERLER:
+        return _VERI_SAKLAMA_BILINMEYEN
+    return deger
+
+
+def veri_saklama_aciklama(ad):
+    """Insan tarafindan okunabilir tek satirlik aciklama."""
+    return _VERI_SAKLAMA_ACIKLAMA.get(veri_saklama(ad),
+                                      _VERI_SAKLAMA_ACIKLAMA["dogrulanmadi"])
+
+
+def veri_saklama_tablosu(sadece_zincirdeki=True):
+    """Kullanicinin gorecegi tablo: [{ad, ad_guncel, durum, aciklama, kaynak}].
+
+    Siralamayi TETIKLEMEZ; yalniz mevcut VARSAYILAN_SIRA uzerinden bilgi
+    toplar. Sadece otomatik zincire girebilen saglayicilar gosterilir
+    (ucretsiz + otomatik_ucretsiz degil) — kullaniciya yalniz calisan
+    hatlar anlatilir.
+    """
+    satirlar = []
+    for ad in VARSAYILAN_SIRA:
+        k = kart(ad)
+        if sadece_zincirdeki and (k.get("ucretsiz") is not True
+                                  or k.get("otomatik_ucretsiz") is False):
+            continue
+        satirlar.append({
+            "ad": ad,
+            "ad_guncel": k.get("ad") or ad,
+            "durum": veri_saklama(ad),
+            "aciklama": veri_saklama_aciklama(ad),
+            "kaynak": k.get("veri_karti", ""),
+        })
+    return satirlar
+
+
+def veri_akisi_riski():
+    """Zincirde verisini saklayabilen/en az bir hat var mi?
+
+    YALNIZ arayuz/uyari icin. Brain bu degeri OKUMAZ; zincir sirasi ve
+    saglayici secimi bu fonksiyona BAKMAZ (AGENTS.md madde 1 ve 6).
+    """
+    tablo = veri_saklama_tablosu()
+    riskli = [s for s in tablo
+              if s["durum"] in ("kaydeder", "egitime_kullanilir")]
+    bilinmeyen = [s for s in tablo if s["durum"] == "dogrulanmadi"]
+    return {
+        "saklayanlar": [s["ad"] for s in riskli],
+        "bilinmeyenler": [s["ad"] for s in bilinmeyen],
+        "temiz": [s["ad"] for s in tablo if s["durum"] == "kaydetmez"],
+    }
 
 
 def otomatik_ucretsiz_mi(ad):

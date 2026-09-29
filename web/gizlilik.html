@@ -34,15 +34,47 @@ dosya silinir.</li>
 süreli; Başak tarafından ayrıca saklanmaz.</li>
 <li><strong>Anonim günlük kota sayacı:</strong> yalnız Başak ID ve sayaç;
 mesaj içeriği değil.</li>
+<li><strong>Anonim sayfa sayacı (çerezsiz):</strong> hangi sayfanın kaç kez
+görüntülendiği ve araçlara verilen toplam artı/eksi oyları. Çerez, kimlik
+veya IP kaydı içermez; DNT/GPC sinyaline saygı duyar.</li>
 <li><strong>Sağlayıcıya giden mesaj:</strong> yanıt üretmek için mesaj ve
 araç sonuçları o an kullanılan yapay zekâ sağlayıcısına iletilir.</li>
 </ul>
+
+<h2>2b. Sağlayıcının verini ne yaptığı</h2>
+<p>Başak ücretsiz sağlayıcılarla çalışır. Mesajınız <strong>o anda
+kullanılan</strong> sağlayıcıya gider ve aşağıdaki listeden birine uğrayabilir.
+Açık olmak gerekirse: bazı ücretsiz katmanlar gönderilen metni
+<strong>kaydedebilir</strong> veya model geliştirme amacıyla
+<strong>kullanabilir</strong>. Bu bir tercih değil, sağlayıcının kendi
+veri kartındaki şarttır — biz bunu değiştiremeyiz, ama gizleyemeyiz de.
+Aşağıdaki tablo doğrulanmış resmî belgelere göre hazırlanmıştır.</p>
+<p><strong>Güvenliğiniz için:</strong> kimliğinizi, şifrenizi, kart
+numaranızı veya özel dosyalarınızın içeriğini sohbete yapıştırmayın.
+Başak kalıcı hafızasına sır saklamaz (parola, TC, IBAN, telefon, API
+anahtarı gibi değerler otomatik olarak maskelenir), ama mesajınız
+kullanılan sağlayıcının sunucusuna açık metin olarak gider.</p>
+<p class="not" id="saglayici-tablosu-yukleniyor">Sağlayıcı tablosu
+yükleniyor…</p>
+<p>Sağlayıcının veri kartı değişirse bu tablo güncellenir. Doğrulanamayan
+bir sağlayıcı için en kötü durum (saklama) varsayılır; "kaydetmez"
+denmez.</p>
+<table id="saglayici-tablosu" hidden>
+<thead><tr><th>Sağlayıcı</th><th>Mesajınızın durumu</th><th>Dayanak</th></tr></thead>
+<tbody></tbody>
+</table>
+<p class="not" id="saglayici-tablosu-hata" hidden>Sağlayıcı tablosu şu an
+yüklenemedi; kaynak: <code>brain/registry.py</code> → her kartın
+<code>veri_karti</code> alanı.</p>
+<script src="/saglayici-veri.js" defer></script>
 
 <h2>3. Amaç ve hukuki sebep</h2>
 <ul>
 <li>Hizmetin sunulması ve sohbetin yürütülmesi — sözleşmenin ifası / açık rıza.</li>
 <li>Kişiye özel hafıza — açık rıza (sohbet panelinden silebilirsiniz).</li>
 <li>Güvenlik, kötüye kullanımın önlenmesi, günlük kota — meşru menfaat.</li>
+<li>Hangi sayfaların işe yaradığını ölçmek için anonim toplam sayaç — meşru
+menfaat (kişisel veri içermez).</li>
 <li>Reklam/analitik — <strong>yalnız çerez onayınızdan sonra</strong>
 (açık rıza; onayı her an geri çekebilirsiniz).</li>
 </ul>

@@ -243,3 +243,98 @@ class TestSozlesmeZorunlulukTasir:
     def test_tool_policy_acik_ve_sinirli(self):
         from chat.agent_runtime import TOOL_POLICIES
         assert TOOL_POLICIES == frozenset(("auto", "required", "none"))
+    def test_tool_policy_acik_ve_sinirli(self):
+        from chat.agent_runtime import TOOL_POLICIES
+        assert TOOL_POLICIES == frozenset(("auto", "required", "none"))
+
+
+class TestVeriSaklamaSadeceSeffaflik:
+    """veri_saklama alani (2026-09-30) YALNIZ gosterir, karar vermez.
+
+    Risk/sorumluluk alani genisletilirken en buyuk tehlike modeli
+    kısıtlamak ya da sağlayiciyi keyfi kapatan bir bayrak eklemekti
+    (AGENTS.md madde 1 ve 6). Bu sinif o regresyonu kapatir.
+    """
+
+    BEKLENEN_SIRA = ["groq", "gemini", "cloudflare", "kilo", "nvidia",
+                     "glm", "openrouter", "cohere", "mistral"]
+
+    def test_sira_degismedi(self):
+        from brain import registry
+        assert registry.VARSAYILAN_SIRA == self.BEKLENEN_SIRA
+
+    def test_seffaflik_araclari_siraya_yazmaz(self):
+        """Tablo fonksiyonlari sira sabitini MUTLEK ETMEZ; yalniz okur.
+
+        Not: 'append' yerel liste kurmak icin kullanilabilir — asil risk
+        VARSAYILAN_SIRA'ya yazmaktir. O yazilmiyorsa sira degismez.
+        """
+        import inspect
+        from brain import registry
+        for ad in ("veri_saklama", "veri_saklama_aciklama",
+                   "veri_saklama_tablosu", "veri_akisi_riski"):
+            kaynak = inspect.getsource(getattr(registry, ad))
+            assert "VARSAYILAN_SIRA =" not in kaynak, ad
+            assert "VARSAYILAN_SIRA.append" not in kaynak, ad
+            assert "VARSAYILAN_SIRA.remove" not in kaynak, ad
+            assert "VARSAYILAN_SIRA.sort" not in kaynak, ad
+            assert "VARSAYILAN_SIRA.insert" not in kaynak, ad
+
+    def test_sira_tablonun_sirasini_belirlemiyor(self):
+        """Tablo ciktisi mevcut sirayi yansitir; sirayi degil."""
+        from brain import registry
+        adlar = [s["ad"] for s in registry.veri_saklama_tablosu()]
+        sira = registry.VARSAYILAN_SIRA
+        # Her satir sira icinde ve sira sirasi korunuyor
+        indeksler = [sira.index(a) for a in adlar]
+        assert indeksler == sorted(indeksler)
+
+    def test_brain_veri_saklamayi_okumuyor(self):
+        """Beyin zincir kurarken bu alana BAKMAZ — baksa model daralirdi."""
+        from brain import brain
+        kaynak = open(brain.__file__, encoding="utf-8").read()
+        assert "veri_saklama" not in kaynak
+        assert "veri_akisi_riski" not in kaynak
+
+    def test_bilinmeyen_asla_kaydetmez_sayilmaz(self):
+        from brain import registry
+        for ad in registry.SAGLAYICILAR:
+            d = registry.veri_saklama(ad)
+            assert d in registry.VERI_SAKLAMA_DEGERLER, ad
+        # Bilinmeyen isim de kaydetmez sayilmaz
+        assert registry.veri_saklama("olmayan-saglayici") == "dogrulanmadi"
+
+    def test_her_kartta_veri_saklama_alani_var(self):
+        from brain import registry
+        eksik = [ad for ad, k in registry.SAGLAYICILAR.items()
+                 if "veri_saklama" not in k or "veri_karti" not in k]
+        assert not eksik, eksik
+
+    def test_dogrulanmis_degerin_kaynagi_var(self):
+        """'kaydetmez' gibi guclu iddialarin arkasinda kaynak OLMAZSA
+        yanlis bilgi uretilmis olur — bu yasak."""
+        from brain import registry
+        for ad, k in registry.SAGLAYICILAR.items():
+            if registry.veri_saklama(ad) != "dogrulanmadi":
+                kaynak = (k.get("veri_karti") or "").strip()
+                assert kaynak, "%s: deger var ama kaynak yok" % ad
+
+    def test_tablo_zincirdeki_hatlari_gosterir(self):
+        from brain import registry
+        tablo = registry.veri_saklama_tablosu()
+        adlar = [s["ad"] for s in tablo]
+        assert adlar, "tablo bos"
+        # Her satirin durumu gecerli ve aciklamasi insan okunur
+        for s in tablo:
+            assert s["durum"] in registry.VERI_SAKLAMA_DEGERLER
+            assert s["aciklama"] and len(s["aciklama"]) > 5
+
+    def test_riski_ozeti_ayirt_edici(self):
+        from brain import registry
+        r = registry.veri_akisi_riski()
+        tum = set(r["saklayanlar"]) | set(r["bilinmeyenler"]) | set(r["temiz"])
+        zincirdeki = {s["ad"] for s in registry.veri_saklama_tablosu()}
+        assert tum == zincirdeki
+        # Hiçbir kategoriye girmeyen hat olmamalı
+        assert not (set(r["temiz"]) & set(r["saklayanlar"]))
+        assert not (set(r["temiz"]) & set(r["bilinmeyenler"]))

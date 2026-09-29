@@ -740,6 +740,57 @@ async def durum(request: Request):
     }
 
 
+@app.post("/api/olcum")
+async def olcum_say(request: Request):
+    """Cerezsiz anonim sayfa sayaci — kimlik/cerez istemez.
+
+    Yalnizca sayfa yolunu ve gunu TOPLAM sayar; kimlik, IP, cerez YOKTUR.
+    Tarayici GPC sinyali gonderiyorsa hic sayilmaz (sunucu tarafi saygi).
+    """
+    import olcum as olcum_modulu
+
+    if (request.headers.get("Sec-GPC") or "").strip() == "1":
+        return JSONResponse({"ok": True, "sayildi": False},
+                            headers={"Cache-Control": "no-store"})
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    sayildi = olcum_modulu.say((body or {}).get("yol"))
+    return JSONResponse({"ok": True, "sayildi": bool(sayildi)},
+                        headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/olcum")
+async def olcum_rapor(request: Request):
+    """Yonetici raporu (X-Basak-Token) — en cok goruntulenen sayfalar."""
+    if _token_kimligi(request) is None:
+        return _giris_engeli()
+    import olcum as olcum_modulu
+
+    return JSONResponse(
+        olcum_modulu.rapor(request.query_params.get("gun", 7)),
+        headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/oy")
+async def oy_ver(request: Request):
+    """Arac mikro-geri bildirimi: yalniz +1 / -1; kimlik istemez."""
+    import olcum as olcum_modulu
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Gecersiz JSON"}, status_code=400)
+    oy = (body or {}).get("oy")
+    if isinstance(oy, bool) or oy not in (1, -1):
+        return JSONResponse({"error": "Gecersiz oy"}, status_code=400)
+    if not olcum_modulu.oy_ekle((body or {}).get("yol"), oy):
+        return JSONResponse({"error": "Gecersiz yol"}, status_code=400)
+    return JSONResponse({"ok": True},
+                        headers={"Cache-Control": "no-store"})
+
+
 @app.post("/api/sohbet")
 async def sohbet(request: Request):
     kid = _kimlik(request)
@@ -1011,15 +1062,52 @@ async def arac_sayfasi(kategori: str, arac: str, request: Request):
     return HTMLResponse(icerik)
 
 
+@app.get("/rehber")
+async def rehber_listesi(request: Request):
+    from rehberler import liste_html
+    return HTMLResponse(liste_html(_kok(request)))
+
+
+@app.get("/rehber/{slug}")
+async def rehber_sayfasi(slug: str, request: Request):
+    from rehberler import sayfa_html
+    icerik = sayfa_html(slug, _kok(request))
+    if icerik is None:
+        return HTMLResponse(
+            '<!doctype html><html lang="tr"><head><meta charset="utf-8">'
+            '<title>404 — rehber yok</title></head><body>'
+            '<p>Böyle bir rehber yok. <a href="/rehber">Tüm rehberler</a> '
+            '· <a href="/">Başak</a></p></body></html>',
+            status_code=404,
+        )
+    return HTMLResponse(icerik)
+
+
+@app.get("/api/saglayici-veri")
+async def saglayici_veri():
+    """Sağlayici veri saklama tablosu — yalniz SEFFAFLIK, karar degil.
+
+    Zincir sirasini ETKILEMEZ ve saglayici secimini yonlendirmez; sadece
+    her kartin resmi veri kartindan dogrulanmis durumunu dondurur.
+    Dogrulanmayan hat icin en kotu durum varsayilmaz, 'bilinmiyor' doner.
+    """
+    from brain.registry import veri_saklama_tablosu
+    return JSONResponse(
+        {"saglayicilar": veri_saklama_tablosu()},
+        headers={"Cache-Control": "no-store"})
+
+
 @app.get("/sitemap.xml")
 async def sitemap(request: Request):
     """Katalogdan uretilir: arac eklenince haritaya otomatik girer."""
+    from rehberler import REHBERLER
     from tools.freetools_katalog import ARACLAR
     kok = _kok(request)
-    yollar = ["/", "/araclar", "/bilgilendirme.html", "/gizlilik.html",
-              "/cerez.html", "/sartlar.html", "/sorumluluk.html",
-              "/destek.html", "/reklam-ver.html"]
+    yollar = ["/", "/araclar", "/rehber", "/bilgilendirme.html",
+              "/gizlilik.html", "/cerez.html", "/sartlar.html",
+              "/sorumluluk.html", "/destek.html", "/reklam-ver.html"]
     yollar += ["/araclar/%s/%s" % (k, s) for k, s in ARACLAR]
+    yollar += ["/rehber/%s" % r["slug"] for r in REHBERLER]
     satirlar = []
     for yol in yollar:
         oncelik = ("1.0" if yol == "/" else
