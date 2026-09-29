@@ -206,6 +206,7 @@ class _Kopru(BaseHTTPRequestHandler):
             return True
         if not _ayar("web_dis_erisim", False):
             return True   # localhost: token gerekmez
+        import hmac
         beklenen = _ayar("web_token", "")
         istek_token = self.headers.get("X-Basak-Token", "")
         if not istek_token:
@@ -213,7 +214,14 @@ class _Kopru(BaseHTTPRequestHandler):
             from urllib.parse import parse_qs, urlparse
             qs = parse_qs(urlparse(self.path).query)
             istek_token = (qs.get("token") or [""])[0]
-        return bool(istek_token) and istek_token == beklenen
+        if not istek_token or not beklenen:
+            return False
+        # Sabit sureli karsilastirma: token karsilastirmasi zamanlama
+        # kanaliyla tahmin edilemez.
+        return hmac.compare_digest(
+            istek_token.encode("utf-8"),
+            str(beklenen).encode("utf-8"),
+        )
 
     def _json(self, kod, veri):
         self._gonder(kod, veri)

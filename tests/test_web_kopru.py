@@ -279,3 +279,24 @@ def test_giris_cerezi_token_sormaz(sunucu):
     durum, _ = _istek(adres, "/api/matris",
                       baslik={"Cookie": "%s=%s" % (ad, token)})
     assert durum == 200
+
+
+def test_token_karsilastirmasi_sabit_sureli(sunucu):
+    """Hata: token karsilastirmasi `==` ile yapiliyordu (zamanlama kanali).
+    Artik hmac.compare_digest; bos token/anahtar ikilisi de reddedilir."""
+    import inspect
+    kaynak = inspect.getsource(basak_web._Kopru._token_ok)
+    assert "compare_digest" in kaynak
+    assert "istek_token == beklenen" not in kaynak
+
+
+def test_bos_token_ve_bos_anahtar_red(sunucu):
+    adres, tmp = sunucu
+    (tmp / "ayarlar.json").write_text(
+        json.dumps({"web_dis_erisim": True, "web_token": ""}),
+        encoding="utf-8")
+    try:
+        _istek(adres, "/api/matris", baslik={"X-Basak-Token": ""})
+        assert False, "bos anahtarla dis istek gecti"
+    except Exception as e:
+        assert "401" in str(e) or "HTTP Error" in str(e)
