@@ -28,8 +28,10 @@ IZINLI_KLASORLER = [
     "research-engine",
 ]
 
-# Windows klasör isim haritası — küçük model "belgeler" dediğinde
-# gerçek yola çevirir. Hem Türkçe hem İngilizce isimleri kapsar.
+# NOT (2026-09-30): Kelime -> gercek yol haritasi 2026-09-13'te KALDIRILDI
+# (AGENTS.md yasak listesi: "Klasor adi haritasi"). Asagida
+# _klasor_cevir() uyumluluk icin durur, cagirmaz ve girdiyi oldugu gibi
+# dondurur. Burada bir harita KURULMAZ.
 
 # 2026-08-24: Casper'in bulgusu — Başak sadece knowledge/ ve research-engine/
 # görebiliyor, bilgisayarın diğer dosyaları erişime kapalı. Bu whitelist

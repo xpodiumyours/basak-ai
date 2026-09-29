@@ -1083,6 +1083,20 @@ async def rehber_sayfasi(slug: str, request: Request):
     return HTMLResponse(icerik)
 
 
+@app.get("/api/saglayici-veri")
+async def saglayici_veri():
+    """Sağlayici veri saklama tablosu — yalniz SEFFAFLIK, karar degil.
+
+    Zincir sirasini ETKILEMEZ ve saglayici secimini yonlendirmez; sadece
+    her kartin resmi veri kartindan dogrulanmis durumunu dondurur.
+    Dogrulanmayan hat icin en kotu durum varsayilmaz, 'bilinmiyor' doner.
+    """
+    from brain.registry import veri_saklama_tablosu
+    return JSONResponse(
+        {"saglayicilar": veri_saklama_tablosu()},
+        headers={"Cache-Control": "no-store"})
+
+
 @app.get("/sitemap.xml")
 async def sitemap(request: Request):
     """Katalogdan uretilir: arac eklenince haritaya otomatik girer."""

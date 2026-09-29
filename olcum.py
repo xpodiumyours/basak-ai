@@ -17,6 +17,34 @@ import time
 
 YOL_TAVAN = 120
 
+# ---------------------------------------------------------------------
+# KIMLIKSIZ GUNLUK TAVAN (2026-09-30, Casper karari)
+# ---------------------------------------------------------------------
+# SORU: kotu kullanimi durdururken kisisel veri URETMEYEN koruma nasil
+# olur?  CEVAP: kimlige BAKMAK. IP, cerez ya da oturum kullanilirsa
+# sayaç kisisel veriye baglanir ve tum KVKK beyani (cerez.html,
+# gizlilik.html, KVKK-ENVANTER.md) tutarsiz hale gelir.
+#
+# Buradaki tavan GLOBAL ve KIMLIKSIZDIR: "bugun toplam N olaydan
+# sonra kapat". Bu da spam'i durdurur (saldirgan da ayni kovadan
+# icer) ama HICBIR kisi hakkinda veri tutmaz. Bozulan tek sey veri
+# kalitesidir — kisinin degil.
+#
+# kota.py ile ayni desen: Postgres varsa atomik, yoksa bellek yedegi.
+VARSAYILAN_GUNLUK_TAVAN = 20000
+
+def _tavan_env():
+    """Gunluk olay tavani — env ile ayarlanabilir (test/preview icin)."""
+    ham = (os.environ.get("BASAK_OLCUM_GUNLUK_TAVAN") or "").strip()
+    try:
+        deger = int(ham)
+        return max(1, deger) if deger > 0 else VARSAYILAN_GUNLUK_TAVAN
+    except ValueError:
+        return VARSAYILAN_GUNLUK_TAVAN
+
+# Bellek yedegi (Postgres yokken): gun -> oy/olay toplami
+_bellek_tavan = {}
+
 # Bellek yedegi (Postgres yokken): (gun, yol) -> adet / (arti, eksi)
 _bellek = {}
 _bellek_oy = {}
@@ -61,7 +89,40 @@ def _tablolari_kur(conn):
         " yol TEXT NOT NULL, gun TEXT NOT NULL,"
         " arti INT NOT NULL DEFAULT 0, eksi INT NOT NULL DEFAULT 0,"
         " PRIMARY KEY (yol, gun))")
+    # Kimliksiz gunluk tavan sayaci (bkz. basinda gerekce).
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS basak_olcum_tavan ("
+        " gun TEXT PRIMARY KEY, adet INT NOT NULL)")
     _tablo_hazir = True
+
+
+def _tavan_artir():
+    """Gunluk olay sayacini 1 artirir; (toplam, tavan) dondurur.
+
+    Kimlik YOK: tek bir global gun sayaci. Kimseyle eslestirilmez.
+    """
+    gun = _gun()
+    t = _tavan_env()
+    satir = _pg_calistir(
+        "INSERT INTO basak_olcum_tavan (gun, adet) VALUES (%s, 1) "
+        "ON CONFLICT (gun) DO UPDATE "
+        "SET adet = basak_olcum_tavan.adet + 1 RETURNING adet", (gun,))
+    if satir is None:
+        with _kilit:
+            adet = _bellek_tavan.get(gun, 0) + 1
+            _bellek_tavan[gun] = adet
+            # Gun disi kayitlari temizle
+            for k in [k for k in _bellek_tavan if k != gun]:
+                _bellek_tavan.pop(k, None)
+    else:
+        adet = int(satir[0][0]) if satir and satir[0] is not None else 0
+    return adet, t
+
+
+def tavan_kontrol():
+    """(izin, kalan) — tavan asilmadiysa True. Cevap kalitesi icin."""
+    adet, t = _tavan_artir()
+    return adet <= t, max(0, t - adet)
 
 
 def _pg_calistir(sql, params):
@@ -91,10 +152,17 @@ def _bellek_ekle(yol, gun):
 
 
 def say(yol):
-    """Sayfayi 1 artirir; yalniz gecerli site ici yol sayilir."""
+    """Sayfayi 1 artirir; yalniz gecerli site ici yol sayilir.
+
+    Tavan asildiysa yine True doner ama SAYMAZ: kotu kullanim veriyi
+    bozmaz, yalniz biriktirmeyi durdurur (kimliksiz global koruma).
+    """
     yol = yol_temizle(yol)
     if not yol:
         return False
+    izin, _ = tavan_kontrol()
+    if not izin:
+        return True
     gun = _gun()
     satir = _pg_calistir(
         "INSERT INTO basak_olcum (yol, gun, adet) VALUES (%s, %s, 1) "
@@ -107,9 +175,16 @@ def say(yol):
 
 
 def oy_ekle(yol, oy):
-    """+1 / -1 mikro-geri bildirimi; diger degerler reddedilir."""
+    """+1 / -1 mikro-geri bildirimi; diger degerler reddedilir.
+
+    Tavan asildiysa False doner: oy bozulunca gelir/bakim karari
+    bozulur — bu yuzden geri bildirim tavana gore daha korunur.
+    """
     yol = yol_temizle(yol)
     if not yol or oy not in (1, -1):
+        return False
+    izin, _ = tavan_kontrol()
+    if not izin:
         return False
     gun = _gun()
     sutun = "arti" if oy == 1 else "eksi"
@@ -173,4 +248,5 @@ def sifirla():
     with _kilit:
         _bellek.clear()
         _bellek_oy.clear()
+        _bellek_tavan.clear()
     _tablo_hazir = False
