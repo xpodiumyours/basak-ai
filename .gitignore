@@ -86,4 +86,6 @@ data/fatura-ornekleri/
 # Ajan oturum durumu (kod değil, yerel kalır)
 .freebuff/
 .vercel
+.vercel.env*
 .env*
+*.env.production
