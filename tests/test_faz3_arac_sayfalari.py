@@ -122,19 +122,19 @@ class TestSiteHaritasi:
         kok = ET.fromstring(r.text)
         ns = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
         loclar = [e.text for e in kok.findall("%surl/%sloc" % (ns, ns))]
-        assert len(loclar) == len(ARACLAR) + 8   # arac + 8 sabit sayfa
+        assert len(loclar) == len(ARACLAR) + 9   # arac + 9 sabit sayfa
         for kat, slug in ARACLAR:
             assert "https://ornek.test/araclar/%s/%s" % (kat, slug) in loclar
         for zorunlu in ("/", "/araclar", "/gizlilik.html", "/cerez.html",
                         "/sartlar.html", "/sorumluluk.html", "/destek.html",
-                        "/bilgilendirme.html"):
+                        "/reklam-ver.html", "/bilgilendirme.html"):
             assert "https://ornek.test" + zorunlu in loclar
 
     def test_sitemap_katalogla_purussuz(self):
         """Yeni arac eklenince harita otomatik genisler (tek kaynak)."""
         with _istemci() as c:
             h = c.get("/sitemap.xml").text
-        assert h.count("<loc>") == len(ARACLAR) + 8
+        assert h.count("<loc>") == len(ARACLAR) + 9
 
 
 class TestRobots:

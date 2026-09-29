@@ -8,6 +8,9 @@ Sozlesme:
   tasir; normal atifta sponsored GECMEZ.
 - Ortaklik onerisi bosken sayfada "Ilgili urunler" bolumu CIKMAZ.
 - Destek/cerez sayfalarinda canli baglanti yuvasi hazirdir.
+- Reklam/sponsorluk sayfasi (reklam-ver.html) yayindadir: aracisiz
+  dogrudan anlasma modeli anlatilir; harici kod yok; destek sayfasi oraya
+  baglar.
 """
 
 import os
@@ -89,3 +92,40 @@ class TestDestekCerezYuvasi:
                  / "web" / "cerez.html").read_text(encoding="utf-8")
         assert 'id="reklamAgiAdi"' in metin
         assert "yoktur" in metin  # henuz tanimli ag yok — durustluk
+
+
+class TestReklamVerSayfasi:
+    """Uyeliksiz gelir rayi: aracisiz reklam/sponsorluk sayfasi yayinda."""
+
+    YOL = "/reklam-ver.html"
+
+    def test_sayfa_yayinda_ve_canonical(self):
+        with _istemci() as c:
+            r = c.get(self.YOL)
+        assert r.status_code == 200
+        h = r.text
+        assert 'rel="canonical" href="/reklam-ver.html"' in h
+        assert "Reklam" in h and "sponsorluk" in h
+
+    def test_aracisiz_dogrudan_model_anlatilir(self):
+        with _istemci() as c:
+            h = c.get(self.YOL).text
+        assert "aracı platform olmadan, doğrudan" in h
+        assert "komisyon yok" in h
+        # Reklam ancak ziyaretci onayindan sonra — cerez disipliniyle ayni
+        assert "ziyaretçi onayından sonra" in h
+
+    def test_harici_kod_yok_iletisim_depo_uzerinden(self):
+        with _istemci() as c:
+            h = c.get(self.YOL).text
+        assert not re.search(
+            r"<(?:script|img|iframe|source|embed)\b[^>]*?"
+            r"(?:src)\s*=\s*[\"']https?://", h)
+        assert "/araclar.css" in h
+        assert 'href="https://github.com/xpodiumyours/basak-ai"' in h
+        assert 'rel="noopener noreferrer"' in h
+
+    def test_destek_sayfasi_reklam_ver_baglantisi(self):
+        with _istemci() as c:
+            h = c.get("/destek.html").text
+        assert 'href="/reklam-ver.html"' in h

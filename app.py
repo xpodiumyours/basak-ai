@@ -1018,7 +1018,7 @@ async def sitemap(request: Request):
     kok = _kok(request)
     yollar = ["/", "/araclar", "/bilgilendirme.html", "/gizlilik.html",
               "/cerez.html", "/sartlar.html", "/sorumluluk.html",
-              "/destek.html"]
+              "/destek.html", "/reklam-ver.html"]
     yollar += ["/araclar/%s/%s" % (k, s) for k, s in ARACLAR]
     satirlar = []
     for yol in yollar:
