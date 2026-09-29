@@ -14,7 +14,13 @@ import html
 import json
 from urllib.parse import quote
 
+import gelir
 from tools.freetools_katalog import ARACLAR, KATEGORI_ADI, adres as kat_adres
+
+# Kategori -> ((gorunen metin, adres), ...) ortaklik onerileri.
+# BOS baslar: ilk anlasma Casper onayiyla buraya yazilir; o zamana kadar
+# sayfalarda "Ilgili urunler" bolumu hic cikmaz.
+ORTAKLIK_ONERILERI = {}
 
 # Tarayicida kendi basimiza hesapladigimiz araclar (web/araclar.js ile ayni).
 # Digerleri sayfada bilgi + derin baglanti olarak gosterilir; uydurma sonuc yok.
@@ -265,12 +271,24 @@ def sayfa_html(kategori, slug, kok=""):
                      % (k, s, _esc(baslik_uret(s, k)))
                      for k, s in doner_listesi(kategori, slug))
 
+    # Ortaklik onerisi: yalniz ilgili kategoride tanimliysa gosterilir.
+    # Simdilik liste bos — ilk ortaklik anlasmasinda Casper onayiyla dolar.
+    # Bosken sayfada hicbir iz birakmaz (reklam gibi gosterme yasagi).
+    ortaklik = ""
+    oneriler = ORTAKLIK_ONERILERI.get(kategori, ())
+    if oneriler:
+        satirlar = "".join("<li>%s</li>" % gelir.baglanti(m, a)
+                           for m, a in oneriler)
+        ortaklik = ('<h2>İlgili ürünler</h2><ul class="ortaklik">%s</ul>'
+                    % satirlar)
+
     return _SABLON.format(
         ad=_esc(ad), aciklama=_esc(aciklama),
         yol="/araclar/%s/%s" % (kategori, slug), kok=_esc(kok),
         kadi=_esc(KATEGORI_ADI.get(kategori, kategori)),
         jsonld=_jsonld(kategori, slug, kok), form=form, soru=_esc(soru),
-        freetools=_esc(freetools), betik=betik, benzer=benzer)
+        freetools=_esc(freetools), betik=betik, benzer=benzer,
+        ortaklik=ortaklik)
 
 
 def doner_listesi(kategori, atlanan, adet=8):
@@ -311,6 +329,7 @@ _SABLON = """<!doctype html>
 <meta property="og:url" content="{kok}{yol}">
 <meta property="og:locale" content="tr_TR">
 <meta name="robots" content="index,follow">
+<meta name="reklam-yerlesimi" content="">
 <script type="application/ld+json">{jsonld}</script>
 <link rel="stylesheet" href="/araclar.css?v=1">
 </head>
@@ -328,6 +347,7 @@ kayıt gerekmez, günlük ücretsiz hakkınız vardır.</p>
 <p class="not">Kaynak/atıf: benzer araç <a href="{freetools}"
 rel="noopener noreferrer nofollow" target="_blank">freetools.org</a>
 adresinde de bulunur. Bu sayfa bağımsız çalışır; ortaklık yoktur.</p>
+{ortaklik}
 <div class="reklam" id="reklamAlani" hidden>Reklam alanı — yalnız çerez onayınızdan sonra yüklenir.</div>
 </div>
 <footer>

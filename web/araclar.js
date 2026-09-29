@@ -401,6 +401,8 @@
   }
 
   // ── Çerez onayı: onaydan önce reklam kodu yüklenmez ───────────────
+  // Yanlışlıkla bile reklam gibi görünmemek için: meta reklam-yerlesimi
+  // boşsa alan "Reklam alanı" yazısıyla BOS kalır; kod YOK, istek YOK.
   var ANAHTAR = "basak_cerez_onay_v1";
 
   function onayOku() {
