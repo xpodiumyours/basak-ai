@@ -1,0 +1,9 @@
+# Basak — Caddy ters vekili
+# Su an: IP uzerinden HTTP (domain henüz yok).
+# Domain alininca altina satir eklenir; Caddy otomatik TLS acar:
+#     basak-site.com {
+#         reverse_proxy 127.0.0.1:8000
+#     }
+:80 {
+	reverse_proxy 127.0.0.1:8000
+}
