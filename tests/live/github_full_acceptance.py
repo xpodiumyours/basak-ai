@@ -9,7 +9,7 @@ Kaniti uc ayri katmanda raporlar:
    aracinin calistirilip final cevaba baglanmasini tamamlar mi?
 
 Canli protokol testi gercek dis etkili araclari (dosya yazma, gorev ekleme,
-uygulama acma vb.) CALISTIRMAZ. O araclarin 52/52 dispatcher baglantisi
+uygulama acma vb.) CALISTIRMAZ. O araclarin guncel dispatcher baglantisi
 kotasiz testte tam denetlenir. Bu ayrim raporda acikca belirtilir.
 """
 
@@ -25,14 +25,17 @@ from tests.live import matris_kosucu as _matris_kosucu
 SAGLAYICILAR = tuple(_matris_kosucu.KAPSAM)
 
 ALAN_SORULARI = {
-    "internet": "İnternette OpenAI resmi sitesini araştır ve uygun aracı seç.",
+    "internet_ara": "İnternette OpenAI resmi sitesini araştır; uygun arama aracını seç.",
+    "internet_oku": "Bilinen bir web sayfasını okumam gerekiyor; uygun okuma aracını seç.",
     "dosyalar": "Bilgisayardaki bir dosyanın içeriğini okumam gerekiyor; uygun aracı seç.",
     "projeler": "Bir Git projesinin durumunu kontrol et; uygun proje aracını seç.",
     "gorevler": "Şu anki tarih ve saati kontrol et; uygun aracı seç.",
     "hafiza": "Kalıcı hafızada belirli bir konuyu ara; uygun aracı seç.",
     "gorsel": "Yerel bir görseli analiz etmek gerekiyor; uygun görsel aracını seç.",
     "katalog": "Mevcut katalog işlerini listelemek gerekiyor; uygun katalog aracını seç.",
+    "yayin": "Mevcut katalog için yayın paketini denetlemek gerekiyor; uygun aracı seç.",
     "matris": "Mevcut fikir matrislerini listelemek gerekiyor; uygun matris aracını seç.",
+    "matris_satir": "Bir matris satırını düzenlemek gerekiyor; uygun satır aracını seç.",
     "masaustu": "Beyaz listedeki bir masaüstü uygulamasını açmak gerekiyor; uygun aracı seç.",
     "hesap": "120 çarpı 18 bölü 100 hesabını yap; uygun hesap aracını seç.",
 }
@@ -148,7 +151,7 @@ def _tek_mesaj(beyin, provider, mesaj, beklenen_arac):
 
 
 def _alan_sema_testi(beyin, provider, istemci):
-    """10 alanda guncel semalari gercek provider API'sinden gecir.
+    """Guncel yetenek alanlarinda semalari gercek provider API'sinden gecir.
 
     Araclari calistirmaz; amac provider/modelin Basak'in gercek JSON
     semalarini kabul edip o alandan bir tool_call uretebilmesidir.
@@ -227,8 +230,10 @@ def _kisa(metin, sinir=180):
 def main():
     from brain import Brain
     from tools import TOOLS
+    from tools.capabilities import CAPABILITY_NAMESPACES
 
     arac_sayisi = len(TOOLS)
+    alan_sayisi = len(CAPABILITY_NAMESPACES)
     b = Brain()
     mevcut = dict(b._bulut_zinciri(tools=True, tool_required=True))
 
@@ -241,8 +246,8 @@ def main():
     for ad in SAGLAYICILAR:
         if ad not in mevcut:
             satirlar.append(
-                "| %s | ❌ YOK | 0/10 | 0/%d | - | - | GitHub ortamında hazır değil |"
-                % (ad, arac_sayisi)
+                "| %s | ⚪ NOT TESTED | 0/%d | 0/%d | - | - | GitHub ortamında erişim/anahtar yok |"
+                % (ad, alan_sayisi, arac_sayisi)
             )
             detaylar.append("**%s:** canlı istemci yok." % ad)
             eksik += 1
@@ -263,13 +268,16 @@ def main():
             "simdi",
         )
 
+        alan_sayisi = len(alanlar)
         provider_ok = (
-            alan_ok == 10 and sema_ok == arac_sayisi and sohbet_ok and arac_ok
+            alan_ok == alan_sayisi and sema_ok == arac_sayisi
+            and sohbet_ok and arac_ok
         )
         if provider_ok:
             tam_gecen += 1
             durum = "✅ GEÇTİ"
-            not_ = "10 alan + %d şema + sohbet + gerçek simdi" % arac_sayisi
+            not_ = "%d alan + %d şema + sohbet + gerçek simdi" % (
+                alan_sayisi, arac_sayisi)
         else:
             kalan += 1
             durum = "❌ KALDI"
@@ -316,10 +324,11 @@ def main():
 
     pytest_ozet = _pytest_ozeti()
     kotasiz_ok = "passed" in pytest_ozet and "failed" not in pytest_ozet.lower()
+    hazir = len(SAGLAYICILAR) - eksik
     tam = (
         kotasiz_ok
-        and tam_gecen == len(SAGLAYICILAR)
-        and eksik == 0
+        and hazir > 0
+        and tam_gecen == hazir
         and kalan == 0
     )
 
@@ -350,8 +359,9 @@ def main():
         "|---|---|---:|---:|---|---|---|",
         *satirlar,
         "",
-        "**Canlı sağlayıcı özeti:** %d/%d tam geçti · %d eksik · %d kaldı"
-        % (tam_gecen, len(SAGLAYICILAR), eksik, kalan),
+        "**Canlı sağlayıcı özeti:** %d/%d aktif sağlayıcı tam geçti · "
+        "%d erişim/anahtar yok · %d aktif sağlayıcı kaldı"
+        % (tam_gecen, hazir, eksik, kalan),
         "",
         "#### 3) Ne gerçekten çalıştırıldı?",
         "",
@@ -370,9 +380,15 @@ def main():
         "### Kabul",
         "",
         (
-            "✅ TAM KABUL: kotasız yapı + 8/8 sağlayıcı + 10/10 alan + "
-            "%d/%d canlı şema + gerçek sohbet/simdi döngüsü geçti."
-            % (arac_sayisi, arac_sayisi)
+            "✅ TAM KABUL: kotasız yapı + %d/%d aktif sağlayıcı + "
+            "%d/%d alan + %d/%d canlı şema + gerçek sohbet/simdi "
+            "döngüsü geçti. Erişim/anahtarı olmayan %d sağlayıcı NOT TESTED."
+            % (
+                tam_gecen, hazir,
+                alan_sayisi, alan_sayisi,
+                arac_sayisi, arac_sayisi,
+                eksik,
+            )
             if tam else
             "❌ TAM KABUL YOK: yukarıdaki eksik/kırmızı kalemler bitmeden "
             "Başak'ın tamamı canlı doğrulandı denemez."

@@ -59,6 +59,7 @@ def test_sure_dolunca_mola_verir_model_turu_baslatmaz():
     assert state.public_snapshot()["resumable"] is True
     assert any(o[1] == "checkpoint" for o in js if isinstance(o, tuple))
     assert beyin.cagri == 0  # yeni model turu acilmadi
+    assert kosan_araclar == []  # sure dolduysa yeni arac da baslamadi
 
 
 def test_mola_zamani_yoksa_is_normal_surer():
@@ -117,3 +118,20 @@ def test_imzali_cok_runlu_devam_kabul_edilir_runcontext_zorunlu():
         assert False
     except ValueError:
         pass
+
+
+def test_tum_arac_yollari_ayni_mola_zamanini_tasir():
+    import inspect
+    from chat import flow
+    kaynak = inspect.getsource(flow.mesaj_isle)
+    assert kaynak.count("mola_zamani=mola_zamani") == 3
+    assert kaynak.count("run_state=state") >= 3
+
+    # Her gerçek arac_dongusu çağrısından sonra, bir sonraki araç yoluna
+    # geçmeden önce paused kapısı bulunmalı. Aynı yerde iki kez yazılmış
+    # bir kontrol başka bir yolun eksik kontrolünü maskeleyemez.
+    parcalar = kaynak.split("arac_dongusu(")[1:]
+    assert len(parcalar) == 3
+    for parca in parcalar:
+        ilk_yol = parca.split("arac_dongusu(", 1)[0]
+        assert 'if state.status == "paused":' in ilk_yol

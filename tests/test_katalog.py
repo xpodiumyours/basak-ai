@@ -174,9 +174,10 @@ class TestFaturaOku:
         (tmp_path / "gln_b2.jpg").write_bytes(b"\xff\xd8sahte")
         monkeypatch.setattr(
             ga, "image_analyze",
-            lambda yol, soru=None, model=None: {
-                "result": "Tutku TK-102 S 5 adet 120,50 TL "
-                          "8691234567890\nBerrak elbise",
+            lambda yol, soru=None, model=None, **kwargs: {
+                "result": "Tutku TK-102 S 5 ad 120,50 TL "
+                          "8691234567890\n"
+                          "Toplam: 5 ad 1 dz 602,50 TL",
                 "model": "sahte"})
         r = katalog.fatura_oku("gln_b2")
         assert "result" in r, r
@@ -191,52 +192,34 @@ class TestFaturaOku:
         (tmp_path / "gln_c3.jpg").write_bytes(b"\xff\xd8sahte")
         monkeypatch.setattr(
             ga, "image_analyze",
-            lambda yol, soru=None, model=None: {"error": "kota bitti"})
+            lambda yol, soru=None, model=None, **kwargs: {"error": "kota bitti"})
         r = katalog.fatura_oku("gln_c3")
         assert "error" in r and "kota" in r["error"]
 
-    def test_gecici_hatada_uc_deneme(self, tmp_path, monkeypatch):
+    def test_bulut_gozu_tek_orchestrator_cagrisi(self, tmp_path, monkeypatch):
         import tools.image_analyzer as ga
         monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
         (tmp_path / "gln_c4.jpg").write_bytes(b"\xff\xd8sahte")
         cagrilar = []
-
-        def dalgali(yol, soru=None, model=None):
-            cagrilar.append(yol)
-            if len(cagrilar) < 3:
-                return {"error": "Request timed out."}
-            return {"result": "TER0101 6 ad\n"
-                              "Toplam: 6 ad 1 dz 10,00 TL",
-                    "model": "sahte"}
-
-        monkeypatch.setattr(ga, "image_analyze", dalgali)
-        import time as _z
-        monkeypatch.setattr(_z, "sleep", lambda s: None)
+        def tek(yol, soru=None, model=None, **kwargs):
+            cagrilar.append(kwargs)
+            assert callable(kwargs.get("kabul"))
+            assert kwargs.get("deadline_monotonic") is not None
+            return {"result": "ELT1302 2 ad\nToplam: 2 ad 1 dz 6.034,00 TL", "model": "sahte"}
+        monkeypatch.setattr(ga, "image_analyze", tek)
         r = katalog.fatura_oku("gln_c4")
         assert "result" in r, r
-        assert len(cagrilar) == 3
+        assert len(cagrilar) == 1
 
-    def test_yarim_okumada_tekrar_deneme(self, tmp_path, monkeypatch):
-        """Toplam satiri olmayan (yarim) okuma yeniden denenir."""
+    def test_kalite_kapisini_gecmeyen_okuma_reddedilir(self, tmp_path, monkeypatch):
         import tools.image_analyzer as ga
         monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
         (tmp_path / "gln_c5.jpg").write_bytes(b"\xff\xd8sahte")
-        cagrilar = []
-
-        def dalgali(yol, soru=None, model=None):
-            cagrilar.append(yol)
-            if len(cagrilar) < 2:
-                return {"result": "ELT1302 2 ad 137,00", "model": "sahte"}
-            return {"result": "ELT1302 2 ad 137,00\n"
-                              "Toplam: 2 ad 1 dz 6.034,00 TL",
-                    "model": "sahte"}
-
-        monkeypatch.setattr(ga, "image_analyze", dalgali)
+        monkeypatch.setattr(ga, "image_analyze",
+            lambda *a, **k: {"error": "Goruntu saglayicilari sonuca ulasamadi [gemini: kalite kapisini gecemedi]"})
         r = katalog.fatura_oku("gln_c5")
-        assert "result" in r, r
-        veri = json.loads(r["result"])
-        assert veri["ustbilgi"]["toplam"] == 6034.0
-        assert len(cagrilar) == 2
+        assert "error" in r
+        assert "kalite" in r["error"]
 
     def test_adet_toplami_uyusmazsa_yarim(self):
         """Satır adetleri 77, basılı Toplam 75 → okuma sağlıksız (Kilo vakası)."""
@@ -255,21 +238,23 @@ class TestFaturaOku:
         yazi = satir * 6 + "Toplam: 81,00 TL"
         assert katalog._okuma_yarim(yazi) is True
 
-    def test_yarim_okuma_son_denemede_kabul(self, tmp_path, monkeypatch):
-        """Hep yarım okursa 4. denemede yarım metinle yetinilir."""
+    def test_yarim_okuma_kabul_edilmez_ve_ic_retry_yok(
+            self, tmp_path, monkeypatch):
+        """Yarım OCR başarı sayılmaz; fatura katmanı aynı işi tekrarlamaz."""
         import tools.image_analyzer as ga
         monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
         (tmp_path / "gln_c6.jpg").write_bytes(b"\xff\xd8sahte")
         cagrilar = []
 
-        def hep_yarim(yol, soru=None, model=None):
+        def hep_yarim(yol, soru=None, model=None, **kwargs):
             cagrilar.append(yol)
             return {"result": "ELT1302 2 ad", "model": "sahte"}
 
         monkeypatch.setattr(ga, "image_analyze", hep_yarim)
         r = katalog.fatura_oku("gln_c6")
-        assert "result" in r, r
-        assert len(cagrilar) == 4
+        assert "error" in r, r
+        assert "kalite" in r["error"]
+        assert len(cagrilar) == 1
 
 
 class TestYerelGoru:
@@ -281,11 +266,12 @@ class TestYerelGoru:
         (tmp_path / "gln_y1.jpg").write_bytes(b"\xff\xd8sahte")
         monkeypatch.setattr(
             ga, "image_analyze",
-            lambda yol, soru=None, model=None: {"result": "bulut yazı",
-                                                "model": "sahte"})
+            lambda yol, soru=None, model=None, **kwargs: {
+                "result": "bulut yazı 2 ad\nToplam: 2 ad 1 dz 5,00 TL",
+                "model": "sahte"})
         veri = json.loads(katalog.fatura_oku("gln_y1")["result"])
         assert veri["kaynak"] == "bulut"
-        assert veri["yazi"] == "bulut yazı"
+        assert veri["yazi"].startswith("bulut yazı")
 
     def test_yerel_once_buluta_değmez(self, tmp_path, monkeypatch):
         from tools import yerel_goru
@@ -293,9 +279,9 @@ class TestYerelGoru:
         dokunuldu = []
         monkeypatch.setattr(
             yerel_goru, "oku",
-            lambda yol, soru: {"result": "yerel yazı 2 ad\n"
-                                        "Toplam: 2 ad 1 dz 5,00 TL",
-                               "model": "sahte-goz"})
+            lambda yol, soru, **kwargs: {"result": "yerel yazı 2 ad\n"
+                                                  "Toplam: 2 ad 1 dz 5,00 TL",
+                                         "model": "sahte-goz"})
         import tools.image_analyzer as ga
         monkeypatch.setattr(
             ga, "image_analyze",
@@ -311,12 +297,14 @@ class TestYerelGoru:
         from tools import yerel_goru
         monkeypatch.setattr(yerel_goru, "musait", lambda: True)
         monkeypatch.setattr(
-            yerel_goru, "oku", lambda yol, soru: {"error": "göz kapalı"})
+            yerel_goru, "oku",
+            lambda yol, soru, **kwargs: {"error": "göz kapalı"})
         import tools.image_analyzer as ga
         monkeypatch.setattr(
             ga, "image_analyze",
-            lambda yol, soru=None, model=None: {"result": "bulut yazı",
-                                                "model": "sahte"})
+            lambda yol, soru=None, model=None, **kwargs: {
+                "result": "bulut yazı 2 ad\nToplam: 2 ad 1 dz 5,00 TL",
+                "model": "sahte"})
         monkeypatch.setattr(katalog, "GELEN_KOK", str(tmp_path))
         (tmp_path / "gln_y3.jpg").write_bytes(b"\xff\xd8sahte")
         veri = json.loads(katalog.fatura_oku("gln_y3")["result"])
@@ -644,19 +632,24 @@ class TestEslesme:
         assert a["kod_norm"] == "TK-102"
         assert any("TK-102" in s or "tk 102" in s for s in a["sorgular"])
 
-    def test_skor(self):
-        yuksek = katalog._eslesme_skor(
-            "TER0101", "Tutku",
-            "https://www.tutkuelit.com.tr/urun/ter0101-tut-erkek-atlet",
-            "TER0101 Tutku erkek penye atlet beyaz")
-        assert yuksek >= 5
-        kategori = katalog._eslesme_skor(
-            "TER0101", "Tutku",
-            "https://www.tutkuelit.com.tr/kategori/erkek-atletleri",
-            "TER0101 Tutku erkek penye atlet beyaz")
-        assert kategori < yuksek
-        assert katalog._eslesme_skor("QZX", "WQW", "https://a.com/b",
-                                     "alakasiz yazi") == 0
+    def test_eslesme_karta_yaz_guncel_kod_alanlarini_tasir(self):
+        kart = {"kod": "TER0101"}
+        katalog._eslesme_karta_yaz(kart, {
+            "cozucu_surumu": "urun-kimlik-v2",
+            "resmi_dogrulandi": True,
+            "dogrulama_seviyesi": "resmi",
+            "guven": "yuksek",
+            "skor": 90,
+            "fatura_kodu": "TER0101",
+            "dogrulanmis_kod": "TER0101",
+            "kod_turu": "sku",
+            "sku": "TER0101",
+            "mpn": "",
+            "gtin": "",
+        })
+        assert kart["eslesme"]["fatura_kodu"] == "TER0101"
+        assert kart["eslesme"]["dogrulanmis_kod"] == "TER0101"
+        assert kart["eslesme"]["kod_turu"] == "sku"
 
 
 class TestSayfaGorseller:
@@ -703,87 +696,97 @@ class TestUrunEslestir:
         monkeypatch.setattr(katalog, "KATALOG_KOK", str(tmp_path / "kat"))
         monkeypatch.setattr(katalog, "YETKI_KOK", str(tmp_path / "yzk"))
         os.makedirs(tmp_path / "gelen", exist_ok=True)
-        (tmp_path / "gelen" / "gln_e.jpg").write_bytes(b"\xff\xd8x")
+        (tmp_path / "gelen" / "gln_e.jpg").write_bytes(b"\\xff\\xd8x")
         r = katalog.katalog_kur("gln_e", [
             {"marka": "Tutku", "kod": "TER0101", "adet": 6,
-             "alis_fiyat": "63,5000 TL"},
+             "barkod": "8680508918124", "alis_fiyat": "63,5000 TL"},
             {"marka": "Berrak", "kod": "BR-7", "adet": 2}])
-        return _j(r)["is_id"]
+        ozet = _j(r)
+        assert ozet["urun_dogrulama"] == "bekliyor"
+        assert ozet["sonraki_adim"]["arac"] == "urun_eslestir"
+        assert ozet["sonraki_adim"]["args"] == {
+            "is_id": ozet["is_id"], "tum_kartlar": True}
+        return ozet["is_id"]
 
-    def _sahte_ag(self, monkeypatch):
-        from tools import web_search as ws
-        monkeypatch.setattr(
-            ws, "web_search",
-            lambda q: {"result": (
-                "Tutku TER0101 Atlet\n"
-                "https://www.tutkuelit.com.tr/urun/ter0101-tut-erkek-atlet\n"
-                "aciklama\n\nDiger\nhttps://baska.com/x\naciklama")})
-        monkeypatch.setattr(
-            ws, "sayfa_oku",
-            lambda u: {"result": "TER0101 Tutku erkek penye atlet beyaz"})
-        monkeypatch.setattr(
-            ws, "sayfa_gorseller",
-            lambda u: {"result": json.dumps(
-                ["https://www.tutkuelit.com.tr/g/t.jpg"])})
-
-    def test_eslesme_karta_islenir(self, tmp_path, monkeypatch):
+    def test_genel_resolver_sonucu_karta_islenir(self, tmp_path, monkeypatch):
+        from tools import product_resolver as pr
         is_id = self._kur(tmp_path, monkeypatch)
-        self._sahte_ag(monkeypatch)
+        monkeypatch.setattr(pr, "firma_bul", lambda *a, **k: [
+            {"host": "ornekmarka.com", "kaynak_turu": "uretici_adayi",
+             "kanitlar": ["uretim_beyani"]}])
+        monkeypatch.setattr(pr, "urun_bul", lambda kart, *a, **k: {
+            "kaynak": "https://ornekmarka.com/urun/ter0101",
+            "kaynak_turu": "uretici_adayi", "resmi_dogrulandi": True,
+            "skor": 110, "guven": "yuksek",
+            "urun_adi": "Tutku Erkek Penye Atlet",
+            "marka": "Tutku", "sku": "TER0101",
+            "gtin": "8680508918124",
+            "gorseller": ["https://ornekmarka.com/g/ter0101.jpg"],
+            "kanitlar": ["sku_yapilandirilmis", "uretici_kaynagi"],
+            "eksik": []})
         kart = next(k["kart_id"] for k in
                     _j(katalog.katalog_getir(is_id))["kartlar"]
                     if k["kod"] == "TER0101")
         r = katalog.urun_eslestir(is_id, kart)
         assert "result" in r, r
-        sonuc = _j(r)
-        assert sonuc["guven"] == "yuksek"
-        assert sonuc["gorsel_sayisi"] == 1
         veri = _j(katalog.katalog_getir(is_id))
-        eslesme = next(k for k in veri["kartlar"]
-                       if k["kod"] == "TER0101")["eslesme"]
-        assert eslesme["kaynak"].startswith("https://www.tutkuelit.com.tr")
-        # İzin yok: yayına görsel girmez, uyarı çıkar
-        t = _j(katalog.katalog_onayla(is_id))
-        assert any("izin" in u for u in t["uyarilar"])
-        metin = (tmp_path / "kat" / is_id
-                 / "vixrex_urunler.csv").read_text(encoding="utf-8-sig")
-        assert "tutkuelit" not in metin
+        es = next(k for k in veri["kartlar"]
+                  if k["kod"] == "TER0101")["eslesme"]
+        assert es["resmi_dogrulandi"] is True
+        assert es["urun_adi"] == "Tutku Erkek Penye Atlet"
 
-    def test_izinli_gorsel_yayina_girer(self, tmp_path, monkeypatch):
+    def test_tum_kartlar_paralel_ve_dogrulanamadi_acik(self, tmp_path, monkeypatch):
+        from tools import product_resolver as pr
         is_id = self._kur(tmp_path, monkeypatch)
-        self._sahte_ag(monkeypatch)
-        kart = next(k["kart_id"] for k in
-                    _j(katalog.katalog_getir(is_id))["kartlar"]
-                    if k["kod"] == "TER0101")
-        katalog.urun_eslestir(is_id, kart)
+        monkeypatch.setattr(pr, "firma_bul", lambda *a, **k: [])
+        def bul(kart, *a, **k):
+            if kart["marka"] == "Tutku":
+                return {
+                    "kaynak": "https://u.example/ter0101",
+                    "kaynak_turu": "marka_alani_adayi",
+                    "resmi_dogrulandi": True, "skor": 90, "guven": "yuksek",
+                    "urun_adi": "Atlet", "marka": "Tutku", "sku": "TER0101",
+                    "gtin": "", "gorseller": [], "kanitlar": ["sku_sayfa"],
+                    "eksik": ["gorsel"]}
+            return {"error": "Ürün kamuya açık kaynaklarda yeterli kanıtla doğrulanamadı."}
+        monkeypatch.setattr(pr, "urun_bul", bul)
+        r = _j(katalog.urun_eslestir(is_id, tum_kartlar=True))
+        assert r["toplam_kart"] == 2
+        assert r["eslesen"] == 1
+        assert r["resmi_dogrulanan"] == 1
+        assert r["dogrulama_durumu"] == "kismi"
+        assert len(r["dogrulanamayan"]) == 1
+        assert r["dogrulanamayan"][0]["ad"]
+
+    def test_yayin_gorseli_resmi_dogrulama_ve_izin_ister(
+            self, tmp_path, monkeypatch):
+        is_id = self._kur(tmp_path, monkeypatch)
+        veri = _j(katalog.katalog_getir(is_id))
+        kart = next(k for k in veri["kartlar"] if k["kod"] == "TER0101")
+        kart["eslesme"] = {
+            "gorseller": ["https://u.example/a.jpg"],
+            "resmi_dogrulandi": False, "guven": "yuksek"}
+        assert katalog._kart_gorsel(kart) == ""
+        kart["eslesme"]["resmi_dogrulandi"] = True
+        assert katalog._kart_gorsel(kart) == ""  # izin hala yok
         b64 = base64.b64encode(b"belge").decode("ascii")
         katalog.yetki_belgesi_ekle(is_id, b64, "izin.pdf", "Tutku")
-        katalog.katalog_onayla(is_id)
-        metin = (tmp_path / "kat" / is_id
-                 / "vixrex_urunler.csv").read_text(encoding="utf-8-sig")
-        assert "https://www.tutkuelit.com.tr/g/t.jpg" in metin
+        assert katalog._kart_gorsel(kart) == "https://u.example/a.jpg"
 
-    def test_kayitsiz_marka(self, tmp_path, monkeypatch):
+    def test_tek_kart_dogrulanamazsa_karta_dokunmaz(self, tmp_path, monkeypatch):
+        from tools import product_resolver as pr
         is_id = self._kur(tmp_path, monkeypatch)
+        monkeypatch.setattr(pr, "firma_bul", lambda *a, **k: [])
+        monkeypatch.setattr(pr, "urun_bul",
+                            lambda *a, **k: {"error": "doğrulanamadı"})
         kart = next(k["kart_id"] for k in
                     _j(katalog.katalog_getir(is_id))["kartlar"]
                     if k["kod"] == "BR-7")
         r = katalog.urun_eslestir(is_id, kart)
-        assert "error" in r and "kaydı yok" in r["error"]
+        assert "error" in r
         veri = _j(katalog.katalog_getir(is_id))
         assert next(k for k in veri["kartlar"]
                     if k["kod"] == "BR-7")["eslesme"] is None
-
-    def test_site_disi_sonuc(self, tmp_path, monkeypatch):
-        from tools import web_search as ws
-        is_id = self._kur(tmp_path, monkeypatch)
-        monkeypatch.setattr(
-            ws, "web_search",
-            lambda q: {"result": "X\nhttps://baska.com/x\naciklama"})
-        kart = next(k["kart_id"] for k in
-                    _j(katalog.katalog_getir(is_id))["kartlar"]
-                    if k["kod"] == "TER0101")
-        r = katalog.urun_eslestir(is_id, kart)
-        assert "error" in r and "bulunamadı" in r["error"]
 
 
 class TestCheckupTemizlik:
@@ -824,3 +827,12 @@ class TestCheckupTemizlik:
             "cikti_oku", {"is_id": is_id, "dosya": "kotu.csv"})
         assert "error" in calistir(
             "cikti_oku", {"is_id": "ktg_yok", "dosya": "vixrex_urunler.csv"})
+
+
+def test_genel_eslestirme_firma_kesfi_de_sinirli_paralel():
+    import inspect
+    kaynak = inspect.getsource(katalog.urun_eslestir)
+    assert "max_workers=min(3, max(1, len(gruplar)))" in kaynak
+    assert "max_workers=min(4, len(hedefler))" in kaynak
+    assert "URUN_ESLESTIR_BUTCE_SN" in kaynak
+    assert katalog.URUN_ESLESTIR_BUTCE_SN == 65.0

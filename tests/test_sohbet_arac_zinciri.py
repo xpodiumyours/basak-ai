@@ -145,3 +145,24 @@ def test_openrouter_arac_istegi_parametre_destekli_uclara_gider():
     assert yakalanan["extra_body"] == {
         "provider": {"require_parameters": True}
     }
+
+
+def test_arac_sonrasi_model_hatasi_genel_bos_mesaja_dusmez():
+    import pytest
+    from chat.tools import AracSonrasiHatasi, arac_dongusu
+    arac = {"type": "function", "function": {"name": "list_tasks", "description": "Gorevleri listeler", "parameters": {"type": "object", "properties": {}}}}
+    class Beyin:
+        def cevapla_yayin(self, *a, **k):
+            from brain.yayin import SonHata
+            raise SonHata("stream yok")
+            yield
+        def cevapla(self, *a, **k):
+            raise TimeoutError("provider timeout")
+    with pytest.raises(AracSonrasiHatasi) as exc:
+        arac_dongusu([_call("list_tasks", "{}", "c1")],
+            [{"role": "user", "content": "gorevler"}],
+            Beyin(), None, lambda _x: None,
+            lambda *_a: {"result": "1: sut al"},
+            tools=[arac], tool_choice="auto")
+    assert "sonraki yapay zekâ turu" in str(exc.value)
+    assert isinstance(exc.value.neden, TimeoutError)

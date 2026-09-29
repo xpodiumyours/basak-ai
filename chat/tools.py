@@ -17,6 +17,14 @@ from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 
+
+class AracSonrasiHatasi(RuntimeError):
+    """Gercek arac sonucu alindiktan sonraki model turu tamamlanamadi."""
+    def __init__(self, mesaj, neden=None):
+        super().__init__(mesaj)
+        self.neden = neden
+
+
 DURUM_METNI = {
     "web_search": "İnternette aranıyor",
     "haber_ara": "Haberlerde aranıyor",
@@ -259,7 +267,20 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     if not ilk_muhakeme and mesajlar:
         ilk_muhakeme = _muhakeme_al(mesajlar[-1])
 
+    def _mola_ver():
+        _web_olay(js_callback, "checkpoint", adim=kosan, turn=tur_no)
+        if run_state is not None:
+            run_state.pause("sure")
+            emit_run_state(js_callback, run_state)
+
     while tool_calls:
+        # Mola eşiği geçmişse yeni araç başlatılmaz. Bu, uzun bir model
+        # turunun ardından pahalı bir aracın 300 sn sert tavana taşmasını
+        # önleyen sunucu-zamanı kapısıdır; araç seçimine müdahale etmez.
+        if mola_zamani is not None and _zaman.monotonic() >= mola_zamani:
+            _mola_ver()
+            return "", kosan
+
         tur_no += 1
         tur_sonuclari = []
 
@@ -434,10 +455,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
         # Sure dolmak uzereyse yeni model turu baslatma; karari kullaniciya
         # birak. Bu tur arac sonuclari handoff'a zaten yazildi.
         if mola_zamani is not None and _zaman.monotonic() >= mola_zamani:
-            _web_olay(js_callback, "checkpoint", adim=kosan, turn=tur_no)
-            if run_state is not None:
-                run_state.pause("sure")
-                emit_run_state(js_callback, run_state)
+            _mola_ver()
             return "", kosan
 
         # Gercek tool-result ayni run icinde modele geri gider.
@@ -480,7 +498,9 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 yanit, _kaynak = _beyin_devam(tools, secim="auto")
             except Exception as e:
                 logger.warning("Arac turu sonrasi cevap alinamadi: %s", e)
-                break
+                raise AracSonrasiHatasi(
+                    "Araç sonucu alındı ancak sonuçtan sonraki yapay zekâ turu tamamlanamadı.",
+                    neden=e) from e
 
         yeni = yanit.get("tool_calls") if isinstance(yanit, dict) else None
         if yeni:
@@ -510,6 +530,9 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                         )
                         emit_run_state(js_callback, run_state)
             return temizle(cevap), kosan
+        if kosan > 0:
+            raise AracSonrasiHatasi(
+                "Araç sonucu alındı ancak yapay zekâ boş final cevap döndürdü.")
         break
 
     return "", kosan
