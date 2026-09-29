@@ -90,7 +90,9 @@ YETENEK_AC_ARACI = {
         "description": (
             "Bir veya birkac yetenek alanini acar. Acilan alanlarin gercek "
             "arac semalari sonraki turda gelir ve run boyunca acik kalir. "
-            "Doner: acik alanlar ve kullanilabilir arac adlari. Alanlar: "
+            "Doner: acik alanlar ve kullanilabilir arac adlari. Alan adlari "
+            "arac adi degildir; arac olarak yalniz acilan alandin semalari "
+            "cagrilir. Alanlar: "
             + _ALAN_METNI
         ),
         "parameters": {

@@ -328,8 +328,15 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 continue
 
             if ad not in TANINMIS_TOOLLAR:
-                tur_sonuclari.append((
-                    ad, "Hata: bilinmeyen arac.", cagri_id))
+                if ad in YETENEK_ALANLARI:
+                    net = (
+                        "Hata: '%s' bir arac adi degil, yetenek alani. "
+                        "Alani yetenek_ac alanlar parametresine yaz; arac "
+                        "olarak o alanin semalari sunulur." % ad
+                    )
+                else:
+                    net = "Hata: bilinmeyen arac."
+                tur_sonuclari.append((ad, net, cagri_id))
                 continue
 
             if ad not in sunulan_adlar:

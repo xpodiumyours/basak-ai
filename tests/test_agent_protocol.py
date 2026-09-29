@@ -1,4 +1,4 @@
-"""Provider-neutral ajan runtime icin kotasiz birim testler."""
+﻿"""Provider-neutral ajan runtime icin kotasiz birim testler."""
 
 import inspect
 import types
@@ -749,3 +749,60 @@ def test_cohere_v2_tool_plan_cok_turlu_akista_korunur():
         m for m in kayitlar[1]["messages"] if m["role"] == "assistant")
     assert assistant["tool_plan"] == "Once x aracini kullanacagim."
     assert assistant["tool_calls"][0]["id"] == "c1"
+
+
+def test_sozlesme_alan_adi_arac_adi_degildir_dogrular():
+    """Groq 400 kaniti (2026-09-20, audit.log): model alan adini tool_call
+    olarak cagirinca 'not in request.tools' ile 400 donuyordu. Sozlesme ve
+    yetenek_ac aciklamasi bu ayrimi acikca soyler."""
+    from chat.agent_runtime import AGENT_CONTRACT
+    from chat.agent_protocol import YETENEK_AC_ARACI
+    metin = AGENT_CONTRACT.lower()
+    assert "arac adi degildir" in metin
+    assert "cagiramazsin" in metin
+    aciklama = YETENEK_AC_ARACI["function"]["description"].lower()
+    assert "arac adi degildir" in aciklama
+
+
+def test_sozlesme_aracin_sahibinin_model_oldugunu_soyler():
+    from chat.agent_runtime import AGENT_CONTRACT
+    metin = AGENT_CONTRACT.lower()
+    assert "araclara sen sahipsin" in metin
+    assert "tarif etmek yerine" in metin
+
+
+def test_yetenek_alani_adiyla_cagrilan_arac_bilgilendirici_hata_doner():
+    """Alan adi bir arac olarak cagrilirsa model duzeltmeyi bilebilsin.
+
+    Groq 400'u (2026-09-20 audit.log) bu hatayi ureten istegi saglayici
+    tarafinda reddediyordu; saglayici hatayi iletmediginde bile uygulama
+    katmanindaki cevap modeli yonlendirir."""
+    from chat.tools import arac_dongusu
+    from tools.definitions import TOOLS
+    kosulan = []
+    gecen = []
+    class Beyin:
+        def cevapla_yayin(self, *a, **k):
+            from brain.yayin import SonHata
+            raise SonHata("testte stream yok")
+            yield
+        def cevapla(self, mesajlar, model, tools=None, **kwargs):
+            gecen.append(mesajlar)
+            return {"content": "bitti"}, "groq"
+    cevap, kosan = arac_dongusu(
+        [_call("gorevler", "{}", "c9")],
+        [{"role": "user", "content": "gorevlerime bak"}],
+        Beyin(), None, lambda kod: None,
+        lambda ad, args: kosulan.append(ad) or {"result": "x"},
+        tools=TOOLS, tool_choice="auto",
+    )
+    assert kosulan == []
+    arac_mesajlari = [
+        m for tur in gecen for m in tur
+        if isinstance(m, dict) and m.get("role") == "tool"
+    ]
+    assert arac_mesajlari, "hata modelin tool sonucu olarak geri donmeli"
+    icerik = arac_mesajlari[-1].get("content", "")
+    assert "yetenek alani" in icerik
+    assert "yetenek_ac" in icerik
+    assert cevap == "bitti"
