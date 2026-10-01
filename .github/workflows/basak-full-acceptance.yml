@@ -22,7 +22,11 @@ jobs:
       - name: Basak kodunu al
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.comment.body == 'FULL TEST P2' && 'preview/p2-arac-ara-profesyonel' || 'main' }}
+          # 2026-10-01: 'FULL TEST P2' silinmis dali cekiyordu
+          # (preview/p2-arac-ara-profesyonel) ve o kosumda checkout
+          # HEP basarisiz oluyordu. P2 isi ana dala girdi; iki yorum da
+          # artik ayni kodu (main) olcer. Dal adi geri gelmez.
+          ref: main
 
       - name: Python 3.12 kur
         uses: actions/setup-python@v5

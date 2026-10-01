@@ -95,15 +95,51 @@ jobs:
 
   provider-acceptance:
     name: gercek-provider-matrisi
+    # TETIKLEYICI KAYDI (2026-10-01, P0.1):
+    #   Onceki kosul `head_ref == 'preview/fatura-goz-cerrahi-20260927'`
+    #   idi. O dal silinince bu isi OLUMLU oldu ve HIC KOSMADI; kosu
+    #   listesinde surekli "skipped" gorunuyordu. Ölü tetikleyici,
+    #   ölü işten daha kötüdür: P0 kanıtı üretiyor sanılır.
+    #
+    #   Yeni tetikleyici (ikisi de BILINCLI):
+    #     1) workflow_dispatch          -> Actions sekmesinden elle
+    #     2) PR etiketi 'kabul-matrisi' -> dogrudan PR'dan
+    #
+    #   Neden otomatik degil: bu isi gercek saglayici KOTASINI harcar ve
+    #   gizli depoda Actions dakikasini yiyor (Free plan). Her merge'de
+    #   otomatik kosmak kotadir ve olcumsuz. P0 kaniti kaste uretilir.
     if: >-
-      github.event_name == 'pull_request' &&
-      github.head_ref == 'preview/fatura-goz-cerrahi-20260927'
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'kabul-matrisi'))
     needs: pytest
     runs-on: windows-latest
     timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
+
+      # Sır öndenetimi: kurulum YOK, saniyeler içinde koşar. Hiç sır
+      # yoksa 4 dakikalık kurulum + 60 dakikalık koşum israf olurdu.
+      # (Sırların varlığı dışarıdan okunamıyor — GitHub App'in secrets
+      # izni 403 veriyor — bu yüzden kontrolü işin kendisi yapmalı.)
+      # env blogu asagidaki "Gercek provider zincirini sina" bloguyla
+      # ayni olmali; kayma tests/test_kabul_matrisi_tetikleyici.py'de
+      # kilitli.
+      - name: Sirlari ondenetle (hizli, bagimliliksiz)
+        shell: pwsh
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          KILO_API_KEY: ${{ secrets.KILO_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+        run: python tests/live/sir_preflight.py
 
       - name: Python 3.12 kur
         uses: actions/setup-python@v5
