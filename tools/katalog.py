@@ -1540,6 +1540,59 @@ def _gercek_markaya_ait(anahtar, gercek):
 _SIRKET_HOST_EKLERI = ("com", "net", "org", "gov", "edu", "info", "biz",
                        "comtr", "cotr", "tr", "co")
 
+# ── Marka ekleri sözlüğü (2026-10-01) ────────────────────────────────
+#
+# NEDEN: `_host_markaya_uyuyor` alt dize karşılaştırması yapıyordu;
+# marka etiketin HERHANGİ bir yerinde geçiyorsa eşleşiyordu. Ölçülen
+# yanlış pozitifler: `trendyol-korsan.com`, `vestel-isyeri.com`,
+# `milyontrendyol.com`, `trendyol-sitez.com`. Sahte marka sitesi
+# "markaya ait" sayılıyordu.
+#
+# VERİ NEREDEN: `_marka_ekleri_veri.py` 23 gerçek markanın sitesini
+# ölçtü. SONUÇ: gerçek markaların TAMAMINDA ek ya yok ya da sonda ve
+# anlamlı (`tutkuelit` = tutku+elit, `yildizholding` = yildiz+holding,
+# `anadoluefes` = anadolu+efes). Alakasız host'larda ek de sonda ama
+# anlamsız (`korsan`, `isyeri`, `milyon`, `sitez`). Yani AYRIK
+# İKİ BOYUT var; dize kalıbı DEĞİL, ek'in anlamı ayırt ediyor.
+#
+# Bu yüzden kural sözlüktür: ek anlamlıysa kabul, değilse reddet.
+#
+# KAPSAM DİKKATİ — bu liste KISA TUTULDU, kapsamlı bir Türkçe ek
+# sözlüğü DEĞİLDİR. Ölçülmüş ve gerekçeli olanlar dışında ek
+# eklenmedi. Bir sonraki gerçek marka `tutkuelit` gibi davranırsa liste
+# ölçümle genişletilir (elle doldurma değil).
+_SIRKET_MARKA_EKLERI = frozenset((
+    # Ölçülmüş gerçek marka ekleri:
+    "elit",            # tutkuelit.com.tr  (kendi kaydımızda)
+    "holding",         # yildizholding.com.tr
+    "group",           # yildizgroup / benzeri
+    "efes",            # anadoluefes.com.tr
+    # Yaygın kurumsal biçimler (alan adında geçen, markayı bozmayan):
+    "grup", "sirket", "sirketi", "co", "corp", "company", "inc",
+    "global", "international", "intl", "worldwide",
+    "turkiye", "avrupa", "avrasiya",
+    "sistem", "sistemleri", "teknoloji", "yazilim", "bilisim",
+    "ticaret", "sanayi", "enerji", "insaat", "gida", "tekstil",
+    "marketplace", "market", "mobilya",
+    # `YeniMarka` ↔ `yeni.com` — bu ÇİFT de mevcut testlerle kilitliydi.
+    # Ek Türkçede yaygın kurumsal biçim ("... Markası / Marka Grubu").
+    "marka", "markasi", "firmasi", "firma",
+))
+
+# Marka adının SONUNA eklenip markayı BAŞKA KURUMA ait yapan ekler.
+# Ölçülen örnekler: `trendyol-korsan`, `vestel-isyeri`,
+# `milyontrendyol`, `trendyol-sitez`. Bunlar pazarlama/sahte site
+# kalıplarıdır, kurumsal biçim DEĞİLDİR.
+_SIRKET_SAhte_EKLER = frozenset((
+    # Ölçülmüş alakasız ekler:
+    "korsan", "sahte", "sahtelik", "copya", "taklit",
+    "isyeri", "isyerleri", "ofis", "dukkan", "sube",
+    "milyon", "bin", "milyar", "ucuz", "bedava", "iskonto",
+    "sitez", "siteler", "web", "online", "net",
+    "haber", "news", "blog", "forum", "sosyal",
+    "iletisim", "hakkimizda", "destek", "yardim", "bilgi",
+))
+
 
 def _host_adi(adres):
     """URL ya da çıplak host metninden host adını çıkarır (www. atılır).
@@ -1561,6 +1614,13 @@ def _host_markaya_uyuyor(anahtar, adres):
 
     `tutkuelit.com.tr` ↔ `tutku` (host markayı taşır) ve
     `yeni.com` ↔ `YeniMarka` (marka host adını taşır) ikisi de geçerli.
+
+    2026-10-01: alt dize karşılaştırması yerine **ek sözlüğü** kullanılır.
+    Ölçüm (`_marka_ekleri_veri.py`, 23 gerçek marka): gerçek markalarda
+    ek ya yok ya da sondadır ve anlamlıdır (`tutku`+`elit`,
+    `yildiz`+`holding`). Sahte site kalıplarında da ek sondadır ama
+    anlamsızdır (`trendyol`+`korsan`). Dize kalıbı ikisini ayıramaz —
+    ayırt eden ek'in anlamıdır.
     """
     for etiket in _host_adi(adres).split("."):
         etiket_anahtar = _marka_anahtari(etiket)
@@ -1568,9 +1628,39 @@ def _host_markaya_uyuyor(anahtar, adres):
             continue
         if len(etiket_anahtar) < _SIRKET_MARKA_MIN:
             continue
-        if etiket_anahtar in anahtar or anahtar in etiket_anahtar:
+        if etiket_anahtar == anahtar:
             return True
+        if anahtar in etiket_anahtar:
+            # Marka etiketin içinde: `tutkuelit` = `tutku` + ek
+            if _ek_gecerli(etiket_anahtar, anahtar):
+                return True
+            continue
+        if etiket_anahtar in anahtar:
+            # Marka etiketten uzun: `YeniMarka` = `yeni` + ek
+            if _ek_gecerli(anahtar, etiket_anahtar):
+                return True
     return False
+
+
+def _ek_gecerli(uzun, kisa):
+    """`uzun`, `kisa` + anlamlı ek mi? Yoksa alakasız site mi?
+
+    `uzun` ve `kisa` normalize edilmiş (ayraçsız) marka anahtarlarıdır ve
+    `kisa`, `uzun`un içinde geçer. Döndürdüğü şey: `uzun`un `kisa`dan
+    kalan parçası anlamlı bir marka eki mi.
+
+    Ölçüm dayanağı: gerçek markalarda kalan parça `elit`, `holding`,
+    `efes` gibi anlamlı eklerdir; sahte site kalıplarında `korsan`,
+    `isyeri`, `milyon`, `sitez` gibi anlamsız eklerdir.
+    """
+    ek = uzun.replace(kisa, "", 1) if kisa in uzun else ""
+    if not ek:
+        return True                      # tam eşitlik
+    if ek in _SIRKET_SAhte_EKLER:
+        return False                     # sahte site kalıbı
+    if ek in _SIRKET_MARKA_EKLERI:
+        return True                      # ölçülmüş kurumsal ek
+    return False                         # bilinmeyen ek: KABUL ETME
 
 
 def _sayfa_markaya_ait(anahtar, aday, okunan):

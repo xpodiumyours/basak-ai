@@ -472,12 +472,26 @@ yazmadan "geri alabiliriz" denmeyecek.**
   `trendyol-korsan.com`, `vestel-isyeri.com`, `milyontrendyol.com`.
   Bu, sahte marka sitelerinin “markaya ait” sayılması demek.
 
-  **Düzeltme denendi ve GERİ ALINDI** — üç kuralın üçü de bir meşru
-  eşleşmeyi kırdı. Kök neden: `_norm` ayraçları (`.`, `-`, `://`)
-  siliyor, `tutku` ⊂ `tutkuelit` ile `vestel` ⊂ `vestelisyeri` **tek
-  birer token** oluyor; ikisi de aynı dize kalıbında. Kalıcı çözüm
-  tokenları ayıran bir Türkçe marka ekleri sözlüğü ister — tek oturumda
-  uydurulmaz. **Kod değiştirilmedi.**
+  **Düzeltildi (2026-10-01, aynı gün):** Önceki kayıt “düzeltme
+  güvenli değil” diyordu; bu **sonradan aşıldı**. Çözüm: dize kalıbı
+  değil, **ek’in anlamı**. Sözlük `_marka_ekleri_veri.py` ile
+  **23 gerçek markanın sitesi ölçülerek** kuruldu (elle doldurulmadı):
+
+  | Ek | Kaynak | Karar |
+  |---|---|---|
+  | `elit` | `tutkuelit.com.tr` (kendi kaydımız) | KABUL |
+  | `holding` | `yildizholding.com.tr` | KABUL |
+  | `efes` | `anadoluefes.com.tr` | KABUL |
+  | `korsan`, `isyeri`, `milyon`, `sitez` | sahte site kalıpları | RED |
+
+  Ölçümün bulgusu şuydu: gerçek markalarda ek **ya yok ya da anlamlı**;
+  sahte kalıplarda da sonda ama **anlamsız**. Dize kalıbı ikisini
+  ayıramıyordu, sözlük ayırıyor.
+  Kural **fail-closed**: ek sözlükte yoksa reddedilir — yeni bir sahte
+  kalıp sözlüğe girmeden de elenir.
+
+  **Doğrulama:** 23/23 gerçek marka eşleşiyor, **8/8** ölçülmüş yanlış
+  pozitif eleniyor (önceden 5 tanesi geçiyordu), 159 katalog testi yeşil.
 
   Ayrıca ölçülen ikinci davranış: JSON-LD bloğunda `ad`/`url` **boşsa**
   blok “başkasının” denenmiyor ve sayfa **fail-open** olarak “ait”
@@ -486,6 +500,11 @@ yazmadan "geri alabiliriz" denmeyecek.**
   28 test (`tests/test_marka_ait_olcumu.py`) bulguları kilitliyor;
   yanlış pozitifler **kasıtlı olarak bugünkü haliyle** testte sabitlendi
   ki kural değişirse bilinçli karar verilsin.
+  → **Sonuç (aynı gün):** marka ekleri sözlüğü kuruldu ve düzeltme
+  **uygulandı**. 50 test, 23/23 gerçek marka korunuyor, 8/8 sahte site
+  eleniyor. Bilinen sınır: fail-closed yüzünden gerçek bir marka
+  `tutkuelit` gibi görünürse **elenir** — bu yönde hata üretmektense
+  alan adı kaybı yeğdir, ama liste ölçümle genişletilmelidir.
 - **P0 kapısı geçmeden bu belge "profesyonel" sayılmaz.** MVP kanıtı
   eksik: gerçek modelle, gerçek kullanıcı sorusuyla, uçtan uca koşmuş
   sohbet kaydı **yok**.

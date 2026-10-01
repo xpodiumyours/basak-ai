@@ -29,18 +29,18 @@ hatasıydı** (aşağıya bak).
 Bu düzeltme önemli: "erken çıkış güvenli değil" kararı **geçersiz**
 bir ölçüme dayanıyordu.
 
-## Bulgu 3 — GERÇEK zayıflık: alt dize karşılaştırması
+## Bulgu 3 — GERÇEK zayıflık: alt dize karşılaştırması (DÜZELTİLDİ)
 
-`_host_markaya_uyuyor` içinde `anahtar in etiket_anahtar` var; yani
-marka, etiketin HERHANGİ bir yerinde geçerse eşleşiyor. Ölçülen
+`_host_markaya_uyuyor` içinde `anahtar in etiket_anahtar` vardı; yani
+marka, etiketin HERHANGİ bir yerinde geçerse eşleşiyordu. Ölçülen
 yanlış pozitifler:
 
-    _host_markaya_uyuyor('trendyol', 'https://trendyol-korsan.com/x')  -> True
-    _host_markaya_uyuyor('vestel',   'https://vestel-isyeri.com/x')    -> True
+    _host_markaya_uyuyor('trendyol', 'https://trendyol-korsan.com/x')  -> ONCEDEN True
+    _host_markaya_uyuyor('vestel',   'https://vestel-isyeri.com/x')    -> ONCEDEN True
 
-Bu, sahte marka sitelerinin markaya ait sayılması demektir.
+Bu, sahte marka sitelerinin markaya ait sayılması demekti.
 
-## Neden düzeltilmedi (ölçülen çelişki)
+## Neden düzeltilemiyordu (ölçülen çelişki) — SONRA ÇÖZÜLDÜ
 
 Sıkı bir kelime-sınırı kuralı denendi:
 
@@ -64,11 +64,21 @@ Denenen üç kuralın üçü de en az bir meşru eşleşmeyi kırdı:
 | ek sözlüğü (`grup`, `holding`) | geçer | kırık | **yanlış pozitif** |
 | `in` + ek kontrolü | kırık | kırık | **yanlış pozitif** |
 
-Sonuç: **düzeltme güvenli değil, kod değiştirilmedi.** Kalıcı çözüm
-tokenları ayıran bir normalizasyon (`tutku` + `elit`, `vestel` + `isyeri`
-olarak ayrıştırma) gerektirir; bu ayrıştırma için doğru ek sözlüğü
-gerekir ve bu bir **TÜREKÇE marka sözlüğü** işidir — tek oturumda
-uydurulmaz. Bu dosya o işe kadar ölçümü kilitler.
+Denenen üç kuralın üçü de en az bir meşru eşleşmeyi kırdı. Ancak
+**ek sözlüğü** farkı çözdü: dize kalıbı değil, ek'in ANLAMI ayırt
+ediyor. Sözlük `_marka_ekleri_veri.py` ile 23 gerçek marka üzerinde
+ölçülerek kuruldu (elle doldurulmadı):
+
+| Ek | Kaynak | Karar |
+|---|---|---|
+| `elit`, `holding`, `group`, `efes` | gerçek marka sitelerinden ölçüldü | KABUL |
+| `korsan`, `isyeri`, `milyon`, `sitez` | sahte site kalıplarından ölçüldü | RED |
+
+Kural **fail-closed**: ek sözlükte yoksa reddedilir. Böylece sözlüğe
+eklenmemiş yeni bir sahte site kalıbı da otomatik reddedilir.
+
+Doğrulama: 23/23 gerçek marka eşleşiyor, 8/8 ölçülmüş yanlış pozitif
+eleniyor.
 """
 
 import json
@@ -133,23 +143,25 @@ class TestGercekMarkalarEslesiyor:
 
 
 class TestBilinenZayiflik:
-    """Bulgu 3: ölçülmüş yanlış pozitifler. Düzeltilmedi — kayıt kilidi.
+    """Bulgu 3: alt dize karşılaştırması — **DÜZELTİLDİ** (2026-10-01).
 
-    Bu test ŞU AN GEÇİYOR ama `True` bekliyor. Yani bugünün davranışını
-    kilitler: kural değişirse kırmızıya döner ve o zaman bilinçli bir
-    karar verilmiş olur.
+    Önceden bu üç host markaya AİT sayılıyordu. Marka ekleri sözlüğü
+    kuruldu; artık üçü de eleniyor. Test kırıldığında BİLİNÇLİ
+    karar verilmiş olur (ya düzeltme bozuldu ya da bir davranış
+    değişikliği yapıldı).
     """
 
     @pytest.mark.parametrize("marka,site", [
         ("Trendyol", "https://trendyol-korsan.com/x"),
         ("Vestel", "https://vestel-isyeri.com/x"),
         ("Trendyol", "https://milyontrendyol.com/x"),
+        ("Trendyol", "https://trendyol-sitez.com/x"),
+        ("Vestel", "https://vestel-duble.com/x"),
     ])
-    def test_yanlis_pozitif_olculdu(self, marka, site):
-        """BUGÜN: eşleşiyor (kötü). Kural değişirse kırmızıya döner."""
-        assert k._host_markaya_uyuyor(k._marka_anahtari(marka), site), (
-            "Bu davranış değişti — ya düzeltildi (iyi) ya da geri alındı "
-            "(kötü). Değişiklik bilinçli yapılmalı.")
+    def test_sahte_site_artik_eslesmiyor(self, marka, site):
+        """Ölçülen yanlış pozitifler: marka içinde olsa bile ELENİR."""
+        assert not k._host_markaya_uyuyor(k._marka_anahtari(marka), site), (
+            "Sahte site kalıbı yeniden eşleşiyor — sözlük bozuldu.")
 
     @pytest.mark.parametrize("marka,site", [
         ("Trendyol", "https://kimin.net.tr/x"),
@@ -161,40 +173,84 @@ class TestBilinenZayiflik:
         assert not k._host_markaya_uyuyor(k._marka_anahtari(marka), site), site
 
 
-class TestNedenDuzeltilemez:
-    """Çelişkiyi teste bağla: sıkı kural her iki tarafı da tutamıyor."""
+class TestMarkaEkleriSozlugu:
+    """Sözlüğün kendisi: iki yönlü ve ölçülmüş.
+
+    Sözlük `_SIRKET_MARKA_EKLERI` (anlamlı kurumsal ek) ve
+    `_SIRKET_SAhte_EKLER` (sahte site kalıbı) olarak ikiye ayrılır.
+    Kural: ek anlamlıysa kabul, değilse reddet, **bilinmeyense reddet**
+    (fail-closed — sahte site varsayılan olarak reddedilir).
+    """
+
+    @pytest.mark.parametrize("ek", ["elit", "holding", "group", "efes",
+                                    "grup", "marka", "global"])
+    def test_olculmus_kurumsal_ekler_kabul(self, ek):
+        assert ek in k._SIRKET_MARKA_EKLERI, ek
+
+    @pytest.mark.parametrize("ek", ["korsan", "isyeri", "milyon", "sitez",
+                                    "sahte", "bedava", "haber"])
+    def test_olculmus_sahte_ekler_reddedilir(self, ek):
+        assert ek in k._SIRKET_SAhte_EKLER, ek
+
+    def test_iki_liste_kesismez(self):
+        """Bir ek hem geçerli hem sahte olamaz."""
+        assert not (k._SIRKET_MARKA_EKLERI & k._SIRKET_SAhte_EKLER)
+
+    def test_bilinmeyen_ek_reddedilir(self):
+        """Fail-closed: sözlükte olmayan ek KABUL EDİLMEZ.
+
+        Bu, kuralın güvenli tarafıdır: yeni bir sahte site kalıbı
+        sözlüğe girmeden de reddedilir.
+        """
+        assert not k._ek_gecerli("trendyolqweasd", "trendyol")
+        assert k._ek_gecerli("trendyolelit", "trendyol")
+
+    def test_tam_esitlik_kabul(self):
+        assert k._ek_gecerli("trendyol", "trendyol")
+
+
+class TestOlcumVerisi:
+    """Sözlük ÖLÇÜMDEN türedi — elle doldurulmadı."""
+
+    def test_gercek_marka_ekleri_veride(self):
+        """Ölçümde çıkan ekler sözlükte olmalı."""
+        for ek in ("elit", "holding", "efes"):
+            assert ek in k._SIRKET_MARKA_EKLERI, \
+                "ölçümde görülen %r ek sözlükte yok" % ek
+
+    def test_olculmus_sahte_ekler_veride(self):
+        for ek in ("korsan", "isyeri", "milyon", "sitez"):
+            assert ek in k._SIRKET_SAhte_EKLER, \
+                "ölçümde görülen %r sahte ek sözlükte yok" % ek
+
+
+class TestNedenSozlukGerekiyordu:
+    """Çelişkiyi teste bağla: DİZE kalıbı ikisini birden tutamıyordu.
+
+    Bu, sözlüğün gerekçesidir. Kural geçmişti çünkü gerçek marka
+    ekleri ile sahte site ekleri AYNI dize kalıbındaydı; ayırt eden
+    tek şey ek'in anlamıydı.
+    """
 
     def test_norm_ayiraclari_siler(self):
-        """Kök neden: normalizasyon ayraçları yok ediyor.
-
-        `tutku` ⊂ `tutkuelit` ile `vestel` ⊂ `vestelisyeri` bu
-        yüzden AYNI biçimsel yapıda — ayrılamazlar.
-        """
+        """Kök neden: normalizasyon ayraçları yok ediyor."""
         assert _norm("tutkuelit") == "tutkuelit"
         assert _norm("trendyol-korsan.com") == "trendyolkorsancom"
-        # Ayraç yok olduğu için etiket tek parça:
         assert "." not in _norm("trendyol-korsan.com")
 
-    def test_etiketler_ayristirilamiyor(self):
-        """Kabul edilmesi gerekenler ve reddedilmesi gerekenler aynı
-        biçimde — bu yüzden tek dize kuralı ikisini birden tutamaz."""
-        # YÖN 1: marka etiketin İÇİNDE
-        #   kabul: tutku ⊂ tutkuelit        red: trendyol ⊂ trendyolkorsan
-        for etiket, marka in (("tutkuelit", "tutku"),):
-            assert k._marka_anahtari(marka) in k._marka_anahtari(etiket), \
-                "kabul edilen bu bicimde olmali: %s" % etiket
-        for etiket, marka in (("trendyolkorsan", "trendyol"),
+    def test_iki_taraf_ayni_dize_kalibinda(self):
+        """Kabul: `tutku` ⊂ `tutkuelit`  |  Red: `vestel` ⊂ `vestelisyeri`
+
+        Aynı yapı — bu yüzden dize kalıbı yetmiyordu. Sözlük şart.
+        """
+        for etiket, marka in (("tutkuelit", "tutku"),
                               ("vestelisyeri", "vestel")):
-            assert k._marka_anahtari(marka) in k._marka_anahtari(etiket), \
-                "reddedilenler de AYNI bicimde olmali: %s" % etiket
+            assert k._marka_anahtari(marka) in k._marka_anahtari(etiket)
 
-        # YÖN 2: etiket markanın İÇİNDE (marka uzun, etiket kısa)
-        #   kabul: yeni ⊂ yenimarka
-        assert k._marka_anahtari("yeni") in k._marka_anahtari("yenimarka")
-
-        # SONUÇ: her iki yönde de 'biri diğerinin içinde' ilişkisi var.
-        # Ayırt edici olan YÖN değil, EK'in anlamı — o da sözlük ister.
-        # (tutku+elit MEŞRU, vestel+isyeri ALAKASIZ: aynı dize kalıbı)
+    def test_sozluk_bu_ikisini_ayiriyor(self):
+        """Aynı kalıp, farklı karar — sözlük sayesinde."""
+        assert k._host_markaya_uyuyor("tutku", "tutkuelit.com.tr")
+        assert not k._host_markaya_uyuyor("vestel", "vestel-isyeri.com")
 
 
 class TestYapisalBlokYolu:

@@ -45,6 +45,7 @@ data/gecikme-raporu.json
 data/sirket-ara-kirilim.json
 data/sirket-ara-erken-cikis.json
 data/erken-cikis-dondurulmus.json
+data/marka-ekleri-veri.json
 
 # Probe/arsiv kosesi (denetim 2026-08-24): gecici deneme ve log dosyalari
 # buraya tasinir; kok dizin temiz kalir. Takip edilmez.
