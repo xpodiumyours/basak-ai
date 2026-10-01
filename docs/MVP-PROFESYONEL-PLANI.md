@@ -175,6 +175,9 @@ sorusuyla uçtan uca koşmuş bir sohbet kaydımız yok.
   (grep değil): **59 → 0**. Kural tek cümle: *bir `except` bloğu yalnız
   `pass` içeremez* — ya `logger` izi bırakır ya da akışı düzeltir.
   Kural teste kilitli: `tests/test_sessiz_yutma.py`.
+  **Kapı daha sonra işe yaradı:** P1.4 ölçüm probu yazılırken probun
+  kendi sessiz yutmasını yakalayıp koşuyu kırmızıya düşürdü; düzeltildi.
+  Yani kural yalnız geçmişe değil, **yeni yazılan koda** da uygulanıyor.
   Ölçüm kapsamı: üretim kodu (`tests/`, `_arsiv/`, `__pycache__/` hariç).
   `except → return` olan satırlar kontrol akışıdır, zaten sayılmıyordu.
 
@@ -427,6 +430,25 @@ yazmadan "geri alabiliriz" denmeyecek.**
   **Dürüst kayıt:** ölçüm probunun ilk sürümü `sayfa_oku` çıktısında
   yanlış alanı (`icerik`) okuduğu için tabloya 0 karakter yazdı ve 404
   sandı; araç çalışıyordu. Prob düzeltilip yeniden ölçüldü.
+- **2026-10-01 (sirket_ara hızlandırma)** P1.4 ölçümünde `sirket_ara`'nın
+  tek başına **9–11 sn** sürdüğü görüldü. Kırılım ölçüldü
+  (`_sirket_ara_kirilim.py`): asıl maliyet aday sayfaların **sıralı**
+  okunmasıydı (%44) ve `firma_bul`'un iki paralel aramasıydı.
+
+  **İki daraltma DENENDİ ve REDDEDİLDİ — ölçüm güvenli olmadığını gösterdi:**
+  - **Erken çıkış** (`uyuyor=True` ve gerçek varsa dur): 3 markadan
+    **1'inde kartı bozdu** — Trendyol'da `kimin.net.tr` seçildi ve
+    `dogrulandi=false` düştü. Uygulanmadı.
+  - **Tek aramaya düşürme:** iki sorgu neredeyse **ayrı** host getiriyor
+    (kesişim 1/6). Atılırsa kapsam daralırdı. Uygulanmadı.
+
+  **Uygulanan:** aday sayfalar **3 iş parçacığıyla paralel** okunuyor.
+  Kontrollü ölçüm: sıralı **6,101 sn → 2,749 sn (%55)**. Sıra ve kart
+  korunuyor: `kurum_sayfasi_oku` saf bir fonksiyon ve `map` girdi sırasını
+  döndürüyor; seçim kuralı zaten sıradan bağımsız (`uyuyor` önce, sonra
+  `skor`). **Daraltma yapılmadı** — aday sayısı (3 site × 2 yol) ve arama
+  sayısı aynen korundu.
+  10 yeni test (`tests/test_sirket_ara_paralel.py`), 99 katalog testi yeşil.
 - **P0 kapısı geçmeden bu belge "profesyonel" sayılmaz.** MVP kanıtı
   eksik: gerçek modelle, gerçek kullanıcı sorusuyla, uçtan uca koşmuş
   sohbet kaydı **yok**.

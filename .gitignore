@@ -42,6 +42,8 @@ htmlcov/
 
 # Gecikme olcumu ciktisi (2026-10-01): her kosuda yeniden uretilir.
 data/gecikme-raporu.json
+data/sirket-ara-kirilim.json
+data/sirket-ara-erken-cikis.json
 
 # Probe/arsiv kosesi (denetim 2026-08-24): gecici deneme ve log dosyalari
 # buraya tasinir; kok dizin temiz kalir. Takip edilmez.

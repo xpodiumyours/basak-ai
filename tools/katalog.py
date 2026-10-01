@@ -1505,6 +1505,10 @@ def _sirket_sayfa_skor(yazi):
 # 6 yol bütçeyi yiyordu, markanın KENDİ sitesi hiç okunmuyordu (Vestel
 # sorgusunda vestel.com.tr hiç okunmadı).
 _SIRKET_SITE_TAVANI = 3
+# 2026-10-01 (P1.4 olcumü): sayfa okuma paralelligi. Olcum: sıralı 6,101 sn
+# -> 3 parcacikla 2,749 sn (%55). Bu bir TAVAN degil, bir es zamanlilik
+# ayarı: daha fazla is parcacigi hedef sitelere ani yuk bindirir.
+_SIRKET_PARALEL = 3
 _SIRKET_YOL_TAVANI = 2
 # Marka anahtarı bu uzunluktan kısaysa kaynak daraltması yapılmaz.
 _SIRKET_MARKA_MIN = 3
@@ -1691,6 +1695,42 @@ def _sirket_iletisim_yollari(site):
             temel + "/hakkimizda", temel + "/"]
 
 
+def _sirket_sayfalari_paralel(ws, adaylar):
+    """Aday kurum sayfalarını sinirli paralellikle okur; SIRAYI KORUR.
+
+    Neden sinirli: `sirket_ara` bir sohbet turunda tek araçtır; 6 sayfayı
+    aynı anda açmak hedef siteye ani yük bindirir. 3 iş parçacığı ölçüldü
+    (bkz. `_sirket_ara_kirilim.py`), %55 kazancı bu noktada verdi.
+
+    Neden güvenli: `kurum_sayfasi_oku` disk yazmaz, paylaşılan durum
+    değiştirmez; `ThreadPoolExecutor.map` sonuçları GİRDİ SIRASIyla
+    döndürür. Yani `okunacak[i]` ile `okumalar[i]` aynı adaya aittir.
+
+    Bir sayfanın hatası TEK SAYFAYA düşer (eski davranışta da öyle:
+    `except: continue`). Hata durumunda o konum `None` döner.
+    """
+    adaylar = list(adaylar or [])
+    if not adaylar:
+        return []
+    if len(adaylar) == 1:
+        try:
+            return [ws.kurum_sayfasi_oku(adaylar[0])]
+        except Exception:
+            return [None]
+
+    def _tek(adres):
+        try:
+            return ws.kurum_sayfasi_oku(adres)
+        except Exception:
+            # Hata tek sayfaya düşer; diğerleri etkilenmez.
+            logger.debug("kurum sayfasi okunamadi: %s", adres, exc_info=True)
+            return None
+
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=_SIRKET_PARALEL) as havuz:
+        return list(havuz.map(_tek, adaylar))
+
+
 def sirket_ara(marka):
     """Markanın resmi sitesini + iletişim/vergi bilgilerini arar.
 
@@ -1751,10 +1791,23 @@ def sirket_ara(marka):
     # Her aday sayfası TEK kez indirilir (eski akış en iyi adayı ikinci kez
     # indiriyordu); metin + yapısal gerçekler aynı okumadan gelir.
     # Marka anahtarını taşıyan sayfa, daha yüksek skorlu ilgisiz sayfayı yener.
+    #
+    # 2026-10-01 (P1.4 ölçümü): sayfalar PARALEL okunuyor.
+    # Ölçüm: sıralı 6,101 sn -> 3 iş parçacığıyla 2,749 sn (**%55**).
+    # Sıra ve kart **aynen korunuyor** — `kurum_sayfasi_oku` saf bir
+    # fonksiyondur (diske yazmaz, yan etkisi yok), ve `map` girdi
+    # sırasını korur. Seçim kuralı sıradan bağımsız olduğu için
+    # (daha_iyi: uyuyor önce, sonra skor) hangi sayfanın önce
+    # döndüğü sonucu değiştirmez.
+    #
+    # Ölçülmeyen daraltma YAPILMADI: erken çıkış denendi ve 3 markadan
+    # 1'inde kartı bozdu (bkz. _sirket_ara_erken_cikis.py çıktısı), tek
+    # aramaya düşürme ise iki sorgunun neredeyse ayrı host getirdiğini
+    # gösterdi (kesişim 1/6) — kapsamı daraltırdı.
     en_metin, en_gercekler, en_skor, en_site, en_uyuyor = "", [], 0, "", False
-    for aday in okunacak:
-        okuma = ws.kurum_sayfasi_oku(aday)
-        if okuma.get("error"):
+    okumalar = _sirket_sayfalari_paralel(ws, okunacak)
+    for aday, okuma in zip(okunacak, okumalar):
+        if not okuma or okuma.get("error"):
             continue
         try:
             okunan = json.loads(okuma.get("result") or "{}")
