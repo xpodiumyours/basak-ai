@@ -1436,9 +1436,15 @@ def urun_eslestir(is_id, kart_id="", tum_kartlar=False):
 
 # ── Faz B: şirket kartı araştırma ────────────────────────────────
 # Markanın resmi sitesi + iletişim/vergi bilgisi. Salt-okunur:
-# yalnız web_search + sayfa_oku; disk yazımı yok. Alan regex'le
-# sayfa metninden çıkarılır; bulunamayan alan boş kalır (uydurma
-# yok). Model eksik alanları esnafa sorar ya da açık bırakır.
+# yalnız web_search okuyucuları; disk yazımı yok.
+#
+# 2026-10-01 (ölçümlü düzeltme): adres/telefon/vergi bilgisi modern
+# sitelerde YAPISAL veride (schema.org Organization + PostalAddress)
+# duruyor; yalnız düz metne bakan çıkarım adresi tamamen kaçırıyordu
+# (ölçüm: tutkuelit.com.tr adresi yalnız JSON-LD'de). Sıra: yapısal
+# gerçekler önce, düz metin yedek. Değerler sayfada yazdığı gibi alınır;
+# bulunamayan alan boş kalır (uydurma yok). Model eksik alanları esnafa
+# sorar ya da açık bırakır.
 
 _SIRKET_TEL_RE = re.compile(
     r"(?:\+90|0)\s?5\d{2}\s?\d{3}\s?\d{2}\s?\d{2}"
@@ -1449,6 +1455,7 @@ _SIRKET_EPOSTA_RE = re.compile(
 _SIRKET_ADRES_KELIMELERI = ("adres", "mahalle", "mah.", "cadde", "cad.",
                             "sokak", "sk.", "osb", "organize sanayi",
                             "sitesi", "bulvar")
+_ADRES_ANAHTAR_UZUNLUGU = 25
 _SIRKET_KELIME_SKORLARI = ("adres", "iletişim", "iletisim", "telefon",
                            "tel:", "tel ", "faks", "vergi", "e-posta",
                            "eposta", "bize ulaşın")
@@ -1457,11 +1464,32 @@ _SOSYAL_HOST = ("facebook.com", "instagram.com", "twitter.com",
 
 
 def _sirket_adres_meti(satir):
-    """Satır adres cümlesine benziyor mu (kelime + uzunluk)?"""
-    kucuk = _tr_duzelt(satir).lower()
-    if not (5 <= len(satir) <= 200):
+    """Satır adres cümlesine benziyor mu?
+
+    Ölçülmüş düzeltme (2026-10-01): başlık/etiket satırları (tek başına
+    "Adres") adres sanılıyordu. Adres satırı en az 10 karakterdir ve kapı
+    ya da cadde numarası gibi bir RAKAM taşır; rakamsız satır haritada
+    gösterilemeyeceği için adres sayılmaz.
+    """
+    if not (10 <= len(satir) <= 200):
         return False
+    if not re.search(r"\d", satir):
+        return False
+    kucuk = _tr_duzelt(satir).lower()
     return any(k in kucuk for k in _SIRKET_ADRES_KELIMELERI)
+
+
+def _adres_anahtari(satir):
+    """Aynı adresin iki kaynaktan gelmesini tek satıra indiren anahtar.
+
+    Ölçüm (2026-10-01): JSON-LD PostalAddress ile sayfadaki görünür adres
+    aynı yeri farklı yazımla veriyor; ikisi de listeye giriyordu. Anahtar,
+    satırın ilk 25 harf/rakamının normalize hâlidir — adres satırları
+    mahalle/sokak adıyla başladığı için aynı adresin farklı yazımları aynı
+    anahtara düşer.
+    """
+    duz = "".join(ch for ch in _tr_duzelt(satir).lower() if ch.isalnum())
+    return duz[:_ADRES_ANAHTAR_UZUNLUGU]
 
 
 def _sirket_sayfa_skor(yazi):
@@ -1470,6 +1498,81 @@ def _sirket_sayfa_skor(yazi):
         return 0
     kucuk = _tr_duzelt(yazi[:8000]).lower()
     return sum(kucuk.count(k) for k in _SIRKET_KELIME_SKORLARI)
+
+
+def _sirket_alanlari(metin, gercekler):
+    """Şirket kartı alanları: schema.org gerçekleri önce, düz metin yedek.
+
+    Dönüş: (telefonlar, eposta, adresler, unvan, vergi_no).
+    Yapısal alan bulunduysa metin taraması yalnız eksik alan için çalışır;
+    hiçbir alan türetilmez, tamamlanmaz veya uydurulmaz.
+    """
+    gercekler = [g for g in (gercekler or []) if isinstance(g, dict)]
+
+    def _yapisal(anahtar):
+        out = []
+        for g in gercekler:
+            for d in (g.get(anahtar) or []):
+                d = str(d).strip()
+                if d and d not in out:
+                    out.append(d)
+        return out
+
+    telefonlar = _yapisal("telefonlar")
+    eposta = [e.lower() for e in _yapisal("epostalar")]
+
+    unvan = ""
+    for g in gercekler:
+        unvan = str(g.get("resmi_ad") or g.get("ad") or "").strip()
+        if unvan:
+            break
+
+    adresler = []
+    adres_anahtarlari = set()
+
+    def _adres_ekle(satir):
+        satir = str(satir or "").strip()
+        if not satir:
+            return
+        anahtar = _adres_anahtari(satir)
+        if satir in adresler or (anahtar and anahtar in adres_anahtarlari):
+            return
+        adres_anahtarlari.add(anahtar)
+        adresler.append(satir)
+
+    for g in gercekler:
+        _adres_ekle(g.get("adres_metni"))
+
+    vergi_no = ""
+    for g in gercekler:
+        # vatID "TR4550047841" gibi ülke önekli gelebilir; rakamlar alınır
+        # ve mevcut 10/11 hane kuralı korunur.
+        rakam = re.sub(r"\D", "", str(g.get("vergi_no") or ""))
+        if len(rakam) in (10, 11):
+            vergi_no = rakam
+            break
+
+    if metin:
+        for m in _SIRKET_TEL_RE.finditer(metin):
+            tel = re.sub(r"\s+", " ", m.group(0)).strip()
+            if tel not in telefonlar:
+                telefonlar.append(tel)
+        for m in _SIRKET_EPOSTA_RE.finditer(metin):
+            ad = m.group(0).strip().lower()
+            if ad not in eposta:
+                eposta.append(ad)
+        for satir in metin.splitlines():
+            satir = satir.strip()
+            if _sirket_adres_meti(satir):
+                _adres_ekle(satir)
+            if len(adresler) >= 3:
+                break
+        if not vergi_no:
+            m = re.search(r"vergi[^0-9]{0,40}(\d{10,11})", metin,
+                          re.IGNORECASE)
+            vergi_no = m.group(1) if m else ""
+
+    return telefonlar[:3], eposta[:3], adresler[:3], unvan, vergi_no
 
 
 def _sirket_iletisim_yollari(site):
@@ -1483,7 +1586,9 @@ def _sirket_iletisim_yollari(site):
 def sirket_ara(marka):
     """Markanın resmi sitesini + iletişim/vergi bilgilerini arar.
 
-    Yalnız web_search + sayfa_oku (salt-okunur); disk yazımı yok.
+    Her aday sayfa bir kez okunur (web_search.kurum_sayfasi_oku); alanlar
+    önce schema.org Organization/PostalAddress gerçeklerinden, eksik
+    kalanlar düz metinden çıkarılır. Salt-okunur; disk yazımı yok.
     Dönüş JSON: {marka, site, unvan, telefonlar, eposta, adresler,
     kaynak, eksik}. Bulunamayan alan boş döner — uydurma yok.
     """
@@ -1530,51 +1635,39 @@ def sirket_ara(marka):
     if not adaylar:
         return {"error": "'%s' için site bulunamadı." % cozulen_ad}
 
-    en_iyi, en_skor, en_site = "", 0, ""
+    # Her aday sayfası TEK kez indirilir (eski akış en iyi adayı ikinci kez
+    # indiriyordu); metin + yapısal gerçekler aynı okumadan gelir.
+    en_metin, en_gercekler, en_skor, en_site = "", [], 0, ""
     for aday in adaylar[:5]:
-        okuma = ws.sayfa_oku(aday)
+        okuma = ws.kurum_sayfasi_oku(aday)
         if okuma.get("error"):
             continue
-        skor = _sirket_sayfa_skor(okuma.get("result", ""))
-        if skor > en_skor:
-            en_iyi, en_skor, en_site = adres if False else aday, skor, aday
-    if not en_iyi:
+        try:
+            okunan = json.loads(okuma.get("result") or "{}")
+        except (TypeError, ValueError):
+            continue
+        metin = str(okunan.get("metin") or "")
+        skor = _sirket_sayfa_skor(metin)
+        # İlk okunabilen aday tabandır: skor 0 olsa da sayfa gerçekten
+        # okunmuştur, "iletişim sayfası okunamadı" denmez.
+        if not en_site or skor > en_skor:
+            en_metin, en_skor, en_site = metin, skor, aday
+            en_gercekler = okunan.get("gercekler") or []
+    if not en_site:
         return {"error": "'%s' için iletişim sayfası okunamadı."
                          % cozulen_ad}
-    okuma = ws.sayfa_oku(en_iyi)
-    if okuma.get("error"):
-        return {"error": "Sayfa okunamadı: %s" % okuma["error"]}
-    metin = okuma.get("result", "")
-    baslangic = metin[:6000]
-    telefonlar = []
-    for m in _SIRKET_TEL_RE.finditer(baslangic):
-        tel = re.sub(r"\s+", " ", m.group(0)).strip()
-        if tel not in telefonlar:
-            telefonlar.append(tel)
-    eposta = []
-    for m in _SIRKET_EPOSTA_RE.finditer(baslangic):
-        ad = m.group(0).strip().lower()
-        if ad not in eposta:
-            eposta.append(ad)
-    adresler = []
-    for satir in baslangic.splitlines():
-        satir = satir.strip()
-        if _sirket_adres_meti(satir) and satir not in adresler:
-            adresler.append(satir)
-        if len(adresler) >= 3:
-            break
-    m = re.search(r"vergi[^0-9]{0,40}(\d{10,11})", baslangic,
-                  re.IGNORECASE)
-    vergi_no = m.group(1) if m else ""
+
+    telefonlar, eposta, adresler, unvan, vergi_no = _sirket_alanlari(
+        en_metin[:6000], en_gercekler)
     sonuc = {
         "marka": cozulen_ad,
         "site": en_site,
-        "unvan": "",
-        "telefonlar": telefonlar[:3],
-        "eposta": eposta[:3],
+        "unvan": unvan,
+        "telefonlar": telefonlar,
+        "eposta": eposta,
         "adresler": adresler,
         "vergi_no": vergi_no,
-        "kaynak": en_iyi,
+        "kaynak": en_site,
         "eksik": [alan for alan, deger in (
             ("telefon", telefonlar), ("eposta", eposta),
             ("adres", adresler), ("vergi_no", vergi_no))

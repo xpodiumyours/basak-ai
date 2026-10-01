@@ -325,13 +325,99 @@ gösterilemiyor.
    Araç bunu **gizlemez**: servisin kendi `gosterim_adi`'nı, `aday_sayisi`'nı ve
    `adaylar` listesini döndürür — uyuşmazlık modelin gözünde görünür kalır. Koda
    benzerlik eşiği/regex süzgeci **yazılmadı** (kelime kuralı olurdu).
-2. **`sirket_ara` bugün adres üretmiyor.** 3 markada ölçüldü (Tutku: `eksik=["adres"]`,
-   Vestel: tüm iletişim alanları eksik, Kahve Dünyası: sayfa okunamadı) → canlı
-   "sirket_ara adresi → koordinat" zinciri bugün **kurulamadı**. Zincirin kendisi
-   `TestUctanUca` ile yapısal olarak kanıtlı, koordinat adımı ise yukarıdaki gerçek
-   adreslerle canlı kanıtlı. Adres üretmeyen hat Z2'nin gerekçesini zayıflatmaz,
-   tam tersine "adres metni ölü kalıyor" tespitini doğrular.
-- [ ] **T2.6** Commit.
+2. **`sirket_ara` adres üretmiyordu** (aşağıdaki düzeltme turunda kapatıldı; ölçüm:
+   3 markada `eksik` içinde `adres` vardı).
+
+---
+
+## FAZ 2.5 — GERÇEK KUSUR TURU (2026-10-01, Casper talebi)
+
+"Diğer fazlara geçmeden ortaya çıkan gerçek kusurları düzelt, MVP yamasıyla
+ilerlemeyelim." Bu bölüm, Z1 canlı ölçümünün çıkardığı kusurların kapanışıdır:
+kök neden → düzeltme → kanıt.
+
+### K1 — `sirket_ara` adresi HİÇ bulamıyordu (kök neden: yapısal veri yok sayılıyor)
+
+- **Ölçüm:** `tutkuelit.com.tr/iletisim` ham HTML'i 185.099 karakter; adres YALNIZ
+  JSON-LD `PostalAddress` içinde (`Musalla Bağları Mahallesi Sesigür Sokak No 30,
+  Selçuklu, Konya, TR`), aynı blokta `vatID` ve `telephone` de var. Kart yalnız düz
+  metne baktığı için `adres` ve `unvan` boş dönüyordu.
+- **İkinci kusur (aynı kök):** `sayfa_oku` sayfa metnini **tek dev satıra** indiriyor;
+  satır bazlı adres sezgisi gerçek çalışmada neredeyse hiç tetiklenemezdi. Testler
+  bunu görmedi çünkü sahte `sayfa_oku` çok satırlı sahte metin döndürüyordu (test ↔
+  gerçek boşluğu).
+- **Düzeltme:** `tools/web_search.py` → `kurum_sayfasi_oku` (tek indirme; metin +
+  schema.org `Organization/LocalBusiness` gerçekleri) + `_kurum_gercekleri` /
+  `_adres_alani`. Ölçümden gelen satır: blok etiketleri satır sonu, satır içi
+  etiketler boşluk → **satır yapısı korunur**. `urun_sayfasi_oku` ile **aynı korumalı
+  indirme** (`_ham_sayfa_getir`) paylaşılır; yeni SSRF savunması yazılmadı.
+- **`sirket_ara` sırası:** yapısal gerçekler önce, düz metin yedek. `vergi_no`
+  `vatID`ten rakam süzülerek (10/11 hane kuralı korunur), `unvan` `legalName`den.
+- **Kanıt (canlı, aynı marka):** `adresler = ["Musalla Bağları Mahallesi Sesigür
+  Sokak No 30, Selçuklu, Konya, TR"]`, `unvan = "HALİL YILDIRIM GIDA … LTD. ŞTİ"`,
+  `vergi_no = 4550047841`, `eksik = []` (öncesi: `eksik = ["adres"]`).
+
+### K2 — Hata sebebi yutuluyordu (sessiz bozulma)
+
+- **Ölçüm:** `lang=tr` Photon'da HTTP 400 üretiyordu; `_json_al` bunu "servise
+  ulasilamadi" diye yutuyor, birincil hat bozuk olduğu halde **yedeğe düşüyor** ve
+  kusur görünmüyordu.
+- **Düzeltme:** `_json_al` artık `HTTP 400 Bad Request` gibi sebebi döndürür;
+  `konum_coz` her çağrıda `denenen_hatlar` (hat, durum, aday sayısı / hata) döndürür;
+  hiçbir hat sonuç bulamazsa hata mesajı denenen hatları yazar.
+- **Kanıt:** `tests/test_harita_z1.py::TestDenenenHatlar` (HTTP 400 sebebi artık
+  yutulmuyor) + canlı hata metni: `Denenen hatlar: photon: 0 aday; open-meteo: 0 aday`.
+
+### K3 — Aynı sayfa iki kez indiriliyordu
+
+- Eski akış adayları okuduktan sonra **en iyi adayı ikinci kez** indiriyordu
+  (N+1 istek). Artık her aday bir kez okunur; metin ve gerçekler aynı okumadan gelir.
+- **Kanıt:** `TestSirketAra::test_bilinen_markada_iletisim_bulunur` → `len(cagrilar) ==
+  len(set(cagrilar))` + `TestSirketAraUctanUca`.
+
+### K4 — Skoru 0 olan sayfa "okunamadı" sayılıyordu
+
+- Anahtar kelime geçmeyen ama gerçekten okunan iletişim sayfası için
+  `"iletişim sayfası okunamadı"` dönüyordu. Artık **ilk okunabilen aday tabandır**.
+- **Kanıt:** `test_skor_sifir_olsa_da_sayfa_okunmus_sayilir`.
+
+### K5 — Adres sezgisi etiket ve kopya satır kabul ediyordu
+
+- **Ölçüm:** canlı çıktıda `adresler` içinde `"Adres"` (menü/başlık satırı) ve aynı
+  adresin iki yazımı vardı.
+- **Düzeltme (kelime kuralı değil, biçim kuralı):** adres satırı ≥10 karakter olmalı ve
+  **rakam** taşımalı (kapı/cadde numarası); aynı adresin iki kaynaktan yazımı ilk 25
+  harf/rakam anahtarıyla tek satıra iner.
+- **Kanıt:** `test_baslik_satiri_adres_sayilmaz`, `test_rakamsiz_adres_satiri_kabul_edilmez`,
+  `test_ayni_adres_iki_kaynaktan_tek_satira_iner`, `test_farkli_adresler_birlesmez`.
+
+### K6 — Ölü kod
+
+- `en_iyi, en_skor, en_site = adres if False else aday, skor, aday` satırı (her zaman
+  `aday` seçen, `adres` adını boş yere anan kod) K3 refactor'üyle kalktı.
+
+### Ölçülen kapasite sınırı — açık veri kapı numarasını bilmiyor
+
+| Sorgu biçimi | Photon | Nominatim |
+|---|---|---|
+| `Musalla Bağları Mahallesi Sesigür Sokak No 30, Selçuklu, Konya, TR` | **0 aday** | **0 aday** |
+| `Sesigür Sokak No 30, Konya` | 1 yanlış ülke adayı (Konya Sokak 30, Lefkoşa) | 0 aday |
+| `Musalla Bağları, Selçuklu, Konya` | **doğru** · 37.890234 / 32.498691 · `Musalla Bağları, Selçuklu/Konya, 42110, Türkiye` | ölçülmedi (aynı sokak sorgusunda 0) |
+
+**Karar:** sağlayıcı değiştirilmedi — Nominatim de aynı adreste 0 döndürdü, yani kusur
+Photon'a özel değil, **açık harita verisinin kapı-numarası kapsamı**. Sorguyu kodla
+"kısaltma" (kelime atma) yazılmadı: model zaten `konum_coz`'u daha basit bir yer adıyla
+çağırabilir ve sınır artık aracın açıklamasında + `denenen_hatlar` çıktısında yazıyor.
+
+### Gözlem (düzeltilmedi, kapsam dışı)
+
+`web_search.sayfa_oku` metni tek satıra indiriyor. Bu iş `sirket_ara` yolu için
+düzeltildi (`kurum_sayfasi_oku`); `sayfa_oku`nun model-görünür biçimini değiştirmek
+test kilitlerini ve diğer tüketicileri etkileyeceği için **bilinçli olarak** dokunulmadı.
+
+**FAZ 2.5 kanıt:** `tests/test_sirket_karti_yapisal.py` = **27 test**; `tests/test_harita_z1.py`
+30 → **39 test**; geniş koşu **1046 geçti / 19 atlandı** (FAZ 2 tabanı 1010 → **+36**);
+`ruff check .` yeşil.
 
 **Faz kapısı:** Bölüm D; ayrıca "uydurma koordinat yok" testi yeşil.
 

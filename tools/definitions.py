@@ -542,9 +542,15 @@ KONUM_COZ = _arac(
     "konum_coz",
     "Adres veya yer adini enlem/boylam koordinatina cevirir. Once Photon "
     "(OpenStreetMap), olmazsa Open-Meteo geocoding denenir. Doner: adres, "
-    "enlem, boylam, gosterim_adi, kaynak, aday_sayisi, adaylar. Hicbir hat "
-    "bulamazsa hata doner; koordinat uydurulmaz. Anahtar gerekmez; istek "
-    "SSRF denetiminden gecer.",
+    "enlem, boylam, gosterim_adi, kaynak, aday_sayisi, adaylar (her adayda "
+    "gosterim_adi, tip, osm_id, posta_kodu, ulke_kodu), denenen_hatlar "
+    "(her hattin durumu ve varsa hata sebebi). Photon bulanik eslestirir: "
+    "sorguyla birebir ortusmeyen aday da donebilir, hangi eslesmenin "
+    "alindigi aday listesinden gorulur. Ikisi de acik veri kullanir: kapı "
+    "numarasi seviyesindeki Turkiye adresleri cogu zaman bulunamaz, "
+    "mahalle/ilce seviyesi bulunur (2026-10-01 olcumu). Hicbir hat sonuc "
+    "bulamazsa hata doner ve hata mesaji denenen hatlari yazar; koordinat "
+    "uydurulmaz. Anahtar gerekmez; istek SSRF denetiminden gecer.",
     {"adres": {"type": "string",
                "description": "Adres veya yer adi (orn. Kadikoy Moda, "
                               "Istanbul)"}},
@@ -554,9 +560,11 @@ KONUM_COZ = _arac(
 SIRKET_ARA = _arac(
     "sirket_ara",
     "Markanın resmi sitesini ve iletişim/vergi bilgilerini arar; "
-    "JSON doner: marka, site, telefonlar, eposta, adresler, vergi_no, "
-    "kaynak, eksik. Bulunamayan alan eksik listesinde yazar; uydurma "
-    "yok. Salt-okunur: disk yazimi yok.",
+    "JSON doner: marka, site, unvan, telefonlar, eposta, adresler, "
+    "vergi_no, kaynak, eksik. Bilgiler once sayfanin schema.org "
+    "Organization/PostalAddress verisinden, eksik kalanlar duz "
+    "metinden okunur; bulunamayan alan eksik listesinde yazar ve "
+    "uydurma yok. Salt-okunur: disk yazimi yok.",
     {"marka": {"type": "string", "description": "Marka adı (örn. Tutku)"}},
     ["marka"],
 )

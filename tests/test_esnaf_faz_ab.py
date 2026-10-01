@@ -164,27 +164,38 @@ class TestSorulacaklar:
 
 
 class TestSirketAra:
+    """2026-10-01: okuma tek kez yapılır (kurum_sayfasi_oku) ve alanlar
+    önce schema.org gerçeklerinden, sonra düz metinden çıkarılır."""
+
     def _sahte_ag(self, monkeypatch):
+        cagrilar = []
+
         def web_search(sorgu):
             if "resmi site" in sorgu:
                 return {"result": "x\nhttps://ornek.com.tr/\nAciklama"}
             return {"result": ""}
 
-        def sayfa_oku(url):
+        def kurum_sayfasi_oku(url):
+            cagrilar.append(url)
             if url.endswith("/iletisim"):
-                return {"result": (
-                    "İletişim\n"
-                    "Adres: Organize Sanayi Bölgesi 5. Cad. No:12 Bursa\n"
-                    "Telefon: 0224 555 44 33\n"
-                    "Cep: 0532 111 22 33\n"
-                    "E-posta: info@ornek.com.tr\n"
-                    "Vergi No: 1234567890\n")}
+                return {"result": json.dumps({
+                    "url": url,
+                    "metin": (
+                        "İletişim\n"
+                        "Adres: Organize Sanayi Bölgesi 5. Cad. No:12 Bursa\n"
+                        "Telefon: 0224 555 44 33\n"
+                        "Cep: 0532 111 22 33\n"
+                        "E-posta: info@ornek.com.tr\n"
+                        "Vergi No: 1234567890\n"),
+                    "gercekler": [],
+                }, ensure_ascii=False)}
             return {"error": "yok"}
         monkeypatch.setattr(ws, "web_search", web_search)
-        monkeypatch.setattr(ws, "sayfa_oku", sayfa_oku)
+        monkeypatch.setattr(ws, "kurum_sayfasi_oku", kurum_sayfasi_oku)
+        return cagrilar
 
     def test_bilinen_markada_iletisim_bulunur(self, monkeypatch):
-        self._sahte_ag(monkeypatch)
+        cagrilar = self._sahte_ag(monkeypatch)
         r = calistir("sirket_ara", {"marka": "Tutku"})
         veri = json.loads(r["result"])
         assert veri["site"] == "https://tutkuelit.com.tr/iletisim"
@@ -192,16 +203,22 @@ class TestSirketAra:
         assert "info@ornek.com.tr" in veri["eposta"]
         assert veri["vergi_no"] == "1234567890"
         assert any("Organize Sanayi" in a for a in veri["adresler"])
+        # Aynı sayfa iki kez indirilmez (eski akış en iyi adayı tekrar okuyordu).
+        assert len(cagrilar) == len(set(cagrilar)), cagrilar
 
     def test_bilinmeyen_markada_arama_yolu(self, monkeypatch):
         def web_search(sorgu):
             return {"result": "x\nhttps://yeni.com/iletisim\nTel: satiri"}
 
-        def sayfa_oku(url):
-            return {"result": "Adres: Deneme Mah. 1. Sk. No:2\n"
-                              "Tel: 0212 111 22 33\na@yeni.com"}
+        def kurum_sayfasi_oku(url):
+            return {"result": json.dumps({
+                "url": url,
+                "metin": ("Adres: Deneme Mah. 1. Sk. No:2\n"
+                          "Tel: 0212 111 22 33\na@yeni.com"),
+                "gercekler": [],
+            }, ensure_ascii=False)}
         monkeypatch.setattr(ws, "web_search", web_search)
-        monkeypatch.setattr(ws, "sayfa_oku", sayfa_oku)
+        monkeypatch.setattr(ws, "kurum_sayfasi_oku", kurum_sayfasi_oku)
         r = calistir("sirket_ara", {"marka": "YeniMarka"})
         veri = json.loads(r["result"])
         assert veri["marka"] == "YeniMarka"

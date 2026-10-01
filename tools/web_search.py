@@ -1,4 +1,4 @@
-﻿"""tools/web_search.py — DuckDuckGo web araması ve sayfa okuma.
+"""tools/web_search.py — DuckDuckGo web araması ve sayfa okuma.
 
 Metin, haber, tarih filtreli, site-ici, gorsel ve kitap aramasi +
 sayfa okuma (standart + derin). Dis ag cikisi yalniz DuckDuckGo
@@ -810,21 +810,20 @@ def _jsonld_urun(ham):
     return urunler
 
 
-def urun_sayfasi_oku(url: str, _acici=None) -> dict:
-    """Bir urun aday sayfasini tek HTTP GET ile kanit paketine cevirir.
+def _ham_sayfa_getir(url, _acici=None):
+    """Korumali tek HTTP GET → (ham, son_url, None) ya da (None, None, hata).
 
-    Donus: metin + Schema.org Product/ProductGroup + urun gorselleri.
-    SSRF ve yonlendirme savunmasi sayfa_oku ile aynidir.
+    SSRF/yönlendirme savunması tek yerde kalsın diye sayfa okuyan
+    okuyucular bu yardımcıyı paylaşır; her okuyucu kendi savunmasını
+    yazmaz. `_acici` yalnız testler içindir.
     """
     if not url or not str(url).strip():
-        return {"error": "URL bos olamaz"}
+        return None, None, {"error": "URL bos olamaz"}
     url = str(url).strip()
     engel = _guvenli_adres(url)
     if engel:
-        return {"error": engel}
+        return None, None, {"error": engel}
     try:
-        import html as html_mod
-        from urllib.parse import urljoin
         req = urllib.request.Request(url, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Basak/1.0",
             "Accept": "text/html",
@@ -839,9 +838,31 @@ def urun_sayfasi_oku(url: str, _acici=None) -> dict:
             content_type = resp.headers.get("Content-Type", "")
             son_url = resp.geturl() if hasattr(resp, "geturl") else url
             if "text/html" not in content_type:
-                return {"error": "Desteklenen icerik tipi degil: %s"
-                                 % content_type}
+                return None, None, {
+                    "error": "Desteklenen icerik tipi degil: %s" % content_type}
             ham = resp.read(_MAX_HAM).decode("utf-8", errors="replace")
+        return ham, son_url, None
+    except urllib.error.HTTPError as e:
+        return None, None, {"error": "HTTP hatasi %d: %s" % (e.code, url)}
+    except urllib.error.URLError as e:
+        return None, None, {"error": "Baglanti hatasi: %s" % str(e.reason)}
+    except Exception as e:
+        logger.warning("Sayfa okuma hatasi: %s", e)
+        return None, None, {"error": "Sayfa okunamadi: %s" % str(e)}
+
+
+def urun_sayfasi_oku(url: str, _acici=None) -> dict:
+    """Bir urun aday sayfasini tek HTTP GET ile kanit paketine cevirir.
+
+    Donus: metin + Schema.org Product/ProductGroup + urun gorselleri.
+    SSRF ve yonlendirme savunmasi sayfa_oku ile aynidir.
+    """
+    ham, son_url, hata = _ham_sayfa_getir(url, _acici)
+    if hata:
+        return hata
+    try:
+        import html as html_mod
+        from urllib.parse import urljoin
 
         urunler = _jsonld_urun(ham)
         kurumlar = _jsonld_kurumlar(ham)
@@ -893,3 +914,136 @@ def urun_sayfasi_oku(url: str, _acici=None) -> dict:
     except Exception as e:
         logger.warning("Urun sayfasi okuma hatasi: %s", e)
         return {"error": "Urun sayfasi okunamadi: %s" % str(e)}
+
+
+# ── Şirket/kurum sayfası gerçekleri ───────────────────────────────
+# urun_sayfasi_oku ile aynı korumalı hattı paylaşır; farkı: Product
+# yerine Organization/LocalBusiness alanları (ad, resmî ad, adres,
+# telefon, e-posta, vergi no) olgu olarak çıkarılır. Değerler sayfada
+# yazdığı gibi kalır; hiçbir alan türetilmez, tamamlanmaz ya da tahmin
+# edilmez. Ölçüm (2026-10-01): modern siteler adresi yalnız JSON-LD
+# PostalAddress içinde verir; yalnız düz metne bakan çıkarım bunu
+# tamamen kaçırıyordu.
+
+_KURUM_TURLERI = (
+    "organization", "corporation", "localbusiness", "store", "onlinestore",
+    "professionalservice", "foodestablishment", "restaurant", "hairsalon",
+    "medicalorganization", "educationalorganization",
+)
+# Not: "website" BİLEREK yok — WebSite düğümü adres/ad/telefon taşımaz,
+# yalnız site adı taşır; gerçek kurum bilgisini gölgeler (ölçüldü).
+# Blok etiketleri satır sonu, satir içi etiketler boşluk olur: adres
+# satırları tek dev satıra yapışmasın (eski akışta yapışıyordu).
+_BLOK_ETIKET_RE = re.compile(
+    r"</?(?:br|p|div|li|tr|td|th|h[1-6]|section|article|header|footer|"
+    r"address|ul|ol|table|form|label|dl|dt|dd)\b[^>]*>",
+    re.IGNORECASE)
+
+
+def _duz_metin(deger):
+    """str|dict (name/@id/value) alanı düz metne çevirir."""
+    if isinstance(deger, dict):
+        deger = (deger.get("name") or deger.get("@id")
+                 or deger.get("value"))
+    return str(deger or "").strip()
+
+
+def _metin_listesi(deger):
+    """str|liste alanı tekilleştirilmiş düz metin listesine çevirir."""
+    deger = deger if isinstance(deger, list) else [deger]
+    sonuc = []
+    for x in deger:
+        x = _duz_metin(x)
+        if x and x not in sonuc:
+            sonuc.append(x)
+    return sonuc
+
+
+def _adres_alani(deger):
+    """Schema.org PostalAddress → {alan: değer} + okunur tek satır."""
+    if isinstance(deger, list):
+        deger = next((x for x in deger if isinstance(x, (dict, str))), None)
+    if isinstance(deger, str):
+        return {}, " ".join(deger.split())
+    if not isinstance(deger, dict):
+        return {}, ""
+    alanlar = {
+        "sokak": _duz_metin(deger.get("streetAddress")),
+        "yerlesim": _duz_metin(deger.get("addressLocality")),
+        "bolge": _duz_metin(deger.get("addressRegion")),
+        "posta_kodu": _duz_metin(deger.get("postalCode")),
+        "ulke": _duz_metin(deger.get("addressCountry")),
+    }
+    return alanlar, ", ".join(x for x in alanlar.values() if x)
+
+
+def _kurum_gercekleri(ham):
+    """Organization/LocalBusiness JSON-LD alanlarını olgu olarak çıkarır."""
+    import html as _html
+    sonuc = []
+    for parca in _JSONLD_RE.findall(ham or ""):
+        try:
+            veri = json.loads(_html.unescape(parca).strip())
+        except (TypeError, ValueError):
+            continue
+        for dugum in _jsonld_dugumleri(veri):
+            tur = dugum.get("@type")
+            turler = tur if isinstance(tur, list) else [tur]
+            if not any(str(t or "").lower() in _KURUM_TURLERI for t in turler):
+                continue
+            adres, adres_metni = _adres_alani(dugum.get("address"))
+            kayit = {
+                "tur": next((str(t) for t in turler if t), ""),
+                "ad": _duz_metin(dugum.get("name")),
+                "resmi_ad": _duz_metin(dugum.get("legalName")),
+                "url": _duz_metin(dugum.get("url") or dugum.get("@id")),
+                "telefonlar": _metin_listesi(dugum.get("telephone")),
+                "epostalar": _metin_listesi(dugum.get("email")),
+                "adres": adres,
+                "adres_metni": adres_metni,
+                "vergi_no": _duz_metin(dugum.get("vatID") or dugum.get("taxID")),
+            }
+            dolu = (kayit["ad"] or kayit["resmi_ad"] or kayit["url"]
+                    or kayit["telefonlar"] or kayit["epostalar"]
+                    or kayit["adres_metni"] or kayit["vergi_no"])
+            if dolu and kayit not in sonuc:
+                sonuc.append(kayit)
+            if len(sonuc) >= 20:
+                return sonuc
+    return sonuc
+
+
+def kurum_sayfasi_oku(url: str, _acici=None) -> dict:
+    """Şirket sayfasını TEK kez indirir; metin + schema.org gerçekleri.
+
+    Dönüş JSON: {"url", "metin", "gercekler"}. `gercekler` sayfadaki
+    Organization/LocalBusiness bloklarının olgularıdır; eksik alan boş
+    kalır. `metin` satır yapısını korur (blok etiketleri satır sonu olur).
+    SSRF ve yönlendirme savunması sayfa_oku ile aynıdır.
+    """
+    ham, son_url, hata = _ham_sayfa_getir(url, _acici)
+    if hata:
+        return hata
+    try:
+        import html as html_mod
+
+        temiz = re.sub(
+            r'<(script|style|noscript)[^>]*>.*?</\1>',
+            '', ham, flags=re.DOTALL | re.IGNORECASE)
+        temiz = re.sub(r'<(script|style|noscript)[^>]*>.*', '', temiz,
+                       flags=re.DOTALL | re.IGNORECASE)
+        temiz = re.sub(r'<!--.*?-->', '', temiz, flags=re.DOTALL)
+        temiz = _BLOK_ETIKET_RE.sub('\n', temiz)
+        temiz = re.sub(r'<[^>]+>', ' ', temiz)
+        temiz = html_mod.unescape(temiz)
+        satirlar = [re.sub(r"[ \t\u00a0]+", " ", s).strip()
+                    for s in temiz.splitlines()]
+        metin = "\n".join(s for s in satirlar if s)
+        return {"result": json.dumps({
+            "url": son_url,
+            "metin": metin[:_MAX_SAYFA],
+            "gercekler": _kurum_gercekleri(ham),
+        }, ensure_ascii=False)}
+    except Exception as e:
+        logger.warning("Kurum sayfasi okuma hatasi: %s", e)
+        return {"error": "Kurum sayfasi okunamadi: %s" % str(e)}

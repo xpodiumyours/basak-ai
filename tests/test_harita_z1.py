@@ -31,7 +31,8 @@ PHOTON_GOVDE = {
          "properties": {"name": "Moda", "street": "Moda Caddesi",
                         "district": "Kadikoy", "city": "Istanbul",
                         "country": "Turkiye", "osm_id": 123,
-                        "osm_value": "neighbourhood"}},
+                        "osm_value": "neighbourhood",
+                        "postcode": "34710", "countrycode": "TR"}},
         {"geometry": {"coordinates": [28.9784, 41.0082]},
          "properties": {"name": "Istanbul", "city": "Istanbul",
                         "country": "Turkiye"}},
@@ -41,7 +42,8 @@ PHOTON_GOVDE = {
 OPEN_METEO_GOVDE = {
     "results": [{"name": "Istanbul", "latitude": 41.01384,
                  "longitude": 28.94966, "admin1": "Istanbul",
-                 "country": "Turkiye"}],
+                 "country": "Turkiye", "country_code": "TR",
+                 "feature_code": "PPLA", "postcodes": ["34000"]}],
 }
 
 
@@ -162,6 +164,12 @@ class TestHataYollari:
         monkeypatch.setattr("tools.harita._json_al", hat)
         assert "error" in konum_coz("Istanbul")
 
+    def test_iki_hat_da_bossa_hata_ve_hatlar_yazilir(self, monkeypatch):
+        hat = SahteHat(photon={"features": []}, open_meteo=None)
+        monkeypatch.setattr("tools.harita._json_al", hat)
+        hata = konum_coz("Istanbul")["error"]
+        assert "open-meteo" in hata
+
     def test_aralik_disi_koordinat_kabul_edilmez(self, monkeypatch):
         """Bozuk servis yaniti (enlem 300) koordinat sayilmaz."""
         bozuk = {"features": [{"geometry": {"coordinates": [29.0, 300.0]},
@@ -234,6 +242,75 @@ class TestSsrfKorumasi:
     def test_gercek_adres_icin_denetim_engel_dondurmez(self):
         from tools.web_search import _guvenli_adres
         assert _guvenli_adres("https://photon.komoot.io/api/?q=Ankara") is None
+
+
+# ── Hat görünürlüğü: sessiz bozulma imkânsız ─────────────────────
+
+class TestDenenenHatlar:
+    """2026-10-01 dersi: `lang=tr` birincil hattı bozduğu halde hata
+    "servise ulasilamadi" diye yutuldu; kusur sessizce yedeğe düştü.
+    Artık her hattın durumu ve hata SEBEBİ çıktıda görünür."""
+
+    def test_basarili_hattaki_aday_sayisi_yazilir(self, sahte):
+        veri = _coz("Moda, Kadikoy")
+        assert veri["denenen_hatlar"] == [
+            {"kaynak": "photon", "durum": "ok", "aday_sayisi": 2}]
+
+    def test_yedek_hat_denendiyse_gerekcesi_gorunur(self, monkeypatch):
+        hat = SahteHat(photon=None)
+        monkeypatch.setattr("tools.harita._json_al", hat)
+        veri = _coz("Istanbul")
+        assert veri["denenen_hatlar"][0] == {
+            "kaynak": "photon", "durum": "hata",
+            "hata": "servise ulasilamadi"}
+        assert veri["denenen_hatlar"][1]["kaynak"] == "open-meteo"
+
+    def test_hata_mesaji_denenen_hatlari_soyler(self, monkeypatch):
+        hat = SahteHat(photon=None, open_meteo={"results": []})
+        monkeypatch.setattr("tools.harita._json_al", hat)
+        hata = konum_coz("zzz")["error"]
+        assert "photon" in hata and "open-meteo" in hata
+        assert "servise ulasilamadi" in hata
+
+    def test_http_hatasinin_sebebi_yutulmaz(self, monkeypatch):
+        """Canlı bulguyu kilitler: HTTP 400 artık gizlenmiyor."""
+        def patlat(*a, **k):
+            raise urllib.error.HTTPError(
+                "https://photon.komoot.io/api/", 400, "Bad Request", {}, None)
+        monkeypatch.setattr(urllib.request, "build_opener", patlat)
+        veri, hata = _json_al("https://photon.komoot.io/api/?q=Tuzla")
+        assert veri is None
+        assert hata.startswith("HTTP 400") and "Bad Request" in hata
+
+    def test_ssrf_engeli_de_hata_sebebi_olarak_doner(self):
+        _veri, hata = _json_al("http://127.0.0.1/ic")
+        assert "cozuldu" in hata
+
+
+class TestAdayZenginligi:
+    def test_photon_adayinda_posta_ve_ulke_kodu(self, sahte):
+        aday = _coz("Moda, Kadikoy")["adaylar"][0]
+        assert aday["posta_kodu"] == "34710"
+        assert aday["ulke_kodu"] == "TR"
+        assert aday["tip"] == "neighbourhood"
+
+    def test_iki_hat_ayni_sekli_dondurur(self, monkeypatch):
+        """Yedek hat da aday LİSTESİ döndürür (eskiden tek aday + boş
+        liste dönüyordu)."""
+        hat = SahteHat(photon=None)
+        monkeypatch.setattr("tools.harita._json_al", hat)
+        veri = _coz("Istanbul")
+        assert veri["kaynak"] == "open-meteo"
+        assert veri["aday_sayisi"] == len(veri["adaylar"]) == 1
+        assert veri["adaylar"][0]["ulke_kodu"] == "TR"
+        assert veri["adaylar"][0]["tip"] == "PPLA"
+        assert veri["adaylar"][0]["posta_kodu"] == "34000"
+
+    def test_yedek_hata_bes_aday_ister(self, monkeypatch):
+        hat = SahteHat(photon=None)
+        monkeypatch.setattr("tools.harita._json_al", hat)
+        _coz("Istanbul")
+        assert "count=5" in hat.adresler[1]
 
 
 # ── Dort yer (AGENTS.md §0) ───────────────────────────────────────

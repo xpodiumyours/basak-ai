@@ -10,10 +10,17 @@ anahtarsiz), olmazsa Open-Meteo geocoding. SSRF savunmasi YENIDEN YAZILMAZ:
 tools/web_search.py icindeki `_guvenli_adres` + `_GuvenliYonlendirme`
 kullanilir (her yonlendirme adimi yeniden denetlenir). Bulunamazsa hata
 doner; koordinat UYDURULMAZ.
+
+Her cagri `denenen_hatlar` alanini doner: hangi hat denendi, kac aday verdi
+ya da NEDEN basarisiz oldu. Bu alan 2026-10-01'de yasanan sessiz bozulmaya
+karsi eklendi: Photon'a gonderilen gecersiz `lang=tr` parametresi HTTP 400
+uretiyordu ve hata sebebi yutuldugu icin birincil hat bozuk oldugu halde
+aylarca gorunmedi.
 """
 
 import json
 import logging
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -84,12 +91,19 @@ PHOTON_TABANI = "https://photon.komoot.io/api/"
 _ZAMAN_ASIMI = 10
 _USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Basak/1.0"
 
+_HAT_PHOTON = "photon"
+_HAT_OPEN_METEO = "open-meteo"
+
 
 def _json_al(url):
     """Korumali tek GET; SSRF denetimi + yonlendirme denetimi uygular.
 
     Koruma tools/web_search.py'den cagrilir; burada yeni savunma yazilmaz.
     Donus: (veri, None) veya (None, hata_metni).
+
+    Hata metni artik SEBEBI tasir: 2026-10-01'de Photon `lang=tr` yuzunden
+    HTTP 400 dondururken hata "servise ulasilamadi" diye yutuldugu icin
+    birincil hattin bozuk oldugu aylarca gorunmedi.
     """
     from tools.web_search import _guvenli_adres, _GuvenliYonlendirme
 
@@ -105,9 +119,13 @@ def _json_al(url):
         })
         with opener.open(istek, timeout=_ZAMAN_ASIMI) as yanit:
             return json.loads(yanit.read().decode("utf-8")), None
+    except urllib.error.HTTPError as e:
+        logger.info("Konum servisi HTTP hatasi: %s", e)
+        return None, "HTTP %s %s" % (e.code, str(e.reason)[:60])
     except Exception as e:
         logger.info("Konum servisi okunamadi: %s", e)
-        return None, "servise ulasilamadi"
+        return None, "%s: %s" % (type(e).__name__,
+                                 str(getattr(e, "reason", e))[:80])
 
 
 def _sayi(deger):
@@ -140,17 +158,38 @@ def _gosterim_adi(ozellik):
     return ", ".join(parcalar)
 
 
+def _posta_kodu(kaynak_sozluk, anahtar):
+    """Posta kodu tek deger ya da liste gelebilir; metne indirir."""
+    deger = kaynak_sozluk.get(anahtar)
+    if isinstance(deger, list):
+        deger = deger[0] if deger else ""
+    return str(deger or "").strip()
+
+
+def _hat_kaydi(kaynak, adaylar=None, hata=None):
+    """Bir denenen hattin durum kaydi (olcum/teshis icin).
+
+    Basarili hatta aday sayisi, basarisiz hatta HATA SEBEBI yazilir; boylece
+    birincil hattin sessizce bozulmasi (2026-10-01 lang=tr olayi) bir daha
+    gorunmez kalmaz.
+    """
+    if hata:
+        return {"kaynak": kaynak, "durum": "hata", "hata": hata}
+    return {"kaynak": kaynak, "durum": "ok",
+            "aday_sayisi": len(adaylar or [])}
+
+
 def _photon_adaylari(adres):
-    """Photon aday listesi dondurur; basarisizsa/engelliyse None.
+    """Photon adaylari + bu hattin deneme kaydi.
 
     `lang` GONDERILMEZ: Photon yalniz de/en/fr/it kabul ediyor; lang=tr
     2026-10-01'de canli olculdu ve HTTP 400 dondurdu (tum birincil hat
     sessizce yedege dusuyordu). Dilsiz istek yerel adlari dondurur.
     """
     sorgu = urllib.parse.urlencode({"q": adres, "limit": 5})
-    veri, _hata = _json_al(PHOTON_TABANI + "?" + sorgu)
+    veri, hata = _json_al(PHOTON_TABANI + "?" + sorgu)
     if not isinstance(veri, dict):
-        return None
+        return [], _hat_kaydi(_HAT_PHOTON, hata=hata or "beklenmeyen yanit")
     adaylar = []
     for ozellik in (veri.get("features") or []):
         if not isinstance(ozellik, dict):
@@ -171,35 +210,62 @@ def _photon_adaylari(adres):
             "gosterim_adi": _gosterim_adi(oz) or adres,
             "osm_id": oz.get("osm_id"),
             "tip": oz.get("osm_value") or oz.get("type"),
+            "posta_kodu": str(oz.get("postcode") or "").strip(),
+            "ulke_kodu": str(oz.get("countrycode") or "").strip(),
         })
-    return adaylar or None
+    return adaylar, _hat_kaydi(_HAT_PHOTON, adaylar=adaylar)
 
 
-def _open_meteo_adayi(adres):
-    """Sehir seviyesi yedek hat; uc nokta hava.py'den alinir."""
+def _open_meteo_adaylari(adres):
+    """Sehir seviyesi yedek hat; uc nokta hava.py'den alinir.
+
+    Photon ile ayni bicimde bir ADAY LISTESI doner (eskiden tek aday
+    donuyordu); boylece model iki hatta da ayni sekli gorur.
+    """
     from tools import hava
 
     sorgu = urllib.parse.urlencode(
-        {"name": adres, "count": 1, "language": "tr", "format": "json"})
-    veri, _hata = _json_al(hava._GEOCODING + "?" + sorgu)
+        {"name": adres, "count": 5, "language": "tr", "format": "json"})
+    veri, hata = _json_al(hava._GEOCODING + "?" + sorgu)
     if not isinstance(veri, dict):
-        return None
-    sonuclar = veri.get("results") or []
-    if not sonuclar:
-        return None
-    ilk = sonuclar[0] or {}
-    enlem = _sayi(ilk.get("latitude"))
-    boylam = _sayi(ilk.get("longitude"))
-    if not _gecerli_koordinat(enlem, boylam):
-        return None
-    parcalar = [str(ilk.get("name") or adres).strip() or adres]
-    for anahtar in ("admin1", "country"):
-        deger = str(ilk.get(anahtar) or "").strip()
-        if deger and deger not in parcalar:
-            parcalar.append(deger)
-    return {"enlem": round(enlem, 6), "boylam": round(boylam, 6),
+        return [], _hat_kaydi(_HAT_OPEN_METEO,
+                              hata=hata or "beklenmeyen yanit")
+    adaylar = []
+    for ilk in (veri.get("results") or []):
+        if not isinstance(ilk, dict):
+            continue
+        enlem = _sayi(ilk.get("latitude"))
+        boylam = _sayi(ilk.get("longitude"))
+        if not _gecerli_koordinat(enlem, boylam):
+            continue
+        parcalar = [str(ilk.get("name") or adres).strip() or adres]
+        for anahtar in ("admin1", "country"):
+            deger = str(ilk.get(anahtar) or "").strip()
+            if deger and deger not in parcalar:
+                parcalar.append(deger)
+        adaylar.append({
+            "enlem": round(enlem, 6),
+            "boylam": round(boylam, 6),
             "gosterim_adi": ", ".join(parcalar),
-            "osm_id": None, "tip": None}
+            "osm_id": None,
+            "tip": str(ilk.get("feature_code") or "").strip() or None,
+            "posta_kodu": _posta_kodu(ilk, "postcodes"),
+            "ulke_kodu": str(ilk.get("country_code") or "").strip(),
+        })
+    return adaylar, _hat_kaydi(_HAT_OPEN_METEO, adaylar=adaylar)
+
+
+def _deneme_ozeti(denenen):
+    """Hata mesajina hatlarin durumunu kisa metin olarak ekler."""
+    parcalar = []
+    for k in denenen or ():
+        if k.get("durum") == "ok":
+            parcalar.append("%s: %d aday" % (k.get("kaynak"),
+                                              k.get("aday_sayisi") or 0))
+        else:
+            parcalar.append("%s: %s" % (k.get("kaynak"),
+                                         k.get("hata") or "basarisiz"))
+    return "; ".join(parcalar)
 
 
 def konum_coz(adres):
@@ -209,7 +275,9 @@ def konum_coz(adres):
     Open-Meteo geocoding (sehir seviyesi).
 
     Donus: {"result": JSON} — adres, enlem, boylam, gosterim_adi, kaynak,
-    aday_sayisi, adaylar. Hicbir hat bulamazsa {"error": ...} doner;
+    aday_sayisi, adaylar (gosterim_adi, tip, osm_id, posta_kodu, ulke_kodu),
+    denenen_hatlar (her hattin durumu ve hata sebebi). Hicbir hat sonuc
+    bulamazsa {"error": ...} doner ve hata mesaji denenen hatlari soyler;
     koordinat UYDURULMAZ.
     """
     temiz = _konum_temizle(adres)
@@ -219,29 +287,29 @@ def konum_coz(adres):
         return {"error": "Adres çok uzun (en fazla %d karakter)."
                          % KONUM_TAVANI}
 
-    adaylar = _photon_adaylari(temiz)
-    if adaylar:
-        en_iyi = adaylar[0]
-        return {"result": _j({
-            "adres": temiz,
-            "enlem": en_iyi["enlem"],
-            "boylam": en_iyi["boylam"],
-            "gosterim_adi": en_iyi["gosterim_adi"],
-            "kaynak": "photon",
-            "aday_sayisi": len(adaylar),
-            "adaylar": adaylar,
-        })}
+    denenen = []
+    adaylar, kayit = _photon_adaylari(temiz)
+    denenen.append(kayit)
+    kaynak = _HAT_PHOTON if adaylar else ""
 
-    yedek = _open_meteo_adayi(temiz)
-    if yedek:
-        return {"result": _j({
-            "adres": temiz,
-            "enlem": yedek["enlem"],
-            "boylam": yedek["boylam"],
-            "gosterim_adi": yedek["gosterim_adi"],
-            "kaynak": "open-meteo",
-            "aday_sayisi": 1,
-            "adaylar": [],
-        })}
+    if not adaylar:
+        adaylar, kayit = _open_meteo_adaylari(temiz)
+        denenen.append(kayit)
+        if adaylar:
+            kaynak = _HAT_OPEN_METEO
 
-    return {"error": "Konum bulunamadı: '%s'." % temiz}
+    if not adaylar:
+        return {"error": "Konum bulunamadı: '%s'. Denenen hatlar: %s"
+                         % (temiz, _deneme_ozeti(denenen))}
+
+    en_iyi = adaylar[0]
+    return {"result": _j({
+        "adres": temiz,
+        "enlem": en_iyi["enlem"],
+        "boylam": en_iyi["boylam"],
+        "gosterim_adi": en_iyi["gosterim_adi"],
+        "kaynak": kaynak,
+        "aday_sayisi": len(adaylar),
+        "adaylar": adaylar,
+        "denenen_hatlar": denenen,
+    })}
