@@ -466,6 +466,59 @@ test kilitlerini ve diğer tüketicileri etkileyeceği için **bilinçli olarak*
 `zzz bilinmeyen marka zzz` → `dogrulandi: false`, alanlar boş, `not` okunan adayı söylüyor
 (arama bu sorguda devlet sitesini getirdi — eskiden o sayfanın verisi "kart" olurdu).
 
+### K10 — `web_search` "No results found" (kök neden ölçüldü, kapatıldı)
+
+**Kök neden (ölçüm, 2026-10-01):** `"No results found."` metni `ddgs`
+paketinin kendisinden gelir (`ddgs/ddgs.py`, `_search_sync` son satırı).
+Motorlar tek turda `ThreadPoolExecutor` ile paralel koşar ve
+`wait(..., FIRST_EXCEPTION)` **erken döner**; bir motor hata verdiğinde o
+turda bekleyen başarılı motorların sonuçları toplanmadan istisna
+yükseltilebiliyor. Motor bazında tek tek ölçüm (aynı sorgu):
+
+| Motor | HTTP | Sonuç |
+|---|---|---|
+| brave | **429** | yok |
+| duckduckgo | **202** (bot koruması) | yok |
+| google | **429** (`/sorry/index`) | yok |
+| mojeek | **403** | yok |
+| startpage / grokipedia / wikipedia | 200 | 0 sonuç (arama motoru değil) |
+| **yahoo** | 200 | **tek çalışan motor** |
+
+`backend="auto"` ile aynı sorgu 6 turun **1'inde** tamamen boş döndü →
+kusur kod dışında **sağlayıcı-taraflı ve dalgalı**. Üstelik `auto` ilk
+sıraya `wikipedia`/`grokipedia`'yı koyuyor; ikisi de yalnız
+typeahead/opensearch döndürdüğü için çalışan motorlardan iş parçacığı
+çalıyordu. Bizim kod ise istisnayı `"Arama yapılamadı: No results found."`
+tek satırına indiriyordu — **gerçek sebep (HTTP kodu) kayboluyordu**.
+
+**Düzeltme (`tools/web_search.py`, tek nokta):** 5 ayrı `DDGS(timeout=5)`
+bloğu tek `_arama_kos(kategori, çağrı)` koşucusuna toplandı:
+
+1. **Tur tekrarı** (`_ARAMA_DENEMESI=3`, taban bekleme 0.4 s): motorlar her
+turda yeniden karıldığı için dalgalı hatalar yutulur.
+2. **Motor daraltma:** ilk tur `auto`; tekrar turlarında yalnız gerçek arama
+motorları (`_GERCEK_MOTORLAR`; `wikipedia`/`grokipedia` dışarıda).
+3. **Sebep taşıma:** `_MotorGunlugu` (alt katman `primp` günlüğü) HTTP
+kodlarını toplar; hata artık
+`Arama yapılamadı: 3 denemede sonuç alınamadı (… HTTP 403; … HTTP 429)`.
+Günlük biçimi değişirse liste boş kalır, arama etkilenmez; yakalayıcı
+`finally` ile logger'dan sökülür.
+4. **Doğru "boş" ayrımı:** çağrı istisnasız döndüyse eski
+`"Sonuç bulunamadı"` metni korunur; yalnız istisnalı turlarda hata döner.
+
+**Kanıt:** `tests/test_arama_dayaniklilik.py` = **18 test** (tekrar, motor
+daraltma, sebep taşıma, günlük sızıntısı, kategori motorları);
+`test_web_araclari.py` kilit testi yeni sözleşmeye güncellendi
+(`DDGS(timeout=_ARAMA_ZAMAN_ASIMI)` tek yerde, `_arama_kos(` ≥ 5 çağrı).
+Geniş koşu **1058 → 1076 geçti / 19 atlandı**; `ruff check .` yeşil.
+**Canlı (2026-10-01, aynı sorgu):** önce `auto` 6 turun 1'i boş; sonra tam
+hat **8/8 OK** (7 sonuç bloğu). Anlamsız sorguda hata metni
+`Arama yapılamadı: 3 denemede sonuç alınamadı (grokipedia.com HTTP 200;
+tr.wikipedia.org HTTP 200; www.mojeek.com HTTP 403; search.yahoo.com HTTP 200;
+www.startpage.com HTTP 200; search.brave.com HTTP 429)` — eskiden yalnız
+`No results found.` idi. SSRF savunması (`_engelli_ip_nedeni`,
+`_guvenli_adres`, `_GuvenliYonlendirme`) **dokunulmadı**.
+
 **Faz kapısı:** Bölüm D; ayrıca "uydurma koordinat yok" testi yeşil.
 
 ---
