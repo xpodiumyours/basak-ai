@@ -295,12 +295,18 @@ def _handoff_anahtari(kid):
 
     kok = kullanici_modulu.env_anahtari()
     if not kok:
-        if not _preview_mi():
-            raise RuntimeError("handoff imzasi icin sunucu anahtari yok")
-        # Preview kimliği 128-bit rastgele, HttpOnly çerezde ve kullanıcıya
-        # tam değeri gösterilmez. Stateless preview çağrıları aynı anahtarı
-        # bu kimlikten yeniden türetebilir.
-        kok = "preview:" + str(kid)
+        if _preview_mi():
+            # Preview kimliği 128-bit rastgele, HttpOnly çerezde ve kullanıcıya
+            # tam değeri gösterilmez. Stateless preview çağrıları aynı anahtarı
+            # bu kimlikten yeniden türetebilir.
+            kok = "preview:" + str(kid)
+        else:
+            # Üretimde ortam anahtarı zorunludur: kullanici._anahtar() orada
+            # RuntimeError fırlatır, fail-closed korunur. Yerelde ise dosyada
+            # bir kez üretilen oturum anahtarı kullanılır; aksi halde yerel
+            # web sohbeti (uvicorn app:app) her mesajda 503'e düşerdi —
+            # 2026-10-01 ölçüldü.
+            kok = kullanici_modulu._anahtar().decode("utf-8")
     alan = ("basak-p2-handoff-v1:" + str(kid)).encode("utf-8")
     return hmac.new(kok.encode("utf-8"), alan, hashlib.sha256).digest()
 
