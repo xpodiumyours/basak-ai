@@ -25,7 +25,7 @@ def _sar(func, ad):
             try:
                 print("Tepsi '%s' yapılamadı: %s" % (ad, e), flush=True)
             except Exception:
-                pass
+                logger.debug("konsola yazilamadi", exc_info=True)
     return _kos
 
 
@@ -62,7 +62,7 @@ def baslat(goster_cb, gizle_cb, cikis_cb):
     try:
         print("Tepsi ikonu başlatıldı.", flush=True)
     except Exception:
-        pass
+        logger.debug("konsola yazilamadi", exc_info=True)
 
 
 def durdur():
@@ -76,5 +76,5 @@ def durdur():
             try:
                 print("Tepsi durdurulamadı: %s" % e, flush=True)
             except Exception:
-                pass
+                logger.debug("konsola yazilamadi", exc_info=True)
         _icon = None

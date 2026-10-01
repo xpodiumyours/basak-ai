@@ -74,7 +74,8 @@ def saglik_raporu(audit_yolu=None, saat=24):
             giris, _GROQ_GUNLUK_JETON,
             min(99, int(giris * 100 / _GROQ_GUNLUK_JETON))))
     except Exception:
-        pass
+        # Token sayaci okunamadi; rapor bu satiri atlar.
+        logger.debug("groq jeton sayaci okunamadi", exc_info=True)
     hatalar = _hata_ozeti(audit_yolu or audit_dosyasi())
     if hatalar:
         cikti.append("Hata dagilimi: " + ", ".join(

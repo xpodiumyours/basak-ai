@@ -32,6 +32,21 @@ hiz_before.txt
 hiz_after.txt
 hiz_*.err
 
+# Kapsam olcumu ciktilari (2026-10-01): her kosuda yeniden uretilir,
+# icerik degismez; CI artifact'i olmalilari icin repoya girmez.
+.coverage
+.coverage.*
+data/kapasite-raporu.json
+coverage.xml
+htmlcov/
+
+# Gecikme olcumu ciktisi (2026-10-01): her kosuda yeniden uretilir.
+data/gecikme-raporu.json
+data/sirket-ara-kirilim.json
+data/sirket-ara-erken-cikis.json
+data/erken-cikis-dondurulmus.json
+data/marka-ekleri-veri.json
+
 # Probe/arsiv kosesi (denetim 2026-08-24): gecici deneme ve log dosyalari
 # buraya tasinir; kok dizin temiz kalir. Takip edilmez.
 probe/

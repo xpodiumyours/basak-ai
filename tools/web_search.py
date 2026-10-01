@@ -551,20 +551,13 @@ def _sayfa_oku_genis(
 
     url = url.strip()
 
-    # URL encode: Turkce/harf disi karakterleri HTTP yolunda encode et
-    # Python http.client ASCII olmayan yollarda UnicodeEncodeError firlatir
-    try:
-        from urllib.parse import urlparse as _urlparse, quote as _quote
-        _k = _urlparse(url)
-        if _k.path:
-            _yeni_path = _quote(_k.path, safe="/:@!$&'()*+,;=-._~")
-            url = f"{_k.scheme}://{_k.netloc}{_yeni_path}"
-            if _k.query:
-                url += f"?{_k.query}"
-            if _k.fragment:
-                url += f"#{_k.fragment}"
-    except Exception:
-        pass  # Encode edilemezse orijinal URL ile devam et
+    # ASCII olmayan yol/alan adi HTTP'de patlar
+    # ("'ascii' codec can't encode character"). Duzeltme TEK yerde:
+    # `_url_kodla` (asagida). Once burada satir ici kodlama vardi;
+    # 2026-10-01'de `_ham_sayfa_getir` yolunda ayni hata olcülunce
+    # iki kopya tek yardimciya toplandi. Kopya birakmak ayni hatayi
+    # yarida bir daha yapmaktir.
+    url = _url_kodla(url)
 
     # SSRF denetimi: semantik + port + cozulen IP'ler
     engel = _guvenli_adres(url)
@@ -694,7 +687,7 @@ def adres_kontrol(url: str) -> dict:
 
     if not url or not str(url).strip():
         return {"error": "URL bos olamaz"}
-    url = str(url).strip()
+    url = _url_kodla(str(url).strip())
 
     engel = _guvenli_adres(url)
     if engel:
@@ -768,7 +761,7 @@ def sayfa_gorseller(url: str, _acici=None) -> dict:
     """
     if not url or not str(url).strip():
         return {"error": "URL bos olamaz"}
-    url = str(url).strip()
+    url = _url_kodla(str(url).strip())
 
     engel = _guvenli_adres(url)
     if engel:
@@ -939,6 +932,11 @@ def _ham_sayfa_getir(url, _acici=None):
     if not url or not str(url).strip():
         return None, None, {"error": "URL bos olamaz"}
     url = str(url).strip()
+    # 2026-10-01: burada kodlama YOKTU; `sayfa_oku` yolunda vardı.
+    # Sonuç: `sirket_ara` aday yolları Türkçe karakter içerdiğinde
+    # (".../tedarikçi-iletişim") Request kurulurken
+    # UnicodeEncodeError patlıyor ve sayfa sessizce düşüyordu.
+    url = _url_kodla(url)
     engel = _guvenli_adres(url)
     if engel:
         return None, None, {"error": engel}
@@ -1057,6 +1055,51 @@ _BLOK_ETIKET_RE = re.compile(
     r"</?(?:br|p|div|li|tr|td|th|h[1-6]|section|article|header|footer|"
     r"address|ul|ol|table|form|label|dl|dt|dd)\b[^>]*>",
     re.IGNORECASE)
+
+
+def _url_kodla(url):
+    """URL'yi HTTP'ye gidebilir hale getirir (IDNA + yol/sorgu kodlama).
+
+    2026-10-01: `urllib` ASCII olmayan yolda `UnicodeEncodeError`
+    fırlatır. Düzeltme ilk kez `sayfa_oku`'na eklendi; sonra ölçümde
+    görüldü ki `kurum_sayfasi_oku` / `adres_kontrol` yolları da aynı
+    hatayı veriyor. Bu yüzden yardımcı TEK YERDE ve her çağrı yolu
+    onu çağırır.
+
+    Ölçülen iki hata:
+      1. `quote()` `%` işaretini de kodlar → önceden kodlanmış URL
+         çift kodlanıp 404 veriyordu (`/wiki/Ba%C5%9Fak`).
+      2. Yalnız PATH kodlanıyordu; sorgu ve alan adı ham kalıyordu.
+    """
+    if not url:
+        return url
+    try:
+        from urllib.parse import urlparse as _up, quote as _q
+        # `%` güvenli: önceden kodlanmış karakterlere dokunulmaz.
+        _GUVENLI = "/:@!$&'()*+,;=-._~%"
+        _k = _up(url)
+        if not (_k.scheme and _k.netloc):
+            return url
+        _netloc = _k.netloc
+        try:
+            _netloc = _k.netloc.encode("idna").decode("ascii")
+        except (UnicodeError, ValueError):
+            _netloc = _k.netloc
+        if "@" in _netloc:
+            _kullanici, _sunucu = _netloc.rsplit("@", 1)
+            _netloc = "%s@%s" % (_kullanici, _sunucu)
+        yeni = "%s://%s%s" % (_k.scheme, _netloc,
+                              _q(_k.path, safe=_GUVENLI) if _k.path else "")
+        if _k.query:
+            yeni += "?" + _q(_k.query, safe=_GUVENLI + "=")
+        if _k.fragment:
+            yeni += "#" + _q(_k.fragment, safe=_GUVENLI)
+        return yeni
+    except Exception:
+        # Kodlanamayan URL: ham hâli döner, çağıran yol zaten hata
+        # döndürür. Burada tekrar patlamak anlam taşımaz.
+        logger.debug("URL kodlanamadi: %s", str(url)[:120], exc_info=True)
+        return url
 
 
 def _duz_metin(deger):

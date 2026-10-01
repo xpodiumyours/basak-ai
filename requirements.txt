@@ -54,3 +54,6 @@ python-telegram-bot==22.8; sys_platform == "win32"
 
 # ── Test ───────────────────────────────────────────────────────────
 pytest==9.1.1; sys_platform == "win32"
+# Kapsam olcum kapisi (2026-10-01): CI'da taban olarak kosar.
+# pytest==9.1.1 ile ayni ortamda calistigi olculdu.
+pytest-cov==7.1.0; sys_platform == "win32"

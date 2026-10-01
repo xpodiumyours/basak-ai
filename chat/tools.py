@@ -171,6 +171,78 @@ def _kaynaklari_cikar(tool_name, args, net):
     return sonuc
 
 
+# ── Z2 harita olayı (D4b = B onaylı) ─────────────────────────────────
+_HARITA_ARACLARI = ("harita_goster", "konum_coz")
+# Atif metni ODbL uyumlulugu icin ingilizce resmi bicim.
+_HARITA_ATFI = "© OpenStreetMap contributors"
+# Bu kaynaklar OSM turevi coğrafi kodlama verisidir (Nominatim/Photon).
+# Open-Meteo coğrafi kodu OSM verisi DEĞİLDİR; onda atif yazılmaz.
+_OSM_TUREV_KAYNAKLAR = frozenset(("photon",))
+MOD_ARAMA = "ara"
+
+
+def _harita_sonuc(ham):
+    """harita_goster / konum_coz sonucunu JSON sozlugu olarak cozer.
+
+    Iki arac da {"result": "<json>"} doner; hata yolunda {"error": ...}.
+    Bozuk/olmayan girdi bos sozluk doner — uydurma alan YAZILMAZ.
+    """
+    metin = ham.get("result") if isinstance(ham, dict) else None
+    if not isinstance(metin, str):
+        return {}
+    try:
+        veri = json.loads(metin)
+    except (TypeError, ValueError):
+        return {}
+    return veri if isinstance(veri, dict) else {}
+
+
+def _harita_olayi(tool_name, ham):
+    """Z0/Z1 arac sonucundan harita olayi uretir; gosterilecek veri yoksa None.
+
+    D4b = B: gomulu karo YOK. web/ yalniz Z0'in baglantisini ve Z1'in
+    koordinatini gosterir; "Haritada ac" dugmesi kullaniciyi Google
+    Maps'e goturur. Karo yuklenmedigi icin web/ gizlilik sozu ve KVKK
+    envanteri DEGISMEZ (tests/test_web_gizlilik_beyani.py).
+
+    Koordinattan baglanti gerekiyorsa ayni testli URL kurucusu
+    (harita_goster) kullanilir; JS tarafinda ikinci bir URL bilgisi
+    olmaz. Atif yalniz OSM turevi kaynaktan gelen koordinatta gider:
+    gosterilen verinin gercek kaynagini yazmak, olmayan atif ya da
+    olmayan kaynagin atfini eklemekten dogru.
+    """
+    if tool_name not in _HARITA_ARACLARI or not isinstance(ham, dict):
+        return None
+    veri = _harita_sonuc(ham)
+    if not veri:
+        return None
+
+    baglanti = str(veri.get("baglanti") or "").strip()
+    enlem = veri.get("enlem")
+    boylam = veri.get("boylam")
+    if not baglanti and enlem is None and boylam is None:
+        return None
+    if not baglanti and enlem is not None and boylam is not None:
+        # Z1 yalniz koordinat dondurur; baglanti ayni kurucudan turetilir.
+        from tools.harita import harita_goster
+        baglanti = str(
+            _harita_sonuc(
+                harita_goster(konum="%s, %s" % (enlem, boylam),
+                              mod=MOD_ARAMA)
+            ).get("baglanti") or ""
+        ).strip()
+    kaynak = str(veri.get("kaynak") or "").strip().lower()
+    return {
+        "baglanti": baglanti,
+        "enlem": enlem,
+        "boylam": boylam,
+        "gosterim_adi": str(
+            veri.get("gosterim_adi") or veri.get("konum") or "").strip(),
+        "atf": _HARITA_ATFI if (enlem is not None
+                                and kaynak in _OSM_TUREV_KAYNAKLAR) else "",
+    }
+
+
 def sonucu_donustur(sonuc):
     """Araç dönüşünü modele verilecek düz metne çevirir.
 
@@ -412,6 +484,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 _arg_anahtar = str(args or {})
             _tekrar_anahtar = ad + "|" + _arg_anahtar
             _once = _tekrar.get(_tekrar_anahtar)
+            ham = None
             if _once and int(_once.get("adet") or 0) >= 2:
                 net = (
                     "Hata: ayni arac, ayni arguman ve ayni sonuc tekrar "
@@ -423,7 +496,8 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                     tekrar=int(_once.get("adet") or 0) + 1,
                 )
             else:
-                net = sonucu_donustur(calistir(ad, args))
+                ham = calistir(ad, args)
+                net = sonucu_donustur(ham)
                 basarili = not net.startswith("Hata:")
                 if _once and _once.get("sonuc") == net:
                     _tekrar[_tekrar_anahtar] = {
@@ -466,6 +540,12 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                             _url, tool=ad, call_id=cagri_id
                         )
                         emit_run_state(js_callback, run_state)
+                # Z2: web/ yuzeyi Z0 baglantisini + Z1 koordinatini gosterir.
+                _harita = _harita_olayi(ad, ham)
+                if _harita:
+                    _web_olay(
+                        js_callback, "harita", tool_id=cagri_id, **_harita,
+                    )
             tur_sonuclari.append((ad, net, cagri_id))
             if basarili:
                 kosan += 1

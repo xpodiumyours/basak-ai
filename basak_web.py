@@ -113,7 +113,9 @@ class _OlayAyiklayici:
                         "cevap": parca[0],
                         "kaynak": parca[1] if len(parca) > 1 else ""})
         except Exception:
-            pass
+            # Cekirdegin urettigi kod satiri cozulemedi: bu tur icin atlanir,
+            # akis bir sonraki satirda devam eder. Iz birakilir.
+            logger.debug("UI kodu cozulemedi: %r", kod[:120], exc_info=True)
 
 
 def _ayar(anahtar, varsayilan=None):
@@ -202,7 +204,9 @@ class _Kopru(BaseHTTPRequestHandler):
         try:
             self.wfile.write(govde)
         except (BrokenPipeError, ConnectionAbortedError):
-            pass
+            # Istemci sekmeyi kapatti / baglanti koptu. Sunucu tarafinda
+            # yapilacak bir sey yok; gürültü olmasin diye iz seviyesinde.
+            logger.debug("istemci baglantisi koptu (govde yazilamadi)")
 
     def _token_ok(self):
         # Gecerli IMZALI oturum cerezi varsa token tekrar sorulmaz:
@@ -286,7 +290,7 @@ class _Kopru(BaseHTTPRequestHandler):
         try:
             self.wfile.write(govde)
         except (BrokenPipeError, ConnectionAbortedError):
-            pass
+            logger.debug("istemci baglantisi koptu (giris cevabinda)")
 
     def _cikis_yap(self):
         import kullanici as kullanici_modulu
@@ -303,7 +307,7 @@ class _Kopru(BaseHTTPRequestHandler):
         try:
             self.wfile.write(govde)
         except (BrokenPipeError, ConnectionAbortedError):
-            pass
+            logger.debug("istemci baglantisi koptu (cikis cevabinda)")
 
     def _govde_olustur(self, veri):
         return json.dumps(veri, ensure_ascii=False).encode("utf-8")
@@ -405,7 +409,8 @@ class _Kopru(BaseHTTPRequestHandler):
             try:
                 ctx.kaydet(ctx.gecmis_yolu(), [])
             except OSError:
-                pass
+                logger.warning("gecmis dosyasi temizlenemedi: %s",
+                               exc_info=True)
             self._gonder(200, {"ok": True, "oturum": sid})
             return
         if yol != "/api/sohbet":
@@ -564,7 +569,8 @@ def main():
     try:
         sunucu.serve_forever()
     except KeyboardInterrupt:
-        pass
+        # Ctrl-C normal kapanis yolu.
+        print("Basak web koprusu kapatildi.")
 
 
 if __name__ == "__main__":

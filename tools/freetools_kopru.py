@@ -126,7 +126,11 @@ def _adres_denetle(adres):
         if engel:
             return engel
     except Exception:
-        pass  # savunma modulu yuklenemezse adrestdetimi adiyla devam
+        # Savunma modulu yuklenemedigi icin yalnizca alan adi adiyla
+        # devam ediliyor. Bu bir guvenlik acigi olabilir; ustelik sessiz
+        # olmamali — en azindan gorunur olmali.
+        logger.warning("SSRF kontrolu yuklenemedi, alan adi adiyla "
+                       "devam: %s", adres, exc_info=True)
     return None
 
 
@@ -170,7 +174,8 @@ def _tarayici_kos(adres, form):
             if m and m.strip():
                 return m
         except Exception:
-            pass
+            # Bu cozumleyici calismadi; asagidaki locator'lara dusulur.
+            logger.debug("icerik JS cozucusu calismadi", exc_info=True)
         for k in ("main", "body"):
             try:
                 m = sayfa.locator(k).first.inner_text(timeout=1500)
@@ -278,7 +283,10 @@ def _tarayici_kos(adres, form):
                             submit.click(timeout=3000)
                             basildi = True
                     except Exception:
-                        pass
+                        # Gonder dugmesi bulunamadi/tiklanamadi; asagida
+                        # aday adresler denenir.
+                        logger.debug("gonder dugmesi tiklanamadi",
+                                     exc_info=True)
                 if not basildi:
                     hedef = None
                     for _i, d, tl in adaylar:

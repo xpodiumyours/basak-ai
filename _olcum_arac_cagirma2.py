@@ -8,8 +8,12 @@ Kosum (elle, kota harcar):
 """
 
 import json
+import logging
 import sys
 import time
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.WARNING)
 
 sys.path.insert(0, ".")
 
@@ -45,7 +49,8 @@ def main():
         try:
             ctx.kaydet(ctx.gecmis_yolu(), [])
         except OSError:
-            pass
+            logger.warning("gecmis temizlenemedi: %s", ctx.gecmis_yolu(),
+                           exc_info=True)
 
         olaylar = []
         t0 = time.time()
@@ -58,14 +63,16 @@ def main():
                 try:
                     metin = json.loads("[%s]" % metin)[0]
                 except Exception:
-                    pass
+                    logger.debug("metin cozulemedi: %r", metin[:80],
+                                 exc_info=True)
                 _olaylar.append(str(metin))
             elif kod.startswith("BasakUI.error("):
                 metin = kod[len("BasakUI.error("):-1]
                 try:
                     metin = json.loads("[%s]" % metin)[0]
                 except Exception:
-                    pass
+                    logger.debug("metin cozulemedi: %r", metin[:80],
+                                 exc_info=True)
                 _olaylar.append("ERROR: " + str(metin))
             elif kod.startswith("BasakUI.bitir("):
                 _olaylar.append("BITTI")
