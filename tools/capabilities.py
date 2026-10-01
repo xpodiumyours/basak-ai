@@ -1,6 +1,6 @@
 """Basak gercek capability registry metadata'si.
 
-55 gercek arac icin tek runtime kaynak tools.definitions.TOOLS'tur.
+56 gercek arac icin tek runtime kaynak tools.definitions.TOOLS'tur.
 Namespace'ler kullanici metnini SINIFLANDIRMAZ; modelin yetenek_ac ile
 sectigi alan adini gercek arac semalarina ceviren katalogdur.
 """

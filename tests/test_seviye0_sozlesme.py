@@ -159,21 +159,21 @@ def test_55_arac_uchalida_birebir():
     kaynak = open("tools/__init__.py", encoding="utf-8").read()
     dallar = set(re.findall(r"tool_name == \"([a-z_]+)\"", kaynak))
 
-    assert len(sema) == 55
-    assert len(TANINMIS_TOOLLAR) == 55
+    assert len(sema) == 56
+    assert len(TANINMIS_TOOLLAR) == 56
     assert sema == dallar, ("sema/dal farki", sema ^ dallar)
     eksik_etiket = sema - set(DURUM_METNI)
     assert not eksik_etiket, ("etiketsiz arac", eksik_etiket)
 
 
-def test_yetenek_katalogu_55_gercek_araci_kapsar():
+def test_yetenek_katalogu_56_gercek_araci_kapsar():
     from tools.definitions import TOOLS
     from tools.capabilities import CAPABILITY_NAMESPACES
 
     gercek = {t["function"]["name"] for t in TOOLS}
     katalog = {ad for grup in CAPABILITY_NAMESPACES.values() for ad in grup}
     assert katalog == gercek
-    assert len(katalog) == 55
+    assert len(katalog) == 56
 
 
 def test_katalog_daki_her_arac_gercekten_kosabilir():
@@ -393,13 +393,13 @@ def test_matris_kosucu_pilot_listesi_sekiz_arac_gercek_sema_es():
         assert arac in kosucu.SEMALAR, "%s semasi yok" % arac
 
 
-def test_matris_kosucu_55_semaya_bagli_tek_kaynak():
+def test_matris_kosucu_56_semaya_bagli_tek_kaynak():
     """Koşucunun sema kaynagi tools.TOOLS'in kendisi — kopya tablo yok."""
     from tests.live import kosucu
     from tools import TANINMIS_TOOLLAR
 
     assert set(kosucu.SEMALAR.keys()) == set(TANINMIS_TOOLLAR)
-    assert len(kosucu.SEMALAR) == 55
+    assert len(kosucu.SEMALAR) == 56
 
 
 def test_matris_kosucu_hucre_kaydi_yapisi(tmp_path, monkeypatch):
@@ -537,7 +537,7 @@ def test_matris_kapsami_elde_anahtari_olan_yedi_saglayici():
     assert matris_kosucu.KAPSAM == (
         "groq", "gemini", "kilo", "nvidia", "glm", "openrouter",
         "mistral")
-    assert len(matris_kosucu.KAPSAM) * 55 == 385     # 7x55=385 (eski 7x53=371, daha eski 7x52=364)
+    assert len(matris_kosucu.KAPSAM) * 56 == 392     # 7x56=392 (eski 7x55=385, daha eski 7x53=371)
     assert "cloudflare" not in matris_kosucu.KAPSAM
     assert "cohere" not in matris_kosucu.KAPSAM
     beklenen = tuple(ad for ad in registry.VARSAYILAN_SIRA

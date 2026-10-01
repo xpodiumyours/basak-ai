@@ -1,7 +1,7 @@
 # Başak
 
 Windows üzerinde çalışan, Türkçe konuşan kişisel yapay zeka asistanı.
-Masaüstü arayüzü (Jarvis tarzı), kalıcı hafıza, 55 araç, sesli giriş/çıkış
+Masaüstü arayüzü (Jarvis tarzı), kalıcı hafıza, 56 araç, sesli giriş/çıkış
 ve fatura fotoğrafından satış kataloğu üreten bir hat içerir.
 
 > **Bu dosya 2026-09-19'da yazıldı.** O güne kadar README yoktu; projeye
@@ -137,7 +137,7 @@ basak_app.py          masaüstü pencere + JS köprüsü (pywebview)
 │   ├── secici.py     sıra kararı (registry sırasını korur, oyun kurmaz)
 │   ├── yayin.py      akan cevap (streaming) + araç isteği
 │   └── adapters/     her sağlayıcı için ince adaptör
-├── tools/            55 araç (şema + çalıştırma dalı)
+├── tools/            56 araç (şema + çalıştırma dalı)
 ├── memory/           SQLite hafıza motoru
 ├── voice/            Piper TTS + Whisper STT + konuşmacı tanıma
 ├── data/             çalışma verisi (git dışı): fatura, katalog, audit
@@ -197,12 +197,14 @@ gerekçesiyle birlikte yorumda belirt.
 
 ## 6. Araçlar
 
-`tools/definitions.py` → `TOOLS` listesi (55 araç). Her aracın üç yeri
-vardır ve üçü birden yapılmazsa araç **sessizce ölü kalır**:
+`tools/definitions.py` → `TOOLS` listesi (56 araç). Her aracın **dört yeri**
+vardır ve dördü birden yapılmazsa araç **sessizce ölü kalır** (AGENTS.md §0):
 
 1. `tools/definitions.py` — modele sunulan şema
 2. `tools/__init__.py` → `calistir()` — çalıştırma dalı
-3. `chat/tools.py` → `DURUM_METNI` — ekranda görünen durum etiketi
+3. `chat/agent_protocol.py` → `YETENEK_ALANLARI` + `ALAN_ACIKLAMALARI` —
+   modelin keşfedebileceği yetenek alanı
+4. `chat/tools.py` → `DURUM_METNI` — ekranda görünen durum etiketi
 
 Kontrol komutu (şema ↔ dal uyumu):
 

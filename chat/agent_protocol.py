@@ -19,7 +19,7 @@ from chat.agent_runtime import AGENT_CONTRACT as AJAN_SOZLESMESI  # noqa: F401
 
 YETENEK_AC_ADI = "yetenek_ac"
 
-# 55 gercek arac tek ve benzersiz bir yetenek alaninda yer alir. Bu tablo
+# 56 gercek arac tek ve benzersiz bir yetenek alaninda yer alir. Bu tablo
 # kullanici metnini yorumlamaz; yalniz modelin sectigi alan adini gercek
 # arac semalarina ceviren katalogdur.
 YETENEK_ALANLARI = {
@@ -28,6 +28,7 @@ YETENEK_ALANLARI = {
         "gorsel_ara", "kitap_ara", "sirket_ara", "hava_durumu",
     ),
     "internet_oku": ("derin_oku", "sayfa_oku", "adres_kontrol"),
+    "harita": ("harita_goster",),
     "dosyalar": (
         "read_file", "list_files", "belge_ara", "dosya_bilgi",
         "icerik_ara", "write_file_tool",
@@ -63,6 +64,7 @@ ALAN_ACIKLAMALARI = {
                     "hava durumu aramasi",
     "internet_oku": "bilinen bir URL'nin sayfasini okuma veya adresin canli "
                     "olup olmadigini kontrol",
+    "harita": "adres/yer icin harita baglantisi ve yol tarifi",
     "dosyalar": "bilgisayardaki dosya/klasor ve proje icerigi; knowledge yazma",
     "projeler": "Git, GitHub, CI, test ve proje hat sagligi",
     "gorevler": "yerel gorevler, hatirlatmalar ve cihazdan dogrulanan su "

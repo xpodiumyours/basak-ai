@@ -1,4 +1,4 @@
-"""tools — Başak'ın araçları. Elli üç tane.
+"""tools — Başak'ın araçları. Elli altı tane.
 
 2026-09-13: 21 araçlık katman söküldü; Casper'in seçtikleri geri geldi.
 Okuyanlar serbesttir. Etkisi olanlar dardir: dosya yazma yalniz
@@ -361,6 +361,11 @@ def calistir(tool_name, args):
         if tool_name == "hava_durumu":
             from tools import hava
             return hava.hava_durumu(str(args.get("sehir", "")))
+
+        if tool_name == "harita_goster":
+            from tools import harita
+            return harita.harita_goster(str(args.get("konum", "")),
+                                        str(args.get("mod", "") or "yol"))
 
         if tool_name == "freetools_ara":
             from tools import freetools_katalog
