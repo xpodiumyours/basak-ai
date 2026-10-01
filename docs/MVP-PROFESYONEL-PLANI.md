@@ -27,12 +27,12 @@ teslim edilebilir anlaşma ilgisi.
 | HTTP ucu (`app.py`) | 17 |
 | `except …:` → sessiz `pass` | **59 → 0** (AST ölçümü; 2026-10-01'de kapatıldı) |
 | Bağımlılık | 19 paket, **tamamı `==` sabitli** |
-| Kapsam ölçümü | **pytest-cov YOK** — hiç ölçülmüyor |
+| Kapsam ölçümü | **pytest-cov kuruldu** — genel **%80**, üretim **%68,7**, masaüstü katmanı hariç **%73,5** |
 | Tekrarlanabilir kurulum | Dockerfile/Procfile **yok** |
 | Production davranışı | **`main`'e merge = otomatik production deploy** (ölçüldü: merge 09:33:19Z → deploy 09:33:49Z) |
 | CI sağlayıcı kabulü | `test.yml:96` → **ölü dal** (`preview/fatura-goz-cerrahi-20260927`); **hiç koşmuyor** |
 | Canlı kabul paketi | `tests/live/` = 19 test, `--live` kapısı arkasında, CI klasörü tümüyle yok sayıyor |
-| Kural belgesi | `CANLI-KAPISI.md` **3 dosyada anılıyor, dosya yok** |
+| Kural belgesi | `CANLI-KAPISI.md` **yazıldı** (2026-10-01) |
 
 **1F+3E açıklaması:** `tests/test_path_guvenligi.py` — Linux'ta normal
 taban (`cmd` yok, `normcase` yok). CI `windows-latest` ile koşar;
@@ -98,17 +98,28 @@ sorusuyla uçtan uca koşmuş bir sohbet kaydımız yok.
   test de kayıttır.
 - [ ] **P0.3** `docs/BIRLIKTE-TEST-SENARYOLARI.md:88`'deki **10 maddelik
   konuşma listesi** koşulsun. 8'i otomatize, 2'si gözle.
-- [ ] **P0.4** `CANLI-KAPISI.md` **yaz** (3 dosya ona atıf yapıyor, dosya
-  yok). İçerik: `--live` kuralı, neyin canlı sayıldığı, neden kapı var.
-- [ ] **P0.5** Oturum anahtarı maddesini kapat: `BASAK_OTURUM_ANAHTARI`
-  mı `BASAK_WEB_TOKEN` mı üretimde imzalıyor — **yazılı olarak belirle**
-  (ölçüm: imzalı çerez üretildi, yani biri tanımlı; hangisi belirsiz).
-- [ ] **P0.6** Ekran görüntülerine **göz at**: `_z2_kanit/z2_masaustu.png`,
-  `z2_mobil.png`. Bugün DOM ölçümü var, gözle inceleme yok.
-- [ ] **P0.7** `docs/FAZ5-YAYIN-PLANI.md`'ye **"merge = production deploy"**
-  kuralını yaz. Bu belge "ayrı `vercel --prod` adımı" diyordu; ölçüm
-  gösterdi ki adım yok, merge'in **23 saniye** sonrası deploy oluyor.
-  Kapı yerine `vercel --prod` değil, **merge öncesi kontrol** konur.
+- [x] **P0.4** `CANLI-KAPISI.md` **yazıldı** (2026-10-01). 4 dosyanın
+  atıf yaptığı eksik kural belgesi: `--live` mekanizması, 19 atlanan
+  testin dağılımı, kapının dört **ölçülmüş** sebebi, CI'daki **ölü dal
+  koşulu** (`test.yml:96`) kaydı ve “ne sayılır / ne koşulmaz” sınırı.
+- [x] **P0.5** **Ölçüldü, sınır yazıldı.** Canlıda `POST /api/kimlik` →
+  **200** + imzalı çerez (`u9976591660579896`) ⇒ üretimde **en az biri**
+  tanımlı. *Hangisi* tanımlı **dışarıdan ayırt edilemiyor**:
+  `kullanici.py:181` ikisini de kabul ediyor (`BASAK_OTURUM_ANAHTARI`
+  öncelikli, yoksa `BASAK_WEB_TOKEN`) ve imza aynı anahtarla atılıyor.
+  Kesin belirleme **Vercel panelindeki env listesine** bakmayı gerektirir;
+  bu turda panel erişimi yok. Uydurma değil, ölçülen sınır.
+- [ ] **P0.6** Ekran görüntülerine **göz at**: `_z2_kanit/z2_masaustu.png`
+  (1100×900), `z2_mobil.png` (390×780). DOM ölçümü var, **gözle
+  inceleme yok** — bu ajan görüntü okuyamıyor, dosya boyutu ölçüldü
+  ama içerik incelenmedi. **Casper'ın gözüne veya yeni bir turda
+  görüntü okuyan bir adıma kalmıştır.**
+- [x] **P0.7** `docs/FAZ5-YAYIN-PLANI.md` **düzeltildi** (2026-10-01).
+  Belge “ajan `vercel --prod` calistirir, 1 deploy” diyordu; bu adım
+  **yok**. Ölçüm: PR #20 merge `8067205` **09:33:19Z** → production
+  deployment **09:33:49Z** (**30 saniye**). Kapı “deploy” değil,
+  **merge öncesi kontrol**; geri alma da `revert merge` veya Vercel
+  promote. Belgenin 1., 2. ve 5. maddeleri buna göre yeniden yazıldı.
 
 **Faz kapısı:** P0.1–P0.6 tamam; P0.7 yazılı. Kanıt: koşu raporu +
 10 maddenin sonucu + iki ekran görüntüsü.
@@ -117,11 +128,49 @@ sorusuyla uçtan uca koşmuş bir sohbet kaydımız yok.
 
 ### P1 — ÖLÇÜLEBİLİRLİK
 
-- [ ] **P1.1** `pytest-cov` **önce var mı doğrulanır** (AGENTS.md §5:
-  var olmayan paket kurulmaz), sonra kurulur. Kapsam tabanı ölçülür
-  ve **CI'a taban olarak girer**; yeni kod tabanı düşürürse kırmızı.
-- [ ] **P1.2** Kapsam **boşluğu raporu** çıkar: hangi modül en az
-  ölçülüyor. Yeni test yazımı sırası bu rapora göre yapılır.
+- [x] **P1.1** `pytest-cov` **önce var mı doğrulanır** (AGENTS.md §5) —
+  **yoktu** (`pip show pytest-cov` → bulunamadı). Kuruldu: `pytest-cov==7.1.0`
+  + `coverage==7.16.2`, `requirements.txt`'e `==` sabitli eklendi.
+  `.coveragerc` yazıldı (neyin ölçülüp neyin ölçülmediği tanımlı).
+  **Taban ölçüldü ve CI'a girdi:** `--cov-fail-under=60`
+  (`test.yml`). Dürüst sınır: ölçüm **bu Linux sandbox'ında** yapıldı
+  (11.454 ifade, **%69** dal ölçümüyle); CI `windows-latest`'te
+  `sounddevice`/`pywebview` kurulu olduğu için orada daha **yüksek**
+  çıkacak. 60 tabanı kasıtlı olarak aşağıda — ölçülmemiş bir sayıyı
+  kapı yapmıyoruz.
+
+  **Ölçülen kapsam (2026-10-01, `pytest tests --ignore=tests/live`):**
+
+  | Kapsam | Sonuç |
+  |---|---|
+  | Genel (testler dahil) | **%80** |
+  | **Üretim kodu** (testler/probeler hariç) | **%68,7** |
+  | Masaüstü katmanı hariç (sunucu + çekirdek) | **%73,5** |
+
+  Genel %80 rakamı **şişkindir**: içine test dosyalarının kendi kapsamı
+  ve kurulu olmayan `voice/` modülleri giriyor. **CI kapısı üretim
+  tabanına yakın 60'dır.**
+- [x] **P1.2** **Boşluk raporu çıkarıldı** (aynı ölçümden, aşağıda).
+  Hiç ölçülmemiş (%0) **18 modül / 1.398 satır** — bunların çoğu bu
+  ortamda kurulu olmayan masaüstü bağımlılıkları; yeni test yazımı
+  sırası aşağıdaki tabloya göre yapılır.
+
+  | Modül | Satır | Kapsam | Durum |
+  |---|---|---|---|
+  | `voice/speaker_id.py` | 130 | **%0** | `sounddevice` kurulu değil |
+  | `voice/speaker_db.py` | 92 | **%0** | aynı |
+  | `voice/stt.py` | 78 | **%0** | aynı |
+  | `voice/tts.py` | 66 | **%9** | aynı |
+  | `tray.py` | 45 | **%0** | `pystray` yok |
+  | `basak_app.py` | 350 | **%0** | `pywebview` yok — **en büyük boşluk** |
+  | `tools/image_analyzer.py` | 206 | %49 | model yolu canlı gerektiriyor |
+  | `tools/freetools_kopru.py` | 236 | %49 | Chromium + canlı ağ |
+  | `tools/olcum.py` | 207 | %58 | `gh` + git ağacı gerektiren yollar |
+  | `tools/reminders.py` | 180 | %49 | zamanlayıcı arka plan işi |
+
+  **Yorum (ölçülmüş):** Boşluğun çoğu **eksik paketten** değil,
+  **canlı bağımlılıktan** geliyor. Bu yüzden yeni test yazmadan önce
+  satır sayısı değil, **hangi davranışın kanıtlanmadığı** sorulmalı.
 - [x] **P1.3** **Sessiz yutma = 0** (2026-10-01 kapandı). AST ölçümü
   (grep değil): **59 → 0**. Kural tek cümle: *bir `except` bloğu yalnız
   `pass` içeremez* — ya `logger` izi bırakır ya da akışı düzeltir.
@@ -158,8 +207,9 @@ sorusuyla uçtan uca koşmuş bir sohbet kaydımız yok.
   `konum_coz`, `sirket_ara` süreleri. Tavan **koyulmaz** — yalnız
   ölçülür ve sapma varsa kovulur (AGENTS.md §0: tavan geri gelmez).
 
-**Faz kapısı:** Sayısal kapsam tabanı CI'da; **sessiz yutma 0**
-(ölçüldü, teste kilitli); gecikme tablosu belgeli.
+**Faz kapısı:** Sayısal kapsam tabanı CI'da ✅ (`--cov-fail-under=60`);
+**sessiz yutma 0** ✅ (ölçüldü, teste kilitli); boşluk raporu ✅;
+gecikme tablosu ⏳ (P1.4 açık).
 
 ---
 
@@ -287,6 +337,29 @@ yazmadan "geri alabiliriz" denmeyecek.**
   `RuntimeError` (test izolasyonu sessizce bozuluyordu).
   Kural teste kilitlendi: `tests/test_sessiz_yutma.py` (5 test;
   sayaç gerçekten çalıştığını kurgusal örneklerle kanıtlıyor).
+- **2026-10-01 (P0.4/P0.5/P0.7 + P1.1/P1.2)**
+  - **P0.4:** `CANLI-KAPISI.md` yazıldı — 4 dosyanın atıf yaptığı eksik
+    kural belgesi. Ölü dal koşulu (`test.yml:96`) belgeye yazıldı.
+  - **P0.5:** canlıda `POST /api/kimlik` → 200 + imzalı çerez ölçüldü
+    ⇒ en az bir anahtar tanımlı. Hangisi olduğu **dışarıdan
+    ayırt edilemiyor** (`kullanici.py:181` ikisini de kabul ediyor,
+    imza aynı). Panel erişimi olmadığı için kesin belirleme yapılamadı
+    — **tahmin yazılmadı.**
+  - **P0.6:** **AÇIK.** Görüntülerin boyutu ölçüldü (1100×900,
+    390×780) ama **içerik gözle incelenmedi** — bu ajan görüntü
+    okuyamıyor. Dosyalar bu yüzden repoya da girmedi (repodan hiç
+    görsel izlenmiyor, tutarlılık için).
+  - **P0.7:** `FAZ5-YAYIN-PLANI.md` düzeltildi. “Ayrı `vercel --prod`
+    adımı” **yok** — merge otomatik production deploy tetikler
+    (ölçüm: merge 09:33:19Z → deploy 09:33:49Z). Kapı **merge öncesi
+    kontrol** oldu.
+  - **P1.1:** `pytest-cov` **yoktu** (doğrulandı), kuruldu
+    (`==7.1.0`). Taban ölçüldü ve CI'a girdi (`--cov-fail-under=60`).
+    Genel %80 / **üretim %68,7** / masaüstü hariç **%73,5**.
+  - **P1.2:** boşluk raporu: **18 modül / 1.398 satır %0**. En büyüğü
+    `basak_app.py` (350 satır) — `pywebview` kurulu olmadığı için
+    ölçülemiyor. Boşluğun çoğu **eksik paketten**, canlı
+    bağımlılıktan geliyor.
 - **P0 kapısı geçmeden bu belge "profesyonel" sayılmaz.** MVP kanıtı
   eksik: gerçek modelle, gerçek kullanıcı sorusuyla, uçtan uca koşmuş
   sohbet kaydı **yok**.

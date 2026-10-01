@@ -1,0 +1,38 @@
+# Kapsam ölçümü — .coveragerc (2026-10-01)
+#
+# NEDEN AYRI DOSYA: kapsam tabanı CI'da kırmızıya dönebilecek tek
+# sayısal kapı. Neyin ÖLÇÜLDÜĞÜ burada tanımlıdır ki "taban %80" ifadesi
+# anlamsızlaşmasın (ölçüm: genel %80, üretim %68,7 — aradaki fark
+# test dosyalarının kendi kapsamı).
+#
+# OLCULEN: kok .py dosyalari + brain/ chat/ memory/ tools/ voice/
+# OLCULMEYEN: tests/ (testler kendi kapsamini olcer, bize faydasi yok),
+#             _arsiv/, kok probeleri (_olcum_*.py, _z2_kanit.py,
+#             hiz_olcum.py), gecici dosyalar.
+#
+# SATIR KAPSAMI: coverage.py "satir" der; burada da ayni. Bir modulun
+# icinde hangi satirin hic denenmedigi ayrica raporda gorunur
+# (data/kapasite-raporu.json).
+
+[run]
+branch = True
+source =
+    .
+omit =
+        */tests/*
+        */_arsiv/*
+        */__pycache__/*
+        _olcum_*.py
+        _z2_kanit.py
+        hiz_olcum.py
+        test_*.py
+        testkos.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:
+    raise NotImplementedError
+    if __name__ == .__main__.:
+show_missing = True
+skip_empty = True

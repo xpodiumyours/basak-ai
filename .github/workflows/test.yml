@@ -86,7 +86,11 @@ jobs:
           # Gercek ag/kota kullanan testler tests/live/ altindadir ve
           # asagida haric tutulur (--live kapisi gerekir).
           PYTHONWARNINGS: ignore
-        run: python -m pytest tests -q --ignore=tests/live
+        run: >-
+          python -m pytest tests -q --ignore=tests/live
+          --cov --cov-report=term:skip-covered
+          --cov-report=json:data/kapasite-raporu.json
+          --cov-fail-under=60
 
 
   provider-acceptance:
