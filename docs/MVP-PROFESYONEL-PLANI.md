@@ -435,12 +435,13 @@ yazmadan "geri alabiliriz" denmeyecek.**
   (`_sirket_ara_kirilim.py`): asıl maliyet aday sayfaların **sıralı**
   okunmasıydı (%44) ve `firma_bul`'un iki paralel aramasıydı.
 
-  **İki daraltma DENENDİ ve REDDEDİLDİ — ölçüm güvenli olmadığını gösterdi:**
-  - **Erken çıkış** (`uyuyor=True` ve gerçek varsa dur): 3 markadan
-    **1'inde kartı bozdu** — Trendyol'da `kimin.net.tr` seçildi ve
-    `dogrulandi=false` düştü. Uygulanmadı.
+  **İki daraltma DENENDİ ve REDDEDİLDİ:**
   - **Tek aramaya düşürme:** iki sorgu neredeyse **ayrı** host getiriyor
     (kesişim 1/6). Atılırsa kapsam daralırdı. Uygulanmadı.
+  - **Erken çıkış:** ölçümde 3 markadan 1'inde kart değişmiş görünüyordu
+    — **ama bu ölçüm hatasıydı** (farklı aday listeleri karşılaştırılmış).
+    Dondurulmuş liste ile tekrar ölçüldü: kart aynı. **Karar geçersiz;
+    bu daraltma yeniden değerlendirilebilir.**
 
   **Uygulanan:** aday sayfalar **3 iş parçacığıyla paralel** okunuyor.
   Kontrollü ölçüm: sıralı **6,101 sn → 2,749 sn (%55)**. Sıra ve kart
@@ -449,6 +450,42 @@ yazmadan "geri alabiliriz" denmeyecek.**
   `skor`). **Daraltma yapılmadı** — aday sayısı (3 site × 2 yol) ve arama
   sayısı aynen korundu.
   10 yeni test (`tests/test_sirket_ara_paralel.py`), 99 katalog testi yeşil.
+  → **Düzeltme kaydı:** bu işin erken çıkış gerekçesinde geçen
+  “kimin.net.tr Trendyol sanıldı” tespiti **sonradan yanlış çıktı**;
+  ayrıntılı ölçüm aşağıdaki kayıtta.
+- **2026-10-01 (Trendyol / kimin.net.tr araştırması)** Soru: erken çıkış
+  denemesinde `kimin.net.tr` Trendyol seçildi — neden? Ölçülen cevap:
+  **çünkü o sayfa aslında "ait" sayılmıyor.** Canlı sayfa 3 kez okundu,
+  `_host_markaya_uyuyor` ve `_sayfa_markaya_ait` her seferinde `False`
+  döndü (sayfanın tek gerçek bloğu `{"ad": "myblog"}`).
+
+  **Önceki kayıt YANLIŞTI ve düzeltildi.** “Erken çıkış kartı bozdu”
+  iddiası bir **karşılaştırma hatasından** kaynaklanıyordu: prob her
+  koşuda `firma_bul`'u yeniden çağırıyordu, arama sonuçları koşular
+  arası değiştiği için iki koşu **farklı aday listeleriyle** çalışmıştı.
+  Dondurulmuş liste ile tekrar ölçüldü → kart **AYNI**. Yani “erken
+  çıkış güvenli değil” kararı **geçersiz** bir ölçüme dayanıyordu.
+
+  **Gerçek bulgu — `_host_markaya_uyuyor` alt dize karşılaştırması:**
+  `anahtar in etiket_anahtar` yüzünden markayı **herhangi bir yerinde**
+  geçen host eşleşiyor. Ölçülen yanlış pozitifler:
+  `trendyol-korsan.com`, `vestel-isyeri.com`, `milyontrendyol.com`.
+  Bu, sahte marka sitelerinin “markaya ait” sayılması demek.
+
+  **Düzeltme denendi ve GERİ ALINDI** — üç kuralın üçü de bir meşru
+  eşleşmeyi kırdı. Kök neden: `_norm` ayraçları (`.`, `-`, `://`)
+  siliyor, `tutku` ⊂ `tutkuelit` ile `vestel` ⊂ `vestelisyeri` **tek
+  birer token** oluyor; ikisi de aynı dize kalıbında. Kalıcı çözüm
+  tokenları ayıran bir Türkçe marka ekleri sözlüğü ister — tek oturumda
+  uydurulmaz. **Kod değiştirilmedi.**
+
+  Ayrıca ölçülen ikinci davranış: JSON-LD bloğunda `ad`/`url` **boşsa**
+  blok “başkasının” denenmiyor ve sayfa **fail-open** olarak “ait”
+  sayılıyor. Kayda geçti, değiştirilmedi.
+
+  28 test (`tests/test_marka_ait_olcumu.py`) bulguları kilitliyor;
+  yanlış pozitifler **kasıtlı olarak bugünkü haliyle** testte sabitlendi
+  ki kural değişirse bilinçli karar verilsin.
 - **P0 kapısı geçmeden bu belge "profesyonel" sayılmaz.** MVP kanıtı
   eksik: gerçek modelle, gerçek kullanıcı sorusuyla, uçtan uca koşmuş
   sohbet kaydı **yok**.
