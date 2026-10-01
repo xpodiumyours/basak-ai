@@ -85,3 +85,43 @@ def test_yabanci_kisi_kaydi_listeye_sizmaz(monkeypatch, tmp_path):
         d = c.get("/api/sohbetler").json()
     assert d["ok"] is True
     assert d["liste"] == []
+
+
+def test_api_yeni_aktif_oturumu_rotate_eder(monkeypatch, tmp_path):
+    """/api/yeni bos OK degil: eski oturumu arsivler, yenisini baslatir.
+
+    Sozlesme koprulle ayni: {ok: true, oturum: <yeni sid>}. Onceki test
+    durumunda bu uc no-op'tu — tum kayitlar tek dosyada birikiyordu
+    (denetim bulgusu: /api/sohbetler hep bos liste donuyordu).
+    """
+    _yerel_kur(monkeypatch, tmp_path)
+    with TestClient(app_modulu.app) as c:
+        assert c.get("/api/sohbetler").json()["liste"] == []
+
+        kimlik.kullanici_kur(KIMLIK)
+        try:
+            eski_sid = oturum.kaydet_cift("ilk soru", "ilk cevap")
+        finally:
+            kimlik.kullanici_kur(kimlik.VARSAYILAN_KULLANICI)
+
+        r = c.post("/api/yeni")
+        assert r.status_code == 200
+        d = r.json()
+        assert d["ok"] is True
+        yeni_sid = d["oturum"]
+        assert re.fullmatch(r"[0-9a-f]{8}", yeni_sid)
+        assert yeni_sid != eski_sid
+
+        kimlik.kullanici_kur(KIMLIK)
+        try:
+            ikinci_sid = oturum.kaydet_cift("ikinci soru", "ikinci cevap")
+        finally:
+            kimlik.kullanici_kur(kimlik.VARSAYILAN_KULLANICI)
+        assert ikinci_sid == yeni_sid
+
+        liste = c.get("/api/sohbetler").json()["liste"]
+        # Eski oturum arsivde, yeni oturum listede: iki ayri kayit.
+        assert len(liste) == 2
+        ids = {k["id"] for k in liste}
+        assert ids == {eski_sid, yeni_sid}
+

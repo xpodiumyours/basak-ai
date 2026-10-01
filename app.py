@@ -998,7 +998,23 @@ async def sohbetler(request: Request):
 async def yeni(request: Request):
     if _kimlik(request) is None:
         return _giris_engeli()
-    return {"ok": True}
+    # 2026-10-01: eskiden bos OK donuyordu — sunucu oturumu rotate
+    # etmiyordu, tum kayitlar tek aktif dosyada birikip duruyordu.
+    # Yerel kopruyle (basak_web.py /api/yeni) ayni sozlesme: eski ayna
+    # arsive kalir, gecmis sifirlanir, yeni oturum kimligi doner.
+    from chat import oturum
+    from chat import context as ctx
+    try:
+        eski = [m for m in ctx.yukle(ctx.gecmis_yolu(), [])
+                if m.get("role") != "system"]
+    except Exception:
+        eski = []
+    sid = oturum.yeni(eski)
+    try:
+        ctx.kaydet(ctx.gecmis_yolu(), [])
+    except OSError:
+        pass
+    return {"ok": True, "oturum": sid}
 
 
 @app.post("/api/giris")
