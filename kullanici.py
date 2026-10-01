@@ -16,11 +16,14 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 import secrets
 import time
 
 from chat.kimlik import slugla, state_kok
+
+logger = logging.getLogger(__name__)
 
 KULLANICI_DOSYA = None  # None = state_kok()/kullanicilar.json (test patch edebilir)
 
@@ -198,14 +201,20 @@ def _anahtar():
         if mevcut:
             return mevcut
     except OSError:
-        pass
+        # Dosya yok (ilk calistirma) veya okunamaz: yenisi uretilir.
+        logger.debug("oturum anahtari okunamadi, yeni uretiliyor: %s", yol,
+                     exc_info=True)
     yeni = secrets.token_hex(32).encode("ascii")
     try:
         os.makedirs(os.path.dirname(yol), exist_ok=True)
         with open(yol, "wb") as f:
             f.write(yeni)
     except OSError:
-        pass
+        # ONEMLI: anahtar yazilamazsa her acilista YENI anahtar uretilir,
+        # yani tum oturumlar gecersizlesir ve kullanicilar disariya girer.
+        logger.warning("Oturum anahtari kaydedilemedi (%s) — her yeniden "
+                       "baslatmada oturumlar gecersizlesir", yol,
+                       exc_info=True)
     return yeni
 
 

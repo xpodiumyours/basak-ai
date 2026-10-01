@@ -55,7 +55,7 @@ class Kaydedici:
                 icerik = kod.split("(", 1)[1].rsplit(")", 1)[0]
                 self.hata = json.loads("[%s]" % icerik)[0]
         except Exception:
-            pass
+            logger.debug("UI kodu cozulemedi: %r", kod[:120], exc_info=True)
 
 
 def _bol(metin):

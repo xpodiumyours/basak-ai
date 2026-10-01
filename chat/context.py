@@ -179,7 +179,8 @@ def hafizalari_kapat():
                 try:
                     motor.kapat()
                 except Exception:
-                    pass
+                    logger.debug("hafiza motoru kapatilamadi: %s", motor,
+                                 exc_info=True)
         _hafizalar.clear()
 
 

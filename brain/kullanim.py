@@ -11,6 +11,10 @@ gerçek token tüketimini ölçmektir.
 - Cohere yerel SDK: resp.meta.tokens.{input_tokens, output_tokens}
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def openai_kullanim(resp):
     """Yanıttan kullanım bilgisini çıkarır; yoksa None döner.
@@ -58,13 +62,14 @@ def _bitis_nedeni(resp):
             if neden:
                 return str(neden)
     except Exception:
-        pass
+        # OpenAI bicimi tutmadi; asagida Cohere/duz bicim denenir.
+        logger.debug("choices[0].finish_reason okunamadi", exc_info=True)
     try:
         neden = getattr(resp, "finish_reason", None)
         if neden:
             return str(neden)
     except Exception:
-        pass
+        logger.debug("finish_reason okunamadi", exc_info=True)
     return ""
 
 

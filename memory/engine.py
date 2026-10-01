@@ -440,7 +440,8 @@ class HafizaMotoru:
                 if len(_params) >= 2:
                     return self._embed_fn(metin, gorev)
             except (TypeError, ValueError):
-                pass
+                # Imza okunamadi (C uzantisi vb.): tek argumanli bicim dener.
+                logger.debug("embed imzasi okunamadi", exc_info=True)
             return self._embed_fn(metin)
         except Exception:
             return None
@@ -449,7 +450,8 @@ class HafizaMotoru:
         try:
             self.conn.close()
         except sqlite3.Error:
-            pass
+            # Kapanma hatasi veri kaybi demek degil; yine de gorunur kalsin.
+            logger.debug("SQLite baglantisi kapatilamadi", exc_info=True)
 
     def vektorleri_temizle(self):
         """Vektor uzayi degisince: vektorleri SILER, metinlere DOKUNMAZ.

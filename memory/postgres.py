@@ -70,7 +70,9 @@ class PostgresHafizaMotoru:
         try:
             conn.prepare_threshold = None
         except Exception:
-            pass
+            # Sunucu-havuzu ayari; hata olursa sorgu normal yolla calisir.
+            logger.debug("psycopg.prepare_threshold ayarlanamadi",
+                         exc_info=True)
         return conn
 
     def _hazirla(self):
@@ -147,7 +149,9 @@ class PostgresHafizaMotoru:
                             conn.commit()
                             return
                     except (json.JSONDecodeError, TypeError):
-                        pass
+                        # Bozuk eski isaret: sayim yeniden yapilir, veri silinmez.
+                        logger.debug("migrasyon isareti bozuk, yeniden "
+                                     "sayiliyor", exc_info=True)
 
                 cur.execute(
                     "SELECT COUNT(*) FROM basak_memories WHERE user_id=%s",
@@ -241,7 +245,7 @@ class PostgresHafizaMotoru:
                 if len(params) >= 2:
                     return self._embed_fn(metin, gorev)
             except (TypeError, ValueError):
-                pass
+                logger.debug("embed imzasi okunamadi", exc_info=True)
             return self._embed_fn(metin)
         except Exception:
             return None

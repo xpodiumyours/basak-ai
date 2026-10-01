@@ -56,8 +56,9 @@ def _eski_gorevleri_tasi(yeni_yol):
         # yalnizca artik okunmaz.
         import shutil
         shutil.copy2(eski_yol, yeni_yol)
-    except OSError:
-        pass  # kopya basarisizsa eski dosya yerinde kalir, veri kaybi yok
+    except OSError as e:
+        # Kopya basarisizsa eski dosya yerinde kalir — veri kaybi YOK.
+        logger.info("eski yol kopyalanamadi (%s): %s", eski_yol, e)
 
 
 def calistir(tool_name, args):

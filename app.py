@@ -11,6 +11,7 @@ import binascii
 import hmac
 import hashlib
 import json
+import logging
 import os
 import tempfile
 import threading
@@ -27,6 +28,8 @@ from fastapi.staticfiles import StaticFiles
 
 BASE = Path(__file__).resolve().parent
 WEB = BASE / "web"
+
+logger = logging.getLogger(__name__)
 
 if os.environ.get("VERCEL"):
     os.environ.setdefault(
@@ -148,7 +151,10 @@ def _hafizayi_bir_kez_sifirla():
             try:
                 conn.prepare_threshold = None
             except Exception:
-                pass
+                # Sadece sunucu-havuzu (serverless) ayari; hata olursa
+                # sorgu normal yolla calisir. Bilerek yutuluyor — ama izi kalsin.
+                logger.debug("psycopg.prepare_threshold ayarlanamadi: %s",
+                             exc_info=True)
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT pg_advisory_xact_lock(hashtext("
@@ -289,7 +295,7 @@ _KOTA_HATASI = (
 
 _HANDOFF_SCHEMA = "p2-handoff-v1"
 _HANDOFF_OLAYLARI = frozenset(
-    ("runContext", "toolDone", "source", "runState", "truncated")
+    ("runContext", "toolDone", "source", "runState", "truncated", "harita")
 )
 
 
@@ -489,7 +495,10 @@ class _OlayToplayici:
             try:
                 self.yayinla(olay)
             except Exception:
-                pass
+                # Yayin kumesi kapanmis olabilir (istemci sekmeyi kapatti).
+                # Bu tur icin olay yine de olaylar listesinde duruyor.
+                logger.debug("canli olay yayinlanamadi (tur=%s): %s",
+                             olay.get("tur"), exc_info=True)
         return olay
 
     def __call__(self, kod):
@@ -526,7 +535,8 @@ class _OlayToplayici:
                 try:
                     self.yayinla(olay)
                 except Exception:
-                    pass
+                    logger.debug("canli olay yayinlanamadi: %s",
+                                 exc_info=True)
         except _AkisIptal:
             raise
         except Exception:
@@ -724,7 +734,8 @@ async def durum(request: Request):
                 "kullanim": kullan,
             })
     except Exception:
-        pass
+        # Saglayici karti okunamadi: pano yine de doner, model bos kalir.
+        logger.debug("saglayici karti okunamadi: %s", exc_info=True)
     try:
         from memory import preview_hafiza_modu
         hafiza_modu = preview_hafiza_modu()
@@ -834,7 +845,8 @@ async def sohbet(request: Request):
                 try:
                     os.remove(gecici_yol)
                 except OSError:
-                    pass
+                    logger.debug("staging dosyasi silinemedi (%s): %s",
+                                 gecici_yol, exc_info=True)
             ek_yol = ek["path"]
             ek_veri = {"ad": ek["ad"], "tur": ek["tur"],
                        "path": ek["path"]}
@@ -928,7 +940,8 @@ async def sohbet(request: Request):
                     try:
                         os.remove(ek_yol)
                     except OSError:
-                        pass
+                        logger.debug("gecici ek dosyasi silinemedi (%s): %s",
+                                     ek_yol, exc_info=True)
 
         if akis:
             gorev = asyncio.create_task(
@@ -977,7 +990,8 @@ async def sohbet(request: Request):
             try:
                 os.remove(ek_yol)
             except OSError:
-                pass
+                logger.debug("gecici ek dosyasi silinemedi (%s): %s",
+                             ek_yol, exc_info=True)
 
 
 @app.get("/api/sohbetler")
@@ -1013,7 +1027,10 @@ async def yeni(request: Request):
     try:
         ctx.kaydet(ctx.gecmis_yolu(), [])
     except OSError:
-        pass
+        # Gecmis dosyasi silinemedi: yeni oturum yine de uretildi, ama eski
+        # gecmis diskte kalir ve bir sonraki yuklemede geri gelir.
+        logger.warning("Yeni sohbette gecmis dosyasi temizlenemedi: %s",
+                       exc_info=True)
     return {"ok": True, "oturum": sid}
 
 

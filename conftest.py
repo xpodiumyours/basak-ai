@@ -6,6 +6,7 @@ yalnız `pytest tests/live --live` ile çalışırlar.
 """
 
 import os
+import sys
 
 import pytest
 
@@ -71,7 +72,11 @@ def _gercek_veriyi_koru(_izole_olcum_dizini, _izole_stats, monkeypatch, tmp_path
         monkeypatch.setattr(kullanici_modulu, "KULLANICI_DOSYA",
                             str(tmp_path / "kullanicilar.json"))
     except Exception:
-        pass
+        # Izolasyon kurulamazsa testler GERCEK kullanicilar.json'a dokunur.
+        # Bu sessizce gecilmemeli: test kirliliginin kaynagi tam olarak budur.
+        raise RuntimeError(
+            "test izolasyonu kurulamadi (kullanicilar.json): %s"
+            % sys.exc_info()[1]) from None
     # 2026-09-23 (kisi-hafiza): (a) aktif kisi (contextvar) bir onceki
     # testten sizmasin; (b) devlet koku tmp'ye alinsin — testler gercek
     # data/'ya gecmis/hafiza/sohbet yazmasin (AGENTS.md: her test kendi
@@ -80,6 +85,10 @@ def _gercek_veriyi_koru(_izole_olcum_dizini, _izole_stats, monkeypatch, tmp_path
         import chat.kimlik as kimlik_modulu
         kimlik_modulu.kullanici_kur(kimlik_modulu.VARSAYILAN_KULLANICI)
     except Exception:
-        pass
+        # Ayni sebepten: aktif kisi sizarsa testler birbirinin durumunu
+        # gorur. Sessizce gecmek izolasyonu sessizce bozuyor.
+        raise RuntimeError(
+            "test izolasyonu kurulamadi (aktif kisi): %s"
+            % sys.exc_info()[1]) from None
     monkeypatch.setenv("BASAK_STATE_DIR", str(tmp_path / "state"))
     yield

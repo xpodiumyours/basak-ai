@@ -135,7 +135,10 @@ class KonusmaciTaniyici:
             try:
                 os.unlink(tmp_path)
             except OSError:
-                pass
+                # Gecici dosya silinemez (Windows'ta kilitli olabilir);
+                # sonraki calistirmada yeniden yazilir.
+                logger.debug("gecici ses dosyasi silinemedi: %s", tmp_path,
+                             exc_info=True)
 
     def konusmaci_ekle(self, isim: str, audio_path: str) -> bool:
         """Yeni konuşmacı kaydeder.

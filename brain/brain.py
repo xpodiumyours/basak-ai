@@ -163,12 +163,14 @@ def _zaman_asimi_turu_mu(hata):
         import openai
         turler.append(openai.APIConnectionError)  # APITimeoutError dahil
     except ImportError:
-        pass
+        # openai kurulu degilse o saglayici da kurulu degildir; tur listesine
+        # eklenmesi gereken bir sinif yok. Yorumlu yutma (sessiz degil).
+        logger.debug("openai yok: APIConnectionError turu denetlenmiyor")
     try:
         import httpx
         turler.extend((httpx.TimeoutException, httpx.NetworkError))
     except ImportError:
-        pass
+        logger.debug("httpx yok: Timeout/Network turu denetlenmiyor")
     turler = tuple(turler)
     return any(isinstance(h, turler) for h in _hata_zinciri(hata))
 
@@ -227,7 +229,8 @@ def _bekleme_suresi(hata):
         try:
             return max(1.0, min(86400.0, float(s)))
         except ValueError:
-            pass
+            # Salt saniye degil; asagida "5m/2h" bicimi denenir.
+            logger.debug("Retry-After salt sayi degil: %r", v)
         toplam = 0.0
         for sayi, birim in _re.findall(r"([\d.]+)\s*(ms|s|m|h)", s):
             n = float(sayi)
@@ -244,7 +247,8 @@ def _bekleme_suresi(hata):
             if sure:
                 return sure
     except Exception:
-        pass
+        # Yanit nesnesi beklenmedik sekilde; asagida metin deseni denenir.
+        logger.debug(" yanit basligi okunamadi", exc_info=True)
 
     s = str(hata)
     for desen in (
@@ -383,7 +387,12 @@ class Brain:
                         if callable(denetle) and not denetle():
                             return False
                 except Exception:
-                    pass
+                    # Arac denetimi patladi. DIKKAT: zincir davranisi degistirilmedi
+                    # (saglayici yine uygun sayilir) — burada yalnizca yutulan
+                    # hata gorunur kiliniyor. Davranis degisikligi ayrica olcumle
+                    # yapilir, iz birakma turunde degil.
+                    logger.debug("%s arac denetimi hata verdi: %s", ad,
+                                 exc_info=True)
             return True
         zincir = []
         if _uygun("groq", self._groq):

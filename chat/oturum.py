@@ -111,14 +111,17 @@ def aktif_id():
             if sid and _gecerli_sid(sid):
                 return sid
     except OSError:
-        pass
+        # Dosya yok/okunamaz: yeni uretilir (ilk calistirma da boyledir).
+        logger.debug("aktif oturum okunamadi, yeni uretiliyor: %s", dosya,
+                     exc_info=True)
     sid = uuid.uuid4().hex[:8]
     try:
         os.makedirs(os.path.dirname(dosya), exist_ok=True)
         with open(dosya, "w", encoding="utf-8") as f:
             f.write(sid)
     except OSError:
-        pass
+        # Yazilamadi: bu oturum bellekte calisir, yeniden acilista kaybolur.
+        logger.warning("aktif oturum yazilamadi: %s", dosya, exc_info=True)
     return sid
 
 
@@ -129,7 +132,8 @@ def _aktif_koy(sid):
         with open(dosya, "w", encoding="utf-8") as f:
             f.write(sid)
     except OSError:
-        pass
+        logger.warning("aktif oturum isaretlenemedi: %s", dosya,
+                       exc_info=True)
 
 
 def _baslik(metin):

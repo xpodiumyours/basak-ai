@@ -10,11 +10,14 @@ bayrak yazıldıktan sonra eski yollar okunmaz (kod artık oraya bakmaz).
 """
 
 import contextvars
+import logging
 import os
 import re
 import shutil
 import threading
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 VARSAYILAN_KULLANICI = "casper"
 
@@ -75,7 +78,9 @@ def durum_yolu(*parcalar, olustur=True):
         try:
             os.makedirs(yol, exist_ok=True)
         except OSError:
-            pass
+            # Salt-okunur dagitimda olusur; yol yine doner, yazma denemesi
+            # cagiranda hatayi o yerde gosterir. Iz birakilir.
+            logger.debug("durum klasoru kurulamadi: %s", yol, exc_info=True)
     return yol
 
 
@@ -157,7 +162,10 @@ def migrasyon_yap():
             with open(bayrak, "w", encoding="utf-8") as f:
                 f.write("tamam\n")
         except OSError:
-            pass
+            # Bayrak yazilamadi: tasima bir sonraki acilista TEKRARLANIR.
+            # Veri kaybi olmaz (kopya) ama islem tekrarlanir — gorunur kalsin.
+            logger.info("tasima bayragi yazilamadi (tasima tekrar calisir): %s",
+                        bayrak, exc_info=True)
         _MIGRASYON_YAPILDI = True
         return say
 

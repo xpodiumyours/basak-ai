@@ -67,11 +67,18 @@ class TTS:
 
             sd.play(data, sr)
             if zarf is not None:
+                seviye_hatasi = False
                 for seviye in zarf:
                     try:
                         self.on_level(float(seviye))
                     except Exception:
-                        pass
+                        # Arayuz seviye cizgisi kapanmis olabilir; ses yine
+                        # calar. Bu dongu ses kesiti basina doner (saniyede
+                        # ~20 kez), bu yuzden yalnizca ilk hatada loglanir.
+                        if not seviye_hatasi:
+                            seviye_hatasi = True
+                            logger.debug("ses seviyesi bildirimi calismiyor",
+                                         exc_info=True)
                     time.sleep(adim / sr)
             else:
                 sd.wait()
@@ -80,7 +87,7 @@ class TTS:
             try:
                 self.on_level(0.0)
             except Exception:
-                pass
+                logger.debug("ses seviyesi sifirlanamadi", exc_info=True)
 
 
 # ---- DIS SES KOLU (yan kol, varsayilan kapali) ----

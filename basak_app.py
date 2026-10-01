@@ -7,6 +7,7 @@ Beklenmeyen hata olursa UI donmez, hata mesaji gosterilir.
 import json
 import logging
 import os
+import sys
 import threading
 from logging.handlers import RotatingFileHandler
 
@@ -37,8 +38,11 @@ try:
         handlers=_handlerlar,
         force=True,
     )
-except OSError:
-    pass
+except OSError as e:
+    # Gunluk dosyasi acilamadi (kilitli/yazma izni yok). Konsol ciktisi
+    # yine de kurulur: hatalar gorunur kalir, yalniz arsiv kaydi olmaz.
+    print("UYARI: hata.log acilamadi (%s); yalniz konsola yazilacak."
+          % e, file=sys.stderr)
 
 import webview
 
@@ -151,7 +155,8 @@ class Api:
         try:
             self._js("BasakUI.ses(%d)" % round(seviye * 100))
         except Exception:
-            pass
+            # Arayuz sifirlandiysa seviye cizgisi gonderilemez; ses yine calar.
+            logger.debug("ses seviyesi arayuze iletilemedi", exc_info=True)
 
     def _j(self, obj):
         return json.dumps(obj, ensure_ascii=False)
@@ -169,7 +174,8 @@ class Api:
             try:
                 self._js("BasakUI.error(" + self._j("Beklenmeyen hata: " + str(e)) + ")")
             except Exception:
-                pass
+                # Hata zaten hata.log'a yazildi; ekran da kapali/bozuk olabilir.
+                logger.debug("hata ekrana iletilemedi", exc_info=True)
             return
 
         if self.tts_on:
@@ -186,7 +192,8 @@ class Api:
                     self._js("BasakUI.error(" + self._j(
                         "Sesli okuma hatasi: " + str(e)) + ")")
                 except Exception:
-                    pass
+                    logger.debug("ses hatasi ekrana iletilemedi",
+                                 exc_info=True)
 
     def dinle(self):
         threading.Thread(target=self._dinle, daemon=True).start()
@@ -295,7 +302,10 @@ class Api:
         try:
             os.remove(_gecmis_yolu())
         except OSError:
-            pass
+            # Dosya yoksa hedef zaten tutulmus demektir; silinemiyorsa
+            # "hafiza temizlendi" yalan soylememek icin iz birakilir.
+            logger.info("gecmis.json silinemedi (zaten yok olabilir): %s",
+                        exc_info=True)
 
         unutulan = 0
         try:
@@ -420,7 +430,8 @@ class Api:
             try:
                 os.remove(_gecmis_yolu())
             except OSError:
-                pass
+                logger.info("gecmis.json silinemedi (yok olabilir): %s",
+                            exc_info=True)
             return {"ok": True}
         except Exception:
             return {"ok": False}
@@ -449,7 +460,8 @@ class Api:
                     m.kapat()
                     _kapatilan += 1
                 except Exception:
-                    pass
+                    logger.debug("hafiza motoru kapatilamadi: %s", m,
+                                 exc_info=True)
             if _kapatilan:
                 logger.info("Hafiza DB kapatildi (%d kisi)", _kapatilan)
         except Exception as e:
@@ -465,14 +477,14 @@ class Api:
             from tray import durdur
             durdur()
         except Exception:
-            pass
+            logger.debug("tepsi durdurulamadi", exc_info=True)
 
         # 3) Pencereyi yok et
         try:
             if webview.windows:
                 webview.windows[0].destroy()
         except Exception:
-            pass
+            logger.debug("pencere yok edilemedi", exc_info=True)
 
         # 4) Hafiza veritabanini duzgun kapat. os._exit() Python'un temizlik
         #    adimlarini ATLAR — acik SQLite baglantisi kendiliginden
@@ -517,7 +529,10 @@ def main():
     try:
         os.chdir(BASE)
     except OSError:
-        pass
+        # Calisma dizini degisseydi knowledge/ ve Basak/ yollari hayalet
+        # dosya uretiyordu; degistiremezsek burada gorunur kalsin.
+        logger.warning("calisma dizini BASE'e alinamadi: %s", BASE,
+                       exc_info=True)
     # Yerel uygulama her zaman casper (tasarım: yerel = casper).
     from chat.kimlik import kullanici_kur
     kullanici_kur("casper")

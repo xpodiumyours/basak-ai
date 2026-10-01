@@ -564,7 +564,8 @@ def _sayfa_oku_genis(
             if _k.fragment:
                 url += f"#{_k.fragment}"
     except Exception:
-        pass  # Encode edilemezse orijinal URL ile devam et
+        # Kodlanamayan karakter: orijinal URL ile devam edilir.
+        logger.debug("URL kodlanamadi, orijinali kullaniliyor", exc_info=True)
 
     # SSRF denetimi: semantik + port + cozulen IP'ler
     engel = _guvenli_adres(url)
