@@ -205,7 +205,7 @@ def _kimlik(request: Request):
     kimligi. Production: imzali cookie/token ve fail-closed kurali.
     """
     import kullanici as kullanici_modulu
-    from chat.kimlik import VARSAYILAN_KULLANICI, kullanici_kur
+    from chat.kimlik import kullanici_kur
 
     if _preview_mi():
         kid = _preview_kimligi(request)
@@ -229,7 +229,11 @@ def _kimlik(request: Request):
             if kid is None:
                 return None
         elif not kullanici_modulu.giris_zorunlu_mu():
-            kid = VARSAYILAN_KULLANICI
+            # 2026-10-01: kişisel kimlik varsayılan DEĞİLDİR. Yerel/önizleme
+            # web erişimi anonim başlar; "Casper'in kisisel asistanisin"
+            # yalnız BASAK_YEREL_KIMLIK ile bilinçli olarak açılır.
+            # Üretim (Vercel) bu dala hiç düşmez — bkz. yukarıdaki dal.
+            kid = kullanici_modulu.yerel_kimlik()
         else:
             return None
     kullanici_kur(kid)
