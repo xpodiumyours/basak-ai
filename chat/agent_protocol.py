@@ -19,7 +19,7 @@ from chat.agent_runtime import AGENT_CONTRACT as AJAN_SOZLESMESI  # noqa: F401
 
 YETENEK_AC_ADI = "yetenek_ac"
 
-# 53 gercek arac tek ve benzersiz bir yetenek alaninda yer alir. Bu tablo
+# 55 gercek arac tek ve benzersiz bir yetenek alaninda yer alir. Bu tablo
 # kullanici metnini yorumlamaz; yalniz modelin sectigi alan adini gercek
 # arac semalarina ceviren katalogdur.
 YETENEK_ALANLARI = {

@@ -543,7 +543,7 @@ def test_matris_kapsami_elde_anahtari_olan_yedi_saglayici():
     assert matris_kosucu.KAPSAM == (
         "groq", "gemini", "kilo", "nvidia", "glm", "openrouter",
         "mistral")
-    assert len(matris_kosucu.KAPSAM) * 53 == 371     # 7x53=371 (eski 7x52=364)
+    assert len(matris_kosucu.KAPSAM) * 55 == 385     # 7x55=385 (eski 7x53=371, daha eski 7x52=364)
     assert "cloudflare" not in matris_kosucu.KAPSAM
     assert "cohere" not in matris_kosucu.KAPSAM
     beklenen = tuple(ad for ad in registry.VARSAYILAN_SIRA

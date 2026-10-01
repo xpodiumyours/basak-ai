@@ -6,10 +6,12 @@ cevapla") buraya YAZILMAZ — o, aracın etrafına sarılmış bir kural
 katmanıdır ve 2026-09-13'te bilerek söküldü. Hangi aracı seçeceğine
 model karar verir.
 
-Dokuz + dort + bes + dokuz arac: okuyanlar serbest, etkisi olanlar
-dar tablolarda (dosya/gorev/tablo yazma, sabit komut, beyaz liste).
+Okuyanlar serbest, etkisi olanlar dar tablolarda (dosya/gorev/tablo
+yazma, sabit komut, beyaz liste).
 (2026-09-15: toplam 52; ara-toplam formulu bayat oldugu icin kaldirildi.
-2026-09-23: hava_durumu eklendi — toplam 53.)
+2026-09-23: hava_durumu eklendi — 53. 2026-10-01: guncel toplam 55 —
+sayi testlerle kilitli, bak: tests/test_seviye0_sozlesme.py +
+tests/test_agent_protocol.py.)
 """
 
 
