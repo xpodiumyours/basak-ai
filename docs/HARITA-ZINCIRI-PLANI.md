@@ -56,6 +56,13 @@ Ayrıca **test fonksiyon adları** sayı taşır (`test_55_arac_...`,
 belge ile kod çelişir. `test_seviye0_sozlesme.py:540` çarpım kilidi de var:
 `len(KAPSAM) × 55 = 385` → `× 56 = 392`.
 
+**Z1 yeniden ölçümü (56 → 57, 2026-10-01):** aynı 22 satır + bu kez **6 test
+fonksiyon adı** (`test_57_arac_...`, `test_15_namespace_57_araci_...`) ve
+`test_seviye0_sozlesme.py:540` → `× 57 = 399`. Alan satırları (15) değişmedi:
+yeni araç mevcut `harita` alanına girdi. Belge/README/kabul planı sayaçları da
+güncellendi (`README.md` 4/140/200, `knowledge/kabul-plani-web-gate.md`,
+`docs/p2-canli-oncesi-12-risk.md`, `docs/p2-platform-ortak-mimari.md`).
+
 **Yeniden kullanılacak koruma (yazılmayacak, çağrılacak):**
 `tools/web_search.py` → `_guvenli_adres`, `_engelli_ip_nedeni`, `_GuvenliYonlendirme` (SSRF).
 
@@ -280,21 +287,50 @@ giderim" gerçekten çalışır.
 **Neden:** `sirket_ara` bugün adres metni üretiyor ama **ölü metin** — haritada
 gösterilemiyor.
 
-- [ ] **T2.1** `tools/harita.py` → `konum_coz(adres)`.
-  - [ ] **T2.1.1** Photon: `https://photon.komoot.io/api/?q=<adres>&limit=5` — `requests` (zaten bağımlılık).
-  - [ ] **T2.1.2** **SSRF zorunlu:** `tools/web_search._guvenli_adres`/`_engelli_ip_nedeni` çağrılır; yeni savunma yazılmaz.
-  - [ ] **T2.1.3** `timeout` + `User-Agent` (T0.7 kararı).
-  - [ ] **T2.1.4** Dönüş: en iyi eşleşme → `enlem`, `boylam`, `gosterim_adi`, `kaynak="photon"`, ham aday sayısı.
-  - [ ] **T2.1.5** Sonuç yoksa **hata döner** ("konum bulunamadı"); koordinat **uydurulmaz**.
-  - [ ] **T2.1.6** Photon başarısızsa mevcut Open-Meteo geocoding'e düşer (`tools/hava.py`) — **yeniden yazılmaz, çağrılır**; dönen `kaynak` alanı hangi hattın kullanıldığını söyler.
-- [ ] **T2.2** Dört yer (şema, dal, yetenek alanı, durum etiketi) — `harita` alanına eklenir.
-- [ ] **T2.3** 55 kilidi 56→**57**, namespace sayısı değişmez (aynı `harita` alanı).
-- [ ] **T2.4** Test `tests/test_harita_z1.py`:
-  - [ ] Gerçek adres → koordinat **dünya aralığında** (−90..90 / −180..180).
-  - [ ] Bulunamayan adres → hata, **koordinat yok**.
-  - [ ] SSRF: engelli adres/özel ağ çağrısı **reddedilir** (ağa çıkmadan).
-  - [ ] Fallback: Photon sahte-hatalıyken Open-Meteo hattı denenir.
-- [ ] **T2.5** Uçtan uca: `sirket_ara("…")` çıktısındaki adres → `konum_coz` → koordinat. Kanıt kaydedilir.
+- [x] **T2.1** `tools/harita.py` → `konum_coz(adres)`.
+  - [x] **T2.1.1** Photon: `https://photon.komoot.io/api/?q=<adres>&limit=5` — **sapma:** `requests` değil, `urllib` + SSRF denetimli ortak hat kullanıldı; `requests` `_GuvenliYonlendirme` yönlendirme denetimini atlardı (yeni bağımlılık zaten yasak).
+  - [x] **T2.1.2** **SSRF zorunlu:** `_guvenli_adres` + `_GuvenliYonlendirme` `tools/web_search.py`'den çağrılır; yeni savunma yazılmadı (testle kanıtlı).
+  - [x] **T2.1.3** `timeout=10` + User-Agent (`Mozilla/5.0 … Basak/1.0`).
+  - [x] **T2.1.4** Dönüş: `adres, enlem, boylam, gosterim_adi, kaynak ("photon"/"open-meteo"), aday_sayisi, adaylar`.
+  - [x] **T2.1.5** Sonuç yoksa **hata döner**; hata yolunda `result` yok, koordinat **uydurulmaz**.
+  - [x] **T2.1.6** Photon başarısızsa `/api/?q=` Open-Meteo geocoding hattı denenir (`tools/hava.py:_GEOCODING` çağrılır, `_git` kopyalanmaz — SSRF'li hattan geçer); `kaynak` hangi hat olduğunu söyler.
+  - [x] **T2.1.7** ⚠️ **Canlı ölçüm bulgusu:** `lang=tr` Photon'da **HTTP 400** veriyor (yalnız de/en/fr/it kabul ediyor) ve tüm birincil hat sessizce yedeğe düşüyordu. `lang` parametresi kaldırıldı; test `lang=` gönderilmediğini kilitler.
+- [x] **T2.2** Dört yer: şema (`KONUM_COZ`), dal (`calistir`), yetenek alanı (`"harita"`), durum etiketi (`"Konum koordinatı çözülüyor"` + `DURUM_ALANI`'na `adres`).
+- [x] **T2.3** Kilit 56→**57**: 22 satır + 6 test fonksiyon adı + `test_seviye0_sozlesme.py:540` çarpım kilidi (`7×57=399`). **namespace 15 sabit kaldı** (yeni araç aynı `harita` alanında).
+- [x] **T2.4** Test `tests/test_harita_z1.py` — **30 test**:
+  - [x] Gerçek adres → koordinat **dünya aralığında** (−90..90 / −180..180).
+  - [x] **GeoJSON sırası** (`coordinates=[boylam, enlem]`) ters yazılırsa yakalanır.
+  - [x] Türkçe/adres sorgusu yüzde kodlamalı gider; `limit=5` var, geçersiz `lang` yok.
+  - [x] Bulunamayan adres → hata, **koordinat yok**; aralık dışı koordinat (enlem 300) kabul edilmez; bozuk gövde çökmez; bulanık eşleşme gizlenmez.
+  - [x] SSRF: loopback/özel ağ/8080 portu/`file://` **ağa çıkmadan** reddedilir (sahte `build_opener` patlar); korumanın `web_search`'ten çağrıldığı kaynak denetimiyle sabit.
+  - [x] Fallback: Photon sahte-hatalıyken Open-Meteo denenir ve `kaynak="open-meteo"` döner.
+- [x] **T2.5** Uçtan uca + canlı kanıt (aşağıda).
+- [x] **T2.6** Commit (tek adım, Türkçe düz cümle).
+
+### FAZ 2 canlı kanıt (2026-10-01, gerçek dispatcher, gerçek ağ)
+
+| Girdi | Çıktı |
+|---|---|
+| `Kadıköy Moda Sahili, İstanbul` | `photon` · 40.981169 / 29.025471 · `Moda, Caferağa, Kadıköy, İstanbul, 34710, Türkiye` · 5 aday |
+| `Tuzla, İstanbul` | `photon` · 40.816173 / 29.303419 · `Tuzla, İstanbul, Türkiye` · 5 aday |
+| `Çiçek Pasajı, Beyoğlu` | `photon` · 41.0341 / 28.977921 · `Çiçek Pasajı, Hüseyinağa, Beyoğlu, İstanbul, 34435` · 2 aday |
+| SSRF (canlı `_json_al`) | `127.0.0.1`, `192.168.1.10` → "ic/ağ adresine cozuldu"; `:8080` → "yalnizca standart web portlari"; `file://` → "Yalnizca http/https" |
+
+**Ölçüm:** `tests/test_harita_z1.py` = **30 test**; geniş koşu **1010 geçti / 19 atlandı** (Z0 sonrası taban 980 → **+30**); `ruff check .` yeşil. Windows'a özel `tests/test_path_guvenligi.py` (1F+3E) taban çizgisiyle aynı, bu işten bağımsız.
+
+**⚠️ Dürüst sınırlar (canlı ölçüldü, gizlenmiyor):**
+
+1. **Photon bulanık eşleştirir.** `zzz bilinmeyen yer zzz` gibi saçma sorguya
+   sıfır sonuç değil, en yakın adayı döndürdü (ölçüm: `BA20 9ZZ, Yeovil, England`).
+   Araç bunu **gizlemez**: servisin kendi `gosterim_adi`'nı, `aday_sayisi`'nı ve
+   `adaylar` listesini döndürür — uyuşmazlık modelin gözünde görünür kalır. Koda
+   benzerlik eşiği/regex süzgeci **yazılmadı** (kelime kuralı olurdu).
+2. **`sirket_ara` bugün adres üretmiyor.** 3 markada ölçüldü (Tutku: `eksik=["adres"]`,
+   Vestel: tüm iletişim alanları eksik, Kahve Dünyası: sayfa okunamadı) → canlı
+   "sirket_ara adresi → koordinat" zinciri bugün **kurulamadı**. Zincirin kendisi
+   `TestUctanUca` ile yapısal olarak kanıtlı, koordinat adımı ise yukarıdaki gerçek
+   adreslerle canlı kanıtlı. Adres üretmeyen hat Z2'nin gerekçesini zayıflatmaz,
+   tam tersine "adres metni ölü kalıyor" tespitini doğrular.
 - [ ] **T2.6** Commit.
 
 **Faz kapısı:** Bölüm D; ayrıca "uydurma koordinat yok" testi yeşil.

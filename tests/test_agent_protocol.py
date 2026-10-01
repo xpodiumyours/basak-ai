@@ -14,17 +14,17 @@ def _call(ad, args="{}", cid="c1"):
     }
 
 
-def test_56_arac_namespace_metadata_tam_katalogu_kapsar():
+def test_57_arac_namespace_metadata_tam_katalogu_kapsar():
     from tools.capabilities import validate_registry
     from tools.definitions import TOOLS, TANINMIS_TOOLLAR
     sonuc = validate_registry(TOOLS)
     assert sonuc == {
-        "ok": True, "tool_count": 56, "namespace_count": 15,
+        "ok": True, "tool_count": 57, "namespace_count": 15,
         "missing": [], "unknown": [], "duplicates": [],
     }
-    assert len(TANINMIS_TOOLLAR) == 56
+    assert len(TANINMIS_TOOLLAR) == 57
 
-def test_auto_policy_tam_56_gercek_araci_modele_verir():
+def test_auto_policy_tam_57_gercek_araci_modele_verir():
     from chat.agent_runtime import capability_surface
     from tools.definitions import TOOLS
     assert capability_surface(TOOLS, "auto") == TOOLS
@@ -38,7 +38,7 @@ def test_her_yetenek_alani_ondan_az_arac_tasir():
     from tools.definitions import TOOLS
     assert max(len(x) for x in CAPABILITY_NAMESPACES.values()) < 10
     assert len(namespace_schemas("internet_ara", TOOLS)) == 8
-    assert len(capability_surface(TOOLS, "auto")) == 56
+    assert len(capability_surface(TOOLS, "auto")) == 57
 
 def test_ajan_sozlesmesi_kelime_routeri_degildir():
     from chat.agent_runtime import AGENT_CONTRACT
@@ -82,7 +82,7 @@ def test_model_gercek_araci_dogrudan_secer():
             yield
         def cevapla(self, mesajlar, model, tools=None, tool_choice=None, **kwargs):
             assert tool_choice == "auto"
-            assert len(tools) == 56
+            assert len(tools) == 57
             return {"content": "1 gorev var."}, "groq"
     cevap, kosan = arac_dongusu(
         [_call("list_tasks", "{}", "c1")],
@@ -401,7 +401,7 @@ def test_ajan_zinciri_10_ucretsiz_saglayicinin_tamamini_kapsar():
     assert len(adlar) == 10
 
 
-def test_10_saglayici_x_55_gercek_arac_dogrudan_ajan_yolunda_erisebilir():
+def test_10_saglayici_x_57_gercek_arac_dogrudan_ajan_yolunda_erisebilir():
     from chat.tools import arac_dongusu
     from tools.definitions import TOOLS
     araclar = [t["function"]["name"] for t in TOOLS]
@@ -415,7 +415,7 @@ def test_10_saglayici_x_55_gercek_arac_dogrudan_ajan_yolunda_erisebilir():
                     yield
                 def cevapla(self, mesajlar, model, tools=None, tool_choice=None, **kwargs):
                     assert tool_choice == "auto"
-                    assert len(tools) == 56
+                    assert len(tools) == 57
                     return {"content": "tamam"}, provider
             kosulan = []
             cevap, kosan = arac_dongusu(
@@ -429,7 +429,7 @@ def test_10_saglayici_x_55_gercek_arac_dogrudan_ajan_yolunda_erisebilir():
             assert kosan == 1
             assert cevap == "tamam"
             sayac += 1
-    assert sayac == 10 * 56
+    assert sayac == 10 * 57
 
 @pytest.mark.parametrize(
     "sinif_yolu,model,tool_choice",
@@ -537,7 +537,7 @@ def test_openrouter_ajan_yetenegi_model_katalogundan_dogrulanir():
 
 
 
-def test_55_aracin_semasi_eksiksiz_ve_tutarlı():
+def test_57_aracin_semasi_eksiksiz_ve_tutarlı():
     from tools.definitions import TOOLS
 
     adlar = []
@@ -554,11 +554,11 @@ def test_55_aracin_semasi_eksiksiz_ve_tutarlı():
         required = p.get("required") or []
         assert set(required).issubset(set(props)), (ad, required, props)
 
-    assert len(adlar) == 56
-    assert len(set(adlar)) == 56
+    assert len(adlar) == 57
+    assert len(set(adlar)) == 57
 
 
-def test_56_aracin_dispatcher_dali_birebir_var():
+def test_57_aracin_dispatcher_dali_birebir_var():
     """Her arac semasi tools.calistir icinde gercek bir dispatch dalina sahip."""
     import ast
     import textwrap
@@ -586,16 +586,16 @@ def test_56_aracin_dispatcher_dali_birebir_var():
             dallar.add(sol.value)
 
     assert dallar == set(TANINMIS_TOOLLAR)
-    assert len(dallar) == 56
+    assert len(dallar) == 57
 
 
-def test_15_namespace_56_araci_eksiksiz_tasir():
+def test_15_namespace_57_araci_eksiksiz_tasir():
     from tools.capabilities import CAPABILITY_NAMESPACES
     from tools.definitions import TANINMIS_TOOLLAR
     assert len(CAPABILITY_NAMESPACES) == 15
     duz = [ad for araclar in CAPABILITY_NAMESPACES.values() for ad in araclar]
-    assert len(duz) == 56
-    assert len(set(duz)) == 56
+    assert len(duz) == 57
+    assert len(set(duz)) == 57
     assert set(duz) == set(TANINMIS_TOOLLAR)
 
 def test_gemini3_thought_signature_tool_call_icinde_korunur():

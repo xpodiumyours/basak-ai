@@ -213,7 +213,7 @@ def test_live_matris_arac_sayisini_koddan_alir():
     from tests.live import matris_kosucu
     from tools import TOOLS
     assert len(matris_kosucu._hedef_araclar(False)) == len(TOOLS)
-    assert len(TOOLS) == 56
+    assert len(TOOLS) == 57
 
 
 def test_optional_agent_stream_native_tool_calli_kaybetmez():
@@ -377,8 +377,8 @@ def test_none_policy_arac_yuzeyini_tamamen_kapatir():
     from chat.agent_runtime import capability_surface
     from tools import TOOLS
     assert capability_surface(TOOLS, "none") == []
-    assert len(capability_surface(TOOLS, "auto")) == 56
-    assert len(capability_surface(TOOLS, "required")) == 56
+    assert len(capability_surface(TOOLS, "auto")) == 57
+    assert len(capability_surface(TOOLS, "required")) == 57
 
 
 def test_tool_policy_kelime_routeri_degil_acik_run_politikasidir():
@@ -449,7 +449,7 @@ def test_namespace_metadata_runtime_araclarini_daraltmaz():
     assert len(CAPABILITY_NAMESPACES) == 15
     # OpenAI tool search onerisi: grup basina 10'dan az arac.
     assert max(len(x) for x in CAPABILITY_NAMESPACES.values()) < 10
-    assert len(capability_surface(TOOLS, "auto")) == len(TOOLS) == 56
+    assert len(capability_surface(TOOLS, "auto")) == len(TOOLS) == 57
 
 
 def test_yonlendirme_baglami_ucltan_uca_kesilmez_ve_imzalanir():

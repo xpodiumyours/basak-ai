@@ -135,9 +135,14 @@ class TestDortYer:
 
 
 class TestAgCagrisiYok:
-    """Z0'in sozu: ag cagrisi yok, anahtar yok, kota yok. Statik olarak kanitlanir."""
+    """Z0'in sozu: `harita_goster` ag cagrisi yapmaz, anahtar/kota istemez.
 
-    KAYNAK = inspect.getsource(sys.modules["tools.harita"])
+    2026-10-01 (Z1): modul artik konum_coz icin aga cikar; soz araca aittir,
+    modulun tamamina degil. Bu yuzden denetim `harita_goster` kaynagina
+    daralir — Z0 vaadi daraltilmadi, ayni kaliyor.
+    """
+
+    KAYNAK = inspect.getsource(sys.modules["tools.harita"].harita_goster)
 
     @pytest.mark.parametrize("kaliplar", [
         r"\brequests\b",

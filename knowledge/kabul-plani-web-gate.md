@@ -6,9 +6,10 @@ Aşağıdaki tarihli 52 araç ve 364 hücre satırları geçmiş
 kanıt olarak korunur; **aktif P2 mimari kuralı değildir**.
 
 - Aktif runtime: `chat/agent_runtime.py` + `chat/flow.py` + `chat/tools.py`.
-- Gerçek capability kaynağı: `tools/definitions.py::TOOLS` = **56 araç**
+- Gerçek capability kaynağı: `tools/definitions.py::TOOLS` = **57 araç**
   (2026-10-01: "53" bayattı, TOOLS'tan ölçüldü ve README/docstring
-  iddialarıyla eşitlendi; aynı gün `harita_goster` eklendi → 55'ten 56'ya.
+  iddialarıyla eşitlendi; aynı gün `harita_goster` (55→56) ve `konum_coz`
+  (56→57) eklendi.
   Kilit testleri `tests/test_seviye0_sozlesme.py`,
   `tests/test_agent_protocol.py`, `tests/test_p2_canli_oncesi.py`,
   `tests/test_uc_yer.py`).
@@ -19,7 +20,7 @@ kanıt olarak korunur; **aktif P2 mimari kuralı değildir**.
   (her biri 10'dan az araç) tek kaynaktır; `tools/capabilities.py` onu okur.
 - `chat/tool_resolver.py` silinmiştir; kullanıcı metnine bakan seçici yoktur.
 - Kesilmiş model cevabı ham kalır; kesilme ayrı structured state/event'tir.
-- Elde anahtarı olan 7 sağlayıcı tam matris kapsamı: **7 × 56 = 392**
+- Elde anahtarı olan 7 sağlayıcı tam matris kapsamı: **7 × 57 = 399**
   (2026-10-01; hücre sayısı runner'da sabit yazılmaz —
   `len(KAPSAM) × len(TOOL_SEMALARI)`).
 - Gerçek checkpoint/resume henüz yoktur; varmış gibi raporlanmaz.

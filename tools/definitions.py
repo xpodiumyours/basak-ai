@@ -10,8 +10,8 @@ Okuyanlar serbest, etkisi olanlar dar tablolarda (dosya/gorev/tablo
 yazma, sabit komut, beyaz liste).
 (2026-09-15: toplam 52; ara-toplam formulu bayat oldugu icin kaldirildi.
 2026-09-23: hava_durumu eklendi — 53. 2026-10-01: harita_goster eklendi —
-guncel toplam 56; sayi testlerle kilitli, bak: tests/test_seviye0_sozlesme.py
-+ tests/test_agent_protocol.py.)
+56; ayni gun konum_coz eklendi — guncel toplam 57; sayi testlerle kilitli,
+bak: tests/test_seviye0_sozlesme.py + tests/test_agent_protocol.py.)
 """
 
 
@@ -538,6 +538,19 @@ HARITA_GOSTER = _arac(
     ["konum"],
 )
 
+KONUM_COZ = _arac(
+    "konum_coz",
+    "Adres veya yer adini enlem/boylam koordinatina cevirir. Once Photon "
+    "(OpenStreetMap), olmazsa Open-Meteo geocoding denenir. Doner: adres, "
+    "enlem, boylam, gosterim_adi, kaynak, aday_sayisi, adaylar. Hicbir hat "
+    "bulamazsa hata doner; koordinat uydurulmaz. Anahtar gerekmez; istek "
+    "SSRF denetiminden gecer.",
+    {"adres": {"type": "string",
+               "description": "Adres veya yer adi (orn. Kadikoy Moda, "
+                              "Istanbul)"}},
+    ["adres"],
+)
+
 SIRKET_ARA = _arac(
     "sirket_ara",
     "Markanın resmi sitesini ve iletişim/vergi bilgilerini arar; "
@@ -592,6 +605,7 @@ TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
          SATIR_KAPAT, SATIR_AC, SATIR_SIL, SATIR_TASI,
          MATRIS_DURUM, GORSEL_URET, SAGLIK_RAPORU, SATIR_DUZENLE,
           SIMDI, HESAPLA, HAFIZA_ARA, SIRKET_ARA, HAVA_DURUMU, HARITA_GOSTER,
+         KONUM_COZ,
          FATURA_OKU, KATALOG_KUR, KATALOG_GETIR, KATALOG_LISTELE,
          KATALOG_FIYAT, KATALOG_ONAYLA, YETKI_BELGESI, URUN_ESLESTIR,
          YAYIN_PAKETI, CIKTI_OKU,
