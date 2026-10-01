@@ -561,10 +561,12 @@ SIRKET_ARA = _arac(
     "sirket_ara",
     "Markanın resmi sitesini ve iletişim/vergi bilgilerini arar; "
     "JSON doner: marka, site, unvan, telefonlar, eposta, adresler, "
-    "vergi_no, kaynak, eksik. Bilgiler once sayfanin schema.org "
-    "Organization/PostalAddress verisinden, eksik kalanlar duz "
-    "metinden okunur; bulunamayan alan eksik listesinde yazar ve "
-    "uydurma yok. Salt-okunur: disk yazimi yok.",
+    "vergi_no, kaynak, dogrulandi, eksik. Bilgiler once sayfanin "
+    "schema.org Organization/PostalAddress verisinden, eksik kalanlar "
+    "duz metinden okunur; bulunamayan alan eksik listesinde yazar ve "
+    "uydurma yok. Okunan sayfa markaya ait dogrulanamazsa `dogrulandi` "
+    "false olur, alanlar bos kalir ve `not` sebebini yazar. "
+    "Salt-okunur: disk yazimi yok.",
     {"marka": {"type": "string", "description": "Marka adı (örn. Tutku)"}},
     ["marka"],
 )

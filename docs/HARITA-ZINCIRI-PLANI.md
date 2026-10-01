@@ -414,15 +414,23 @@ kök neden → düzeltme → kanıt.
   oldu (eskiden adres boştu, yanlış veri yoktu).
 - **Düzeltme:** kaynak doğrulaması — sayfa, marka anahtarını **host etiketinde** taşımalı
   (`tutkuelit.com.tr`↔`tutku`, `yeni.com`↔`YeniMarka`) ya da JSON-LD kurum adı/url
-  markayı taşımalı. Doğrulanmamış sayfa **kart üretmez (fail-closed)**; kendini başka
-  kurum olarak tanıtan yapısal bloklar `unvan`/`adres` kaynağı olamaz. Marka anahtarı
-  3 karakterden kısaysa daraltma yapılmaz (yanlış eleme üretmesin).
-- **Kanıt (canlı, aynı sorgu):** `Vestel` → `unvan: ""`, `adresler: []`,
-  `eksik: ["telefon","eposta","adres","vergi_no"]` (Hürriyet verisi **yok**); `Tutku`
-  kartı bozulmadı (`eksik: []`). Ölçüm: vestel.com.tr ve vestelinternational.com
-  iletişim sayfaları metinde/adres yapısında gerçekten adres-telefon yayınlamıyor
-  (306/332 satır tarandı) — bu yüzden boş kart **dürüst** sonuç, kural kaybı değil.
-- **Testler:** `test_markaya_ait_olmayan_sayfa_kart_uretmez`, `test_host_markayi_tasiyor`,
+  markayı taşımalı. Marka anahtarı 3 karakterden kısaysa daraltma yapılmaz (yanlış
+  eleme üretmesin). Kendini başka kurum olarak tanıtan yapısal bloklar `unvan`/`adres`
+  kaynağı olamaz.
+- **Dönüş biçimi (Casper kararı 2026-10-01, ikinci tur):** ilk sürüm fail-closed hataydı;
+  Casper "boş kart + bayrak" alternatifini seçti. Artık doğrulanamayan kaynakta kart
+  **boş alanlarla** döner + `dogrulandi: false` + `not` (okunan aday ve sebep yazılı);
+  doğrulanan kartta `dogrulandi: true` olur ve `not` alanı hiç yazılmaz. Böylece kimse
+  başka kurumun verisini marka sanmaz, ama çağıran hangi adayın okunduğunu da görür.
+- **Kanıt (canlı, aynı sorgu):** `Vestel` → `dogrulandi: true`, `unvan: ""`,
+  `adresler: []`, `eksik: ["telefon","eposta","adres","vergi_no"]` (Hürriyet verisi
+  **yok**); `Tutku` kartı bozulmadı (`eksik: []`). Ölçüm: vestel.com.tr ve
+  vestelinternational.com iletişim sayfaları metinde/adres yapısında gerçekten
+  adres-telefon yayınlamıyor (306/332 satır tarandı) — boş kart **dürüst** sonuç.
+- **Testler:** `test_dogrulanmayan_kaynakta_alanlar_bos_kalir`,
+  `test_dogrulanmayan_kaynak_yabanci_veri_sizdirmaz`,
+  `test_dogrulanmayan_kaynak_okunan_adayi_ve_sebebi_soyler`,
+  `test_dogrulanan_kartta_bayrak_true_ve_not_yok`, `test_host_markayi_tasiyor`,
   `test_marka_host_adini_tasiyor`, `test_ilgisiz_host_eslesmez`,
   `test_kimliksiz_yapisal_blok_elenmez`.
 
@@ -452,9 +460,11 @@ Photon'a özel değil, **açık harita verisinin kapı-numarası kapsamı**. Sor
 düzeltildi (`kurum_sayfasi_oku`); `sayfa_oku`nun model-görünür biçimini değiştirmek
 test kilitlerini ve diğer tüketicileri etkileyeceği için **bilinçli olarak** dokunulmadı.
 
-**FAZ 2.5 kanıt:** `tests/test_sirket_karti_yapisal.py` = **36 test**; `tests/test_harita_z1.py`
-30 → **39 test**; geniş koşu **1055 geçti / 19 atlandı** (FAZ 2 tabanı 1010 → **+45**);
-`ruff check .` yeşil.
+**FAZ 2.5 kanıt:** `tests/test_sirket_karti_yapisal.py` = **39 test**; `tests/test_harita_z1.py`
+30 → **39 test**; geniş koşu **1058 geçti / 19 atlandı** (FAZ 2 tabanı 1010 → **+48**);
+`ruff check .` yeşil. Canlı doğrulama (2026-10-01): `Tutku` → `dogrulandi: true` + tam kart;
+`zzz bilinmeyen marka zzz` → `dogrulandi: false`, alanlar boş, `not` okunan adayı söylüyor
+(arama bu sorguda devlet sitesini getirdi — eskiden o sayfanın verisi "kart" olurdu).
 
 **Faz kapısı:** Bölüm D; ayrıca "uydurma koordinat yok" testi yeşil.
 

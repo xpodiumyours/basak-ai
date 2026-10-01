@@ -1698,7 +1698,9 @@ def sirket_ara(marka):
     önce schema.org Organization/PostalAddress gerçeklerinden, eksik
     kalanlar düz metinden çıkarılır. Salt-okunur; disk yazımı yok.
     Dönüş JSON: {marka, site, unvan, telefonlar, eposta, adresler,
-    kaynak, eksik}. Bulunamayan alan boş döner — uydurma yok.
+    vergi_no, kaynak, dogrulandi, eksik} (+ doğrulanamadıysa `not`).
+    Bulunamayan alan boş döner — uydurma yok. `dogrulandi` false ise okunan
+    sayfa markaya ait doğrulanamadı ve alanlar bilinçli olarak boş kaldı.
     """
     marka = str(marka or "").strip()
     if not marka:
@@ -1777,15 +1779,22 @@ def sirket_ara(marka):
     if not en_site:
         return {"error": "'%s' için iletişim sayfası okunamadı."
                          % cozulen_ad}
-    if not en_uyuyor:
-        # Fail-closed: okunan sayfa markaya ait doğrulanamadıysa başka bir
-        # kurumun adresi/unvanı kart diye yazılmaz (ölçülmüş kusur, 2026-10-01).
-        return {"error": ("'%s' için markaya ait doğrulanmış iletişim sayfası "
-                          "bulunamadı; okunan sayfa markanın sayfası "
-                          "değildi.") % cozulen_ad}
 
-    telefonlar, eposta, adresler, unvan, vergi_no = _sirket_alanlari(
-        en_metin[:6000], en_gercekler)
+    # Kaynak doğrulanamadıysa (okunan sayfa markaya ait değil) kart BOŞ döner
+    # ve `dogrulandi=false` bayrağı taşır: başka bir kurumun adresi/unvanı
+    # marka sanılmaz (ölçülmüş kusur, 2026-10-01) ama çağıran taraf hangi
+    # adayın okunduğunu ve neden alan yazılmadığını da görür.
+    if en_uyuyor:
+        telefonlar, eposta, adresler, unvan, vergi_no = _sirket_alanlari(
+            en_metin[:6000], en_gercekler)
+        dogrulandi = True
+        notu = ""
+    else:
+        telefonlar, eposta, adresler, unvan, vergi_no = [], [], [], "", ""
+        dogrulandi = False
+        notu = ("Okunan sayfa '%s' markaya ait doğrulanamadı; alanlar boş "
+                "bırakıldı." % en_site)
+
     sonuc = {
         "marka": cozulen_ad,
         "site": en_site,
@@ -1795,11 +1804,14 @@ def sirket_ara(marka):
         "adresler": adresler,
         "vergi_no": vergi_no,
         "kaynak": en_site,
+        "dogrulandi": dogrulandi,
         "eksik": [alan for alan, deger in (
             ("telefon", telefonlar), ("eposta", eposta),
             ("adres", adresler), ("vergi_no", vergi_no))
             if not deger],
     }
+    if notu:
+        sonuc["not"] = notu
     return {"result": _j(sonuc)}
 
 

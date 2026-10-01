@@ -272,9 +272,7 @@ class TestKaynakDogrulama:
         monkeypatch.setattr(ws, "kurum_sayfasi_oku", kurum_sayfasi_oku)
         return json.loads(katalog.sirket_ara(marka)["result"]), cagrilar
 
-    def test_markaya_ait_olmayan_sayfa_kart_uretmez(self, monkeypatch):
-        """Fail-closed: başka kurumun sayfası okunabildi diye o kurumun
-        adresi/unvanı markanın kartına yazılmaz; dürüst hata döner."""
+    def _dogrulanmamis(self, monkeypatch):
         monkeypatch.setattr(katalog, "tedarikci_coz",
                             lambda m: (None, "Vestel"))
         monkeypatch.setattr(pr, "firma_bul",
@@ -289,10 +287,50 @@ class TestKaynakDogrulama:
                     "adres_metni": "Demirören Medya Center, Bağcılar / İstanbul",
                     "telefonlar": ["0212 000 00 00"],
                 }]}, ensure_ascii=False)})
-        r = katalog.sirket_ara("Vestel")
-        assert "error" in r and "result" not in r
-        assert "Hürriyet" not in str(r)
-        assert "Demirören" not in str(r)
+        return json.loads(katalog.sirket_ara("Vestel")["result"])
+
+    def test_dogrulanmayan_kaynakta_alanlar_bos_kalir(self, monkeypatch):
+        """Başka kurumun sayfası okunabildi diye o kurumun adresi/unvanı
+        markanın kartına yazılmaz: kart boş döner, `dogrulandi` false olur."""
+        veri = self._dogrulanmamis(monkeypatch)
+        assert veri["dogrulandi"] is False
+        assert veri["unvan"] == ""
+        assert veri["telefonlar"] == []
+        assert veri["eposta"] == []
+        assert veri["adresler"] == []
+        assert veri["vergi_no"] == ""
+
+    def test_dogrulanmayan_kaynak_yabanci_veri_sizdirmaz(self, monkeypatch):
+        veri = self._dogrulanmamis(monkeypatch)
+        assert "Hürriyet" not in json.dumps(veri, ensure_ascii=False)
+        assert "Demirören" not in json.dumps(veri, ensure_ascii=False)
+        assert "0212 000 00 00" not in json.dumps(veri, ensure_ascii=False)
+
+    def test_dogrulanmayan_kaynak_okunan_adayi_ve_sebebi_soyler(
+            self, monkeypatch):
+        veri = self._dogrulanmamis(monkeypatch)
+        assert veri["site"].startswith("https://hurriyet.example")
+        assert veri["kaynak"] == veri["site"]
+        assert "doğrulanamadı" in veri["not"]
+        assert set(veri["eksik"]) == {"telefon", "eposta", "adres",
+                                     "vergi_no"}
+
+    def test_dogrulanan_kartta_bayrak_true_ve_not_yok(self, monkeypatch):
+        monkeypatch.setattr(katalog, "tedarikci_coz",
+                            lambda m: (None, "Vestel"))
+        monkeypatch.setattr(pr, "firma_bul",
+                            lambda urun: [{"site": "vestel.example"}])
+        monkeypatch.setattr(ws, "kurum_sayfasi_oku", lambda url: {
+            "result": json.dumps({
+                "url": url,
+                "metin": "Üretim tesisi",
+                "gercekler": [{"ad": "Vestel Elektronik",
+                               "adres_metni": "Levent 1. Cad. No:5, İstanbul"}],
+            }, ensure_ascii=False)})
+        veri = json.loads(katalog.sirket_ara("Vestel")["result"])
+        assert veri["dogrulandi"] is True
+        assert "not" not in veri
+        assert veri["adresler"] == ["Levent 1. Cad. No:5, İstanbul"]
 
     def test_markanin_sayfasi_yuksek_skorlu_ilgisiz_sayfayi_yener(
             self, monkeypatch):
