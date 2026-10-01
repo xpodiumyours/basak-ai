@@ -302,7 +302,15 @@ def test_full_test_p2_gercekten_p2_refini_hedefler():
         ".github/workflows/basak-full-acceptance.yml", encoding="utf-8"
     ).read()
     assert "FULL TEST P2" in akis
-    assert "preview/p2-arac-ara-profesyonel" in akis
+    # 2026-10-01: ref artik `main`. Eski kosul silinmis dali cekiyordu
+    # (preview/p2-arac-ara-profesyonel) ve o kosumda checkout hep
+    # basarisiz oluyordu; dal adi geri gelmez. Yorum satirlari
+    # temizlenir: duzeltmeyi anlatmak dal adini KULLANMAMAK demek
+    # degil, kodda kalmamasi lazim.
+    kod = "\n".join(
+        s for s in akis.splitlines() if not s.lstrip().startswith("#"))
+    assert "preview/p2-arac-ara-profesyonel" not in kod
+    assert "ref: main" in kod
     assert "MISTRAL_API_KEY" in akis
 
     from tests.live import github_full_acceptance as full
