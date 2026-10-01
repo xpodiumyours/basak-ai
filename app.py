@@ -984,7 +984,14 @@ async def sohbet(request: Request):
 async def sohbetler(request: Request):
     if _kimlik(request) is None:
         return _giris_engeli()
-    return {"liste": []}
+    # 2026-10-01: govde gercegi soyler. Eskiden buraya her zaman
+    # {"liste": []} donuyordu (denetim bulgusu); kayitlar halihazirda
+    # chat/oturum.py'de tutuluyor ve ayni sozlesme yerel koprude
+    # (basak_web.py) zaten boyle calisiyor. Uretimde state dizini
+    # BASAK_STATE_DIR (varsayilan /tmp) altindadir — instance yenilenince
+    # liste gercekden kuculur, bos liste UYDURULMAZ.
+    from chat import oturum
+    return {"ok": True, "liste": oturum.liste()}
 
 
 @app.post("/api/yeni")
