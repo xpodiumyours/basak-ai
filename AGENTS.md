@@ -241,3 +241,6 @@ icin kural:
   yayin onizleme kopyasidir; kisa omurlu is dali sayilmaz. Her faz sonunda
   `main` ile esitlenir, `main`'den tazelenir; is bitiminde kapatilir.
   Bu istisna disindaki uzun omurlu ikinci dal yasagi aynen gecerlidir.
+- Her adim preview dalinda: 1 commit -> testler yesil -> Casper'e kisa
+  rapor -> Casper "tamam" demeden main'e birlesmez. (2026-10-01,
+  Casper onayi)
