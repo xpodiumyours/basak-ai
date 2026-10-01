@@ -552,17 +552,35 @@ def _sayfa_oku_genis(
     url = url.strip()
 
     # URL encode: Turkce/harf disi karakterleri HTTP yolunda encode et
-    # Python http.client ASCII olmayan yollarda UnicodeEncodeError firlatir
+    # Python http.client ASCII olmayan yollarda UnicodeEncodeError firlatir.
+    #
+    # 2026-10-01 (P1.4 olcumunde bulundu) IKI hata buradan gidiyordu:
+    #  1) quote() varsayilan olarak `%` ISARETINI de kodlar. Zaten encode
+    #     edilmis bir URL gelince cift encode olurdu:
+    #     /wiki/Ba%C5%9Fak -> /wiki/Ba%25C5%259Fak -> HTTP 404.
+    #     Duzeltme: `%` safe listesine girdi (zaten encode edilmis
+    #     karakterlere dokunulmaz).
+    #  2) Yalniz PATH kodlaniyordu. QUERY ve NETLOC ham kaliyordu; orn.
+    #     ".../tedarikci-iletisim" turkce karakter iceriyorsa
+    #     "('ascii' codec can't encode character '\xe7')" ile
+    #     TUM sayfa okuma hata veriyordu.
     try:
         from urllib.parse import urlparse as _urlparse, quote as _quote
+        _GUVENLI = "/:@!$&'()*+,;=-._~%"
         _k = _urlparse(url)
-        if _k.path:
-            _yeni_path = _quote(_k.path, safe="/:@!$&'()*+,;=-._~")
-            url = f"{_k.scheme}://{_k.netloc}{_yeni_path}"
+        if _k.scheme and _k.netloc:
+            _yeni_netloc = _k.netloc.encode("idna").decode("ascii") \
+                if _k.hostname else _k.netloc
+            # netloc: kullanici/parola varsa korunur, host IDNA'lanir.
+            if "@" in _yeni_netloc:
+                _kullanici, _sunucu = _yeni_netloc.rsplit("@", 1)
+                _yeni_netloc = "%s@%s" % (_kullanici, _sunucu)
+            _yeni_path = _quote(_k.path, safe=_GUVENLI) if _k.path else ""
+            url = "%s://%s%s" % (_k.scheme, _yeni_netloc, _yeni_path)
             if _k.query:
-                url += f"?{_k.query}"
+                url += "?" + _quote(_k.query, safe=_GUVENLI + "=")
             if _k.fragment:
-                url += f"#{_k.fragment}"
+                url += "#" + _quote(_k.fragment, safe=_GUVENLI)
     except Exception:
         # Kodlanamayan karakter: orijinal URL ile devam edilir.
         logger.debug("URL kodlanamadi, orijinali kullaniliyor", exc_info=True)

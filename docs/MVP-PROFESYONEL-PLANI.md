@@ -203,13 +203,66 @@ sorusuyla uçtan uca koşmuş bir sohbet kaydımız yok.
     `kullanicilar.json`'a dokunurdu; artık `RuntimeError` fırlatır.
   - `brain/brain.py:385` — zincir davranışı **bilerek değiştirilmedi**
     (yalnız iz bırakıldı); ölçülmemiş davranış değişikliği yapılmadı.
-- [ ] **P1.4** **Gecikme bütçesi** ölç: tipik sohbet turu, `sayfa_oku`,
-  `konum_coz`, `sirket_ara` süreleri. Tavan **koyulmaz** — yalnız
-  ölçülür ve sapma varsa kovulur (AGENTS.md §0: tavan geri gelmez).
+- [x] **P1.4** **Gecikme tablosu ÖLÇÜLDÜ** (2026-10-01). Tavan
+  **koyulmadı** — bu bir bütçe değil, ölçüm kaydı (AGENTS.md §0: tavan
+  geri gelmez). Probu: `_gecikme_olcum.py`, her iş **3 kez** koşuldu;
+  ilk ölçüm **soğuk** (DNS + TLS + bağlantı kurulumu), kalanı **sıcak**.
+  Tek ölçüm "tipik süre" değildir.
+
+  **Ölçülen tablo (Linux sandbox, gerçek ağ):**
+
+  | İş | Soğuk | Sıcak ort. | Sıcak en fazla | Not |
+  |---|---|---|---|---|
+  | `sayfa_oku` | 0,118 sn | **0,116 sn** | 0,117 sn | 4.000 karakter |
+  | `hazirlik_belleg` | 0,000 sn | **0,007 sn** | 0,009 sn | model çağrısı YOK |
+  | `dispatcher_konum_coz` | 1,765 sn | **1,962 sn** | 2,124 sn | JSON dönüşü dahil, photon |
+  | `konum_coz` | 1,797 sn | **1,857 sn** | 1,930 sn | 5 aday, photon |
+  | `sirket_ara` | 11,079 sn | **9,460 sn** | 10,018 sn | en ağır: arama + sayfa okuma |
+
+  **Okuma:** `sayfa_oku` **0,1 sn** — tartışmaya değmez. `sirket_ara`
+  **9–11 sn** — bunun tamamı ağ; tek araç olarak bir sohbet turunu
+  10 saniye uzatıyor. `konum_coz` ~2 sn. **Bağlam hazırlığı** ise
+  **7 milisaniye** — ölçülen hiçbir yerde darboğaz değil.
+
+  **Soğuk/sıcak farkı ölçüldü:** `konum_coz` ilk çağrıda 1,797 sn,
+  sıcak 1,857 sn — yani bu işte TLS kurulumu ihmal edilebilir.
+  `sirket_ara`'da fark daha büyük (11,08 → 9,46).
+
+  ### Sınır: model çağrısı ÖLÇÜLEMEDİ
+
+  Bu ortamda **sağlayıcı anahtarı yok**. “Tipik sohbet turu”nun en
+  büyük kalemi model çağrısıdır (ölçülmüş geçmiş: 5,7–41,3 sn) ve
+  **burada ölçülmedi**. Ölçülen şey tam olarak şudur: **ağ katmanı ve
+  araç süresi.** Model gecikmesi için ölçüm Casper'ın ortamında
+  yapılmalı; uydurma süre yazılmadı.
+
+  ### Ölçüm iki GERÇEK KUSUR buldu
+
+  Tablo ilk çıktığında iki sayı yanlıştı; ikisi de koddu, ölçüm değil:
+
+  1. **URL çift kodlama.** `quote()` varsayılan olarak `%` işaretini de
+     kodlar; zaten kodlanmış bir URL ikinci kez kodlanıyordu:
+     `/wiki/Ba%C5%9Fak` → `/wiki/Ba%25C5%259Fak` → **HTTP 404**.
+  2. **Ham Türkçe karakter.** Yalnız PATH kodlanıyordu; QUERY ve NETLOC
+     ham kalıyordu. Türkçe karakter içeren adreslerde
+     `UnicodeEncodeError` **tüm sayfa okumayı** düşürüyordu —
+     `sirket_ara("Trendyol")` aday sayfalarından birinde bu yüzden
+     hata veriyordu.
+
+  Düzeltildi (`%` güvenli; query/netloc de kodlanıyor, alan adı IDNA).
+  **Ölçülen etki:** `konum_coz` sıcak **3,878 sn → 1,857 sn**
+  (yariya indi). 12 yeni regresyon testi (`tests/test_url_kodlama.py`),
+  SSRF savunması ayakta (52 güvenlik testi yeşil).
+
+  **Durüst kayıt — ölçümün kendi hatası da düzeltildi:** probun ilk
+  sürümü `sayfa_oku` çıktısında `icerik` alanını okuyordu; araç
+  `result` döndürdüğü için tabloya **0 karakter** yazdı ve 404 sanıldı.
+  Araç çalışıyordu (ölçüldü: 127.037 karakter). Düzeltilip yeniden
+  ölçüldü — tablodaki sayılar ikinci koşunundur.
 
 **Faz kapısı:** Sayısal kapsam tabanı CI'da ✅ (`--cov-fail-under=60`);
 **sessiz yutma 0** ✅ (ölçüldü, teste kilitli); boşluk raporu ✅;
-gecikme tablosu ⏳ (P1.4 açık).
+gecikme tablosu ✅ (tavan konmadı, model kısmı sınırla belirtildi).
 
 ---
 
@@ -360,6 +413,20 @@ yazmadan "geri alabiliriz" denmeyecek.**
     `basak_app.py` (350 satır) — `pywebview` kurulu olmadığı için
     ölçülemiyor. Boşluğun çoğu **eksik paketten**, canlı
     bağımlılıktan geliyor.
+- **2026-10-01 (P1.4)** Gecikme tablosu ölçüldü, **tavan konmadı**.
+  Soğuk/sıcak ayrımı yapıldı (her iş 3 kez). Sonuç: `sayfa_oku` 0,116 sn,
+  `konum_coz` 1,857 sn, `sirket_ara` 9,460 sn (en ağır), bağlam hazırlığı
+  0,007 sn. **Model çağrısı ölçülemedi** (ortamda sağlayıcı anahtarı yok);
+  bu ortamda ölçülen ağ katmanı ve araç süresidir.
+  **Ölçüm iki gerçek kusur buldu ve ikisi de düzeltildi:** (a) `quote()`
+  `%` işaretini de kodladığı için önceden kodlanmış URL'ler 404 alıyordu;
+  (b) yalnız PATH kodlandığı için Türkçe karakterli adreslerde tüm sayfa
+  okuma `UnicodeEncodeError` ile düşüyordu. Etkisi ölçüldü: `konum_coz`
+  sıcak süre 3,878 sn → **1,857 sn**. 12 regresyon testi eklendi,
+  SSRF savunması 52 testle doğrulandı.
+  **Dürüst kayıt:** ölçüm probunun ilk sürümü `sayfa_oku` çıktısında
+  yanlış alanı (`icerik`) okuduğu için tabloya 0 karakter yazdı ve 404
+  sandı; araç çalışıyordu. Prob düzeltilip yeniden ölçüldü.
 - **P0 kapısı geçmeden bu belge "profesyonel" sayılmaz.** MVP kanıtı
   eksik: gerçek modelle, gerçek kullanıcı sorusuyla, uçtan uca koşmuş
   sohbet kaydı **yok**.
