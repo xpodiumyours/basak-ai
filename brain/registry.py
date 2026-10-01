@@ -355,6 +355,36 @@ SAGLAYICILAR = {
                "girer. Hiz: 400 istek/dk; kullanim tavani yok. Model "
                "varsayilani gpt-oss-120b (emeklilik listesinde degil).",
     },
+    "sambanova": {
+        "ad": "SambaNova",
+        "ucretsiz": True,
+        "tools": True,
+        # 2026-10-01 resmi (docs.sambanova.ai function-calling):
+        # tool_choice auto/required/none resmen belgeli — Basak zorunlu
+        # ajan turunda dogrudan required gonderir.
+        "ajan_tool_mode": "required",
+        "gucleri": ["genel", "kod"],
+        # RESMI FREE TIER (2026-10-01, docs.sambanova.ai rate-limits):
+        # odeme yontemi YOK hesaplar: 20 istek/dk, 20 istek/gun,
+        # 200.000 token/gun (model basi uretim listesi: DeepSeek-V3.1,
+        # Llama-3.3-70B, gpt-oss-120b).
+        "dakikalik_istek": 20,
+        "gunluk_istek": 20,
+        "gunluk_token": 200000,
+        "yerel_kota_koru": False,
+        # RESMI VERI KARTI (2026-10-01, community.sambanova.ai
+        # /t/data-handling-and-retention/1314 — SambaNova personeli
+        # yanimdi): "input tokens and prompts sent to the API are not
+        # stored or archived and are not used for training or
+        # fine-tuning"; Cloud Terms of Service referansli.
+        "veri_saklama": "kaydetmez",
+        "veri_karti": "community.sambanova.ai/t/data-handling-and-"
+                      "retention/1314 (2025-08-18, SambaNova personeli; "
+                      "Cloud ToS referansli)",
+        "not": "Ucretsiz Katman (odeme yontemi yok): 20 istek/gun + "
+               "200K token/gun. Hiz olcumu YOK — mistral'deki gibi "
+               "sirada son baslar; olcumle yukselir.",
+    },
 }
 
 # Varsayilan oncelik sirasi (secici yeniden SIRALAMAZ — bu sira korunur).
@@ -377,6 +407,11 @@ VARSAYILAN_SIRA = [
     # "Yeni bir saglayici eklersen once hiz_olcum.py ile olc, sonra
     # sirayi gerekcesiyle birlikte yorumda belirt."
     "mistral",
+    # 2026-10-01 eklendi: SambaNova (resmi free tier: 20 istek/gun +
+    # 200K token/gun, tool_choice=required belgeli). Hiz olcumu yok —
+    # dar gunluk havuz + olcumsuzluk yuzunden mistral'den de sona,
+    # son care olarak.
+    "sambanova",
 ]
 
 

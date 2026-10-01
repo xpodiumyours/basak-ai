@@ -254,7 +254,10 @@ class TestVeriSaklamaSadeceSeffaflik:
     """
 
     BEKLENEN_SIRA = ["groq", "gemini", "cloudflare", "kilo", "nvidia",
-                     "glm", "openrouter", "cohere", "mistral"]
+                     "glm", "openrouter", "cohere", "mistral",
+                     # 2026-10-01: resmi free tier belgeli (20 istek/gun);
+                     # hiz olcumu yok — en sonda son care.
+                     "sambanova"]
 
     def test_sira_degismedi(self):
         from brain import registry

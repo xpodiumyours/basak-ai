@@ -148,14 +148,17 @@ def test_required_ilk_aractan_sonra_auto_finale_izin_verir():
 # 2026-09-22: Mistral eklendi (Yol 1). glhf ayni gun olu ciktigi (HTTP
 # 522) icin tamamen kaldirildi; listedeki 9 ucretsizdir: ucretsiz + tool
 # destekli + ajan protokolune uygun. Sira sondadir cunku canli olcumu bekliyor.
+# 2026-10-01: SambaNova eklendi (10.) — resmi free tier 20 istek/gun +
+# 200K token/gun, tool_choice=required resmi belgeli. Hiz olcumu yok;
+# dar gunluk havuz yuzunden en sonda son care olarak.
 AJAN_SAGLAYICILARI = (
     "groq", "gemini", "cloudflare", "kilo",
     "nvidia", "glm", "openrouter", "cohere",
-    "mistral",
+    "mistral", "sambanova",
 )
 
 
-def test_registry_9_ucretsiz_saglayicinin_tamamini_ajan_olarak_tanimlar():
+def test_registry_10_ucretsiz_saglayicinin_tamamini_ajan_olarak_tanimlar():
     from brain import registry
 
     assert tuple(registry.VARSAYILAN_SIRA) == AJAN_SAGLAYICILARI
@@ -195,6 +198,9 @@ def test_9_saglayici_resmi_tool_choice_haritasi():
         # destekler; Basak ajan turunda duz metni basari saymaz.
         # (glhf ayni gun olu cikti, cikarildi.)
         "mistral": "auto",
+        # 2026-10-01: SambaNova — resmi function-calling belgesinde
+        # tool_choice=required destegi acikca yaziyor.
+        "sambanova": "required",
     }
     assert {ad: registry.ajan_tool_choice(ad)
             for ad in AJAN_SAGLAYICILARI} == beklenen
@@ -376,7 +382,7 @@ def test_otomatik_bulut_zinciri_ucretli_ve_qwen_sokmaz():
     assert "mistral" in adlar
 
 
-def test_ajan_zinciri_9_ucretsiz_saglayicinin_tamamini_kapsar():
+def test_ajan_zinciri_10_ucretsiz_saglayicinin_tamamini_kapsar():
     from brain.brain import Brain
 
     class Saglayici:
@@ -386,16 +392,16 @@ def test_ajan_zinciri_9_ucretsiz_saglayicinin_tamamini_kapsar():
     b = Brain.__new__(Brain)
     for ad in ("groq", "gemini", "glm", "nvidia", "kilo", "openrouter",
                "cloudflare", "cohere", "qwen", "genel",
-               "mistral", "huggingface", "chutes"):
+               "mistral", "huggingface", "chutes", "sambanova"):
         setattr(b, "_" + ad, Saglayici())
 
     adlar = [ad for ad, _ in b._bulut_zinciri(
         tools=True, tool_required=True)]
     assert set(adlar) == set(AJAN_SAGLAYICILARI)
-    assert len(adlar) == 9
+    assert len(adlar) == 10
 
 
-def test_9_saglayici_x_55_gercek_arac_dogrudan_ajan_yolunda_erisebilir():
+def test_10_saglayici_x_55_gercek_arac_dogrudan_ajan_yolunda_erisebilir():
     from chat.tools import arac_dongusu
     from tools.definitions import TOOLS
     araclar = [t["function"]["name"] for t in TOOLS]
@@ -423,7 +429,7 @@ def test_9_saglayici_x_55_gercek_arac_dogrudan_ajan_yolunda_erisebilir():
             assert kosan == 1
             assert cevap == "tamam"
             sayac += 1
-    assert sayac == 9 * 55
+    assert sayac == 10 * 55
 
 @pytest.mark.parametrize(
     "sinif_yolu,model,tool_choice",
