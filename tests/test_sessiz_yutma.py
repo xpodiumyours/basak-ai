@@ -49,9 +49,20 @@ def _sessiz_yutmalar(yol):
     return bulunan
 
 
+def _goreli_yollar():
+    """Kokten goreli yol, **platformdan bagimsiz** bicimde.
+
+    2026-10-01: burada `str(relative_to())` vardi ve CI **Windows**
+    (win32) uzerinde kirmiziya dustu: `brain\\brain.py` != `brain/brain.py`.
+    Uretim kodu degil, **testin** yoluydu. `as_posix()` her platformda
+    `/` uretir; kural bu dosyada da kilitli.
+    """
+    return {yol.relative_to(KOK).as_posix() for yol in _uretim_dosyalari()}
+
+
 def test_uretim_kodu_listeleniyor():
     """Taranan dosya sayısı makul: filtre yanlislikla her seyi elemiyor."""
-    goreli = {str(yol.relative_to(KOK)) for yol in _uretim_dosyalari()}
+    goreli = _goreli_yollar()
     assert "app.py" in goreli, "app.py taranmiyor — filtre bozuk"
     assert "brain/brain.py" in goreli, "brain/brain.py taranmiyor"
     assert "tools/web_search.py" in goreli, "tools/web_search.py taranmiyor"
@@ -60,13 +71,29 @@ def test_uretim_kodu_listeleniyor():
     assert len(goreli) > 20, "taranan dosya sayisi anormal: %d" % len(goreli)
 
 
+def test_yol_bicimi_platformdan_bagimsiz():
+    """Aynı kural, Windows yazımıyla da doğrulanır.
+
+    Linux'ta `str()` ve `as_posix()` aynı sonucu verir; bu yüzden
+    hata ancak CI'da (win32) görünür. Kuralın kendisi her yerde
+    kilitli kalsın diye Windows yazımı ayrıca sınanır.
+    """
+    ornek = pathlib.PureWindowsPath("brain") / "brain.py"
+    assert str(ornek) == r"brain\brain.py", "beklenmeyen Windows yazimi"
+    assert ornek.as_posix() == "brain/brain.py", ornek.as_posix()
+    goreli = _goreli_yollar()
+    assert "brain/brain.py" in goreli, sorted(goreli)[:5]
+    assert not any(y.startswith("tests/") for y in goreli), (
+        "testler taranmamali")
+
+
 def test_sessiz_yutma_sifir():
     """KABUL ÖLÇÜTÜ: `except: pass` sayısı 0."""
     supheli = {}
     for yol in _uretim_dosyalari():
         satirlar = _sessiz_yutmalar(yol)
         if satirlar:
-            supheli[str(yol.relative_to(KOK))] = satirlar
+            supheli[yol.relative_to(KOK).as_posix()] = satirlar
     assert not supheli, (
         "Sessiz yutma bulundu (her `except` govdesi `pass` olamaz — "
         "logger.debug izi birak veya akisi duzelt): %s" % supheli)
