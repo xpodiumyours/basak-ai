@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 
-from tools import katalog, web_search as ws
+from tools import katalog, product_resolver as pr, web_search as ws
 
 # Canlı ölçümden alınan gerçek JSON-LD (tutkuelit.com.tr, 2026-10-01).
 TUTKU_JSONLD = """
@@ -248,6 +248,97 @@ class TestSirketAlanlari:
         assert eposta == ["a@yeni.com"]
         assert adres and "Deneme Mah." in adres[0]
         assert unvan == ""
+
+
+class TestKaynakDogrulama:
+    """Ölçülmüş kusur (2026-10-01): "Vestel" sorgusunda arama yolundan
+    ilgisiz bir haber sitesi seçildi ve kartta Hürriyet Gazetesi'nin
+    unvanı/adresi Vestel sanıldı. Kaynak doğrulanmadan alan yazılmaz."""
+
+    def _kos(self, monkeypatch, marka, siteler, sayfalar):
+        monkeypatch.setattr(katalog, "tedarikci_coz", lambda m: (None, marka))
+        monkeypatch.setattr(pr, "firma_bul",
+                            lambda urun: [{"site": s} for s in siteler])
+        cagrilar = []
+
+        def kurum_sayfasi_oku(url):
+            cagrilar.append(url)
+            for anahtar, govde in sayfalar.items():
+                if anahtar in url:
+                    veri = dict(govde)
+                    veri.setdefault("url", url)
+                    return {"result": json.dumps(veri, ensure_ascii=False)}
+            return {"error": "yok"}
+        monkeypatch.setattr(ws, "kurum_sayfasi_oku", kurum_sayfasi_oku)
+        return json.loads(katalog.sirket_ara(marka)["result"]), cagrilar
+
+    def test_markaya_ait_olmayan_sayfa_kart_uretmez(self, monkeypatch):
+        """Fail-closed: başka kurumun sayfası okunabildi diye o kurumun
+        adresi/unvanı markanın kartına yazılmaz; dürüst hata döner."""
+        monkeypatch.setattr(katalog, "tedarikci_coz",
+                            lambda m: (None, "Vestel"))
+        monkeypatch.setattr(pr, "firma_bul",
+                            lambda urun: [{"site": "hurriyet.example"}])
+        monkeypatch.setattr(ws, "kurum_sayfasi_oku", lambda url: {
+            "result": json.dumps({
+                "url": url,
+                "metin": "İletişim\nAdres: Demirören Medya Center 34204",
+                "gercekler": [{
+                    "ad": "Hürriyet Gazetesi",
+                    "resmi_ad": "Hürriyet Gazetesi A.Ş.",
+                    "adres_metni": "Demirören Medya Center, Bağcılar / İstanbul",
+                    "telefonlar": ["0212 000 00 00"],
+                }]}, ensure_ascii=False)})
+        r = katalog.sirket_ara("Vestel")
+        assert "error" in r and "result" not in r
+        assert "Hürriyet" not in str(r)
+        assert "Demirören" not in str(r)
+
+    def test_markanin_sayfasi_yuksek_skorlu_ilgisiz_sayfayi_yener(
+            self, monkeypatch):
+        veri, _ = self._kos(
+            monkeypatch, "Vestel", ["haber.example", "vestel.example"],
+            {"haber.example": {
+                "metin": ("adres telefon faks vergi e-posta bize ulaşın "
+                          "iletişim adres telefon faks vergi"),
+                "gercekler": [{"ad": "Haber Sitesi"}]},
+             "vestel.example": {
+                "metin": "Üretim tesisi",
+                "gercekler": [{"ad": "Vestel Elektronik",
+                               "adres_metni": "Levent 1. Cad. No:5, İstanbul"}]}})
+        assert veri["site"].startswith("https://vestel.example")
+        assert veri["adresler"] == ["Levent 1. Cad. No:5, İstanbul"]
+
+    def test_site_basi_butce_asilmaz(self, monkeypatch):
+        _, cagrilar = self._kos(
+            monkeypatch, "Testmarka",
+            ["testmarkaa.example", "testmarkab.example",
+             "testmarkac.example", "testmarkad.example"],
+            {"example": {"metin": "adres telefon vergi"}})
+        siteler = [c.split("//")[1].split("/")[0] for c in cagrilar]
+        assert len(cagrilar) <= 3 * 2
+        assert siteler.count("testmarkaa.example") <= 2
+        assert "testmarkad.example" not in siteler
+
+    def test_host_markayi_tasiyor(self):
+        assert katalog._host_markaya_uyuyor("tutku", "tutkuelit.com.tr")
+
+    def test_marka_host_adini_tasiyor(self):
+        assert katalog._host_markaya_uyuyor("yenimarka", "yeni.com")
+
+    def test_ilgisiz_host_eslesmez(self):
+        assert not katalog._host_markaya_uyuyor("vestel", "hurriyet.com.tr")
+
+    def test_marka_anahtari_kisa_ise_daraltma_yalapilmaz(self):
+        assert katalog._gercek_markaya_ait("ab", {"ad": "Başka Kurum"})
+
+    def test_kimliksiz_yapisal_blok_elenmez(self):
+        assert katalog._gercek_markaya_ait("vestel",
+                                           {"adres_metni": "X Cad. No:1"})
+
+    def test_baska_kurum_kimligi_elenir(self):
+        assert not katalog._gercek_markaya_ait(
+            "vestel", {"adet": 0, "ad": "Hürriyet Gazetesi"})
 
 
 class TestSirketAraUctanUca:

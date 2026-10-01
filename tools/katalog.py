@@ -1500,6 +1500,114 @@ def _sirket_sayfa_skor(yazi):
     return sum(kucuk.count(k) for k in _SIRKET_KELIME_SKORLARI)
 
 
+# Aday sayfa bütçesi: site başına en fazla 2 yol, en fazla 3 site.
+# Ölçülmüş kusur (2026-10-01): eski akış ilk 5 URL'yi alıyordu; ilk sitenin
+# 6 yol bütçeyi yiyordu, markanın KENDİ sitesi hiç okunmuyordu (Vestel
+# sorgusunda vestel.com.tr hiç okunmadı).
+_SIRKET_SITE_TAVANI = 3
+_SIRKET_YOL_TAVANI = 2
+# Marka anahtarı bu uzunluktan kısaysa kaynak daraltması yapılmaz.
+_SIRKET_MARKA_MIN = 3
+
+
+def _marka_anahtari(deger):
+    """Marka/host karşılaştırma anahtarı (product_resolver normu kullanılır)."""
+    from tools.product_resolver import _norm
+    return _norm(deger or "")
+
+
+def _gercek_markaya_ait(anahtar, gercek):
+    """Yapısal blok bu markaya mı ait (ad / resmî ad / url üzerinden)?
+
+    Blokta hiç kimlik alanı yoksa (ad/resmî ad/url boş) "başkasının"
+    denemez; yalnız KENDİNİ başka kurum olarak tanıtan blok elenir.
+    """
+    if len(anahtar) < _SIRKET_MARKA_MIN:
+        return True
+    kimlikler = [_marka_anahtari(gercek.get(alan))
+                 for alan in ("ad", "resmi_ad", "url")]
+    kimlikler = [k for k in kimlikler if k]
+    if not kimlikler:
+        return True
+    return any(anahtar in k for k in kimlikler)
+
+
+# Host etiketlerinde ad sayılmayan uzantılar (karşılaştırmaya girmez).
+_SIRKET_HOST_EKLERI = ("com", "net", "org", "gov", "edu", "info", "biz",
+                       "comtr", "cotr", "tr", "co")
+
+
+def _host_adi(adres):
+    """URL ya da çıplak host metninden host adını çıkarır (www. atılır).
+
+    product_resolver._host yalnız şemalı URL'de host verir ve `lstrip("www.")`
+    harf düşürür; sirket kartı hem `https://…` URL'si hem çıplak host
+    (`tutkuelit.com.tr`) ile çalıştığı için burada şemasız girdi de çözülür.
+    """
+    from urllib.parse import urlparse
+    ham = str(adres or "").strip()
+    k = urlparse(ham if "://" in ham else "//" + ham)
+    host = (k.hostname or "").lower()
+    return host[4:] if host.startswith("www.") else host
+
+
+def _host_markaya_uyuyor(anahtar, adres):
+    """Host adı markayı taşıyor mu? Karşılaştırma İKİ yönlüdür ve
+    uzantı etiketleri (com/tr…) dışarıda kalır.
+
+    `tutkuelit.com.tr` ↔ `tutku` (host markayı taşır) ve
+    `yeni.com` ↔ `YeniMarka` (marka host adını taşır) ikisi de geçerli.
+    """
+    for etiket in _host_adi(adres).split("."):
+        etiket_anahtar = _marka_anahtari(etiket)
+        if etiket_anahtar in _SIRKET_HOST_EKLERI:
+            continue
+        if len(etiket_anahtar) < _SIRKET_MARKA_MIN:
+            continue
+        if etiket_anahtar in anahtar or anahtar in etiket_anahtar:
+            return True
+    return False
+
+
+def _sayfa_markaya_ait(anahtar, aday, okunan):
+    """Okunan sayfa gerçekten bu markaya mı ait?
+
+    Ölçülmüş kusur (2026-10-01): arama yolunda bir haber sitesi "Vestel"
+    sorgusunda seçildi ve kartta Hürriyet Gazetesi'nin adresi + unvanı
+    Vestel sanıldı. Kaynağı doğrulanmamış alan karta yazılmaz.
+    """
+    if len(anahtar) < _SIRKET_MARKA_MIN:
+        return True
+    if _host_markaya_uyuyor(anahtar, aday):
+        return True
+    return any(_gercek_markaya_ait(anahtar, g)
+               for g in (okunan.get("gercekler") or [])
+               if isinstance(g, dict))
+
+
+def _sirket_aday_sirasi(adaylar, anahtar):
+    """Adayları site bazında gruplayıp bütçeyi sitelere adil dağıtır.
+
+    Marka anahtarını taşıyan hostlar önce gelir; her siteden en fazla
+    `_SIRKET_YOL_TAVANI` yol alınır. Böylece tek bir sitenin yolları tüm
+    bütçeyi yiyemez.
+    """
+    gruplar = {}
+    sira = []
+    for aday in adaylar:
+        host = _host_adi(aday)
+        if host not in gruplar:
+            gruplar[host] = []
+            sira.append(host)
+        gruplar[host].append(aday)
+    if len(anahtar) >= _SIRKET_MARKA_MIN:
+        sira.sort(key=lambda h: 0 if _host_markaya_uyuyor(anahtar, h) else 1)
+    secilen = []
+    for host in sira[:_SIRKET_SITE_TAVANI]:
+        secilen.extend(gruplar[host][:_SIRKET_YOL_TAVANI])
+    return secilen
+
+
 def _sirket_alanlari(metin, gercekler):
     """Şirket kartı alanları: schema.org gerçekleri önce, düz metin yedek.
 
@@ -1630,15 +1738,19 @@ def sirket_ara(marka):
             temel = "%s://%s" % (_coz(adres).scheme, host)
             if temel not in adaylar:
                 adaylar.append(temel)
-            if len(adaylar) >= 5:
+            if len(adaylar) >= _SIRKET_SITE_TAVANI:
                 break
     if not adaylar:
         return {"error": "'%s' için site bulunamadı." % cozulen_ad}
 
+    marka_anahtari = _marka_anahtari(cozulen_ad)
+    okunacak = _sirket_aday_sirasi(adaylar, marka_anahtari)
+
     # Her aday sayfası TEK kez indirilir (eski akış en iyi adayı ikinci kez
     # indiriyordu); metin + yapısal gerçekler aynı okumadan gelir.
-    en_metin, en_gercekler, en_skor, en_site = "", [], 0, ""
-    for aday in adaylar[:5]:
+    # Marka anahtarını taşıyan sayfa, daha yüksek skorlu ilgisiz sayfayı yener.
+    en_metin, en_gercekler, en_skor, en_site, en_uyuyor = "", [], 0, "", False
+    for aday in okunacak:
         okuma = ws.kurum_sayfasi_oku(aday)
         if okuma.get("error"):
             continue
@@ -1648,14 +1760,29 @@ def sirket_ara(marka):
             continue
         metin = str(okunan.get("metin") or "")
         skor = _sirket_sayfa_skor(metin)
+        uyuyor = _sayfa_markaya_ait(marka_anahtari, aday, okunan)
         # İlk okunabilen aday tabandır: skor 0 olsa da sayfa gerçekten
         # okunmuştur, "iletişim sayfası okunamadı" denmez.
-        if not en_site or skor > en_skor:
-            en_metin, en_skor, en_site = metin, skor, aday
-            en_gercekler = okunan.get("gercekler") or []
+        daha_iyi = ((not en_site) or (uyuyor and not en_uyuyor)
+                    or (uyuyor == en_uyuyor and skor > en_skor))
+        if daha_iyi:
+            en_metin, en_skor, en_site, en_uyuyor = (
+                metin, skor, aday, uyuyor)
+            # Başka bir kuruma ait yapısal blok karta yazılmaz.
+            en_gercekler = [
+                g for g in (okunan.get("gercekler") or [])
+                if isinstance(g, dict)
+                and _gercek_markaya_ait(marka_anahtari, g)
+            ]
     if not en_site:
         return {"error": "'%s' için iletişim sayfası okunamadı."
                          % cozulen_ad}
+    if not en_uyuyor:
+        # Fail-closed: okunan sayfa markaya ait doğrulanamadıysa başka bir
+        # kurumun adresi/unvanı kart diye yazılmaz (ölçülmüş kusur, 2026-10-01).
+        return {"error": ("'%s' için markaya ait doğrulanmış iletişim sayfası "
+                          "bulunamadı; okunan sayfa markanın sayfası "
+                          "değildi.") % cozulen_ad}
 
     telefonlar, eposta, adresler, unvan, vergi_no = _sirket_alanlari(
         en_metin[:6000], en_gercekler)

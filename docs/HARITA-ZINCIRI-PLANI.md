@@ -396,6 +396,43 @@ kök neden → düzeltme → kanıt.
 - `en_iyi, en_skor, en_site = adres if False else aday, skor, aday` satırı (her zaman
   `aday` seçen, `adres` adını boş yere anan kod) K3 refactor'üyle kalktı.
 
+### K7 — Aday bütçesi tek siteyi besliyordu
+
+- **Ölçüm:** `firma_bul("Vestel")` 4 site döndürdü (24 aday URL); eski akış
+  `adaylar[:5]` aldığı için yalnız ilk sitenin yolları okundu, **markanın kendi sitesi
+  (`vestel.com.tr`) hiç okunmadı**.
+- **Düzeltme:** adaylar site bazında gruplanır, marka etiketini taşıyan hostlar önce
+  gelir, **site başına 2 yol × en fazla 3 site** okunur. Aynı düzeltmede arama
+  yoluyla bulunan aday tavanı da 5 → 3 siteye çekildi.
+- **Kanıt:** `test_site_basi_butce_asilmaz`, `test_markanin_sayfasi_yuksek_skorlu_ilgisiz_sayfayi_yener`.
+
+### K8 — Kaynak doğrulanmadan kart yazılıyordu (yanlış kurum atfı) ⚠️
+
+- **Ölçüm (ciddi):** `sirket_ara("Vestel")` kartında `unvan = "Hürriyet Gazetesi"` ve
+  `adres = "Demirören Medya Center, 100.Yıl Mahallesi…"` döndü — arama yolunda seçilen
+  sayfa Vestel'in değildi. Alan çıkarımı güçlendikçe bu hata **veri olarak görünür**
+  oldu (eskiden adres boştu, yanlış veri yoktu).
+- **Düzeltme:** kaynak doğrulaması — sayfa, marka anahtarını **host etiketinde** taşımalı
+  (`tutkuelit.com.tr`↔`tutku`, `yeni.com`↔`YeniMarka`) ya da JSON-LD kurum adı/url
+  markayı taşımalı. Doğrulanmamış sayfa **kart üretmez (fail-closed)**; kendini başka
+  kurum olarak tanıtan yapısal bloklar `unvan`/`adres` kaynağı olamaz. Marka anahtarı
+  3 karakterden kısaysa daraltma yapılmaz (yanlış eleme üretmesin).
+- **Kanıt (canlı, aynı sorgu):** `Vestel` → `unvan: ""`, `adresler: []`,
+  `eksik: ["telefon","eposta","adres","vergi_no"]` (Hürriyet verisi **yok**); `Tutku`
+  kartı bozulmadı (`eksik: []`). Ölçüm: vestel.com.tr ve vestelinternational.com
+  iletişim sayfaları metinde/adres yapısında gerçekten adres-telefon yayınlamıyor
+  (306/332 satır tarandı) — bu yüzden boş kart **dürüst** sonuç, kural kaybı değil.
+- **Testler:** `test_markaya_ait_olmayan_sayfa_kart_uretmez`, `test_host_markayi_tasiyor`,
+  `test_marka_host_adini_tasiyor`, `test_ilgisiz_host_eslesmez`,
+  `test_kimliksiz_yapisal_blok_elenmez`.
+
+### K9 — `_host` şemasız girdiyi çözemiyordu
+
+- `product_resolver._host` şemasız metinde host döndürmez ve `lstrip("www.")` harf
+  düşürür; kart hem `https://…` hem çıplak host ile çalıştığı için katalogda
+  `_host_adi` eklendi (şemasız girdi de çözülür). `product_resolver` **değiştirilmedi**
+  (kendi testleri ve tüketicileri var) — kusur burada belgelendi.
+
 ### Ölçülen kapasite sınırı — açık veri kapı numarasını bilmiyor
 
 | Sorgu biçimi | Photon | Nominatim |
@@ -415,8 +452,8 @@ Photon'a özel değil, **açık harita verisinin kapı-numarası kapsamı**. Sor
 düzeltildi (`kurum_sayfasi_oku`); `sayfa_oku`nun model-görünür biçimini değiştirmek
 test kilitlerini ve diğer tüketicileri etkileyeceği için **bilinçli olarak** dokunulmadı.
 
-**FAZ 2.5 kanıt:** `tests/test_sirket_karti_yapisal.py` = **27 test**; `tests/test_harita_z1.py`
-30 → **39 test**; geniş koşu **1046 geçti / 19 atlandı** (FAZ 2 tabanı 1010 → **+36**);
+**FAZ 2.5 kanıt:** `tests/test_sirket_karti_yapisal.py` = **36 test**; `tests/test_harita_z1.py`
+30 → **39 test**; geniş koşu **1055 geçti / 19 atlandı** (FAZ 2 tabanı 1010 → **+45**);
 `ruff check .` yeşil.
 
 **Faz kapısı:** Bölüm D; ayrıca "uydurma koordinat yok" testi yeşil.
