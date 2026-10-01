@@ -39,25 +39,25 @@
 
   function sayi(metin, etiket) {
     var s = String(metin || "").trim().replace(",", ".");
-    if (!s || isNaN(Number(s))) throw new Error(etiket + " bir sayi olmali");
+    if (!s || isNaN(Number(s))) throw new Error(etiket + " bir sayı olmalı");
     return Number(s);
   }
 
   function base64Coz(metin) {
     var ham = String(metin || "").trim().replace(/\s+/g, "");
     if (!ham || !/^[A-Za-z0-9+/]+={0,2}$/.test(ham)) {
-      throw new Error("Gecersiz Base64 metni");
+      throw new Error("Geçersiz Base64 metni");
     }
     var bayt;
     try { bayt = atob(ham); } catch (e) {
-      throw new Error("Gecersiz Base64 metni");
+      throw new Error("Geçersiz Base64 metni");
     }
     var u8 = new Uint8Array(bayt.length);
     for (var i = 0; i < bayt.length; i++) u8[i] = bayt.charCodeAt(i);
     try {
       return new TextDecoder("utf-8", { fatal: true }).decode(u8);
     } catch (e) {
-      throw new Error("Cozulen veri UTF-8 metni degil");
+      throw new Error("Çözülen veri UTF-8 metni değil");
     }
   }
 
@@ -78,7 +78,7 @@
     var ad = harita[String(alg || "sha256").trim().toLowerCase()];
     if (!ad) {
       throw new Error("Desteklenen algoritmalar: sha256, sha1, sha384, " +
-                      "sha512 (md5 tarayicinin sifreleme arayuzunde yok)");
+                      "sha512 (md5 tarayıcının şifreleme arayüzünde yok)");
     }
     var veri = new TextEncoder().encode(String(metin || ""));
     var ozet = await crypto.subtle.digest(ad, veri);
@@ -101,12 +101,12 @@
       var coz = /decode|coz|çöz/i.test(d[1] || "");
       if (!coz) return encodeURIComponent(d[0] || "");
       try { return decodeURIComponent(d[0] || ""); }
-      catch (e) { throw new Error("Gecersiz yüzde kodlamasi"); }
+      catch (e) { throw new Error("Geçersiz yüzde kodlaması"); }
     },
 
     "percentage-calculator": function (d) {
-      return ondalik(sayi(d[0], "Birinci deger") *
-                     sayi(d[1], "Ikinci deger") / 100);
+      return ondalik(sayi(d[0], "Birinci değer") *
+                     sayi(d[1], "İkinci değer") / 100);
     },
 
     "letter-counter": function (d) {
@@ -114,12 +114,12 @@
       var harf = (m.match(/[\p{L}]/gu) || []).length;
       var rakam = (m.match(/\d/g) || []).length;
       return [
-        "Karakter (bosluklu): " + m.length,
-        "Karakter (bosluksuz): " + m.replace(/\s/g, "").length,
+        "Karakter (boşluklu): " + m.length,
+        "Karakter (boşluksuz): " + m.replace(/\s/g, "").length,
         "Kelime: " + (m.trim() ? m.trim().split(/\s+/).length : 0),
         "Harf: " + harf,
         "Rakam: " + rakam,
-        "Satir: " + (m ? m.split(/\r\n|\r|\n/).length : 0),
+        "Satır: " + (m ? m.split(/\r\n|\r|\n/).length : 0),
       ].join("\n");
     },
 
@@ -130,9 +130,9 @@
     "binary-hex-converter": function (d) {
       var t = String(d[0] || "").trim().toLowerCase();
       if (t.indexOf("0x") === 0) t = t.slice(2);
-      if (!t) throw new Error("Sayi bos olamaz");
+      if (!t) throw new Error("Sayı boş olamaz");
       if (/^[01]+$/.test(t)) {
-        if (t.length > 4096) throw new Error("Cok uzun ikili sayi");
+        if (t.length > 4096) throw new Error("Çok uzun ikili sayı");
         return "0x" + BigInt("0b" + t).toString(16);
       }
       if (/^[0-9a-f]+$/.test(t)) {
@@ -151,7 +151,7 @@
       var t = String(d[0] || "").trim().toLowerCase();
       if (t.indexOf("0x") === 0) t = t.slice(2);
       if (!/^[0-9a-f]+$/.test(t)) {
-        throw new Error("Gecersiz hex sayi (ornek: ff)");
+        throw new Error("Geçersiz hex sayısı (örnek: ff)");
       }
       return BigInt("0x" + t).toString(10);
     },
@@ -191,19 +191,19 @@
         for (var i = 0; i < veri.length; i++) {
           blok.push(veri[i].toString(2).padStart(8, "0"));
         }
-        if (!blok.length) throw new Error("Metin bos olamaz");
+        if (!blok.length) throw new Error("Metin boş olamaz");
         return blok.join(" ");
       }
       var parcalar = m.trim().split(/\s+/);
-      if (!parcalar.length || !parcalar[0]) throw new Error("Ikili metin bos olamaz");
+      if (!parcalar.length || !parcalar[0]) throw new Error("İkili metin boş olamaz");
       var bayt = parcalar.map(function (p) {
-        if (!/^[01]{8}$/.test(p)) throw new Error("Her blok 8 bit 0/1 olmali");
+        if (!/^[01]{8}$/.test(p)) throw new Error("Her blok 8 bit 0/1 olmalı");
         return parseInt(p, 2);
       });
       try {
         return new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(bayt));
       } catch (e) {
-        throw new Error("Cozulen veri UTF-8 metni degil");
+        throw new Error("Çözülen veri UTF-8 metni değil");
       }
     },
 
@@ -214,41 +214,41 @@
         var veri = new TextEncoder().encode(m);
         var kod = [];
         for (var i = 0; i < veri.length; i++) kod.push(String(veri[i]));
-        if (!kod.length) throw new Error("Metin bos olamaz");
+        if (!kod.length) throw new Error("Metin boş olamaz");
         return kod.join(" ");
       }
       var parcalar = m.trim().split(/[\s,]+/);
-      if (!parcalar.length || !parcalar[0]) throw new Error("Kod listesi bos olamaz");
+      if (!parcalar.length || !parcalar[0]) throw new Error("Kod listesi boş olamaz");
       var bayt = parcalar.map(function (p) {
         if (!/^\d{1,3}$/.test(p) || Number(p) > 255) {
-          throw new Error("Her kod 0-255 arasi sayi olmali");
+          throw new Error("Her kod 0-255 arası sayı olmalı");
         }
         return Number(p);
       });
       try {
         return new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(bayt));
       } catch (e) {
-        throw new Error("Cozulen veri UTF-8 metni degil");
+        throw new Error("Çözülen veri UTF-8 metni değil");
       }
     },
 
     "remove-empty-lines": function (d) {
       var satir = String(d[0] || "").split(/\r\n|\r|\n/);
       var dolu = satir.filter(function (s) { return s.trim(); });
-      if (!dolu.length) throw new Error("Temizlenecek dolu satir yok");
+      if (!dolu.length) throw new Error("Temizlenecek dolu satır yok");
       return dolu.join("\n");
     },
 
     "line-break-remover": function (d) {
       var birlesik = String(d[0] || "").replace(/\s+/g, " ").trim();
-      if (!birlesik) throw new Error("Birlestirilecek metin yok");
+      if (!birlesik) throw new Error("Birleştirilecek metin yok");
       return birlesik;
     },
 
     "character-remover": function (d) {
       var m = String(d[0] || "");
       var sil = String(d[1] || "");
-      if (!m) throw new Error("Metin bos olamaz");
+      if (!m) throw new Error("Metin boş olamaz");
       if (!sil) {
         var temiz = m.replace(/[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/g, "");
         if (!temiz) throw new Error("Temizlenecek noktalama yok");
@@ -266,14 +266,14 @@
     "character-replacer": function (d) {
       var m = String(d[0] || "");
       var kural = String(d[1] || "").trim();
-      if (!m) throw new Error("Metin bos olamaz");
-      if (!kural) throw new Error("Degisim kurali bos olamaz (ornek: a>e)");
+      if (!m) throw new Error("Metin boş olamaz");
+      if (!kural) throw new Error("Değişim kuralı boş olamaz (örnek: a>e)");
       var cikti = m;
       var adimlar = kural.split("|");
       for (var i = 0; i < adimlar.length; i++) {
         var parca = adimlar[i].split(">");
         if (parca.length !== 2 || !parca[0]) {
-          throw new Error("Gecersiz kural: '" + adimlar[i] + "' (ornek: a>e)");
+          throw new Error("Geçersiz kural: '" + adimlar[i] + "' (örnek: a>e)");
         }
         cikti = cikti.split(parca[0]).join(parca[1]);
       }
@@ -283,10 +283,10 @@
     "tabs-to-space": function (d) {
       var m = String(d[0] || "");
       var adet = String(d[1] || "").trim();
-      if (!m) throw new Error("Metin bos olamaz");
+      if (!m) throw new Error("Metin boş olamaz");
       var n = adet ? Number(adet) : 4;
       if (!isFinite(n) || Math.floor(n) !== n || n < 1 || n > 16) {
-        throw new Error("Bosluk sayisi 1-16 arasi tam sayi olmali");
+        throw new Error("Boşluk sayısı 1-16 arası tam sayı olmalı");
       }
       if (m.indexOf("\t") === -1) throw new Error("Metinde sekme yok");
       var bos = "";
@@ -297,7 +297,7 @@
     "text-splitter": function (d) {
       var m = String(d[0] || "");
       var ayrac = String(d[1] || "").trim().toLowerCase();
-      if (!m) throw new Error("Metin bos olamaz");
+      if (!m) throw new Error("Metin boş olamaz");
       var parcalar;
       if (!ayrac) {
         parcalar = m.split(/\r\n|\r|\n/);
@@ -311,7 +311,7 @@
         parcalar = m.split(ayrac);
       }
       if (!parcalar.length || (parcalar.length === 1 && !parcalar[0])) {
-        throw new Error("Bolunecek parca yok");
+        throw new Error("Bölünecek parça yok");
       }
       return parcalar.map(function (p, i) { return (i + 1) + ". " + p; })
         .join("\n");
@@ -319,7 +319,7 @@
 
     "space-remover": function (d) {
       var m = String(d[0] || "");
-      if (!m.trim()) throw new Error("Metin bos olamaz");
+      if (!m.trim()) throw new Error("Metin boş olamaz");
       return m.split(/\r\n|\r|\n/).map(function (s) {
         return s.trim().replace(/[ \t]+/g, " ");
       }).join("\n");
@@ -328,35 +328,35 @@
     "comma-inserter": function (d) {
       var m = String(d[0] || "");
       var ayrac = String(d[1] || "").trim() || ",";
-      if (!m.trim()) throw new Error("Liste bos olamaz");
+      if (!m.trim()) throw new Error("Liste boş olamaz");
       var ogeler = m.split(/\r\n|\r|\n/).map(function (s) { return s.trim(); })
         .filter(function (s) { return s; });
       if (ogeler.length <= 1) {
         ogeler = m.trim().split(/\s+/).filter(function (s) { return s; });
       }
-      if (!ogeler.length) throw new Error("Birlestirilecek oge yok");
+      if (!ogeler.length) throw new Error("Birleştirilecek öğe yok");
       return ogeler.join(ayrac + " ");
     },
 
     "json-formatter": function (d) {
       var m = String(d[0] || "");
       var girinti = String(d[1] || "").trim();
-      if (!m.trim()) throw new Error("JSON metni bos olamaz");
+      if (!m.trim()) throw new Error("JSON metni boş olamaz");
       var n = girinti ? Number(girinti) : 2;
       if (!isFinite(n) || Math.floor(n) !== n || n < 0 || n > 8) {
-        throw new Error("Girinti 0-8 arasi tam sayi olmali");
+        throw new Error("Girinti 0-8 arası tam sayı olmalı");
       }
       var veri;
       try { veri = JSON.parse(m); }
-      catch (e) { throw new Error("Gecersiz JSON: " + (e.message || "cozumlenemedi")); }
-      if (veri === undefined) throw new Error("Gecersiz JSON");
+      catch (e) { throw new Error("Geçersiz JSON: " + (e.message || "çözümlenemedi")); }
+      if (veri === undefined) throw new Error("Geçersiz JSON");
       return JSON.stringify(veri, null, n);
     },
 
     "html-entities": function (d) {
       var m = String(d[0] || "");
       var coz = /decode|coz|çöz/i.test(d[1] || "");
-      if (!m) throw new Error("Metin bos olamaz");
+      if (!m) throw new Error("Metin boş olamaz");
       if (!coz) {
         return m.replace(/&/g, "&amp;").replace(/</g, "&lt;")
           .replace(/>/g, "&gt;").replace(/"/g, "&quot;")

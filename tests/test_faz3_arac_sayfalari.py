@@ -21,7 +21,7 @@ from fastapi.testclient import TestClient
 import app
 from araclar_sayfa import YEREL_ARACLAR, baslik_uret
 from rehberler import REHBERLER
-from tools.freetools_katalog import ARACLAR
+from tools.freetools_katalog import ARACLAR, KATEGORI_ADI
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
@@ -90,7 +90,7 @@ class TestAracSayfasi:
             assert r.status_code == 200
             h = r.text
         assert 'id="hesapla"' not in h
-        assert "Basak sohbetinde" in h
+        assert "Başak sohbetinde" in h
         assert "freetools.org" in h
 
     def test_bilinmeyen_sayfa_404(self):
@@ -334,6 +334,84 @@ class TestAracKapsamiDurust:
         for kat, (toplam, tarayici) in kapsam.items():
             beklenen = "(%d araç · tarayıcıda %d)" % (toplam, tarayici)
             assert beklenen in h, (kat, beklenen)
+
+
+class TestKategoriAdlariTurkce:
+    """Faz 0-b (2026-10-02): kategori adlari ekranda Turkce harflerle yazilir.
+
+    Once "uretici/olusturucu araclar" gibi ASCII kacisli adlar gorunuyordu;
+    kullaniciya giden sayfada harf hatasi var demekti. Bu sinif, ASCII
+    kacisli sozcuklerin geri gelmesini engeller.
+    """
+
+    # ASCII kacisli Turkce sozcukler (tam kelime olarak aranir).
+    YASAK = ("arac", "araclar", "araci", "donusum", "donusturme", "gorsel",
+             "sifre", "guvenlik", "bicimlendirme", "dogrulama", "isleme",
+             "uretici", "olusturucu", "hesaplayicilari", "ag")
+
+    def test_kategori_adlari_ascii_kacisli_sozcuk_icermez(self):
+        for kat, ad in KATEGORI_ADI.items():
+            kucuk = ad.lower()
+            for yasak in self.YASAK:
+                assert not re.search(r"\b%s\b" % yasak, kucuk), (kat, ad, yasak)
+
+    def test_her_kategori_adi_dolu(self):
+        for kat, slug in ARACLAR:
+            assert kat in KATEGORI_ADI, kat
+            assert KATEGORI_ADI[kat].strip(), kat
+
+    def test_liste_sayfasinda_duzeltilmis_adlar_gorunur(self):
+        with _istemci() as c:
+            h = c.get("/araclar").text
+        for ad in KATEGORI_ADI.values():
+            assert ad in h, ad
+
+
+class TestAracSatiriMetinleriTurkce:
+    """Faz 0-b (2026-10-02): arac sayfalari ve tarayici hesabi Turkce harflerle.
+
+    Once araclar_sayfa.py ve web/araclar.js icinde kullaniciya giden metinler
+    ASCII kacisliydi ("Tarayicinizda calisir", "Gecersiz JSON",
+    "Metin bos olamaz", "aracini kullan"). Bu sinif o kusurun geri
+    gelmesini engeller.
+    """
+
+    YASAK_SAYFA = ("Tarayicinizda", "Kayit gerekmez", "Ayni isi",
+                   "Basak sohbetinde", "aracini kullan", "tarayici surumu",
+                   "hepsi taray")
+
+    YASAK_JS = ("Gecersiz", "Cozulen", "bos olamaz", "olmali",
+                "Bosluk sayisi", "Degisim kurali", "satir yok",
+                "Birinci deger", "Ikinci deger", "Karakter (bosluk",
+                "Satir: ", "hex sayi", "Cok uzun ikili sayi",
+                "Bolunecek", "bolunecek", "cozumlenemedi",
+                "arasi tam sayi", "Ikili metin bos")
+
+    def test_yerel_arac_sayfasi_turkce_konusur(self):
+        with _istemci() as c:
+            h = c.get("/araclar/data-tools/percentage-calculator").text
+        assert "Tarayıcınızda çalışır" in h
+        assert "Kayıt gerekmez" in h
+
+    def test_desteklenmeyen_arac_sayfasi_turkce_konusur(self):
+        with _istemci() as c:
+            h = c.get("/araclar/ai-tools/poem-generator").text
+        assert "Başak sohbetinde" in h
+        assert "tarayıcı sürümü" in h
+        assert "arac%C4%B1n%C4%B1" in h        # derin baglanti sorusu
+
+    def test_sayfa_metinlerinde_ascii_kacis_yok(self):
+        with _istemci() as c:
+            for yol in ("/araclar", "/araclar/data-tools/percentage-calculator",
+                        "/araclar/ai-tools/poem-generator"):
+                h = c.get(yol).text
+                for yasak in self.YASAK_SAYFA:
+                    assert yasak not in h, (yol, yasak)
+
+    def test_tarayici_hesabi_hata_metinleri_turkce(self):
+        js = (WEB / "araclar.js").read_text(encoding="utf-8")
+        for yasak in self.YASAK_JS:
+            assert yasak not in js, yasak
 
 
 class TestDerinBaglanti:

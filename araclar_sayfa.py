@@ -1,7 +1,7 @@
 """araclar_sayfa.py — /araclar/<kategori>/<arac> sayfalarini uretir (Faz 3).
 
 Kural:
-- 163 arac sayfasi DOSYA olarak degil, katalogdan TURETILIR (tek kaynak:
+- 162 arac sayfasi DOSYA olarak degil, katalogdan TURETILIR (tek kaynak:
   tools/freetools_katalog.py). Katalog degisince sitemap de degisir.
 - Sayfa istemcide (ziyaretcinin tarayicisinda) calisir; girdi sunucuya
   gitmez (MIMARI ilke 5).
@@ -30,133 +30,134 @@ YEREL_ARACLAR = {
         "girdiler": [("Metin", "text", ""),
                      ("Algoritma (sha256, sha1, sha384, sha512)",
                       "text", "sha256")],
-        "ipucu": "SHA ailesi tarayicinin ic yapimidir; sonuc sunucuya "
-                 "gitmeden uzerinizde hesaplanir.",
+        "ipucu": "SHA ailesi tarayıcının iç yapısıdır; sonuç sunucuya "
+                 "gitmeden üzerinizde hesaplanır.",
     },
     "base64-encode-decode": {
         "baslik": "Base64 Kodla / Çöz",
         "girdiler": [("Metin", "text", ""),
-                     ("Kip (bos: kodla, decode: çöz)", "text", "")],
+                     ("Kip (boş: kodla, decode: çöz)", "text", "")],
         "ipucu": "UTF-8 desteklidir; Türkçe karakterler bozulmaz.",
     },
     "base64-decoder": {
         "baslik": "Base64 Çözücü",
         "girdiler": [("Base64 metni", "text", "")],
-        "ipucu": "Gecersiz Base64 girisinde hata verir, uydurmaz.",
+        "ipucu": "Geçersiz Base64 girişinde hata verir, uydurmaz.",
     },
     "url-encode-decode": {
         "baslik": "URL Kodla / Çöz",
         "girdiler": [("Metin", "text", ""),
-                     ("Kip (bos: kodla, decode: çöz)", "text", "")],
-        "ipucu": "Adres satirlari ve sorgu degerleri icin kullanilir.",
+                     ("Kip (boş: kodla, decode: çöz)", "text", "")],
+        "ipucu": "Adres satırları ve sorgu değerleri için kullanılır.",
     },
     "percentage-calculator": {
         "baslik": "Yüzde Hesaplayıcı",
-        "girdiler": [("Birinci sayi", "text", ""),
-                     ("Yüzde (veya ikinci sayi)", "text", "")],
-        "ipucu": "a x b / 100 — ornek: 15 ve 200 → 30.",
+        "girdiler": [("Birinci sayı", "text", ""),
+                     ("Yüzde (veya ikinci sayı)", "text", "")],
+        "ipucu": "a x b / 100 — örnek: 15 ve 200 → 30.",
     },
     "letter-counter": {
         "baslik": "Harf ve Karakter Sayacı",
         "girdiler": [("Metin", "textarea", "")],
-        "ipucu": "Kelime, harf, rakam ve satir sayisini tek seferde verir.",
+        "ipucu": "Kelime, harf, rakam ve satır sayısını tek seferde verir.",
     },
     "reverse-text": {
         "baslik": "Metni Ters Çevirme",
         "girdiler": [("Metin", "textarea", "")],
-        "ipucu": "Emoji ve Türkçe karakterler bozulmadan ters cevrilir.",
+        "ipucu": "Emoji ve Türkçe karakterler bozulmadan ters çevrilir.",
     },
     "binary-hex-converter": {
         "baslik": "İkili ⇄ Hex Çevirici",
-        "girdiler": [("Sayi (0/1 ikilisi veya hex)", "text", "")],
-        "ipucu": "0/1 ile basliyorsa ikiliden hex'e, digerlerinde hex'ten "
-                 "ikiliye cevirir.",
+        "girdiler": [("Sayı (0/1 ikilisi veya hex)", "text", "")],
+        "ipucu": "0/1 ile başlıyorsa ikiliden hex'e, diğerlerinde hex'ten "
+                 "ikiliye çevirir.",
     },
     "hexadecimal-to-decimal-converter": {
         "baslik": "Hex ⇄ Ondalık Çevirici",
-        "girdiler": [("Hex sayi (ornek ff)", "text", "")],
-        "ipucu": "Cikti ondaliktir; 255 icin 'ff' yazin.",
+        "girdiler": [("Hex sayı (örnek ff)", "text", "")],
+        "ipucu": "Çıktı ondalıktır; 255 için 'ff' yazın.",
     },
     "case-converter": {
         "baslik": "Büyük / Küçük Harf Çevirici",
         "girdiler": [("Metin", "textarea", ""),
-                     ("Kip (bos: hepsi, upper, lower, title)", "text", "")],
-        "ipucu": "Kip bos birakilirsa uc bicim birden gosterilir.",
+                     ("Kip (boş: hepsi, upper, lower, title)", "text", "")],
+        "ipucu": "Kip boş bırakılırsa üç biçim birden gösterilir.",
     },
     "text-binary": {
         "baslik": "Metin ⇄ İkili (Binary) Çevirici",
-        "girdiler": [("Metin veya ikili (ornek 01000001)", "textarea", ""),
-                     ("Kip (bos: kodla, decode: çöz)", "text", "")],
-        "ipucu": "Türkçe karakterler UTF-8 ile 8 bit bloklara cevrilir.",
+        "girdiler": [("Metin veya ikili (örnek 01000001)", "textarea", ""),
+                     ("Kip (boş: kodla, decode: çöz)", "text", "")],
+        "ipucu": "Türkçe karakterler UTF-8 ile 8 bit bloklara çevrilir.",
     },
     "text-ascii": {
         "baslik": "Metin ⇄ ASCII Kodu Çevirici",
-        "girdiler": [("Metin veya kodlar (ornek 65 66)", "textarea", ""),
-                     ("Kip (bos: kodla, decode: çöz)", "text", "")],
-        "ipucu": "Bosluk ya da virgulle ayrilmis ondalik kodlari cozebilirsiniz.",
+        "girdiler": [("Metin veya kodlar (örnek 65 66)", "textarea", ""),
+                     ("Kip (boş: kodla, decode: çöz)", "text", "")],
+        "ipucu": "Boşluk ya da virgülle ayrılmış ondalık kodları "
+                 "çözebilirsiniz.",
     },
     "remove-empty-lines": {
         "baslik": "Boş Satır Temizleyici",
         "girdiler": [("Metin", "textarea", "")],
-        "ipucu": "Bos ve yalniz-bosluk satirlari atilir; dolu satirlar korunur.",
+        "ipucu": "Boş ve yalnız-boşluk satırları atılır; dolu satırlar korunur.",
     },
     "line-break-remover": {
         "baslik": "Satır Birleştirici",
         "girdiler": [("Metin", "textarea", "")],
-        "ipucu": "Satir sonlari tek bosluga indirilir; metin tek paragrafa doner.",
+        "ipucu": "Satır sonları tek boşluğa indirilir; metin tek paragrafa döner.",
     },
     "character-remover": {
         "baslik": "Karakter Silici",
         "girdiler": [("Metin", "textarea", ""),
-                     ("Silinecek karakterler (bos: noktalama sil)", "text", "")],
-        "ipucu": "Ikinci alan bos birakilirsa noktalama isaretleri silinir; "
-                 "doluysa yalniz o karakterler silinir.",
+                     ("Silinecek karakterler (boş: noktalama sil)", "text", "")],
+        "ipucu": "İkinci alan boş bırakılırsa noktalama işaretleri silinir; "
+                 "doluysa yalnız o karakterler silinir.",
     },
     "character-replacer": {
         "baslik": "Karakter Değiştirici",
         "girdiler": [("Metin", "textarea", ""),
-                     ("Eski > yeni (ornek a>e; birden fazli icin | ile ayir)", "text", "")],
-        "ipucu": "Ornek: a>e yazar; birden fazlaysa a>e|b>f biciminde ayir.",
+                     ("Eski > yeni (örnek a>e; birden fazlı için | ile ayır)", "text", "")],
+        "ipucu": "Örnek: a>e yazar; birden fazlaysa a>e|b>f biçiminde ayır.",
     },
     "tabs-to-space": {
         "baslik": "Sekme Boşluk Çevirici",
         "girdiler": [("Metin", "textarea", ""),
-                     ("Sekme basina bosluk (bos: 4)", "text", "")],
-        "ipucu": "Her sekme karakteri secilen sayida bosluga doner; bos "
-                 "birakilirsa 4 kullanilir.",
+                     ("Sekme başına boşluk (boş: 4)", "text", "")],
+        "ipucu": "Her sekme karakteri seçilen sayıda boşluğa döner; boş "
+                 "bırakılırsa 4 kullanılır.",
     },
     "text-splitter": {
         "baslik": "Metin Bölücü",
         "girdiler": [("Metin", "textarea", ""),
-                     ("Ayrac (bos: satir, 'kelime': kelime, 'cumle': cumle)", "text", "")],
-        "ipucu": "Ayrac bos birakilirsa satirlara, 'kelime' yazilirsa "
-                 "kelimelere, 'cumle' yazilirsa cumlelere boler ve numaralar.",
+                     ("Ayraç (boş: satır, 'kelime': kelime, 'cümle': cümle)", "text", "")],
+        "ipucu": "Ayraç boş bırakılırsa satırlara, 'kelime' yazılırsa "
+                 "kelimelere, 'cümle' yazılırsa cümlelere böler ve numaralar.",
     },
     "space-remover": {
         "baslik": "Fazla Boşluk Temizleyici",
         "girdiler": [("Metin", "textarea", "")],
-        "ipucu": "Satir basi/sonu bosluklari silinir; kelime arasi coklu "
-                 "bosluklar teke indirilir.",
+        "ipucu": "Satır başı/sonu boşlukları silinir; kelime arası çoklu "
+                 "boşluklar teke indirilir.",
     },
     "comma-inserter": {
         "baslik": "Virgül Ekleyici",
-        "girdiler": [("Liste (satir veya boslukla ayrilmis)", "textarea", ""),
-                     ("Ayrac (bos: virgul)", "text", "")],
-        "ipucu": "Satirlari veya boslukla ayrilmis ogeleri tek satirda "
-                 "virgulle birlestirir.",
+        "girdiler": [("Liste (satır veya boşlukla ayrılmış)", "textarea", ""),
+                     ("Ayraç (boş: virgül)", "text", "")],
+        "ipucu": "Satırları veya boşlukla ayrılmış öğeleri tek satırda "
+                 "virgülle birleştirir.",
     },
     "json-formatter": {
         "baslik": "JSON Biçimlendirici",
         "girdiler": [("JSON metni", "textarea", ""),
-                     ("Girinti (bos: 2)", "text", "")],
-        "ipucu": "Gecersiz JSON'da hata verir, uydurmaz; girinti 0-8 arasi.",
+                     ("Girinti (boş: 2)", "text", "")],
+        "ipucu": "Geçersiz JSON'da hata verir, uydurmaz; girinti 0-8 arası.",
     },
     "html-entities": {
         "baslik": "HTML Entity Kodlayıcı",
         "girdiler": [("Metin", "textarea", ""),
-                     ("Kip (bos: kodla, decode: çöz)", "text", "")],
-        "ipucu": "& < > \" ' karakterlerini HTML entity'ye cevirir; decode "
-                 "ile geri cozer.",
+                     ("Kip (boş: kodla, decode: çöz)", "text", "")],
+        "ipucu": "& < > \" ' karakterlerini HTML entity'ye çevirir; decode "
+                 "ile geri çözer.",
     },
 }
 
@@ -189,11 +190,11 @@ def baslik_uret(slug, kategori):
 
 def aciklama_uret(slug, kategori):
     kadi = KATEGORI_ADI.get(kategori, kategori)
-    ek = ("Tarayicinizda calisir; girdiniz cihazinizdan cikmaz."
+    ek = ("Tarayıcınızda çalışır; girdiniz cihazınızdan çıkmaz."
           if slug in YEREL_ARACLAR else
-          "Ayni isi Basak sohbetinde de yaptirabilirsiniz.")
+          "Aynı işi Başak sohbetinde de yaptırabilirsiniz.")
     return ("%s — ücretsiz çevrimiçi araç (%s). %s "
-            "Kayit gerekmez." % (baslik_uret(slug, kategori), kadi, ek))
+            "Kayıt gerekmez." % (baslik_uret(slug, kategori), kadi, ek))
 
 
 def _esc(s):
@@ -238,7 +239,7 @@ def sayfa_html(kategori, slug, kok=""):
     ad = baslik_uret(slug, kategori)
     aciklama = aciklama_uret(slug, kategori)
     freetools = kat_adres(kategori, slug)
-    soru = quote("%s aracini kullan: %s" % (ad, freetools))
+    soru = quote("%s aracını kullan: %s" % (ad, freetools))
 
     if yerel:
         parcalar = []
@@ -262,9 +263,9 @@ def sayfa_html(kategori, slug, kok=""):
                  '<script src="/araclar.js?v=1"></script>'
                  % json.dumps(slug))
     else:
-        form = ('<p>Bu aracin tarayici surumu hazirlanana kadar ayni isi '
-                'Basak sohbetinde ucretsiz yaptirabilirsin; ayrica orijinal '
-                'arac da baglantida.</p>')
+        form = ('<p>Bu aracın tarayıcı sürümü hazırlanana kadar aynı işi '
+                'Başak sohbetinde ücretsiz yaptırabilirsin; ayrıca orijinal '
+                'araç da bağlantıda.</p>')
         betik = ""
 
     benzer = "".join('<li><a href="/araclar/%s/%s">%s</a></li>'

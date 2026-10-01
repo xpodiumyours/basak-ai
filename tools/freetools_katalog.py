@@ -188,18 +188,18 @@ ARACLAR = (
 KOK = "https://www.freetools.org"
 
 KATEGORI_ADI = {
-    "math-tools": "matematik hesaplayicilari",
-    "security-tools": "sifre/hash/SSL guvenlik araclari",
-    "networking-tools": "ag ve URL denetim araclari",
-    "image-tools": "gorsel donusturme araclari",
-    "encode-tools": "base64/url/hex kodlama araclari",
-    "data-tools": "veri ve liste araclari",
-    "conversion-tools": "birim donusum araclari",
-    "text-tools": "metin isleme araclari",
-    "code-tools": "kod bicimlendirme ve dogrulama araclari",
-    "time-tools": "saat/kronometre araclari",
-    "seo-tools": "SEO denetim araclari",
-    "ai-tools": "uretici/olusturucu araclar",
+    "math-tools": "matematik hesaplayıcıları",
+    "security-tools": "şifre/hash/SSL güvenlik araçları",
+    "networking-tools": "ağ ve URL denetim araçları",
+    "image-tools": "görsel dönüştürme araçları",
+    "encode-tools": "base64/url/hex kodlama araçları",
+    "data-tools": "veri ve liste araçları",
+    "conversion-tools": "birim dönüşüm araçları",
+    "text-tools": "metin işleme araçları",
+    "code-tools": "kod biçimlendirme ve doğrulama araçları",
+    "time-tools": "saat/kronometre araçları",
+    "seo-tools": "SEO denetim araçları",
+    "ai-tools": "üretici/oluşturucu araçlar",
 }
 
 
