@@ -505,6 +505,41 @@ yazmadan "geri alabiliriz" denmeyecek.**
   eleniyor. Bilinen sınır: fail-closed yüzünden gerçek bir marka
   `tutkuelit` gibi görünürse **elenir** — bu yönde hata üretmektense
   alan adı kaybı yeğdir, ama liste ölçümle genişletilmelidir.
+- **2026-10-01 — üretim öncesi denetim, 2. ASCII hatası buldu.** Merge
+  öncesi `_uretim_import_denetimi.py` (import + uç + sözlük kontrolü)
+  **GECTI**, ama canlı `sirket_ara("Trendyol")` koşusu yine
+  `Sayfa okuma hatasi: 'ascii' codec can't encode character '\xe7'`
+  döndürdü. İzleme gösterdi adres `sayfa_oku`'ya değil
+  `kurum_sayfasi_oku` → `_ham_sayfa_getir` hattına giriyor; orada
+  **kodlama hiç yoktu**. Yani P1.4'te bulunan hatasının düzeltmesi
+  (`_url_kodla`) yalnız `sayfa_oku` yoluna konmuştu.
+
+  Düzeltme: kodlama **tek yere** toplandı (`_url_kodla`), dört çağrı
+  yolu da ondan geçiyor — `sayfa_oku`/`derin_oku`, `_ham_sayfa_getir`,
+  `adres_kontrol`, `sayfa_gorseller`. Satır içi kopya silindi.
+  Sıra korundu: kodlama `_guvenli_adres`'ten **önce** (test kilitli).
+  **SSRF savunması değişmedi** — `_engelli_ip_nedeni` /
+  `_guvenli_adres` / `_GuvenliYonlendirme` aynı yerde, aynı şekilde.
+
+  **Ölçüm (eski kod ↔ yeni kod, aynı makine, gerçek ağ):**
+
+  | URL | ESKİ | YENİ |
+  |---|---|---|
+  | `tr.wikipedia.org/wiki/Türkçe` | 0 bayt, UnicodeEncodeError | **200, 877.713 bayt** |
+  | `accio.com/supplier/tr/trendyol-tedarikçi-iletişim` | 0 bayt, UnicodeEncodeError | **200, 289.354 bayt** |
+
+  Yani düzeltme yalnız hata mesajını değil, **gerçek veri kaybını**
+  kapatıyor: accio sayfası daha önce hiç okunamıyordu.
+  10 yeni test (`tests/test_url_kodlama.py`, 12 → 22) kilitliyor:
+  kodlama, SSRF sırası, iç adres engeli, idempotans, tek kopya kuralı.
+  Geniş koşu: **1190 geçti**, kapsam %66,69 (kapı 60).
+
+  **Dürüst sınır:** `sirket_ara("Trendyol")` uçtan uca bu gün
+  **boş kart** döndürdü — ama **eski kod da döndürdü** (aynı anda
+  ölçüldü: arama motorları 403/429/captcha veriyor: Google "sorry",
+  Brave 429, Mojeek 403, Startpage captcha). Yani bu bir gerileme
+  değil, ortamın kısıtı; bu koşu bugün gecikme ölçümüne kanıt
+  üretemez.
 - **P0 kapısı geçmeden bu belge "profesyonel" sayılmaz.** MVP kanıtı
   eksik: gerçek modelle, gerçek kullanıcı sorusuyla, uçtan uca koşmuş
   sohbet kaydı **yok**.

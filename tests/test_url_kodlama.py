@@ -159,3 +159,157 @@ class TestOlcumDogrulugu:
         giden = _yola_giden_url("https://tr.wikipedia.org/wiki/çilek")
         assert giden, "yardimci URL dondurmedi"
         assert giden.startswith("https://")
+
+
+# ── 2026-10-01: aynı hata İKİNCİ kez, BAŞKA yolda ──────────────────
+#
+# Düzeltme `sayfa_oku` yoluna konmuştu. Üretim denetimindeki canlı
+# `sirket_ara` koşusu bu satırı döndürdü:
+#   "Sayfa okuma hatasi: 'ascii' codec can't encode character '\\xe7'"
+# İzleme gösterdi adres `sayfa_oku`'ya değil `kurum_sayfasi_oku` →
+# `_ham_sayfa_getir` hattına giriyor; orada kodlama HİÇ YOKTU.
+# Düzeltme: yardımcı TEK yere toplandı ve her çağrı yolu onu çağırıyor.
+
+_KURUM_UL = ("https://www.accio.com/supplier/tr/"
+             "trendyol-tedarikçi-iletişim")
+
+
+@pytest.fixture
+def dns_kapali(monkeypatch):
+    """Ağ/DNS bağımlılığını keser; IP denetimi `_guvenli_adres` içinde
+    yine de çalışır, yalnız çözümleme sabitlenir."""
+    monkeypatch.setattr(ws, "_engelli_ip_nedeni", lambda host: None)
+
+
+def _kurum_yolundan_cikan_url():
+    tutulan = {}
+
+    def _acici(req, timeout=None):
+        tutulan["url"] = req.full_url
+        raise _YalgiDurdur()
+
+    try:
+        ws._ham_sayfa_getir(_KURUM_UL, _acici=_acici)
+    except _YalgiDurdur:
+        pass
+    return tutulan.get("url")
+
+
+class TestKurumSayfasiYolu:
+    """Ölçülen kusurun kendisi: `sirket_ara` aday yolu ASCII değil."""
+
+    def test_ham_turkce_yol_kodlanir(self, dns_kapali):
+        giden = _kurum_yolundan_cikan_url()
+        assert giden is not None, "ağa cikamadi"
+        assert giden.isascii(), "yol hala ASCII disi: %r" % giden
+        assert "%C3%A7" in giden and "%C5%9F" in giden, giden
+
+    def test_kurum_yolunda_guvenlik_denetimi_yine_var(self, monkeypatch):
+        """Kodlama eklenirken SSRF denetimi atlanmamalı."""
+        gorulen = []
+
+        def _sahte(url, *a, **kw):
+            gorulen.append(url)
+            raise _YalgiDurdur()
+
+        monkeypatch.setattr(ws, "_url_kodla", _sahte)
+        try:
+            ws._ham_sayfa_getir(_KURUM_UL, _acici=lambda *a, **kw: None)
+        except _YalgiDurdur:
+            pass
+        assert gorulen == [_KURUM_UL], (
+            "kurum yolu _url_kodla'yi cagirmiyor — test yanlis yeri "
+            "olcuyor olabilir: %s" % gorulen)
+
+    def test_kurum_yolunda_kodlama_guvenlikten_once(self, dns_kapali,
+                                                     monkeypatch):
+        """Sıra önemli: kodlanmamış adres denetime girmemeli."""
+        sira = []
+        gercek = ws._guvenli_adres
+
+        def _izle(url):
+            sira.append(url)
+            return gercek(url)
+
+        monkeypatch.setattr(ws, "_guvenli_adres", _izle)
+        try:
+            ws._ham_sayfa_getir(_KURUM_UL, _acici=lambda *a, **kw: None)
+        except Exception:
+            pass
+        assert sira, "denetim hic cagrilmadi"
+        assert sira[0].isascii(), "denetim kodlanmamis URL'yi gormus: %r" % sira[0]
+
+    def test_kurum_yolunda_ice_adres_yine_engelli(self):
+        r = ws._ham_sayfa_getir("http://127.0.0.1/ç")
+        ham, _son, hata = r
+        assert ham is None and hata, r
+        assert "Guvenlik engeli" in hata["error"], hata
+
+
+def _istek_tutan(monkeypatch):
+    """Request'e giden URL'i yakalar, agi URLError ile keser."""
+    tutulan = {}
+
+    def _istek(url, headers=None, method=None):
+        tutulan["url"] = url
+        raise ws.urllib.error.URLError("ag kapali (test)")
+
+    monkeypatch.setattr(ws.urllib.request, "Request", _istek)
+    return tutulan
+
+
+class TestDigerAracYollari:
+    """Aynı hata iki araçta daha vardı; ikisi de kullanıcı/model
+    URL'si doğrudan verir (arama sonuçları Türkçe yol içerir)."""
+
+    def test_adres_kontrol_kodlar(self, monkeypatch, dns_kapali):
+        tutulan = _istek_tutan(monkeypatch)
+        ws.adres_kontrol("https://ornek.com/şirket/iletişim")
+        giden = tutulan.get("url")
+        assert giden is not None, "istek kurulmadi"
+        assert giden.isascii(), giden
+        assert "%C5%9F" in giden, giden
+        assert giden.endswith("/ileti%C5%9Fim"), giden
+
+    def test_sayfa_gorselleri_kodlar(self, monkeypatch, dns_kapali):
+        tutulan = _istek_tutan(monkeypatch)
+        ws.sayfa_gorseller("https://ornek.com/ürün/çilek")
+        giden = tutulan.get("url")
+        assert giden is not None, "istek kurulmadi"
+        assert giden.isascii(), giden
+
+    def test_ascii_url_degismez(self, monkeypatch, dns_kapali):
+        """Zaten temiz URL'e dokunulmaz (yan etki yok)."""
+        tutulan = _istek_tutan(monkeypatch)
+        ws.adres_kontrol("https://ornek.com/a/b?c=d")
+        assert tutulan["url"] == "https://ornek.com/a/b?c=d", tutulan
+
+
+class TestYardimciTekNoktada:
+    def test_kodlama_idempotent(self):
+        """İki kez çağırmak URL'yi bozmaz (çift kodlama dönmez)."""
+        bir = ws._url_kodla(_KURUM_UL)
+        iki = ws._url_kodla(bir)
+        assert bir == iki, "%s != %s" % (bir, iki)
+        assert "%25" not in iki, iki
+
+    def test_yalnizca_bir_kodlama_yolu_var(self):
+        """Satır içi kopya kalmadı: `_GUVENLI` tek yerde tanımlı.
+
+        Kopyalar kalsaydı sonraki bakımda biri unutulur ve aynı hata
+        üçüncü kez çıkar (2026-10-01'de iki kopya vardı).
+        """
+        import inspect
+
+        kaynak = inspect.getsource(ws)
+        adet = kaynak.count("_GUVENLI = ")
+        assert adet == 1, "kodlama kopyasi var: %d adet" % adet
+
+    def test_yardimci_dort_yolu_da_kapsiyor(self):
+        """Dört çağrı yolu da `_url_kodla`'dan geçiyor."""
+        import inspect
+
+        kaynak = inspect.getsource(ws)
+        assert kaynak.count("_url_kodla(") == 5, (
+            "1 tanim + 4 cagri bekleniyordu, bulunan: %d"
+            % kaynak.count("_url_kodla("))
