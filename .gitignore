@@ -22,6 +22,11 @@ arac.log
 data/audit/
 data/orkestra_golge.log
 
+# Kisi basina web verisi (anonim u<16 rakam> ve preview p<16 hex>):
+# gecmis.json/memory/sohbetler kullanici verisidir, commit'e girmez.
+data/u*/
+data/p*/
+
 # Olcum ciktilari (2026-09-19): hiz_olcum.py "once/sonra" kayitlari
 hiz_before.txt
 hiz_after.txt
