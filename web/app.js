@@ -534,12 +534,19 @@ function calismaKaydi(b) {
   kaynakListe.className = "answer-sources-list";
   kaynakBolumu.append(kaynakBaslik, kaynakListe);
 
+  // Z2 (D4b = B): gömülü karo YOK. Yalnız Z0'ın "Haritada aç"
+  // bağlantısı ve Z1'in koordinatı gösterilir; bağlantı kullanıcı
+  // tıklamasıyla Google Maps'e gider (kod yüklemez, izinsiz çağrı yok).
+  const haritaBolumu = document.createElement("section");
+  haritaBolumu.className = "map-cards";
+  haritaBolumu.hidden = true;
+
   const icerik = b.querySelector(".icerik");
   if (icerik) {
     b.insertBefore(kart, icerik);
-    b.appendChild(kaynakBolumu);
+    b.append(haritaBolumu, kaynakBolumu);
   } else {
-    b.append(kart, kaynakBolumu);
+    b.append(kart, haritaBolumu, kaynakBolumu);
   }
   b.appendChild(canli);
 
@@ -552,6 +559,7 @@ function calismaKaydi(b) {
     kart, baslik, sure, mevcut, mevcutBaslik, mevcutDetay,
     ozet, detaylar, yonlendir, durdur, yonForm, yonInput,
     panel, liste, canli, planEl, kaynakBolumu, kaynakListe,
+    haritaBolumu,
     plan: [], kaynaklar: [], yonlendirIstegi: null,
     handoffToken: "", toolPolicy: "auto",
     kesik: false, kesikNedeni: "",
@@ -688,6 +696,74 @@ function kaynakEkle(b, olay) {
     a.textContent = (i + 1) + " · " + k.baslik;
     kayit.kaynakListe.appendChild(a);
   });
+}
+
+function haritaEkle(b, olay) {
+  // Z2 kartı. Sunucu (chat/tools.py:_harita_olayi) veriyi hazırlar;
+  // burada yalnız gösterim yapılır — URL veya atıf uydurulmaz.
+  const kayit = calismaKaydi(b);
+  const bolum = kayit?.haritaBolumu;
+  if (!bolum) return;
+
+  const baglanti = String(olay?.baglanti || "").trim();
+  const enlem = olay?.enlem;
+  const boylam = olay?.boylam;
+  const koordinatVar = enlem !== null && enlem !== undefined &&
+    boylam !== null && boylam !== undefined;
+  if (!baglanti && !koordinatVar) return;
+
+  let liste = bolum.querySelector(".map-card-list");
+  if (!liste) {
+    liste = document.createElement("div");
+    liste.className = "map-card-list";
+    bolum.appendChild(liste);
+  }
+  const anahtar = [baglanti, enlem, boylam].join("|");
+  if (liste.querySelector('[data-anahtar="' + CSS.escape(anahtar) + '"]')) {
+    return;
+  }
+  if (liste.childElementCount >= 3) return;
+
+  const kart = document.createElement("div");
+  kart.className = "map-card";
+  kart.dataset.anahtar = anahtar;
+
+  const ad = String(olay?.gosterim_adi || "").trim();
+  if (ad) {
+    const baslik = document.createElement("strong");
+    baslik.className = "map-card-title";
+    baslik.textContent = ad;
+    kart.appendChild(baslik);
+  }
+
+  if (baglanti) {
+    const dugme = document.createElement("a");
+    dugme.className = "map-card-open";
+    dugme.href = baglanti;
+    dugme.target = "_blank";
+    dugme.rel = "noopener noreferrer";
+    dugme.textContent = "Haritada aç";
+    kart.appendChild(dugme);
+  }
+
+  if (koordinatVar) {
+    const koordinat = document.createElement("code");
+    koordinat.className = "map-card-coords";
+    koordinat.textContent = Number(enlem).toFixed(6) + ", " +
+      Number(boylam).toFixed(6);
+    kart.appendChild(koordinat);
+  }
+
+  const atf = String(olay?.atf || "").trim();
+  if (atf) {
+    const not = document.createElement("span");
+    not.className = "map-card-attribution";
+    not.textContent = atf;
+    kart.appendChild(not);
+  }
+
+  liste.appendChild(kart);
+  bolum.hidden = false;
 }
 
 function araciTamamla(b, olay) {
@@ -1187,6 +1263,16 @@ function olayiIsle(o) {
       balonlar.set(no, b);
     }
     kaynakEkle(b, o);
+    return false;
+  }
+
+  if (o.tur === "harita") {
+    let b = balonlar.get(no);
+    if (!b) {
+      b = bubble("assistant", "");
+      balonlar.set(no, b);
+    }
+    haritaEkle(b, o);
     return false;
   }
 

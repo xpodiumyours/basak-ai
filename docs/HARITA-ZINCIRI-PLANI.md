@@ -523,20 +523,21 @@ www.startpage.com HTTP 200; search.brave.com HTTP 429)` — eskiden yalnız
 
 ---
 
-## FAZ 3 — Z2: Haritada gösterme (**yüzey: `web/`** — D4 onaylı)
+## FAZ 3 — Z2: Haritada gösterme (**yüzey: `web/`** — D4 + D4b = B onaylı, 2026-10-01)
 
-- [ ] **T3.0** ⚠️ **B3 seçimi yapılmadan bu faz başlamaz:** A (karo + söz değişir), B (karo yok, yalnız bağlantı — öneri), C (tıklayınca karo).
-- [ ] **T3.0b** Seçim **A** ya da **C** ise: `docs/KVKK-ENVANTER.md` + `web/bilgilendirme.html` **aynı commit'te** güncellenir ve `tests/test_web_gizlilik_beyani.py` sözüne göre revize edilir. **Testi kandıracak dolaylı yük yolu kullanılmaz.**
-- [ ] **T3.1** `web/` yüzeyi: bağlantı düğmesi (Z0) + koordinat gösterimi (Z1); seçim A/C ise harita katmanı eklenir.
-- [ ] **T3.2** Seçim A/C ise: **OpenFreeMap** (anahtarsız) + Leaflet veya MapLibre; markör `konum_coz` çıktısına konur.
-- [ ] **T3.3** **Atıf zorunlu:** `© OpenStreetMap katkıda bulunanlar` görünür ve okunur.
-- [ ] **T3.4** ⚠️ `web/` tarafı olduğu için: `web/chat.css` `?v=` **yükseltilir** ve kilitli test satırları güncellenir (`tests/test_vercel_stream.py` — şu an `?v=11` kilitli).
-- [ ] **T3.4b** Yeni CSS/JS için `?v=` sürümlemesi `web/index.html` içinde tutarlı yapılır (`?v=` düzeni mevcut desene uyar).
-- [ ] **T3.5** Test: harita görünümünün varlığı + atıf metni + `?v=` kilidi.
-- [ ] **T3.6** **Canlı kanıt:** uygulama gerçekten çalıştırılır, **ekran görüntüsü** alınır; konsolda tile/ağ hatası yok; harita yüklenmeden beyaz ekran kalmıyor.
-- [ ] **T3.7** Commit.
+- [x] **T3.0** ⚠️ **B3 seçimi yapılmadan bu faz başlamaz:** **B seçildi** (Casper, 2026-10-01) — karo yok, yalnız bağlantı + koordinat.
+- [x] **T3.0b** Seçim A/C olsaydı `docs/KVKK-ENVANTER.md` + `web/bilgilendirme.html` aynı commit'te güncellenecekti. **B seçildiği için ikisi de DOKUNULMADI** — söz aynen korunur. Kilit: `tests/test_harita_z2.py::TestD4bKaroYok`.
+- [x] **T3.1** `web/` yüzeyi: **harita kartı** — Z0'ın "Haritada aç" düğmesi + Z1'in koordinatı. Yeni kanal: `chat/tools.py` → `harita` olayı (mevcut `source` olayının kardeşi) → `app.py` olay geçişi → `web/app.js` `haritaEkle()`.
+- [x] **T3.2** ⏭️ **B seçimi: uygulanmadı** (karo/Leaflet/MapLibre yok — `TestD4bKaroYok` bu sessiz geçişi kapatır).
+- [x] **T3.3** **Atıf zorunlu — ölçülmüş hali:** atıf **yalnız ekranda OSM türevi koordinat göründüğünde** yazılır. Photon (Nominatim türevi, ODbL) → `© OpenStreetMap contributors`; Open-Meteo coğrafi kodu OSM verisi **değildir** → atıf yazılmaz; Z0'ın yalnız Google Maps bağlantısında OSM verisi gösterilmediği için atıf yazılmaz. Olmayan kaynağa atıf uydurmak da, olan kaynağı gizlemek de yanlıştır — kapı ikisini de kapatır.
+- [x] **T3.4** ⚠️ `web/chat.css` `?v=11` → **`?v=12`**, `web/app.js` `?v=19` → **`?v=20`**; `tests/test_vercel_stream.py` kilit satırları (538, 539, 683, 684, 722) güncellendi.
+- [x] **T3.4b** `?v=` düzeni mevcut desene uyar (`web/index.html` tek yerde).
+- [x] **T3.5** Test: `tests/test_harita_z2.py` = **26 test** — olay içeriği, **gerçek araç döngüsünde olayın yolda olduğu** (`arac_dongusu` sahte taşıyıcıyla), handoff kümesi, web yüzeyi (olay işleyici / kart bileşenleri / güvenli `rel` / tekrar koruması / `:root` değişkenleri / `?v=` kilidi), D4b karo-yok kilidi, araç sayısı kilidinin değişmediği (57 / 15).
+- [x] **T3.6** **Canlı kanıt (görsel + ölçüm):** `_z2_kanit.py` (Playwright, Chromium) gerçek `web/index.html` + `app.js` + `chat.css` dosyalarını **gerçek `_harita_olayi()` çıktısıyla** sürdü. Z1 verisi **canlı Photon çağrısıdır** (40.981169 / 29.025471). Ölçülen: 2 kart (Z1 atıflı, Z0 atıfsız), kart 756×122 görünür, `rel="noopener noreferrer"` + `target="_blank"`, düğme metni "Haritada aç", bağlantı `…maps/search/?api=1&query=40.981169%2C%2029.025471`, mobil düğme yüksekliği **40 px**, yatay taşma yok, **harici istek `[]`**, konsol hatası yok, başarısız istek yok. Ekran görüntüleri `_z2_kanit/z2_masaustu.png` ve `_z2_kanit/z2_mobil.png`.
+  > ⚠️ **Dürüst sınır:** model anahtarı olmadan canlı sohbet koşmadığı için **SSE taşıyıcısı taklit edildi**; kartın verisi gerçek sunucu kodundan, DOM/CSS'i gerçek proje kodundandır. Kart **görsel olarak gözle incelenmedi** — ölçümler DOM ve hesaplanan yerleşimden alındı.
+- [x] **T3.7** Commit.
 
-**Faz kapısı:** Bölüm D + görsel kanıt (pytest UI davranışını görmez).
+**Faz kapısı:** Bölüm D + görsel kanıt alındı. Geniş koşu **1076 → 1102 geçti / 19 atlandı**; `ruff check .` yeşil; `validate_registry()` → `ok=True, tool_count=57, namespace_count=15` (**yeni araç yok — Z2 bir gösterim yüzeyidir**).
 
 ---
 

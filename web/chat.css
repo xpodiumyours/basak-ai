@@ -602,7 +602,34 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   overflow-wrap:anywhere
 }
 .answer-source:hover{text-decoration:underline}
+
+/* Z2 — D4b = B: gömülü karo YOK. Yalnız Z0'ın "Haritada aç"
+   bağlantısı ve Z1'in koordinatı gösterilir; bağlantı kullanıcı
+   tıklamasıyla açılır, sayfa hiçbir üçüncü taraf kaynağı yüklemez. */
+.map-cards{
+  margin:14px 0 2px;padding-top:10px;border-top:1px solid var(--line)
+}
+.map-card-list{display:grid;gap:8px}
+.map-card{
+  display:grid;gap:5px;justify-items:start;
+  border:1px solid var(--line);background:var(--soft);
+  border-radius:12px;padding:10px 12px
+}
+.map-card-title{color:var(--ink);font-size:12.5px;font-weight:600}
+.map-card-open{
+  display:inline-flex;align-items:center;border:1px solid var(--line);
+  background:var(--bg);color:var(--ink);border-radius:999px;
+  padding:5px 11px;font-size:12px;font-weight:600;text-decoration:none
+}
+.map-card-open:hover{border-color:#c9c9cf}
+.map-card-coords{
+  color:var(--muted);font-size:11.5px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace
+}
+.map-card-attribution{color:var(--muted);font-size:11px;opacity:.85}
+
 @media(max-width:760px), (hover:none) and (pointer:coarse) and (max-width:1100px){
+  .map-card-open{min-height:40px;padding:9px 14px}
   .work-plan{margin-left:14px;font-size:12.5px}
   .work-redirect-form{margin-left:25px}
   .work-redirect-input,.work-redirect-apply{height:40px}
