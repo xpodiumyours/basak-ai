@@ -237,3 +237,7 @@ icin kural:
   birlesir, dal silinir. Uzun yasayan ikinci ana dal YASAKTIR.
 - Ajan yeni ana dal, varsayilan degisikligi veya korumali-alan
   degisikligi ONEREMEZ; gerekirse Casper'a tek cumleyle sorar.
+- ISTISNA (2026-10-01, Casper onayi): `preview` dali main'in surekli
+  yayin onizleme kopyasidir; kisa omurlu is dali sayilmaz. Her faz sonunda
+  `main` ile esitlenir, `main`'den tazelenir; is bitiminde kapatilir.
+  Bu istisna disindaki uzun omurlu ikinci dal yasagi aynen gecerlidir.
