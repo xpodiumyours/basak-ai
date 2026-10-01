@@ -339,6 +339,9 @@ class Brain:
         self._mistral = self._providers.get("mistral")
         self._huggingface = self._providers.get("huggingface")
         self._chutes = self._providers.get("chutes")
+        # 2026-10-01: OVH baglandi — anahtar + kart kapali (ucretli;
+        # resmi billing). Satir hazir: kart acilinca zincire girer.
+        self._ovh = self._providers.get("ovh")
         # 2026-09-10: kullanicinin ozel (ucretli) saglayicisi. Anahtar
         # yoksa None'dir — bedava kurulum etkilenmez.
         self._genel = self._providers.get("genel")
@@ -407,6 +410,12 @@ class Brain:
             zincir.append(("chutes", self._chutes))
         if _uygun("qwen", self._qwen):
             zincir.append(("qwen", self._qwen))
+        # 2026-10-01: OVH — kart kapali oldugu icin _uygun() su an eler;
+        # satir kart acilimina hazir durur (huggingface/chutes ile ayni
+        # kalip). getattr: eski kurulumlar/__new__ testleri alani tasmaz.
+        _ovh = getattr(self, "_ovh", None)
+        if _uygun("ovh", _ovh):
+            zincir.append(("ovh", _ovh))
         if _uygun("gemini", self._gemini):
             zincir.append(("gemini", self._gemini))
         # Ozel/ucretli saglayici otomatik zincire girmez.

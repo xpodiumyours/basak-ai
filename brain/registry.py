@@ -317,6 +317,44 @@ SAGLAYICILAR = {
                "baslar. Modeller donanim dogrulamali TEE icinde calisir. "
                "Anahtar yoksa zincire girmez; otomatik bedava duzen degismez.",
     },
+    "ovh": {
+        "ad": "OVHcloud AI Endpoints",
+        # 2026-10-01 resmi billing (docs.ovhcloud.com ai-endpoints-billing):
+        # anahtarli kullanim pay-as-you-go'dur (Public Cloud + odeme
+        # yontemi, $200 trial kredi). Anonim 2 istek/dk bedava ama standart
+        # OpenAI istemcisi basliksiz istek ATAMAZ (httpx bos Bearer'i
+        # LocalProtocolError ile reddeder, olcum 2026-10-01) — yani
+        # adapter'in calistigi tek mod ucretlidir. Sifir-maliyet zincirine
+        # otomatik girmez; anahtar + kart acilimi bilincli tercihtir.
+        "ucretsiz": False,
+        "otomatik_ucretsiz": False,
+        "tools": True,
+        # Resmi (ai-endpoints-function-calling): OpenAI SDK orneginde
+        # tools + tool_choice="auto"; tool_choice degerleri belgelenmemis
+        # — auto_enforced (Basak zorunlu ajan turunda duz metni basari
+        # saymaz, siradaki saglayiciya gecer).
+        "ajan_tool_mode": "auto_enforced",
+        "gucleri": ["kod", "genel"],
+        # Resmi (ai-endpoints-capabilities): anahtarlI 400 istek/dk;
+        # kullanim/token tavanı YOK (tavan fiyatlandirma).
+        "dakikalik_istek": 400,
+        "gunluk_istek": None,
+        "yerel_kota_koru": False,
+        # RESMI VERI KARTI (2026-10-01, docs.ovhcloud.com capabilities):
+        # "Data is not stored or shared during or after model use";
+        # getting-started: "we do not store user data"; altyapi
+        # Fransa (Gravelines), AB veri korumasi. Ayrica free-ai-api
+        # sayfasi: "Your proprietary data is never used to train or
+        # optimise our models."
+        "veri_saklama": "kaydetmez",
+        "veri_karti": "docs.ovhcloud.com ai-endpoints-capabilities — "
+                      "'Data is not stored or shared during or after "
+                      "model use' (2026-10-01 okundu)",
+        "not": "UCRETLI (trial kredi + pay-as-yo-go); otomatik bedava "
+               "zincire KAPALI — anahtar + kart acilinca satir devreye "
+               "girer. Hiz: 400 istek/dk; kullanim tavani yok. Model "
+               "varsayilani gpt-oss-120b (emeklilik listesinde degil).",
+    },
 }
 
 # Varsayilan oncelik sirasi (secici yeniden SIRALAMAZ — bu sira korunur).

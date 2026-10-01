@@ -1,4 +1,4 @@
-﻿"""Provider-neutral ajan runtime icin kotasiz birim testler."""
+"""Provider-neutral ajan runtime icin kotasiz birim testler."""
 
 import inspect
 import types
@@ -172,6 +172,10 @@ def test_registry_9_ucretsiz_saglayicinin_tamamini_ajan_olarak_tanimlar():
     # Hugging Face ucretsiz kredisi ayda 0,10 dolar; Chutes ucretlidir.
     assert registry.otomatik_ucretsiz_mi("huggingface") is False
     assert registry.otomatik_ucretsiz_mi("chutes") is False
+    # 2026-10-01: OVH resmi olarak ucretlidir (trial kredi +
+    # pay-as-you-go) — anahtar + kart acilimina kadar kapali kalir.
+    assert registry.otomatik_ucretsiz_mi("ovh") is False
+    assert registry.ajan_destegi_var_mi("ovh") is True
 
 
 def test_9_saglayici_resmi_tool_choice_haritasi():
