@@ -243,9 +243,6 @@ class TestSozlesmeZorunlulukTasir:
     def test_tool_policy_acik_ve_sinirli(self):
         from chat.agent_runtime import TOOL_POLICIES
         assert TOOL_POLICIES == frozenset(("auto", "required", "none"))
-    def test_tool_policy_acik_ve_sinirli(self):
-        from chat.agent_runtime import TOOL_POLICIES
-        assert TOOL_POLICIES == frozenset(("auto", "required", "none"))
 
 
 class TestVeriSaklamaSadeceSeffaflik:
@@ -257,7 +254,10 @@ class TestVeriSaklamaSadeceSeffaflik:
     """
 
     BEKLENEN_SIRA = ["groq", "gemini", "cloudflare", "kilo", "nvidia",
-                     "glm", "openrouter", "cohere", "mistral"]
+                     "glm", "openrouter", "cohere", "mistral",
+                     # 2026-10-01: resmi free tier belgeli (20 istek/gun);
+                     # hiz olcumu yok — en sonda son care.
+                     "sambanova"]
 
     def test_sira_degismedi(self):
         from brain import registry

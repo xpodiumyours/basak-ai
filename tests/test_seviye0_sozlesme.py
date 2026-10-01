@@ -27,16 +27,10 @@ class _YD:
     def __init__(self, content="", tool_calls=None, **ekstra):
         self.content = content
         self.tool_calls = tool_calls or []
-
-        class _Tc:
-            def __init__(self, c):
-                self.id = c["id"]
-                self.function = types.SimpleNamespace(
-                    name=c["function"]["name"],
-                    arguments=c["function"]["arguments"])
-                for k, v in ekstra.items():
-                    setattr(self, k, v)
-
+        # 2026-10-01: burada once `types.SimpleNamespace` ureten bir `_Tc`
+        # sinifi vardi ama HIC kullanilmiyordu (asagidaki satir dict'lerle
+        # calisiyor) ve `types` import edilmemistiydi — lazim olsa
+        # NameError verirdi. Olu kod silindi (ruff F821 kaniti).
         self._cagilar = [dict(c) for c in self.tool_calls]
         for alan, deger in ekstra.items():
             setattr(self, alan, deger)
@@ -155,7 +149,7 @@ def test_ucretsiz_kartlar_zincire_girer_ucretli_girmez():
 
 # ── BOLUM 2: 52/52/52 arac yapisal eslesmesi ────────────────────────
 
-def test_55_arac_uchalida_birebir():
+def test_57_arac_uchalida_birebir():
     """sema (definitions) <-> calistirma dali <-> ekran etiketi."""
     import re
     from tools.definitions import TOOLS, TANINMIS_TOOLLAR
@@ -165,21 +159,21 @@ def test_55_arac_uchalida_birebir():
     kaynak = open("tools/__init__.py", encoding="utf-8").read()
     dallar = set(re.findall(r"tool_name == \"([a-z_]+)\"", kaynak))
 
-    assert len(sema) == 55
-    assert len(TANINMIS_TOOLLAR) == 55
+    assert len(sema) == 57
+    assert len(TANINMIS_TOOLLAR) == 57
     assert sema == dallar, ("sema/dal farki", sema ^ dallar)
     eksik_etiket = sema - set(DURUM_METNI)
     assert not eksik_etiket, ("etiketsiz arac", eksik_etiket)
 
 
-def test_yetenek_katalogu_55_gercek_araci_kapsar():
+def test_yetenek_katalogu_57_gercek_araci_kapsar():
     from tools.definitions import TOOLS
     from tools.capabilities import CAPABILITY_NAMESPACES
 
     gercek = {t["function"]["name"] for t in TOOLS}
     katalog = {ad for grup in CAPABILITY_NAMESPACES.values() for ad in grup}
     assert katalog == gercek
-    assert len(katalog) == 55
+    assert len(katalog) == 57
 
 
 def test_katalog_daki_her_arac_gercekten_kosabilir():
@@ -399,13 +393,13 @@ def test_matris_kosucu_pilot_listesi_sekiz_arac_gercek_sema_es():
         assert arac in kosucu.SEMALAR, "%s semasi yok" % arac
 
 
-def test_matris_kosucu_55_semaya_bagli_tek_kaynak():
+def test_matris_kosucu_57_semaya_bagli_tek_kaynak():
     """Koşucunun sema kaynagi tools.TOOLS'in kendisi — kopya tablo yok."""
     from tests.live import kosucu
     from tools import TANINMIS_TOOLLAR
 
     assert set(kosucu.SEMALAR.keys()) == set(TANINMIS_TOOLLAR)
-    assert len(kosucu.SEMALAR) == 55
+    assert len(kosucu.SEMALAR) == 57
 
 
 def test_matris_kosucu_hucre_kaydi_yapisi(tmp_path, monkeypatch):
@@ -543,7 +537,7 @@ def test_matris_kapsami_elde_anahtari_olan_yedi_saglayici():
     assert matris_kosucu.KAPSAM == (
         "groq", "gemini", "kilo", "nvidia", "glm", "openrouter",
         "mistral")
-    assert len(matris_kosucu.KAPSAM) * 53 == 371     # 7x53=371 (eski 7x52=364)
+    assert len(matris_kosucu.KAPSAM) * 57 == 399     # 7x57=399 (eski 7x56=392, daha eski 7x55=385)
     assert "cloudflare" not in matris_kosucu.KAPSAM
     assert "cohere" not in matris_kosucu.KAPSAM
     beklenen = tuple(ad for ad in registry.VARSAYILAN_SIRA
@@ -565,7 +559,6 @@ def test_matris_kapsamindaki_her_saglayici_kosucuda_desteklenir():
 def test_kapsam_temizle_yalniz_kapsam_disini_siler(tmp_path, monkeypatch):
     """Eski kapsamdan kalan cloudflare/cohere satirlari silinir; kapsam
     icindeki YESIL hucrelere DOKUNULMAZ."""
-    import json
     from tests.live import matris_kosucu
 
     hedef = tmp_path / "m.json"

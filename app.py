@@ -205,7 +205,7 @@ def _kimlik(request: Request):
     kimligi. Production: imzali cookie/token ve fail-closed kurali.
     """
     import kullanici as kullanici_modulu
-    from chat.kimlik import VARSAYILAN_KULLANICI, kullanici_kur
+    from chat.kimlik import kullanici_kur
 
     if _preview_mi():
         kid = _preview_kimligi(request)
@@ -229,7 +229,11 @@ def _kimlik(request: Request):
             if kid is None:
                 return None
         elif not kullanici_modulu.giris_zorunlu_mu():
-            kid = VARSAYILAN_KULLANICI
+            # 2026-10-01: kişisel kimlik varsayılan DEĞİLDİR. Yerel/önizleme
+            # web erişimi anonim başlar; "Casper'in kisisel asistanisin"
+            # yalnız BASAK_YEREL_KIMLIK ile bilinçli olarak açılır.
+            # Üretim (Vercel) bu dala hiç düşmez — bkz. yukarıdaki dal.
+            kid = kullanici_modulu.yerel_kimlik()
         else:
             return None
     kullanici_kur(kid)
@@ -295,12 +299,18 @@ def _handoff_anahtari(kid):
 
     kok = kullanici_modulu.env_anahtari()
     if not kok:
-        if not _preview_mi():
-            raise RuntimeError("handoff imzasi icin sunucu anahtari yok")
-        # Preview kimliği 128-bit rastgele, HttpOnly çerezde ve kullanıcıya
-        # tam değeri gösterilmez. Stateless preview çağrıları aynı anahtarı
-        # bu kimlikten yeniden türetebilir.
-        kok = "preview:" + str(kid)
+        if _preview_mi():
+            # Preview kimliği 128-bit rastgele, HttpOnly çerezde ve kullanıcıya
+            # tam değeri gösterilmez. Stateless preview çağrıları aynı anahtarı
+            # bu kimlikten yeniden türetebilir.
+            kok = "preview:" + str(kid)
+        else:
+            # Üretimde ortam anahtarı zorunludur: kullanici._anahtar() orada
+            # RuntimeError fırlatır, fail-closed korunur. Yerelde ise dosyada
+            # bir kez üretilen oturum anahtarı kullanılır; aksi halde yerel
+            # web sohbeti (uvicorn app:app) her mesajda 503'e düşerdi —
+            # 2026-10-01 ölçüldü.
+            kok = kullanici_modulu._anahtar().decode("utf-8")
     alan = ("basak-p2-handoff-v1:" + str(kid)).encode("utf-8")
     return hmac.new(kok.encode("utf-8"), alan, hashlib.sha256).digest()
 
@@ -974,14 +984,37 @@ async def sohbet(request: Request):
 async def sohbetler(request: Request):
     if _kimlik(request) is None:
         return _giris_engeli()
-    return {"liste": []}
+    # 2026-10-01: govde gercegi soyler. Eskiden buraya her zaman
+    # {"liste": []} donuyordu (denetim bulgusu); kayitlar halihazirda
+    # chat/oturum.py'de tutuluyor ve ayni sozlesme yerel koprude
+    # (basak_web.py) zaten boyle calisiyor. Uretimde state dizini
+    # BASAK_STATE_DIR (varsayilan /tmp) altindadir — instance yenilenince
+    # liste gercekden kuculur, bos liste UYDURULMAZ.
+    from chat import oturum
+    return {"ok": True, "liste": oturum.liste()}
 
 
 @app.post("/api/yeni")
 async def yeni(request: Request):
     if _kimlik(request) is None:
         return _giris_engeli()
-    return {"ok": True}
+    # 2026-10-01: eskiden bos OK donuyordu — sunucu oturumu rotate
+    # etmiyordu, tum kayitlar tek aktif dosyada birikip duruyordu.
+    # Yerel kopruyle (basak_web.py /api/yeni) ayni sozlesme: eski ayna
+    # arsive kalir, gecmis sifirlanir, yeni oturum kimligi doner.
+    from chat import oturum
+    from chat import context as ctx
+    try:
+        eski = [m for m in ctx.yukle(ctx.gecmis_yolu(), [])
+                if m.get("role") != "system"]
+    except Exception:
+        eski = []
+    sid = oturum.yeni(eski)
+    try:
+        ctx.kaydet(ctx.gecmis_yolu(), [])
+    except OSError:
+        pass
+    return {"ok": True, "oturum": sid}
 
 
 @app.post("/api/giris")

@@ -469,6 +469,31 @@ def test_preview_calisma_karti_sozlesmesi():
     assert "min-height:40px" in stil
 
 
+def test_olaylar_yolu_yalniz_yerel_koprunun_sozlesmesidir():
+    """/api/olaylar bolmesi su sozlesmedir; iki yak da kilitli kalir.
+
+    web/app.js tek dosyada iki protokol tasiyan tek istemcidir:
+      - basak_web.py (yerel kopru): /api/sohbet -> {ok, istek} (olaylar
+        YOK) -> olaylariTakipEt -> /api/olaylar (koprude bellekte VAR;
+        test_web_kopru.py kilitli).
+      - app.py (Vercel): /api/sohbet -> {ok, istek, cevap, olaylar} ->
+        app.js dizi dallanmasinda bitirir; /api/olaylar kolu HIC acilmaz.
+
+    Vercel stateless oldugu icin app.py'ye bu rota eklenemez (bellekte
+    olay biriktirilemez). Eger app.py bir yanitta 'olaylar' anahtarini
+    birakirsa UI aninda var olmayan rotayi dener ve 404 alir — bu test
+    hem rota bolumunu hem iki donus anahtarini kilitler.
+    """
+    app_kaynak = open("app.py", encoding="utf-8").read()
+    assert "/api/olaylar" not in app_kaynak
+    # Hata ve basari donusleri de olaylar tasir (iki dal, iki anahtar):
+    assert app_kaynak.count('"olaylar": kayit.olaylar') == 2
+    web_kaynak = open("web/app.js", encoding="utf-8").read()
+    assert '"/api/olaylar?istek="' in web_kaynak
+    kopru_kaynak = open("basak_web.py", encoding="utf-8").read()
+    assert 'yol == "/api/olaylar"' in kopru_kaynak
+
+
 def test_preview_durdur_backend_iptal_bayragini_tasir():
     kaynak = open("app.py", encoding="utf-8").read()
     assert "class _AkisIptal(Exception)" in kaynak
@@ -510,7 +535,7 @@ def test_preview_mobil_dokunmatik_duzen_ve_cache_surumu():
     stil = open("web/chat.css", encoding="utf-8").read()
     html = open("web/index.html", encoding="utf-8").read()
     assert "(hover:none) and (pointer:coarse) and (max-width:1100px)" in stil
-    assert "/chat.css?v=10" in html
+    assert "/chat.css?v=11" in html
     assert "/app.js?v=19" in html
 
 
@@ -655,7 +680,7 @@ def test_preview_plan_kaynak_yonlendir_ui_sozlesmesi():
     assert ".work-plan{" in stil
     assert ".work-redirect-form{" in stil
     assert ".answer-sources{" in stil
-    assert "/chat.css?v=10" in html
+    assert "/chat.css?v=11" in html
     assert "/app.js?v=19" in html
 
 

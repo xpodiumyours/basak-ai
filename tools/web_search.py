@@ -1,4 +1,4 @@
-﻿"""tools/web_search.py — DuckDuckGo web araması ve sayfa okuma.
+"""tools/web_search.py — DuckDuckGo web araması ve sayfa okuma.
 
 Metin, haber, tarih filtreli, site-ici, gorsel ve kitap aramasi +
 sayfa okuma (standart + derin). Dis ag cikisi yalniz DuckDuckGo
@@ -35,6 +35,145 @@ def _adet_sinirla(adet, varsayilan=_VARSAYILAN_SONUC):
     return max(_MIN_SONUC, min(_MAX_SONUC, n))
 
 
+# ── Arama hatti dayanikliligi (2026-10-01, olculdu) ──────────────────
+# Kok neden: ddgs motorlari tek turda paralel kosar ve
+# wait(..., FIRST_EXCEPTION) ile erken doner; bir motor hata verince
+# o turdaki sonuclar toplanmadan DDGSException("No results found.")
+# yukseltilebiliyor. Ayrica "auto" wikipedia/grokipedia'yi one alir;
+# ikisi de yalniz typeahead/opensearch dondurdugu icin genel sorguda
+# 0 sonuc uretir ve calisan motorlardan is parcacigi calar.
+# Olcum (2026-10-01, "Vestel iletisim telefon", tek motor): brave 429,
+# duckduckgo 202, google 429, mojeek 403; startpage/grokipedia/wikipedia
+# 200 ama 0 sonuc; sonuc yalniz yahoo'dan geldi. Ayni sorgu "auto" ile
+# 6 turun 1'inde tamamen bos dondu.
+# Cozum: tur tekrari (motorlar her turda yeniden karilir) + ilk tur
+# sonrasi yalniz gercek arama motorlarina daraltma + gercek sebebi
+# (HTTP kodu) hataya tasima. Kelime/niyet kurali YOK.
+_ARAMA_DENEMESI = 3
+_ARAMA_BEKLEME = 0.4       # denemeler arasi taban bekleme (saniye)
+_ARAMA_ZAMAN_ASIMI = 5     # tek deneme zaman asimi (eskiden her yerde 5'ti)
+_ARAMA_SEBEP_SAYISI = 6    # hata metnine yazilan en fazla motor sebebi
+
+# Kategori basina gercek arama motorlari. wikipedia/grokipedia bilerek
+# yok: genel sorguda sonuc uretmezler (typeahead/opensearch).
+_GERCEK_MOTORLAR = {
+    "text": ("yahoo", "duckduckgo", "brave", "google", "mojeek",
+             "startpage"),
+    "news": ("yahoo", "bing", "duckduckgo"),
+    "images": ("bing", "duckduckgo"),
+    "books": ("annasarchive",),
+}
+
+# Motor sebebi yalniz alt katman gunlugunde gorunur (ddgs hatayi yutar).
+_MOTOR_YANIT_RE = re.compile(r"response:\s+(\S+)\s+(\d{3})")
+_MOTOR_HATA_RE = re.compile(r"Error in engine (\w+)")
+_ARAMA_GUNLUK_ADLARI = ("primp", "ddgs", "ddgs.ddgs")
+
+
+class _MotorGunlugu(logging.Handler):
+    """Arama suresince motorlarin gercek sebebini toplar (en iyi caba).
+
+    ddgs motorlari HTTP hatasini yutup yalnizca "No results found"
+    yukseltebilir; gercek sebep (HTTP 429/403/202) alt katman
+    gunlugunde kalir. Burada toplanip hata metnine tasinir. Gunluk
+    bicimi degisirse liste bos kalir, arama etkilenmez.
+    """
+
+    def __init__(self):
+        super().__init__(level=logging.INFO)
+        self.sebepler = []
+        self._kilit = threading.Lock()
+
+    def emit(self, kayit):
+        try:
+            metin = kayit.getMessage() or ""
+        except Exception:
+            return
+        yanit = _MOTOR_YANIT_RE.search(metin)
+        if yanit:
+            try:
+                ad = urlparse(yanit.group(1)).hostname or yanit.group(1)
+            except ValueError:
+                ad = yanit.group(1)
+            self._ekle("%s HTTP %s" % (ad, yanit.group(2)))
+            return
+        hata = _MOTOR_HATA_RE.search(metin)
+        if hata:
+            self._ekle("%s hata verdi" % hata.group(1))
+
+    def _ekle(self, metin):
+        with self._kilit:
+            if metin not in self.sebepler:
+                self.sebepler.append(metin)
+
+
+def _arama_hatasi(denenen, son_sebep, sebepler):
+    """Kullaniciya donuk tek satir arama hatasi uretir.
+
+    Motor sebepleri varsa onlar yazilir; yoksa son istisna metni.
+    "No results found." tek basina anlamsiz oldugu icin yalniz sebep
+    bulunamazsa kullanilir.
+    """
+    if sebepler:
+        ayrinti = "; ".join(sebepler[:_ARAMA_SEBEP_SAYISI])
+    else:
+        ayrinti = str(son_sebep) if son_sebep else "sonuc donmedi"
+    return ("Arama yapilamadi: %d denemede sonuc alinamadi (%s)"
+            % (denenen, ayrinti))
+
+
+def _arama_kos(kategori, cagri):
+    """ddgs aramasini gerekirse tekrarlayarak kosar.
+
+    cagri(ddgs, backend) -> sonuc listesi. Donus: (sonuclar, hata).
+    Sonuclar bos olsa da cagri istisnasiz tamamlandiysa hata None'dur;
+    bu "gercekten sonuc yok" demektir. Istisna ile biten turlarda ise
+    kullaniciya donuk tek satirlik hata dondurulur.
+    """
+    try:
+        from ddgs import DDGS
+    except ImportError:
+        return [], "ddgs paketi yuklu degil"
+
+    gunluk = _MotorGunlugu()
+    gunlukler = [logging.getLogger(ad) for ad in _ARAMA_GUNLUK_ADLARI]
+    onceki = [(lg, lg.level) for lg in gunlukler]
+    for lg in gunlukler:
+        lg.setLevel(logging.INFO)
+        lg.addHandler(gunluk)
+
+    son_sebep = None
+    temiz_bos = False
+    denenen = 0
+    try:
+        for deneme in range(_ARAMA_DENEMESI):
+            if deneme:
+                time.sleep(_ARAMA_BEKLEME * deneme)
+            denenen = deneme + 1
+            arka = "auto" if deneme == 0 else ",".join(
+                _GERCEK_MOTORLAR.get(kategori, ()))
+            try:
+                with DDGS(timeout=_ARAMA_ZAMAN_ASIMI) as ddgs:
+                    sonuc = list(cagri(ddgs, arka) or [])
+            except Exception as istisna:      # ddgs tek hata turu yukseltir
+                son_sebep = istisna
+                continue
+            if sonuc:
+                return sonuc, None
+            temiz_bos = True
+            # Acik motor listesi bos donduyse tekrar denemek gereksizdir.
+            if deneme:
+                break
+    finally:
+        for lg, seviye in onceki:
+            lg.removeHandler(gunluk)
+            lg.setLevel(seviye)
+
+    if temiz_bos:
+        return [], None
+    return [], _arama_hatasi(denenen, son_sebep, gunluk.sebepler)
+
+
 def web_search(query: str, adet: int = _VARSAYILAN_SONUC) -> dict:
     """DuckDuckGo'da arama yapar. Hava durumu için özel API kullanır."""
     if not query or not query.strip():
@@ -57,31 +196,25 @@ def _duckduckgo_ara(query, adet=_VARSAYILAN_SONUC):
     _temizle() URL'leri metinden siliyordu — model "ara, sonucu sec,
     sayfayi ac" zincirini kuramiyordu cunku elinde adres kalmiyordu.
     Artik sonuclar BASLIK + ADRES + METIN olarak oldugu gibi verilir.
+    2026-10-01: arama _arama_kos uzerinden kosar (tekrar + sebep).
     """
-    try:
-        from ddgs import DDGS
-
-        with DDGS(timeout=5) as ddgs:
-            results = list(ddgs.text(query, region="tr-tr",
+    results, hata = _arama_kos(
+        "text",
+        lambda ddgs, arka: ddgs.text(query, region="tr-tr", backend=arka,
                                      max_results=_adet_sinirla(adet)))
+    if hata:
+        logger.error("Web arama hatasi: %s", hata)
+        return {"error": hata}
+    if not results:
+        return {"result": "Sonuc bulunamadi"}
 
-        if not results:
-            return {"result": "Sonuc bulunamadi"}
-
-        parcalar = []
-        parcalar = []
-        for r in results:
-            parcalar.append(BICIM % (
-                (r.get("title") or "").strip(),
-                (r.get("href") or "").strip(),
-                (r.get("body") or "").strip()))
-        return {"result": AYIRAC.join(parcalar)}
-
-    except ImportError:
-        return {"error": "ddgs paketi yuklu degil"}
-    except Exception as e:
-        logger.error("Web arama hatasi: %s", e)
-        return {"error": "Arama yapilamadi: %s" % e}
+    parcalar = []
+    for r in results:
+        parcalar.append(BICIM % (
+            (r.get("title") or "").strip(),
+            (r.get("href") or "").strip(),
+            (r.get("body") or "").strip()))
+    return {"result": AYIRAC.join(parcalar)}
 
 
 def haber_ara(query: str, adet: int = 10) -> dict:
@@ -91,27 +224,24 @@ def haber_ara(query: str, adet: int = 10) -> dict:
     """
     if not query or not str(query).strip():
         return {"error": "Arama sorgusu boş olamaz"}
-    try:
-        from ddgs import DDGS
-
-        with DDGS(timeout=5) as ddgs:
-            results = list(ddgs.news(str(query).strip(), region="tr-tr",
+    results, hata = _arama_kos(
+        "news",
+        lambda ddgs, arka: ddgs.news(str(query).strip(), region="tr-tr",
+                                     backend=arka,
                                      max_results=_adet_sinirla(adet, 10)))
-        if not results:
-            return {"result": "Haber bulunamadi"}
-        parcalar = []
-        for r in results:
-            parcalar.append("%s\n%s\n%s | %s" % (
-                (r.get("title") or "").strip(),
-                (r.get("url") or r.get("href") or "").strip(),
-                (r.get("date") or "").strip() or "tarihsiz",
-                (r.get("body") or "").strip()))
-        return {"result": AYIRAC.join(parcalar)}
-    except ImportError:
-        return {"error": "ddgs paketi yuklu degil"}
-    except Exception as e:
-        logger.error("Haber arama hatasi: %s", e)
-        return {"error": "Haber aranamadi: %s" % e}
+    if hata:
+        logger.error("Haber arama hatasi: %s", hata)
+        return {"error": hata}
+    if not results:
+        return {"result": "Haber bulunamadi"}
+    parcalar = []
+    for r in results:
+        parcalar.append("%s\n%s\n%s | %s" % (
+            (r.get("title") or "").strip(),
+            (r.get("url") or r.get("href") or "").strip(),
+            (r.get("date") or "").strip() or "tarihsiz",
+            (r.get("body") or "").strip()))
+    return {"result": AYIRAC.join(parcalar)}
 
 
 _ARALIK_HARITASI = {"gun": "d", "hafta": "w", "ay": "m"}
@@ -128,27 +258,23 @@ def zamanli_ara(query: str, aralik: str = "hafta",
     sinir = _ARALIK_HARITASI.get((aralik or "").strip().lower())
     if sinir is None:
         return {"error": "Aralik gun, hafta veya ay olmali."}
-    try:
-        from ddgs import DDGS
-
-        with DDGS(timeout=5) as ddgs:
-            results = list(ddgs.text(str(query).strip(), region="tr-tr",
-                                     timelimit=sinir,
+    results, hata = _arama_kos(
+        "text",
+        lambda ddgs, arka: ddgs.text(str(query).strip(), region="tr-tr",
+                                     backend=arka, timelimit=sinir,
                                      max_results=_adet_sinirla(adet, 10)))
-        if not results:
-            return {"result": "Sonuc bulunamadi"}
-        parcalar = []
-        for r in results:
-            parcalar.append(BICIM % (
-                (r.get("title") or "").strip(),
-                (r.get("href") or "").strip(),
-                (r.get("body") or "").strip()))
-        return {"result": AYIRAC.join(parcalar)}
-    except ImportError:
-        return {"error": "ddgs paketi yuklu degil"}
-    except Exception as e:
-        logger.error("Zamanli arama hatasi: %s", e)
-        return {"error": "Arama yapilamadi: %s" % e}
+    if hata:
+        logger.error("Zamanli arama hatasi: %s", hata)
+        return {"error": hata}
+    if not results:
+        return {"result": "Sonuc bulunamadi"}
+    parcalar = []
+    for r in results:
+        parcalar.append(BICIM % (
+            (r.get("title") or "").strip(),
+            (r.get("href") or "").strip(),
+            (r.get("body") or "").strip()))
+    return {"result": AYIRAC.join(parcalar)}
 
 
 def site_ara(site: str, sorgu: str, adet: int = 10) -> dict:
@@ -166,51 +292,44 @@ def gorsel_ara(query: str, adet: int = 10) -> dict:
     """Gorsel arar; resim adreslerini JSON liste doner."""
     if not query or not str(query).strip():
         return {"error": "Arama sorgusu boş olamaz"}
-    try:
-        from ddgs import DDGS
-
-        with DDGS(timeout=5) as ddgs:
-            results = list(ddgs.images(str(query).strip(), region="tr-tr",
+    results, hata = _arama_kos(
+        "images",
+        lambda ddgs, arka: ddgs.images(str(query).strip(), region="tr-tr",
+                                       backend=arka,
                                        max_results=_adet_sinirla(adet, 10)))
-        adresler = []
-        for r in results:
-            aday = (r.get("image") or "").strip()
-            if aday and aday not in adresler:
-                adresler.append(aday)
-        if not adresler:
-            return {"error": "Gorsel bulunamadi"}
-        return {"result": json.dumps(adresler, ensure_ascii=False)}
-    except ImportError:
-        return {"error": "ddgs paketi yuklu degil"}
-    except Exception as e:
-        logger.error("Gorsel arama hatasi: %s", e)
-        return {"error": "Gorsel aranamadi: %s" % e}
+    if hata:
+        logger.error("Gorsel arama hatasi: %s", hata)
+        return {"error": hata}
+    adresler = []
+    for r in results:
+        aday = (r.get("image") or "").strip()
+        if aday and aday not in adresler:
+            adresler.append(aday)
+    if not adresler:
+        return {"error": "Gorsel bulunamadi"}
+    return {"result": json.dumps(adresler, ensure_ascii=False)}
 
 
 def kitap_ara(query: str, adet: int = 10) -> dict:
     """Kitap/katalog/brosur arar; baslik + adres + metin doner."""
     if not query or not str(query).strip():
         return {"error": "Arama sorgusu boş olamaz"}
-    try:
-        from ddgs import DDGS
-
-        with DDGS(timeout=5) as ddgs:
-            results = list(ddgs.books(str(query).strip(),
+    results, hata = _arama_kos(
+        "books",
+        lambda ddgs, arka: ddgs.books(str(query).strip(), backend=arka,
                                       max_results=_adet_sinirla(adet, 10)))
-        if not results:
-            return {"result": "Kitap bulunamadi"}
-        parcalar = []
-        for r in results:
-            parcalar.append(BICIM % (
-                (r.get("title") or "").strip(),
-                (r.get("url") or r.get("href") or "").strip(),
-                (r.get("body") or r.get("publisher") or "").strip()))
-        return {"result": AYIRAC.join(parcalar)}
-    except ImportError:
-        return {"error": "ddgs paketi yuklu degil"}
-    except Exception as e:
-        logger.error("Kitap arama hatasi: %s", e)
-        return {"error": "Kitap aranamadi: %s" % e}
+    if hata:
+        logger.error("Kitap arama hatasi: %s", hata)
+        return {"error": hata}
+    if not results:
+        return {"result": "Kitap bulunamadi"}
+    parcalar = []
+    for r in results:
+        parcalar.append(BICIM % (
+            (r.get("title") or "").strip(),
+            (r.get("url") or r.get("href") or "").strip(),
+            (r.get("body") or r.get("publisher") or "").strip()))
+    return {"result": AYIRAC.join(parcalar)}
 
 
 def derin_oku(url: str, baslangic=0, uzunluk=None) -> dict:
@@ -810,21 +929,20 @@ def _jsonld_urun(ham):
     return urunler
 
 
-def urun_sayfasi_oku(url: str, _acici=None) -> dict:
-    """Bir urun aday sayfasini tek HTTP GET ile kanit paketine cevirir.
+def _ham_sayfa_getir(url, _acici=None):
+    """Korumali tek HTTP GET → (ham, son_url, None) ya da (None, None, hata).
 
-    Donus: metin + Schema.org Product/ProductGroup + urun gorselleri.
-    SSRF ve yonlendirme savunmasi sayfa_oku ile aynidir.
+    SSRF/yönlendirme savunması tek yerde kalsın diye sayfa okuyan
+    okuyucular bu yardımcıyı paylaşır; her okuyucu kendi savunmasını
+    yazmaz. `_acici` yalnız testler içindir.
     """
     if not url or not str(url).strip():
-        return {"error": "URL bos olamaz"}
+        return None, None, {"error": "URL bos olamaz"}
     url = str(url).strip()
     engel = _guvenli_adres(url)
     if engel:
-        return {"error": engel}
+        return None, None, {"error": engel}
     try:
-        import html as html_mod
-        from urllib.parse import urljoin
         req = urllib.request.Request(url, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Basak/1.0",
             "Accept": "text/html",
@@ -839,9 +957,31 @@ def urun_sayfasi_oku(url: str, _acici=None) -> dict:
             content_type = resp.headers.get("Content-Type", "")
             son_url = resp.geturl() if hasattr(resp, "geturl") else url
             if "text/html" not in content_type:
-                return {"error": "Desteklenen icerik tipi degil: %s"
-                                 % content_type}
+                return None, None, {
+                    "error": "Desteklenen icerik tipi degil: %s" % content_type}
             ham = resp.read(_MAX_HAM).decode("utf-8", errors="replace")
+        return ham, son_url, None
+    except urllib.error.HTTPError as e:
+        return None, None, {"error": "HTTP hatasi %d: %s" % (e.code, url)}
+    except urllib.error.URLError as e:
+        return None, None, {"error": "Baglanti hatasi: %s" % str(e.reason)}
+    except Exception as e:
+        logger.warning("Sayfa okuma hatasi: %s", e)
+        return None, None, {"error": "Sayfa okunamadi: %s" % str(e)}
+
+
+def urun_sayfasi_oku(url: str, _acici=None) -> dict:
+    """Bir urun aday sayfasini tek HTTP GET ile kanit paketine cevirir.
+
+    Donus: metin + Schema.org Product/ProductGroup + urun gorselleri.
+    SSRF ve yonlendirme savunmasi sayfa_oku ile aynidir.
+    """
+    ham, son_url, hata = _ham_sayfa_getir(url, _acici)
+    if hata:
+        return hata
+    try:
+        import html as html_mod
+        from urllib.parse import urljoin
 
         urunler = _jsonld_urun(ham)
         kurumlar = _jsonld_kurumlar(ham)
@@ -893,3 +1033,136 @@ def urun_sayfasi_oku(url: str, _acici=None) -> dict:
     except Exception as e:
         logger.warning("Urun sayfasi okuma hatasi: %s", e)
         return {"error": "Urun sayfasi okunamadi: %s" % str(e)}
+
+
+# ── Şirket/kurum sayfası gerçekleri ───────────────────────────────
+# urun_sayfasi_oku ile aynı korumalı hattı paylaşır; farkı: Product
+# yerine Organization/LocalBusiness alanları (ad, resmî ad, adres,
+# telefon, e-posta, vergi no) olgu olarak çıkarılır. Değerler sayfada
+# yazdığı gibi kalır; hiçbir alan türetilmez, tamamlanmaz ya da tahmin
+# edilmez. Ölçüm (2026-10-01): modern siteler adresi yalnız JSON-LD
+# PostalAddress içinde verir; yalnız düz metne bakan çıkarım bunu
+# tamamen kaçırıyordu.
+
+_KURUM_TURLERI = (
+    "organization", "corporation", "localbusiness", "store", "onlinestore",
+    "professionalservice", "foodestablishment", "restaurant", "hairsalon",
+    "medicalorganization", "educationalorganization",
+)
+# Not: "website" BİLEREK yok — WebSite düğümü adres/ad/telefon taşımaz,
+# yalnız site adı taşır; gerçek kurum bilgisini gölgeler (ölçüldü).
+# Blok etiketleri satır sonu, satir içi etiketler boşluk olur: adres
+# satırları tek dev satıra yapışmasın (eski akışta yapışıyordu).
+_BLOK_ETIKET_RE = re.compile(
+    r"</?(?:br|p|div|li|tr|td|th|h[1-6]|section|article|header|footer|"
+    r"address|ul|ol|table|form|label|dl|dt|dd)\b[^>]*>",
+    re.IGNORECASE)
+
+
+def _duz_metin(deger):
+    """str|dict (name/@id/value) alanı düz metne çevirir."""
+    if isinstance(deger, dict):
+        deger = (deger.get("name") or deger.get("@id")
+                 or deger.get("value"))
+    return str(deger or "").strip()
+
+
+def _metin_listesi(deger):
+    """str|liste alanı tekilleştirilmiş düz metin listesine çevirir."""
+    deger = deger if isinstance(deger, list) else [deger]
+    sonuc = []
+    for x in deger:
+        x = _duz_metin(x)
+        if x and x not in sonuc:
+            sonuc.append(x)
+    return sonuc
+
+
+def _adres_alani(deger):
+    """Schema.org PostalAddress → {alan: değer} + okunur tek satır."""
+    if isinstance(deger, list):
+        deger = next((x for x in deger if isinstance(x, (dict, str))), None)
+    if isinstance(deger, str):
+        return {}, " ".join(deger.split())
+    if not isinstance(deger, dict):
+        return {}, ""
+    alanlar = {
+        "sokak": _duz_metin(deger.get("streetAddress")),
+        "yerlesim": _duz_metin(deger.get("addressLocality")),
+        "bolge": _duz_metin(deger.get("addressRegion")),
+        "posta_kodu": _duz_metin(deger.get("postalCode")),
+        "ulke": _duz_metin(deger.get("addressCountry")),
+    }
+    return alanlar, ", ".join(x for x in alanlar.values() if x)
+
+
+def _kurum_gercekleri(ham):
+    """Organization/LocalBusiness JSON-LD alanlarını olgu olarak çıkarır."""
+    import html as _html
+    sonuc = []
+    for parca in _JSONLD_RE.findall(ham or ""):
+        try:
+            veri = json.loads(_html.unescape(parca).strip())
+        except (TypeError, ValueError):
+            continue
+        for dugum in _jsonld_dugumleri(veri):
+            tur = dugum.get("@type")
+            turler = tur if isinstance(tur, list) else [tur]
+            if not any(str(t or "").lower() in _KURUM_TURLERI for t in turler):
+                continue
+            adres, adres_metni = _adres_alani(dugum.get("address"))
+            kayit = {
+                "tur": next((str(t) for t in turler if t), ""),
+                "ad": _duz_metin(dugum.get("name")),
+                "resmi_ad": _duz_metin(dugum.get("legalName")),
+                "url": _duz_metin(dugum.get("url") or dugum.get("@id")),
+                "telefonlar": _metin_listesi(dugum.get("telephone")),
+                "epostalar": _metin_listesi(dugum.get("email")),
+                "adres": adres,
+                "adres_metni": adres_metni,
+                "vergi_no": _duz_metin(dugum.get("vatID") or dugum.get("taxID")),
+            }
+            dolu = (kayit["ad"] or kayit["resmi_ad"] or kayit["url"]
+                    or kayit["telefonlar"] or kayit["epostalar"]
+                    or kayit["adres_metni"] or kayit["vergi_no"])
+            if dolu and kayit not in sonuc:
+                sonuc.append(kayit)
+            if len(sonuc) >= 20:
+                return sonuc
+    return sonuc
+
+
+def kurum_sayfasi_oku(url: str, _acici=None) -> dict:
+    """Şirket sayfasını TEK kez indirir; metin + schema.org gerçekleri.
+
+    Dönüş JSON: {"url", "metin", "gercekler"}. `gercekler` sayfadaki
+    Organization/LocalBusiness bloklarının olgularıdır; eksik alan boş
+    kalır. `metin` satır yapısını korur (blok etiketleri satır sonu olur).
+    SSRF ve yönlendirme savunması sayfa_oku ile aynıdır.
+    """
+    ham, son_url, hata = _ham_sayfa_getir(url, _acici)
+    if hata:
+        return hata
+    try:
+        import html as html_mod
+
+        temiz = re.sub(
+            r'<(script|style|noscript)[^>]*>.*?</\1>',
+            '', ham, flags=re.DOTALL | re.IGNORECASE)
+        temiz = re.sub(r'<(script|style|noscript)[^>]*>.*', '', temiz,
+                       flags=re.DOTALL | re.IGNORECASE)
+        temiz = re.sub(r'<!--.*?-->', '', temiz, flags=re.DOTALL)
+        temiz = _BLOK_ETIKET_RE.sub('\n', temiz)
+        temiz = re.sub(r'<[^>]+>', ' ', temiz)
+        temiz = html_mod.unescape(temiz)
+        satirlar = [re.sub(r"[ \t\u00a0]+", " ", s).strip()
+                    for s in temiz.splitlines()]
+        metin = "\n".join(s for s in satirlar if s)
+        return {"result": json.dumps({
+            "url": son_url,
+            "metin": metin[:_MAX_SAYFA],
+            "gercekler": _kurum_gercekleri(ham),
+        }, ensure_ascii=False)}
+    except Exception as e:
+        logger.warning("Kurum sayfasi okuma hatasi: %s", e)
+        return {"error": "Kurum sayfasi okunamadi: %s" % str(e)}

@@ -26,7 +26,7 @@ OpenAI ve Anthropic buyuk tool yuzeylerinde deferred loading/tool search
 kullanir. Bu, araci Basak'tan saklayan bir niyet siniflandiricisi degil,
 context/token optimizasyonudur.
 
-P2 ortak tabani: provider native discovery desteklemiyorsa 53 gercek arac
+P2 ortak tabani: provider native discovery desteklemiyorsa 57 gercek arac
 eager olarak modele verilir. Hidden resolver aktif akista kullanilmaz.
 
 ### 2. Tool policy acik run sozlesmesidir
@@ -97,7 +97,7 @@ Kod + unit test yeterli degildir. Ayrica:
 
 ## 2026-09-25 — provider-neutral runtime v2
 
-- 53 gerçek araç tek runtime capability kataloğudur.
+- 57 gerçek araç tek runtime capability kataloğudur.
 - Gizli ikinci araç seçici silinir.
 - 2026-09-25 (Casper kararı, AGENTS.md §0): katalog modele tek seferde
   dökülmez. İlk turda yalnız `yetenek_ac` sunulur; model bir veya birkaç

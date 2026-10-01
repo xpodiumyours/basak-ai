@@ -7,7 +7,7 @@ sayılmaz. CI, provider pilotu ve gerçek Preview testi ayrı ayrı kaydedilir.
 
 | # | Risk | P2 düzenlemesi | Canlı kabul kanıtı |
 |---|---|---|---|
-| 1 | Meta yetenek kapısı / gizli araç kaybı | Aktif akışta hidden resolver yok. `auto|required` modunda 53 gerçek araç capability registry olarak modele eksiksiz verilir; deferred loading yalnız provider-native optimizasyon olabilir. | 53 araç görünürlüğü + çok alanlı gerçek görev E2E |
+| 1 | Meta yetenek kapısı / gizli araç kaybı | Aktif akışta hidden resolver yok. `auto|required` modunda 57 gerçek araç capability registry olarak modele eksiksiz verilir; deferred loading yalnız provider-native optimizasyon olabilir. | 56 araç görünürlüğü + çok alanlı gerçek görev E2E |
 | 2 | Araç gereken işte ezber final | `tool_policy` açık run politikasıdır: `auto|required|none`. Metinden gizli sınıflandırma yok. `required` run'da gerçek tool-call olmadan final kabul edilmez; `auto` model-native karardır ve eval ile ölçülür. | `required` yapısal test + `auto` gerçek görev eval'i |
 | 3 | Sahte/görsel streaming | Araç sonrası final ve araçsız final `brain.cevapla_yayin` üzerinden gerçek provider parçalarını taşır; frontend animasyonu fallback. | İlk `parca` finalden önce ağda görülmeli |
 | 4 | Arama sonucu kaynak sanılması | Final Kaynaklar yalnız `sayfa_oku` / `derin_oku` ile gerçekten okunan URL'lerden çıkar. | Search-only URL final kaynakta olmamalı |
@@ -67,7 +67,7 @@ Bu denetim, testlerin yesil olmasini tek basina yeterli kabul etmez.
 Aktif P2 akisinda `chat/tool_resolver.py` yetki/capability kapisi DEGILDIR ve
 `chat/flow.py` tarafindan kullanilmaz. Ortak taban `chat/agent_runtime.py`:
 
-1. Full capability registry (53 gercek arac).
+1. Full capability registry (57 gercek arac).
 2. Acik run policy: `auto|required|none`.
 3. Model-native compositional function calling.
 4. Provider-native deferred/tool-search yalniz optimizasyon; destek yoksa eager

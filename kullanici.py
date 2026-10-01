@@ -147,6 +147,32 @@ def gorunur_kimlik(kid):
     return ham
 
 
+def yerel_kimlik():
+    """Yerel/üretim-dışı WEB erişiminin kişi kimliği — varsayılan ANONİM.
+
+    2026-10-01 (Casper): kişisel kimlik (casper) önceden her ortamın
+    DÜŞÜĞÜydü. Sonuç ölçüldü: kimlik tanımlanmayan her kurulum (yerel
+    `uvicorn app:app`, Freebuff önizlemesi, kendi sunucusuna kuran) sessizce
+    "Casper'in kisisel asistanina" dönüyor ve yalnız casper'a açılan kişisel
+    baglam (profil, knowledge/, Obsidian indeksi) kullaniciya giriyordu.
+
+    Artık kişisel kimlik BILINÇLI bir tercihtir: BASAK_YEREL_KIMLIK
+    tanımlanırsa o kimlik, tanımlı değilse yeni anonim kimlik (u<16 rakam>).
+
+    ŞUNLAR BU FONKSİYONU KULLANMAZ — orada kimlik açıkça kurulur:
+      - masaüstü (basak_app.py -> kullanici_kur("casper"))
+      - Telegram   (telegram_bot.py -> izinli sohbetler)
+      - yerel web koprusu (basak_web.py -> main())
+
+    ÜRETIM (Vercel / BASAK_URETIM) BU YOLA DÜŞMEZ: orada kimlik her zaman
+    imzalı çerezden veya X-Basak-Token'dan gelir.
+    """
+    ham = (os.environ.get("BASAK_YEREL_KIMLIK") or "").strip()
+    if ham:
+        return slugla(ham)
+    return yeni_anonim_kimlik()
+
+
 def env_anahtari():
     """Ortamdan gelen oturum anahtarı (yoksa boş metin)."""
     return (os.environ.get("BASAK_OTURUM_ANAHTARI")

@@ -334,4 +334,5 @@ class TestSaglayiciSeffafligi:
             c.get("/api/saglayici-veri")
         assert registry.VARSAYILAN_SIRA == [
             "groq", "gemini", "cloudflare", "kilo", "nvidia",
-            "glm", "openrouter", "cohere", "mistral"]
+            "glm", "openrouter", "cohere", "mistral",
+            "sambanova"]

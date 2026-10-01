@@ -45,7 +45,7 @@ class TestUcYer:
 
 
 
-    def test_55_arac_semasi_tam_ve_tutarlı(self):
+    def test_57_arac_semasi_tam_ve_tutarlı(self):
         """Her araç JSON function şeması olarak eksiksiz ve tekil olmalı."""
         adlar = []
         for alet in TOOLS:
@@ -74,8 +74,8 @@ class TestUcYer:
                     "array", "object"
                 ), (ad, alan, sema)
 
-        assert len(adlar) == 55
-        assert len(set(adlar)) == 55
+        assert len(adlar) == 57
+        assert len(set(adlar)) == 57
 
     def test_bilinmeyen_reddedilir(self):
         r = calistir("yok-boyle-alet", {})

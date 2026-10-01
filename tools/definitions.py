@@ -6,10 +6,12 @@ cevapla") buraya YAZILMAZ — o, aracın etrafına sarılmış bir kural
 katmanıdır ve 2026-09-13'te bilerek söküldü. Hangi aracı seçeceğine
 model karar verir.
 
-Dokuz + dort + bes + dokuz arac: okuyanlar serbest, etkisi olanlar
-dar tablolarda (dosya/gorev/tablo yazma, sabit komut, beyaz liste).
+Okuyanlar serbest, etkisi olanlar dar tablolarda (dosya/gorev/tablo
+yazma, sabit komut, beyaz liste).
 (2026-09-15: toplam 52; ara-toplam formulu bayat oldugu icin kaldirildi.
-2026-09-23: hava_durumu eklendi — toplam 53.)
+2026-09-23: hava_durumu eklendi — 53. 2026-10-01: harita_goster eklendi —
+56; ayni gun konum_coz eklendi — guncel toplam 57; sayi testlerle kilitli,
+bak: tests/test_seviye0_sozlesme.py + tests/test_agent_protocol.py.)
 """
 
 
@@ -523,12 +525,48 @@ HAVA_DURUMU = _arac(
     ["sehir"],
 )
 
+HARITA_GOSTER = _arac(
+    "harita_goster",
+    "Konum icin Google Maps baglantisini uretir: haritada arama veya yol "
+    "tarifi. Doner: konum, mod, baglanti, kaynak. Ag cagrisi yapmaz, API "
+    "anahtari ve kota gerektirmez; yalniz baglanti metni uretir. Bos konum "
+    "veya bilinmeyen mod hata doner.",
+    {"konum": {"type": "string",
+               "description": "Adres, yer adi veya 'enlem,boylam'"},
+     "mod": {"type": "string",
+             "description": "ara | yol (bossa yol)"}},
+    ["konum"],
+)
+
+KONUM_COZ = _arac(
+    "konum_coz",
+    "Adres veya yer adini enlem/boylam koordinatina cevirir. Once Photon "
+    "(OpenStreetMap), olmazsa Open-Meteo geocoding denenir. Doner: adres, "
+    "enlem, boylam, gosterim_adi, kaynak, aday_sayisi, adaylar (her adayda "
+    "gosterim_adi, tip, osm_id, posta_kodu, ulke_kodu), denenen_hatlar "
+    "(her hattin durumu ve varsa hata sebebi). Photon bulanik eslestirir: "
+    "sorguyla birebir ortusmeyen aday da donebilir, hangi eslesmenin "
+    "alindigi aday listesinden gorulur. Ikisi de acik veri kullanir: kapı "
+    "numarasi seviyesindeki Turkiye adresleri cogu zaman bulunamaz, "
+    "mahalle/ilce seviyesi bulunur (2026-10-01 olcumu). Hicbir hat sonuc "
+    "bulamazsa hata doner ve hata mesaji denenen hatlari yazar; koordinat "
+    "uydurulmaz. Anahtar gerekmez; istek SSRF denetiminden gecer.",
+    {"adres": {"type": "string",
+               "description": "Adres veya yer adi (orn. Kadikoy Moda, "
+                              "Istanbul)"}},
+    ["adres"],
+)
+
 SIRKET_ARA = _arac(
     "sirket_ara",
     "Markanın resmi sitesini ve iletişim/vergi bilgilerini arar; "
-    "JSON doner: marka, site, telefonlar, eposta, adresler, vergi_no, "
-    "kaynak, eksik. Bulunamayan alan eksik listesinde yazar; uydurma "
-    "yok. Salt-okunur: disk yazimi yok.",
+    "JSON doner: marka, site, unvan, telefonlar, eposta, adresler, "
+    "vergi_no, kaynak, dogrulandi, eksik. Bilgiler once sayfanin "
+    "schema.org Organization/PostalAddress verisinden, eksik kalanlar "
+    "duz metinden okunur; bulunamayan alan eksik listesinde yazar ve "
+    "uydurma yok. Okunan sayfa markaya ait dogrulanamazsa `dogrulandi` "
+    "false olur, alanlar bos kalir ve `not` sebebini yazar. "
+    "Salt-okunur: disk yazimi yok.",
     {"marka": {"type": "string", "description": "Marka adı (örn. Tutku)"}},
     ["marka"],
 )
@@ -576,7 +614,8 @@ TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
          MATRIS_AC, MATRIS_LISTE, SATIR_EKLE, KANIT_EKLE,
          SATIR_KAPAT, SATIR_AC, SATIR_SIL, SATIR_TASI,
          MATRIS_DURUM, GORSEL_URET, SAGLIK_RAPORU, SATIR_DUZENLE,
-          SIMDI, HESAPLA, HAFIZA_ARA, SIRKET_ARA, HAVA_DURUMU,
+          SIMDI, HESAPLA, HAFIZA_ARA, SIRKET_ARA, HAVA_DURUMU, HARITA_GOSTER,
+         KONUM_COZ,
          FATURA_OKU, KATALOG_KUR, KATALOG_GETIR, KATALOG_LISTELE,
          KATALOG_FIYAT, KATALOG_ONAYLA, YETKI_BELGESI, URUN_ESLESTIR,
          YAYIN_PAKETI, CIKTI_OKU,

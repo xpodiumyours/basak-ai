@@ -18,19 +18,23 @@ logger = logging.getLogger(__name__)
 # sonsuz buyutuyordu (19.09 itibariyla 68 KB, hic sifirlanmiyordu);
 # teshis icin gereken son kayitlar donerek tutulur, ustu atilir.
 # Sinir: 5 MB x 3 yedek = en fazla 15 MB.
+# 2026-10-01: test kosusunda dosya handler KURULMAZ (bayrak:
+# tests/conftest.py). Test gurultusu teshis dosyasini 36.000 satira
+# cikarmisti ("testte stream yok" ~15.5k satir) ve gercek kok sebep
+# gomuluyordu. Uretimde bayrak yoktur; konsol kaydi her kosulda kalir.
 try:
+    _handlerlar = [logging.StreamHandler()]
+    if not os.environ.get("BASAK_TEST_KOSUSU"):
+        _handlerlar.insert(0, RotatingFileHandler(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "hata.log"),
+            maxBytes=5 * 1024 * 1024,
+            backupCount=3,
+            encoding="utf-8"))
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
-        handlers=[
-            RotatingFileHandler(
-                os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             "hata.log"),
-                maxBytes=5 * 1024 * 1024,
-                backupCount=3,
-                encoding="utf-8"),
-            logging.StreamHandler(),
-        ],
+        handlers=_handlerlar,
         force=True,
     )
 except OSError:

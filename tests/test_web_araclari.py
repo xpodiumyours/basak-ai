@@ -16,12 +16,20 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import pytest
+
 from tools import calistir
 from tools import web_search as ws
 from tools.definitions import TANINMIS_TOOLLAR
 
 YENILER = ("haber_ara", "zamanli_ara", "site_ara", "gorsel_ara",
            "kitap_ara", "derin_oku")
+
+
+@pytest.fixture(autouse=True)
+def _hizli_arama(monkeypatch):
+    """Testte arama tekrari beklemesiz kosar (hiz + kararlilik)."""
+    monkeypatch.setattr(ws, "_ARAMA_BEKLEME", 0)
 
 
 class SahteDDGS:
@@ -314,10 +322,17 @@ def test_jsonld_kurum_ayni_sayfadan_okunur():
         "sameAs": []}]
 
 
-def test_ddgs_cagrilari_bes_saniye_timeout_kullanir():
+def test_arama_hatti_tek_noktadan_kosar():
+    """Bes cagri yeri tek dayanikli kosucudan gecer (2026-10-01).
+
+    Eskiden her cagri yeri kendi `DDGS(timeout=5)` blogunu acip hatayi
+    tek satira indiriyordu; simdi tek `_arama_kos` motor secimini,
+    tekrari ve gercek sebebi toplamayi yonetir.
+    """
     import inspect
     kaynak = inspect.getsource(ws)
-    assert kaynak.count("DDGS(timeout=5)") >= 5
+    assert kaynak.count("DDGS(timeout=_ARAMA_ZAMAN_ASIMI)") == 1
+    assert kaynak.count("_arama_kos(") >= 5
 
 
 def test_sitemap_ayni_host_icin_host_kilidi_var():
