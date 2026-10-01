@@ -243,9 +243,6 @@ class TestSozlesmeZorunlulukTasir:
     def test_tool_policy_acik_ve_sinirli(self):
         from chat.agent_runtime import TOOL_POLICIES
         assert TOOL_POLICIES == frozenset(("auto", "required", "none"))
-    def test_tool_policy_acik_ve_sinirli(self):
-        from chat.agent_runtime import TOOL_POLICIES
-        assert TOOL_POLICIES == frozenset(("auto", "required", "none"))
 
 
 class TestVeriSaklamaSadeceSeffaflik:

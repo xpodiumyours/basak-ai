@@ -27,16 +27,10 @@ class _YD:
     def __init__(self, content="", tool_calls=None, **ekstra):
         self.content = content
         self.tool_calls = tool_calls or []
-
-        class _Tc:
-            def __init__(self, c):
-                self.id = c["id"]
-                self.function = types.SimpleNamespace(
-                    name=c["function"]["name"],
-                    arguments=c["function"]["arguments"])
-                for k, v in ekstra.items():
-                    setattr(self, k, v)
-
+        # 2026-10-01: burada once `types.SimpleNamespace` ureten bir `_Tc`
+        # sinifi vardi ama HIC kullanilmiyordu (asagidaki satir dict'lerle
+        # calisiyor) ve `types` import edilmemistiydi — lazim olsa
+        # NameError verirdi. Olu kod silindi (ruff F821 kaniti).
         self._cagilar = [dict(c) for c in self.tool_calls]
         for alan, deger in ekstra.items():
             setattr(self, alan, deger)
@@ -565,7 +559,6 @@ def test_matris_kapsamindaki_her_saglayici_kosucuda_desteklenir():
 def test_kapsam_temizle_yalniz_kapsam_disini_siler(tmp_path, monkeypatch):
     """Eski kapsamdan kalan cloudflare/cohere satirlari silinir; kapsam
     icindeki YESIL hucrelere DOKUNULMAZ."""
-    import json
     from tests.live import matris_kosucu
 
     hedef = tmp_path / "m.json"

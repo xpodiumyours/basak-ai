@@ -168,7 +168,7 @@ SON_EK = {
     "splitter": "Bölücü", "replacer": "Değiştirici", "sorter": "Sıralayıcı",
     "finder": "Bulucu", "picker": "Seçici", "editor": "Düzenleyici",
     "minifier": "Küçültücü", "beautifier": "Güzelleştirici",
-    "highlighter": "Vurgulayıcı", "checker": "Denetleyici",
+    "highlighter": "Vurgulayıcı",
 }
 
 _KISA = {"sha", "hex", "url", "base64", "json", "xml", "sql", "html", "css",

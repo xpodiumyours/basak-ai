@@ -1434,18 +1434,6 @@ def urun_eslestir(is_id, kart_id="", tum_kartlar=False):
     })}
 
 
-def eslesme_adayi(marka, kod):
-    """Kanitli resolver icin normalize kimlik + aday sorgular uretir."""
-    return {"marka": str(marka or "").strip(),
-            "kod": str(kod or "").strip(),
-            "marka_norm": kodu_normla(marka),
-            "kod_norm": kodu_normla(kod),
-            "sorgular": [
-                "%s %s" % (str(marka or "").strip(),
-                           str(kod or "").strip()),
-                "%s üretici resmi site" % str(marka or "").strip(),
-            ]}
-
 # ── Faz B: şirket kartı araştırma ────────────────────────────────
 # Markanın resmi sitesi + iletişim/vergi bilgisi. Salt-okunur:
 # yalnız web_search + sayfa_oku; disk yazımı yok. Alan regex'le
