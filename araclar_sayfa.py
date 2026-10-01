@@ -297,20 +297,52 @@ def doner_listesi(kategori, atlanan, adet=8):
             if k == kategori and s != atlanan][:adet]
 
 
+def tarayici_kapsami():
+    """(toplam arac, tarayicida hesaplayan arac) — liste sayfasi bunu soyler.
+
+    Tarayicida hesaplayan = YEREL_ARACLAR (web/araclar.js ile birebir eslesir;
+    bkz. tests/test_faz3_arac_sayfalari.py). Kalan araclar bu sayida SAYILMAZ:
+    "tarayicida calisir" iddiasi yalniz gercekten hesaplayan araclar icin
+    kullanilir (Faz 0 durustluk kurali, 2026-10-02).
+    """
+    hesaplayan = sum(1 for _kat, s in ARACLAR if s in YEREL_ARACLAR)
+    return len(ARACLAR), hesaplayan
+
+
+def kategori_kapsami():
+    """kategori -> (toplam, tarayicida hesaplayan) — baslik etiketi icin."""
+    sayim = {}
+    for kat, slug in ARACLAR:
+        toplam, tarayici = sayim.get(kat, (0, 0))
+        sayim[kat] = (toplam + 1, tarayici + (1 if slug in YEREL_ARACLAR else 0))
+    return sayim
+
+
 def liste_html(kok=""):
     """Tum kategoriler + araclar listesi (/araclar)."""
     kisalt = {}
     for kat, slug in ARACLAR:
         kisalt.setdefault(kat, []).append(slug)
+    kapsam = kategori_kapsami()
     bloklar = []
     for kat in sorted(kisalt):
         satirlar = "".join(
             '<li><a href="/araclar/%s/%s">%s</a></li>'
             % (kat, s, _esc(baslik_uret(s, kat)))
             for s in kisalt[kat])
-        bloklar.append("<h2>%s</h2><ul>%s</ul>"
-                       % (_esc(KATEGORI_ADI.get(kat, kat)), satirlar))
-    return _LISTE_SABLON.format(toplam=len(ARACLAR),
+        toplam_kat, tarayici_kat = kapsam[kat]
+        bloklar.append(
+            '<h2>%s <small>(%d araç · tarayıcıda %d)</small></h2><ul>%s</ul>'
+            % (_esc(KATEGORI_ADI.get(kat, kat)), toplam_kat, tarayici_kat,
+               satirlar))
+    toplam, hesaplayan = tarayici_kapsami()
+    kapsam_yazi = (
+        "Bu listede %d ücretsiz araç var. Bunlardan %d tanesi doğrudan "
+        "tarayıcınızda hesaplar — girdiniz cihazınızdan çıkmaz. "
+        "Kalan araçlar için işi <a href=\"/\">Başak'a sorabilirsiniz</a> "
+        "ya da aracın sayfasındaki orijinal bağlantıyı kullanabilirsiniz. "
+        "Kayıt gerekmez." % (toplam, hesaplayan))
+    return _LISTE_SABLON.format(toplam=toplam, kapsam=kapsam_yazi,
                                 bloklar="".join(bloklar), kok=_esc(kok))
 
 
@@ -386,9 +418,8 @@ _LISTE_SABLON = """<!doctype html>
 <p class="crumb"><a href="/">Başak</a> › Araçlar</p>
 <div class="card">
 <h1>Ücretsiz araçlar</h1>
-<p>{toplam} aracın hepsi tarayıcınızda çalışır, kayıt gerekmez.
-Dilerseniz sohbette de Başak'a yaptırabilirsiniz.
-Adım adım anlatımlar için <a href="/rehber">rehberlere</a> bakın.</p>
+<p>{kapsam} Adım adım anlatımlar için <a href="/rehber">rehberlere</a>
+bakın.</p>
 {bloklar}
 </div>
 <footer><a href="/">Sohbete dön</a><a href="/gizlilik.html">Gizlilik</a>

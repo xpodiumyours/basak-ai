@@ -296,6 +296,46 @@ class TestHukukiSayfalar:
             assert 'href="%s"' % yol in index, yol
 
 
+class TestAracKapsamiDurust:
+    """Faz 0 (2026-10-02): liste sayfasi GERCEK kapsami soyler.
+
+    Once "/araclar" sayfasi "162 aracin hepsi tarayicinizda calisir" diyordu;
+    oysa tarayicida hesaplayan 22 arac var (YEREL_ARACLAR). Bu sinif o yanlis
+    iddianin geri gelmesini engeller ve sayilarin tek kaynaktan geldigini
+    dogrular.
+    """
+
+    ESKI_YANLIS = ("hepsi tarayıcınızda çalışır",
+                   "hepsi tarayicinizda calisir")
+
+    def test_liste_sayfasi_hepsi_tarayicida_demez(self):
+        with _istemci() as c:
+            h = c.get("/araclar").text
+        for yanlis in self.ESKI_YANLIS:
+            assert yanlis not in h, yanlis
+
+    def test_liste_sayfasi_gercek_sayilari_soyler(self):
+        from araclar_sayfa import tarayici_kapsami
+        toplam, hesaplayan = tarayici_kapsami()
+        assert toplam == len(ARACLAR)
+        assert hesaplayan == len(YEREL_ARACLAR)
+        assert hesaplayan < toplam          # "hepsi" iddiasi matematiksel olarak yanlis
+        with _istemci() as c:
+            h = c.get("/araclar").text
+        assert "Bu listede %d ücretsiz araç var" % toplam in h
+        assert "Bunlardan %d tanesi doğrudan" % hesaplayan in h
+        assert "tarayıcınızda hesaplar" in h
+
+    def test_kategori_basliklari_kapsami_yazar(self):
+        from araclar_sayfa import kategori_kapsami
+        kapsam = kategori_kapsami()
+        with _istemci() as c:
+            h = c.get("/araclar").text
+        for kat, (toplam, tarayici) in kapsam.items():
+            beklenen = "(%d araç · tarayıcıda %d)" % (toplam, tarayici)
+            assert beklenen in h, (kat, beklenen)
+
+
 class TestDerinBaglanti:
     def test_arac_sayfasi_sohbete_derin_baglanti_verir(self):
         with _istemci() as c:
