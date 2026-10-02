@@ -15,9 +15,11 @@
   "mistral_key": "",
   "hf_token": "",
   "chutes_key": "",
+  "llm7_key": "",
 
   "glm_model": "glm-4.7-flash",
   "groq_model": "openai/gpt-oss-120b",
+  "llm7_model": "DeepSeek-V4-Flash-0731",
   "tts_on": false,
   "yerel_goru_kapali": true,
 
@@ -27,6 +29,7 @@
     "_mistral_notu": "mistral_key: ucretsiz 'Experiment' plani. Telefon dogrulamasi ister, kart istemez. Gizlilik: panelden kapatilmazsa veri model gelistirmesinde kullanilabilir (Settings > Privacy).",
     "_hf_notu": "hf_token hem Hugging Face yonlendiricisi hem konusmaci tanima (voice/speaker_id.py) icin kullanilir. HF ucretsiz kredisi ayda yalnizca 0,10 dolar oldugu icin otomatik zincire KAPALI.",
     "_chutes_notu": "chutes_key: UCRETLIDIR (kullanim basina odeme). Bu yuzden KAPALI yuvadir; anahtar yazmak tek basina yetmez.",
+    "_llm7_notu": "llm7_key: ucretsiz katman — 100.000 token/24sa, 1 istek/sn, 60 istek/dk, 250 istek/saat. Gunluk ISTEK limiti yok. Resmi metinde kart/telefon sarti yer almaz. Token al: dash.llm7.io. Model varsayilani DeepSeek-V4-Flash-0731 (tier=turbo, tools_calling=true, 400K baglam). ONERI: 100K token SABIT taahhut degil — resmi metin 'may be reduced without notice' diyor. Gizlilik: llm7.io'nun privacy policy sayfasi YOK; bu yuzden veri karti 'dogrulanmadi'. Hassas veri gonderme.",
     "_cloudflare_cohere_notu": "cloudflare_account_id + cloudflare_api_token ve cohere_key ucretsizdir, kart istemez. Girilince zincir 9 saglayiciya cikar ve kabul matrisindeki SKIP hucreler canli olur."
   }
 }

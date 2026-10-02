@@ -257,7 +257,12 @@ class TestVeriSaklamaSadeceSeffaflik:
                      "glm", "openrouter", "cohere", "mistral",
                      # 2026-10-01: resmi free tier belgeli (20 istek/gun);
                      # hiz olcumu yok — en sonda son care.
-                     "sambanova"]
+                     "sambanova",
+                     # 2026-10-02: resmi ucretsiz katman belgeli
+                     # (100K token/24sa); hiz olcumu yok, veri karti
+                     # bulunamadi ("dogrulanmadi") — olcumsuzluk ve
+                     # kanit boslugu yuzunden en sonda son care.
+                     "llm7"]
 
     def test_sira_degismedi(self):
         from brain import registry

@@ -385,6 +385,54 @@ SAGLAYICILAR = {
                "200K token/gun. Hiz olcumu YOK — mistral'deki gibi "
                "sirada son baslar; olcumle yukselir.",
     },
+    "llm7": {
+        "ad": "LLM7.io",
+        "ucretsiz": True,
+        "tools": True,
+        # RESMI (docs.llm7.io/guides/function-calling.md):
+        # "Function calling depends on the selected model. Use the
+        #  Models API to find models with `tools_calling: true`."
+        # "`tool_choice: \"auto\"`: Lets the model decide whether to
+        #  call your tool or answer directly."
+        # BELGELENEN TEK tool_choice DEGERI "auto" — "required"/"none"
+        # hicbir resmi sayfada belgelenmemis; openapi.json'da
+        # /chat/completions yolu ve tool_choice alani YOK. Bu yuzden
+        # auto_enforced: zorunlu ajan turunda duz metin basari sayilmaz,
+        # siradaki saglayiciya gecer. Duz metne dokunulmaz.
+        "ajan_tool_mode": "auto_enforced",
+        "gucleri": ["genel"],
+        # RESMI UCRETSIZ KATMAN (docs.llm7.io/limits.md):
+        #   "| Free token | 1 | 60 | 250 |"  -> 1 istek/sn, 60 istek/dk,
+        #   250 istek/saat
+        #   "| Free token | 100,000 tokens per 24 hours |"
+        # Gunluk ISTEK limiti YOK — yalniz 24 saatlik token kotasi var.
+        "dakikalik_istek": 60,
+        "dakikalik_token": None,
+        "gunluk_istek": None,
+        "gunluk_token": 100000,
+        # limits.md: "Free-token quotas are provided at no charge and
+        # may be reduced without notice based on demand, service
+        # capacity, model availability, fair-use calculations,
+        # abuse-prevention controls, and other operational factors."
+        # Yani 100K SABIT BIR TAAHHUT DEGIL, talebe gore dusurulebilir.
+        # Yerelde sert kesme yapma; resmi 429 + reset basligi hakikat.
+        "yerel_kota_koru": False,
+        # RESMI VERI KARTI: BULUNAMADI. 19 URL'lik sitemap ve 49 KB
+        # llms-full.txt taranmasi rağmen privacy/retention/training
+        # kelimeleri sifir; llm7.io ana sitesinde de yasal sayfa YOK.
+        # Bu yuzden "kaydetmez" DEGIL "dogrulanmadi" — bilinmeyen
+        # bilinmeyen kalir (registry.py basligindaki kural). Kullanan
+        # kullanicya bu durum gosterilir; saglayici otomatik KAPATILMAZ
+        # (AGENTS.md madde 6).
+        "veri_saklama": "dogrulanmadi",
+        "veri_karti": "BULUNAMADI — docs.llm7.io + llm7.io taranmasi "
+                      "(2026-10-02): privacy policy / tos sayfasi "
+                      "yok. Bilinmeyen, kaydetmez varsayilmadi.",
+        "not": "Ucretsiz: 100K token/24sa, 1 istek/sn, kart/telefon "
+               "sarti resmi metinde YOK. Model DeepSeek-V4-Flash-0731 "
+               "(tier=turbo, tools_calling=true, 400K baglam; canli "
+               "/v1/models 2026-10-02). Hiz olcumu YOK.",
+    },
 }
 
 # Varsayilan oncelik sirasi (secici yeniden SIRALAMAZ — bu sira korunur).
@@ -412,6 +460,14 @@ VARSAYILAN_SIRA = [
     # dar gunluk havuz + olcumsuzluk yuzunden mistral'den de sona,
     # son care olarak.
     "sambanova",
+    # 2026-10-02 eklendi: LLM7.io (resmi: 100K token/24sa, 1 istek/sn,
+    # gunluk istek limiti yok, kart/telefon sarti resmi metinde YOK).
+    # Hiz olcumu YOK — README kurali geregi son care; olcumsuzlik
+    # gerekcesiyle mistral/sambanova'dan da sona eklenir. NOT: 100K
+    # token sabit taahhut degil ("may be reduced without notice").
+    # Veri karti BULUNAMADI -> "dogrulanmadi"; bu bir hata degil,
+    # bilinmeyenin bilinmeyen olarak kalmasidir.
+    "llm7",
 ]
 
 

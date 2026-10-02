@@ -335,4 +335,8 @@ class TestSaglayiciSeffafligi:
         assert registry.VARSAYILAN_SIRA == [
             "groq", "gemini", "cloudflare", "kilo", "nvidia",
             "glm", "openrouter", "cohere", "mistral",
-            "sambanova"]
+            "sambanova",
+            # 2026-10-02: LLM7.io — veri karti "dogrulanmadi"
+            # olsa da zincire girmesi sirayi TETIKLEMEZ; sira yine
+            # yalniz registry'nin kendi sabididir.
+            "llm7"]
