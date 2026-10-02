@@ -151,14 +151,14 @@ def test_required_ilk_aractan_sonra_auto_finale_izin_verir():
 # 2026-10-01: SambaNova eklendi (10.) — resmi free tier 20 istek/gun +
 # 200K token/gun, tool_choice=required resmi belgeli. Hiz olcumu yok;
 # dar gunluk havuz yuzunden en sonda son care olarak.
-# 2026-10-02: LLM7.io eklendi (11.) — resmi ucretsiz katman
-# 100K token/24sa, 1 istek/sn; tool_choice icin belgelenen tek deger
-# "auto" -> auto_enforced. Hiz olcumu yok, veri karti bulunamadi;
-# olcumsuzluk + kanit boslugu yuzunden en sonda son care.
+# 2026-10-02: LLM7.io CANLI DOGRULAMADA CIKARILDI. Olcum:
+# balance_usd=0.00000000, /v1/chat -> 402 Insufficient balance.
+# turbo tier = HIZLI erisim, ucretsiz degil. Kart KAPALI ->
+# zincire girmez; bakiye yuklenince ayrica eklenir.
 AJAN_SAGLAYICILARI = (
     "groq", "gemini", "cloudflare", "kilo",
     "nvidia", "glm", "openrouter", "cohere",
-    "mistral", "sambanova", "llm7",
+    "mistral", "sambanova",
 )
 
 
@@ -205,10 +205,8 @@ def test_9_saglayici_resmi_tool_choice_haritasi():
         # 2026-10-01: SambaNova — resmi function-calling belgesinde
         # tool_choice=required destegi acikca yaziyor.
         "sambanova": "required",
-        # 2026-10-02: LLM7.io — resmî belgede belgelenen TEK
-        # tool_choice degeri "auto"; "required"/"none" hicbir sayfada
-        # belgelenmemis. Bu yuzden auto_enforced -> "auto".
-        "llm7": "auto",
+        # 2026-10-02: LLM7.io listeden CIKARILDI (kart kapali).
+        # Kayitli kalsaydi degeri auto_enforced -> auto idi;
     }
     assert {ad: registry.ajan_tool_choice(ad)
             for ad in AJAN_SAGLAYICILARI} == beklenen

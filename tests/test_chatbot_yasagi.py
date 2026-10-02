@@ -257,12 +257,11 @@ class TestVeriSaklamaSadeceSeffaflik:
                      "glm", "openrouter", "cohere", "mistral",
                      # 2026-10-01: resmi free tier belgeli (20 istek/gun);
                      # hiz olcumu yok — en sonda son care.
-                     "sambanova",
-                     # 2026-10-02: resmi ucretsiz katman belgeli
-                     # (100K token/24sa); hiz olcumu yok, veri karti
-                     # bulunamadi ("dogrulanmadi") — olcumsuzluk ve
-                     # kanit boslugu yuzunden en sonda son care.
-                     "llm7"]
+                     "sambanova"]
+    # 2026-10-02: LLM7.io listeden CIKARILDI. Canli olcum:
+    # balance_usd=0.00000000, /v1/chat -> 402 Insufficient balance.
+    # "turbo" tier = hizli erisim, ucretsiz degil. Kart kapali
+    # oldugu icin zincire girmez (ovh deseni).
 
     def test_sira_degismedi(self):
         from brain import registry

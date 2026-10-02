@@ -388,6 +388,21 @@ SAGLAYICILAR = {
     "llm7": {
         "ad": "LLM7.io",
         "ucretsiz": True,
+        # 2026-10-02 CANLI DOGRULAMA — once "otomatik_ucretsiz" yazilmadi,
+        # sonra duzeltildi. Anahtarla yapilan olcum:
+        #   /v1/balance -> {"balance_usd":"0.00000000"}  HTTP 200
+        #   /v1/chat/completions -> HTTP 402 "Insufficient balance"
+        #   /v1/models -> tier="turbo" modellerin pricing alani DOLU:
+        #     GLM-5.3-Flash  input $0.02 / output $0.04 (1M token)
+        #     gpt-oss:20b    input $0.03 / output $0.05
+        # YANI "turbo" = HIZLI erisim, UCRETSIZ demek degil. Resmi
+        # limits.md'deki "Free token" satiri ayri bir kota tanimi;
+        # bakiyesiz hesapta o kota AKTIF DEGIL (402 donuyor).
+        # Bu yuzden kart KAPALI: bakiye 0ken her cagri 402 verir ve
+        # Brain'de surekli hata/cooldown uretir. Kullanici bakiye
+        # yuklediginde satir devreye girer (huggingface/chutes/ovh
+        # ile ayni kalip).
+        "otomatik_ucretsiz": False,
         "tools": True,
         # RESMI (docs.llm7.io/guides/function-calling.md):
         # "Function calling depends on the selected model. Use the
@@ -428,10 +443,15 @@ SAGLAYICILAR = {
         "veri_karti": "BULUNAMADI — docs.llm7.io + llm7.io taranmasi "
                       "(2026-10-02): privacy policy / tos sayfasi "
                       "yok. Bilinmeyen, kaydetmez varsayilmadi.",
-        "not": "Ucretsiz: 100K token/24sa, 1 istek/sn, kart/telefon "
-               "sarti resmi metinde YOK. Model DeepSeek-V4-Flash-0731 "
-               "(tier=turbo, tools_calling=true, 400K baglam; canli "
-               "/v1/models 2026-10-02). Hiz olcumu YOK.",
+        "not": "OTOMATIK ZINCIRDE KAPALI. Canli olcum (2026-10-02): "
+               "balance_usd=0.0, /v1/chat -> 402 Insufficient "
+               "balance. 'turbo' tier hizli erisim demektir, ucretsiz "
+               "catisma degil; limits.md'deki 'Free token' satiri "
+               "ayri kota tanimidir ve bakiyesiz hesapta aktif "
+               "degil. Bakiye yuklenince satir devreye girer. "
+               "Model: gpt-oss:20b (tier=turbo, tools_calling=true, "
+               "128K baglam, %100 kullanilabilirlik — 2026-10-02 "
+               "katalog olcumu). Hiz olcumu YOK (bakiye engeli).",
     },
 }
 
@@ -460,14 +480,19 @@ VARSAYILAN_SIRA = [
     # dar gunluk havuz + olcumsuzluk yuzunden mistral'den de sona,
     # son care olarak.
     "sambanova",
-    # 2026-10-02 eklendi: LLM7.io (resmi: 100K token/24sa, 1 istek/sn,
-    # gunluk istek limiti yok, kart/telefon sarti resmi metinde YOK).
-    # Hiz olcumu YOK — README kurali geregi son care; olcumsuzlik
-    # gerekcesiyle mistral/sambanova'dan da sona eklenir. NOT: 100K
-    # token sabit taahhut degil ("may be reduced without notice").
-    # Veri karti BULUNAMADI -> "dogrulanmadi"; bu bir hata degil,
-    # bilinmeyenin bilinmeyen olarak kalmasidir.
-    "llm7",
+    # 2026-10-02 eklendi: LLM7.io - CANLI DOGRULAMA SONUCU KAPALI.
+    # Ayarlar.json a anahtar girildi ve olculdu (2026-10-02):
+    #   /v1/balance -> balance_usd = 0.00000000
+    #   /v1/chat/completions -> HTTP 402 Insufficient balance
+    #   /v1/models -> tier=turbo modellerin pricing alani DOLU
+    #     (GLM-5.3-Flash 0.02/0.04, gpt-oss:20b 0.03/0.05 USD/1M)
+    # YANI turbo = HIZLI erisim, UCRETSIZ DEGIL. limits.md deki
+    # Free token satiri ayri kota tanimidir; bakiyesiz hesapta AKTIF
+    # DEGIL (402 donuyor). Kart KAPALI: bakiye 0ken her cagri 402
+    # verir ve Brain de surekli hata/cooldown uretir.
+    # Anahtar + bakiye yuklenince satir otomatik devreye girer.
+    # BAKIYE YOKKEN BURAYA YAZILIRSA ZINCIRDE HATA URETIR - yazma
+    # (ovh deseni: kapali kart listede bulunmaz).
 ]
 
 
