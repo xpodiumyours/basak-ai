@@ -1,0 +1,52 @@
+name: kapi
+
+# Sır kapısı — KURULUM GEREKTİRMEZ.
+#
+# 2026-10-03: Sır taraması yalnız yerel bir "commit öncesi kontrol"
+# dosyasındaydı ve o kontrolü açmak için HER BİLGİSAYARDA bir ayar
+# yapılması gerekiyordu. Depo herkese açık; kapı bir kişinin
+# bilgisayarına bağlı olamaz. Bu dosya o bağımlılığı kaldırır:
+# GitHub'da kendiliğinden, her push'ta, her makinede çalışır.
+#
+# Ne yapar:
+#   1) İzlenen dosyalar arasında yasakli ad var mı
+#      (ayarlar.json, gecmis.json, .env*, *.pem, *.key)
+#   2) İzlenen dosyaların içinde gerçek anahtar deseni var mı
+#      (sk-…, ghp_…, PRIVATE KEY, api_key=...)
+#
+# Sadece İZLENEN dosyalara bakar. Yerdeki (gitignored) calisma
+# dosyalari gecerli degildir: gecmis.json, data/, .env yereldir ve
+# zaten yuklenmez.
+#
+# Not: bu kapı PUSH SONRASI calisir — sifir gecmisinde kalici olarak
+# yakalar. Push'tan ONCE yakalamanin tek yolu yerel komuttur; o da
+# istege bagli ve .githooks/pre-commit dosyasinda durur.
+
+on:
+  push:
+    branches: [main, preview]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: kapi-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sir:
+    name: sir-kapisi
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sir tara (izlenen dosyalar)
+        run: python tools/sir_kapisi.py

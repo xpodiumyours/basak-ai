@@ -82,7 +82,27 @@ Başak — ücretsiz bulutla çalışan, Türkçe konuşan kişisel Jarvis. Beyi
 
 ## 1. Kilitli hedef
 
-Kişisel, tamamen yerel/ücretsiz çalışan bir Jarvis: sesli + yazılı konuşabilen, Casper'ı tanıyan, **kendi notlarını (`knowledge/`) okuyup kullanabilen**, bilgisayarda arka planda güvenilir çalışan bir asistan. Bulut (Groq) sadece yerel model yetmediğinde devrede — sürekli internet/abonelik bağımlılığı hedef değil.
+**2026-10-03 düzeltmesi (Casper kararı).** Bu bölüm eskiden "tamamen
+yerel çalışan, internete bağımlılığı hedef değil" diyordu. Gerçek ürün
+öyle değil: beyin bulutta (ücretsiz katman), site herkese açık, 162
+çevrimiçi araç web'de. Kapsam **"web'de yaşayan Başak"** olarak
+tanımlandı.
+
+**Kilitli kapsam:** Başak web'de yaşar, oradan konuşulur, oradan
+kullanılır. Site, araç kataloğu ve sohbet arayüzü kalıcı ve geliştirilir.
+
+**Tek sınır:** reklam için para harcamak. Para harcanmayan her şey
+(konuşma, reklam, SEO, açık kaynak, topluluk) serbesttir.
+
+Bu, "halka açık olma" kararı değildir — **kimse ziyaret etmeye
+zorlanmaz**. Kapsam geniş, kapı açık: Başak web'de durur ve senin
+kullanımına hazırdır. Kural dosyasındaki disiplin (ölç, kanıtla,
+sır sakla, model karar versin) **halka açık bir ürün için de geçerli**;
+aslında tam olarak bu yüzden var.
+
+**Değişmeyen kısım:** ücretsizlik ve gizlilik. Bedava katmanlar
+kullanılır, kart açılmaz, kullanıcı verisi şifrelerden ayrı durur
+(§12). Yerel masaüstü sürümü de çalışmaya devam eder.
 
 ## 1.1. Sonraki özellikler
 
@@ -159,38 +179,41 @@ Her UI görevinde: önce **`ui-ux-pro-max`** skill'ini oku, sonra `ui/style.css`
 | Test paketi | `python -m pytest tests -q` — TAMAMI yeşil olmalı | Her `.py` değişikliğinde |
 | Python sözdizimi | `python -m py_compile <dosya>` | Her `.py` değişikliğinde |
 | Gerçek çalıştırma | `python basak_app.py` aç, özelliği elle dene | UI/ses/görsel değişikliklerinde, "bitti" demeden önce |
-| Sır sızıntısı | commit'e `ayarlar.json`/`gecmis.json` girmez | `.gitignore` **ve** hook |
+| Sır taraması | `python tools/sir_kapisi.py` | Elle; GitHub'da her push'ta kendiliğinden |
 
-**2026-10-03 DÜZELTMESİ — kapı YOKTU, iddia vardı.** Bu tablo "pre-commit
-hook zaten zorunlu kılıyor" diyordu; ölçüldü: `.git/hooks/` içinde tek bir
-aktif hook yoktu. Yani 1265 test kırmız olsa bile commit geçiyordu.
+**2026-10-03 — kapı BİR YERDE, KURULUM GEREKTİRMEZ.** Git, çalıştırılabilir
+kod olduğu için kontrol dosyalarını bilerek kayıt dışı tutar; o yüzden "her
+makinede bir ayar" gereken kapı, depoda herkese açık olduğu için kabul
+edilmedi. Gerçek kapı GitHub'dadır:
 
-Artık var: **`.githooks/pre-commit`** (depoda izlenir, `core.hooksPath`
-bu depoda `.githooks`'a ayarlı). Üç şeyi zorlar:
+| Kapı | Nerede | Ne zaman |
+|---|---|---|
+| Test + lint | `.github/workflows/test.yml` | `main` push'unda ve her PR'da |
+| **Sır** | `.github/workflows/kapi.yml` → `tools/sir_kapisi.py` | `main`/`preview` push'unda ve her PR'da |
 
-1. **SIR** — `ayarlar.json`, `gecmis.json`, `.env*`, `*.pem`, `*.key`
-   eklenirse reddeder; eklenen satırlarda `sk-…` / `ghp_…` /
-   `PRIVATE KEY` deseni arar.
-2. **SÖZDİZİMİ** — değişen `.py` dosyalarını `py_compile` eder.
-3. **TEST** — `pytest tests -q`.
+Kurulum yok, hatırlatma yok, her makinede aynı. `.githooks/pre-commit`
+**isteğe bağlı** hızlı geri bildirim olarak durur (push'tan önce yakalar);
+kimse açmak zorunda değil.
 
 | Durum | Sonuç |
 |---|---|
-| Yeni klon / başka makine | `git config core.hooksPath .githooks` (bir kez) |
-| Sadece test kapısını bilerek atlatmak | `SKIP=1 git commit ...` |
-| `SKIP=1` sır ve sözdizimi kapısını **atlatmaz** | — |
+| Sır commit'e girdiyse | `kapi.yml` kırmızı → o commit geri alınmalı |
+| Gerçekten yakalamak | `git config core.hooksPath .githooks` (isteğe bağlı) |
 
 Tuzak: PowerShell 5.1 `Set-Content -Encoding UTF8` dosya başına **BOM**
-yazar; Python dosyanın ortasında BOM görürse `SyntaxError` verir ve kapı
-reddeder. Depoda BOM'lu `.py` yoktur (ölçüldü: 0). Düzeltme: BOM'suz yaz
-(Edit aracı) ya da `Set-Content -Encoding utf8NoBOM` (PowerShell 7).
+yazar; Python dosyanın ortasında BOM görürse `SyntaxError` verir. Depoda
+BOM'lu `.py` yoktur (ölçüldü: 0). Düzeltme: BOM'suz yaz (Edit aracı) ya da
+`Set-Content -Encoding utf8NoBOM` (PowerShell 7).
 
-`git commit --no-verify` ile bu kapıyı atlamak, hatayı görünmez kılar —
-kullanma.
+`git commit --no-verify` ile **yerel** kapıyı atlamak hatayı görünmez
+kılar — ama GitHub kapısı yine de yakalar.
 
 ## 7. Bu dosya
 
-Casper ile konuşulmadan kapsamı büyütülmez (örn. "şimdi CI kuralım", "Docker'a taşıyayım" gibi ağır adımlar — proje buna henüz hazır değil, gerekirse ayrıca konuşulur).
+Casper ile konuşulmadan kapsamı büyütülmez (örn. "Docker'a taşıyayım"
+gibi ağır adımlar). **2026-10-03 düzeltmesi:** "şimdi CI kuralım" artık
+bu listede değil — CI zaten vardı, sır kapısı eklendi ve Casper bunu
+istedi.
 
 ## 8. Bilinen tuzaklar
 
