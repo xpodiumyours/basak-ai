@@ -1,0 +1,127 @@
+{
+  "olcum": "2026-09-23T22:21:58",
+  "toplam_tur": 10,
+  "thought_var_sayisi": 0,
+  "saglayici_kirilimi": {
+    "gemini": {
+      "tur": 5,
+      "thought_var": 0
+    },
+    "groq": {
+      "tur": 5,
+      "thought_var": 0
+    }
+  },
+  "sonuclar": [
+    {
+      "etiket": "gemini",
+      "tercih": [
+        "gemini"
+      ],
+      "soru": "Merhaba, nasilsin? Tek kelime cevap ver.",
+      "kaynak": "gemini",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "İyiyim."
+    },
+    {
+      "etiket": "gemini",
+      "tercih": [
+        "gemini"
+      ],
+      "soru": "Yapay zekayi 3 cumlede, lise seviyesinde acikla.",
+      "kaynak": "gemini",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "Yapay zeka (YZ), bilgisayarların tıpkı insanlar gibi öğrenme, problem çözme ve karar verme gibi zihinsel görevleri yerin"
+    },
+    {
+      "etiket": "gemini",
+      "tercih": [
+        "gemini"
+      ],
+      "soru": "Bir urun %20 indirimli 240 TL. Indirimden onceki fiyat neydi? Sadece sayi yaz.",
+      "kaynak": "gemini",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "300"
+    },
+    {
+      "etiket": "gemini",
+      "tercih": [
+        "gemini"
+      ],
+      "soru": "Su an hava durumu araci varsa Istanbul icin bugunun ozetini al; yoksa 'arac yok' de.",
+      "kaynak": "gemini",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "Şu an hava durumu aracı mevcut değil, bu yüzden güncel hava durumu özetini doğrudan sağlayamıyorum. Araç yok."
+    },
+    {
+      "etiket": "gemini",
+      "tercih": [
+        "gemini"
+      ],
+      "soru": "Fotosentez denklemini yaz ve kisaca ne oldugunu acikla.",
+      "kaynak": "gemini",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "**Fotosentez Denklemi:**\n\n$$6\\text{CO}_2 + 6\\text{H}_2\\text{O} + \\text{Işık Enerjisi} \\rightarrow \\text{C}_6\\text{H}_{12"
+    },
+    {
+      "etiket": "cloudflare",
+      "tercih": [
+        "cloudflare"
+      ],
+      "soru": "Merhaba, nasilsin? Tek kelime cevap ver.",
+      "kaynak": "groq",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "İyiyim."
+    },
+    {
+      "etiket": "cloudflare",
+      "tercih": [
+        "cloudflare"
+      ],
+      "soru": "Yapay zekayi 3 cumlede, lise seviyesinde acikla.",
+      "kaynak": "groq",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "Yapay zeka, bilgisayarların ve programların insan gibi öğrenme, problem çözme ve karar verme yeteneklerini taklit etmesi"
+    },
+    {
+      "etiket": "cloudflare",
+      "tercih": [
+        "cloudflare"
+      ],
+      "soru": "Bir urun %20 indirimli 240 TL. Indirimden onceki fiyat neydi? Sadece sayi yaz.",
+      "kaynak": "groq",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "300"
+    },
+    {
+      "etiket": "cloudflare",
+      "tercih": [
+        "cloudflare"
+      ],
+      "soru": "Su an hava durumu araci varsa Istanbul icin bugunun ozetini al; yoksa 'arac yok' de.",
+      "kaynak": "groq",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": ""
+    },
+    {
+      "etiket": "cloudflare",
+      "tercih": [
+        "cloudflare"
+      ],
+      "soru": "Fotosentez denklemini yaz ve kisaca ne oldugunu acikla.",
+      "kaynak": "groq",
+      "model": "",
+      "thought_var": false,
+      "ilk_100": "**Fotosentez denklemi**\n\n\\[\n6 \\text{CO}_2 \\;+\\; 6 \\text{H}_2\\text{O} \\;\\xrightarrow{\\text{ışık (klorofil)}}\\; \\text{C}_6"
+    }
+  ]
+}
