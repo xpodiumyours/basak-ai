@@ -157,11 +157,36 @@ Her UI görevinde: önce **`ui-ux-pro-max`** skill'ini oku, sonra `ui/style.css`
 | Kapı | Komut | Ne zaman |
 |---|---|---|
 | Test paketi | `python -m pytest tests -q` — TAMAMI yeşil olmalı | Her `.py` değişikliğinde |
-| Python sözdizimi | `python -m py_compile <dosya>` | Her `.py` değişikliğinde — **pre-commit hook zaten zorunlu kılıyor** |
+| Python sözdizimi | `python -m py_compile <dosya>` | Her `.py` değişikliğinde |
 | Gerçek çalıştırma | `python basak_app.py` aç, özelliği elle dene | UI/ses/görsel değişikliklerinde, "bitti" demeden önce |
-| Sır sızıntı kontrolü | commit'e `ayarlar.json`/`gecmis.json` girmemiş | Pre-commit hook otomatik engelliyor |
+| Sır sızıntısı | commit'e `ayarlar.json`/`gecmis.json` girmez | `.gitignore` **ve** hook |
 
-`git commit --no-verify` ile bu kapıyı atlamak, hatayı görünmez kılar — kullanma.
+**2026-10-03 DÜZELTMESİ — kapı YOKTU, iddia vardı.** Bu tablo "pre-commit
+hook zaten zorunlu kılıyor" diyordu; ölçüldü: `.git/hooks/` içinde tek bir
+aktif hook yoktu. Yani 1265 test kırmız olsa bile commit geçiyordu.
+
+Artık var: **`.githooks/pre-commit`** (depoda izlenir, `core.hooksPath`
+bu depoda `.githooks`'a ayarlı). Üç şeyi zorlar:
+
+1. **SIR** — `ayarlar.json`, `gecmis.json`, `.env*`, `*.pem`, `*.key`
+   eklenirse reddeder; eklenen satırlarda `sk-…` / `ghp_…` /
+   `PRIVATE KEY` deseni arar.
+2. **SÖZDİZİMİ** — değişen `.py` dosyalarını `py_compile` eder.
+3. **TEST** — `pytest tests -q`.
+
+| Durum | Sonuç |
+|---|---|
+| Yeni klon / başka makine | `git config core.hooksPath .githooks` (bir kez) |
+| Sadece test kapısını bilerek atlatmak | `SKIP=1 git commit ...` |
+| `SKIP=1` sır ve sözdizimi kapısını **atlatmaz** | — |
+
+Tuzak: PowerShell 5.1 `Set-Content -Encoding UTF8` dosya başına **BOM**
+yazar; Python dosyanın ortasında BOM görürse `SyntaxError` verir ve kapı
+reddeder. Depoda BOM'lu `.py` yoktur (ölçüldü: 0). Düzeltme: BOM'suz yaz
+(Edit aracı) ya da `Set-Content -Encoding utf8NoBOM` (PowerShell 7).
+
+`git commit --no-verify` ile bu kapıyı atlamak, hatayı görünmez kılar —
+kullanma.
 
 ## 7. Bu dosya
 
