@@ -7,3 +7,22 @@ data
 *.onnx.json
 *.wav
 *.mp3
+
+# 2026-10-03 — 'calisma/akis-60' dalindaki eksik kalan katki tamamlandi.
+# Vercel Git ile baglaninca yalnizca izlenen dosyalar gonderilir ve
+# .gitignore zaten sirlari eliyor. Ancak `vercel` CLI ile yerel
+# calistirildiginda CALISMA DIZINI gonderilir: o zaman asagidakiler
+# sunucuya cikardi.
+# Sirlar: ayarlar.json, gecmis.json, gorevler.json, .env*
+# Gunlukler: hata.log, arac.log, tunnel-log.txt, *.log
+# Gecici: .vercel, so.html
+hata.log
+arac.log
+tunnel-log.txt
+*.log
+so.html
+.vercel
+.env*
+ayarlar.json
+gecmis.json
+gorevler.json
