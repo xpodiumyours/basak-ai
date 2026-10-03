@@ -228,19 +228,33 @@ icin kural:
   ekran, cekirdekteki `chat/flow.mesaj_isle` yolunu cagiran koprudur;
   arac beyaz listesi ve izin katmani cekirdekte aynen gecerlidir.
 
-## 10. DAL KURALI (2026-09-21, Casper karari — baglayici)
+## 10. DAL KURALI (2026-10-03, Casper karari — baglayici)
 
-- Ana dal `main`dir (GitHub varsayilani). `sadelestirme` ve `master`
-  eski adlardir: yedek olarak kalir, uzerine calisilmaz; is bitince
-  `main` ile esitlenir.
-- Her is kisa dalda (`main`den acilir), bitince ana dala
-  birlesir, dal silinir. Uzun yasayan ikinci ana dal YASAKTIR.
-- Ajan yeni ana dal, varsayilan degisikligi veya korumali-alan
-  degisikligi ONEREMEZ; gerekirse Casper'a tek cumleyle sorar.
-- ISTISNA (2026-10-01, Casper onayi): `preview` dali main'in surekli
-  yayin onizleme kopyasidir; kisa omurlu is dali sayilmaz. Her faz sonunda
-  `main` ile esitlenir, `main`'den tazelenir; is bitiminde kapatilir.
-  Bu istisna disindaki uzun omurlu ikinci dal yasagi aynen gecerlidir.
-- Her adim preview dalinda: 1 commit -> testler yesil -> Casper'e kisa
-  rapor -> Casper "tamam" demeden main'e birlesmez. (2026-10-01,
-  Casper onayi)
+Uc katman vardir. **Her gelistirme bu yolu izler:**
+
+    main ──merge──► Vercel PRODUCTION
+      │
+      └─► gelisim dali ──► Vercel PREVIEW URL'i (kendi adresi)
+             │
+             └─onay─► preview ──faz sonu──► main
+
+1. **Ana dal `main`dir** ve PRODUCTION'dur. `main`'e merge otomatik
+   production deploy tetikler (olculdu 2026-10-01: merge'den 30 sn
+   sonra). Bu yuzden `main`'e merge **yalniz Casper acikca "tamam"
+   dedikten** sonra yapilir.
+2. **Kod gelisim dalinda yazilir.** Her is `main`'den acilan, kisa
+   omurlu bir dalda calisir (`fix/...`, `feat/...`, `dal/...`).
+   Uzun omurlu ikinci ana dal YASAKTIR.
+3. **Dal kendi adresinde denenir.** Vercel her push'lanan dala kendi
+   preview URL'ini verir (`vercel.json` dal kisiti icermez). Test o
+   adreste yapilir; `preview` dalina gecmeden once.
+4. **`preview` = `main`'in yayin onizleme aynasi.** Onaylanan gelisim
+   dali `preview`'a merge edilir. `preview` uzerinde dogrudan kod
+   YAZILMAZ. Faz bitince `preview` `main` ile esitlenir.
+5. **Sira sabittir:** gelisim dali -> dalin kendi URL'inda deneme ->
+   testler yesil -> Casper'e rapor -> "tamam" -> `preview` ->
+   faz sonunda `preview` -> `main`.
+6. `sadelestirme` ve `master` eski adlardir: yedek olarak kalir,
+   uzerine calisilmaz; is bitince `main` ile esitlenir.
+7. Ajan yeni ana dal, varsayilan degisikligi veya korumali-alan
+   degisikligi ONEREMEZ; gerekirse Casper'a tek cumleyle sorar.
