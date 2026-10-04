@@ -14,8 +14,9 @@ en tehlikeli tür.
 Sözleşme:
 - İşin tetikleyicisi vardır ve tetikleyici **ölü bir dala bağlı
   değildir** (dallar silinir; koşul kalır).
-- Tetikleyici bilinçlidir: `workflow_dispatch` veya PR etiketi.
-  Otomatik değil — iş gerçek sağlayıcı kotası harcar.
+- Tetikleyici bilinçlidir: `workflow_dispatch`, PR etiketi veya
+  haftalık `schedule`. Push ile otomatik değil — iş gerçek sağlayıcı
+  kotası harcar; schedule haftada 1 kezle sınırlıdır (2026-10-04).
 - Sırlar kurulumdan ÖNCE denetlenir; hiç sır yoksa koşum israf olmaz.
 - Sır listesi TEK kaynaktan gelir (Python) ve YAML'ın env bloğuyla
   kaymaz.
@@ -80,6 +81,41 @@ class TestOluTetikleyiciKapandi:
         assert "kabul-matrisi" in kismi, "PR etiketi yolu yok"
         assert "contains(github.event.pull_request.labels" in kismi, (
             "etiket kosulu gercek bir etiket okumuyor")
+
+    def test_schedule_tetikleyici_on_blokunda(self):
+        """`on:` blogunda haftalik schedule tetikleyicisi kayitli.
+
+        2026-10-04: kabul matrisi artik haftada 1 kez kaste kosar;
+        kanit hiyarsi bilincli kabul edilmistir.
+        """
+        akis = _kod(_akis())
+        assert "\n  schedule:" in akis, "on: blogunda schedule yok"
+        assert "- cron: '0 4 * * 1'" in akis, (
+            "haftalik Pzt 04:00 UTC cron'u yok — kota/dakika hesabı "
+            "bozulur")
+
+    def test_schedule_kosulu_if_blokunde(self):
+        """`if:` kosuluna schedule dali eklenmis VE eskiler korunmus."""
+        kismi = _provider_acceptance_kismi()
+        kosul = kismi.split("needs:")[0]
+        assert "github.event_name == 'schedule'" in kosul, (
+            "schedule dali if: kosulunda yok — is yine kosmaz")
+        # Mevcut yollar bozulmamali:
+        assert "github.event_name == 'workflow_dispatch'" in kosul
+        assert "contains(github.event.pull_request.labels" in kosul
+
+    def test_schedule_push_kadar_otomatik_degil(self):
+        """Schedule bilincli aralikladir; push gibi her olayda kosmaz.
+
+        `if:` kosulunda yalnizca workflow_dispatch / schedule / etiket
+        gecebilir; baska olay dali (push, pull_request without label)
+        is otomatik kosturmaz.
+        """
+        kismi = _provider_acceptance_kismi()
+        kosul = kismi.split("needs:")[0]
+        olaylar = set(re.findall(r"github\.event_name == '(\w+)'", kosul))
+        assert olaylar <= {"workflow_dispatch", "schedule",
+                           "pull_request"}, olaylar
 
     def test_push_ile_otomatik_kosmaz(self):
         """Her merge'de otomatik kosmamali: kota + dakika israfi.
