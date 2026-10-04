@@ -21,10 +21,10 @@ hatasıydı** (aşağıya bak).
 
 ## Bulgu 2 — Önceki "erken çıkış kartı bozdu" kaydı YANLIŞTI
 
-`_sirket_ara_erken_cikis.py` her koşuda `firma_bul`'u YENİDEN
+`scripts/olcum/_sirket_ara_erken_cikis.py` her koşuda `firma_bul`'u YENİDEN
 çağırıyordu; arama sonuçları koşular arası değiştiği için A ve B
 **farklı aday listeleriyle** çalıştı. Dondurulmuş liste ile tekrar
-ölçüldü (`_erken_cikis_dondurulmus.py`): kart **AYNI** çıktı.
+ölçüldü (`scripts/olcum/_erken_cikis_dondurulmus.py`): kart **AYNI** çıktı.
 
 Bu düzeltme önemli: "erken çıkış güvenli değil" kararı **geçersiz**
 bir ölçüme dayanıyordu.
@@ -66,7 +66,7 @@ Denenen üç kuralın üçü de en az bir meşru eşleşmeyi kırdı:
 
 Denenen üç kuralın üçü de en az bir meşru eşleşmeyi kırdı. Ancak
 **ek sözlüğü** farkı çözdü: dize kalıbı değil, ek'in ANLAMI ayırt
-ediyor. Sözlük `_marka_ekleri_veri.py` ile 23 gerçek marka üzerinde
+ediyor. Sözlük `scripts/olcum/_marka_ekleri_veri.py` ile 23 gerçek marka üzerinde
 ölçülerek kuruldu (elle doldurulmadı):
 
 | Ek | Kaynak | Karar |

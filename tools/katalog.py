@@ -1548,7 +1548,7 @@ _SIRKET_HOST_EKLERI = ("com", "net", "org", "gov", "edu", "info", "biz",
 # `milyontrendyol.com`, `trendyol-sitez.com`. Sahte marka sitesi
 # "markaya ait" sayılıyordu.
 #
-# VERİ NEREDEN: `_marka_ekleri_veri.py` 23 gerçek markanın sitesini
+# VERİ NEREDEN: `scripts/olcum/_marka_ekleri_veri.py` 23 gerçek markanın sitesini
 # ölçtü. SONUÇ: gerçek markaların TAMAMINDA ek ya yok ya da sonda ve
 # anlamlı (`tutkuelit` = tutku+elit, `yildizholding` = yildiz+holding,
 # `anadoluefes` = anadolu+efes). Alakasız host'larda ek de sonda ama
@@ -1616,7 +1616,7 @@ def _host_markaya_uyuyor(anahtar, adres):
     `yeni.com` ↔ `YeniMarka` (marka host adını taşır) ikisi de geçerli.
 
     2026-10-01: alt dize karşılaştırması yerine **ek sözlüğü** kullanılır.
-    Ölçüm (`_marka_ekleri_veri.py`, 23 gerçek marka): gerçek markalarda
+    Ölçüm (`scripts/olcum/_marka_ekleri_veri.py`, 23 gerçek marka): gerçek markalarda
     ek ya yok ya da sondadır ve anlamlıdır (`tutku`+`elit`,
     `yildiz`+`holding`). Sahte site kalıplarında da ek sondadır ama
     anlamsızdır (`trendyol`+`korsan`). Dize kalıbı ikisini ayıramaz —
@@ -1790,7 +1790,7 @@ def _sirket_sayfalari_paralel(ws, adaylar):
 
     Neden sinirli: `sirket_ara` bir sohbet turunda tek araçtır; 6 sayfayı
     aynı anda açmak hedef siteye ani yük bindirir. 3 iş parçacığı ölçüldü
-    (bkz. `_sirket_ara_kirilim.py`), %55 kazancı bu noktada verdi.
+    (bkz. `scripts/olcum/_sirket_ara_kirilim.py`), %55 kazancı bu noktada verdi.
 
     Neden güvenli: `kurum_sayfasi_oku` disk yazmaz, paylaşılan durum
     değiştirmez; `ThreadPoolExecutor.map` sonuçları GİRDİ SIRASIyla
@@ -1891,7 +1891,7 @@ def sirket_ara(marka):
     # döndüğü sonucu değiştirmez.
     #
     # Ölçülmeyen daraltma YAPILMADI: erken çıkış denendi ve 3 markadan
-    # 1'inde kartı bozdu (bkz. _sirket_ara_erken_cikis.py çıktısı), tek
+    # 1'inde kartı bozdu (bkz. scripts/olcum/_sirket_ara_erken_cikis.py çıktısı), tek
     # aramaya düşürme ise iki sorgunun neredeyse ayrı host getirdiğini
     # gösterdi (kesişim 1/6) — kapsamı daraltırdı.
     en_metin, en_gercekler, en_skor, en_site, en_uyuyor = "", [], 0, "", False

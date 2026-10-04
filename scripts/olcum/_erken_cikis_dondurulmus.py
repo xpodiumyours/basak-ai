@@ -8,14 +8,17 @@ arası değiştiği için A ve B farklı aday listeleriyle çalışmıştı. Yan
 Burada aday listesi **bir kez dondurulur**, iki değerlendirme de aynı
 sayfaları okur. A) mevcut kural, B) erken çıkış.
 
-Kosum: python _erken_cikis_dondurulmus.py
+Kosum: python scripts/olcum/_erken_cikis_dondurulmus.py
 """
 
 import json
+import pathlib
 import sys
 import time
 
-sys.path.insert(0, ".")
+# Depo kokunu __file__ uzerinden bul; calisma dizinine bagimli degildir.
+KOK = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(KOK))
 
 MARKA = "Trendyol"
 
@@ -107,7 +110,8 @@ def main():
         for alan in ka:
             if ka.get(alan) != kb.get(alan):
                 print("   FARK %s: A=%r B=%r" % (alan, ka.get(alan), kb.get(alan)))
-    with open("data/erken-cikis-dondurulmus.json", "w",
+    # Cikti depo kokundaki data/ altina (.gitignore yollari kok gorelidir).
+    with open(KOK / "data" / "erken-cikis-dondurulmus.json", "w",
               encoding="utf-8") as f:
         json.dump({"marka": MARKA, "adaylar": okunacak, "A": ka, "B": kb,
                    "ayni": ayni, "okuma_sn": round(okuma_sn, 3)},

@@ -17,9 +17,10 @@ name: testler
 # (voice/speaker_id.py); yine de gercek calisma bagimliligi oldugu icin
 # listeden cikarilmaz.
 #
-# Not: yalniz `tests/` klasoru kosar. Kok dizindeki test_brain_cevapla.py
-# ve test_tts_kontrol.py bilerek DISARIDA — onlar canli ag cagrisi yapar
-# ve elle kosturulur (bkz. README "Elle kontroller").
+# Not: yalniz `tests/` klasoru kosar. scripts/olcum/ altindaki
+# test_brain_cevapla.py ve test_tts_kontrol.py bilerek DISARIDA —
+# onlar canli ag cagrisi yapar ve elle kosturulur
+# (bkz. README "Elle kontroller").
 
 on:
   push:

@@ -13,15 +13,18 @@ Sıcaklık ayrımı zorunlu: ilk çağrı DNS + TLS el sıkışması + bağlant�
 havuzu soğuması içerir. Tek ölçüm bu yüzden "tipik süre" değildir.
 Her iş 3 kez koşulur: ilk = SOĞUK, sonrakiler = SICAK.
 
-Kosum: python _gecikme_olcum.py
+Kosum: python scripts/olcum/_gecikme_olcum.py
 """
 
 import json
+import pathlib
 import statistics
 import sys
 import time
 
-sys.path.insert(0, ".")
+# Depo kokunu __file__ uzerinden bul; calisma dizinine bagimli degildir.
+KOK = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(KOK))
 
 TEKRAR = 3
 # Gerçek, herkese açık, kararlı hedefler. Üretimde kullanılan yollar:
@@ -163,10 +166,11 @@ def _hazirlik_olc():
 
 
 def _yaz(rapor):
-    import os
-    yol = os.path.join("data", "gecikme-raporu.json")
+    # Cikti depo kokundaki data/ altina yazilir (.gitignore yollari
+    # kok gorelidir); calisma dizininden bagimsizdir.
+    yol = KOK / "data" / "gecikme-raporu.json"
     try:
-        os.makedirs("data", exist_ok=True)
+        yol.parent.mkdir(exist_ok=True)
         with open(yol, "w", encoding="utf-8") as f:
             json.dump(rapor, f, ensure_ascii=False, indent=2)
         print("\nrapor yazildi: %s" % yol)

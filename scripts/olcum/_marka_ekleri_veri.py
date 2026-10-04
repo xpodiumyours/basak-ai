@@ -8,14 +8,17 @@ Yöntem: gerçek markaların siteleri aranır; host'un marka etiketi ile
 marka arasındaki GERÇEK fark kaydedilir. Bu farklar sözlüğün
 dayanağıdır.
 
-Kosum: python _marka_ekleri_veri.py
+Kosum: python scripts/olcum/_marka_ekleri_veri.py
 """
 
 import json
+import pathlib
 import re
 import sys
 
-sys.path.insert(0, ".")
+# Depo kokunu __file__ uzerinden bul; calisma dizinine bagimli degildir.
+KOK = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(KOK))
 
 # Gerçek, kamuya açık markalar. Alan adları ÖLÇÜMDE doğrulanır;
 # burada yazılan alan adları iddia değil, aday listesi — gerçek yanıt
@@ -153,7 +156,9 @@ def main():
             print("  %-26s yon=%-26s ek=%-12r bas=%r"
                   % (host, f["yon"], f["ek"], f["bas"]))
 
-    with open("data/marka-ekleri-veri.json", "w", encoding="utf-8") as f:
+    # Cikti depo kokundaki data/ altina (.gitignore yollari kok gorelidir).
+    with open(KOK / "data" / "marka-ekleri-veri.json", "w",
+              encoding="utf-8") as f:
         json.dump(kayitlar, f, ensure_ascii=False, indent=2)
     print("\nyazildi: data/marka-ekleri-veri.json")
     print("NOT: Bu bir OLCE verisidir. Sozluk bu veriden turetilir,")
