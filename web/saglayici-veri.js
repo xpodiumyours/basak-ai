@@ -1,7 +1,9 @@
 /* web/saglayici-veri.js — sağlayici veri saklama tablosunu gosterir.
    YALNIZ SEFFAFLIK: hicbir karar vermez, hicbir yonlendirme yapmaz.
    Sunucu /api/saglayici-veri ucundan (brain/registry.py) okur.
-   Uc bulunamazsa sessiz gecmez: kullaniciya acikca hata gosterilir. */
+   Tablo satirlari sunucu HTML'inde hazir durur (JS gerekmez); betik
+   yalnizca canli veriyle tazeler. Uc bulunamazsa statik tablo oldugu
+   gibi kalir. */
 (function () {
   "use strict";
 
@@ -26,6 +28,10 @@
       var liste = (v && v.saglayicilar) || [];
       if (!liste.length) throw new Error("bos");
       var govde = document.querySelector("#saglayici-tablosu tbody");
+      // Statik satirlari canli veriyle DEGISTIR: ucten gelen liste
+      // ayni kaynaktan gelir; ustune ekleme yapilirsa satirlar iki
+      // kez gorunur.
+      govde.textContent = "";
       liste.forEach(function (s) {
         var tr = document.createElement("tr");
         tr.appendChild(hucre(s.ad_guncel || s.ad));
@@ -34,12 +40,9 @@
         govde.appendChild(tr);
       });
       document.getElementById("saglayici-tablosu").hidden = false;
-      var y = document.getElementById("saglayici-tablosu-yukleniyor");
-      if (y) y.hidden = true;
     })
     .catch(function () {
-      document.getElementById("saglayici-tablosu-hata").hidden = false;
-      var y = document.getElementById("saglayici-tablosu-yukleniyor");
-      if (y) y.hidden = true;
+      // Yenileme olmadi: sunucu HTML'indeki statik tablo oldugu gibi
+      // gorunur; ayrica gosterilecek hata metnine gerek yoktur.
     });
 })();
