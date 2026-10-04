@@ -208,7 +208,7 @@ sorusuyla uçtan uca koşmuş bir sohbet kaydımız yok.
     (yalnız iz bırakıldı); ölçülmemiş davranış değişikliği yapılmadı.
 - [x] **P1.4** **Gecikme tablosu ÖLÇÜLDÜ** (2026-10-01). Tavan
   **koyulmadı** — bu bir bütçe değil, ölçüm kaydı (AGENTS.md §0: tavan
-  geri gelmez). Probu: `_gecikme_olcum.py`, her iş **3 kez** koşuldu;
+  geri gelmez). Probu: `scripts/olcum/_gecikme_olcum.py`, her iş **3 kez** koşuldu;
   ilk ölçüm **soğuk** (DNS + TLS + bağlantı kurulumu), kalanı **sıcak**.
   Tek ölçüm "tipik süre" değildir.
 
@@ -432,7 +432,7 @@ yazmadan "geri alabiliriz" denmeyecek.**
   sandı; araç çalışıyordu. Prob düzeltilip yeniden ölçüldü.
 - **2026-10-01 (sirket_ara hızlandırma)** P1.4 ölçümünde `sirket_ara`'nın
   tek başına **9–11 sn** sürdüğü görüldü. Kırılım ölçüldü
-  (`_sirket_ara_kirilim.py`): asıl maliyet aday sayfaların **sıralı**
+  (`scripts/olcum/_sirket_ara_kirilim.py`): asıl maliyet aday sayfaların **sıralı**
   okunmasıydı (%44) ve `firma_bul`'un iki paralel aramasıydı.
 
   **İki daraltma DENENDİ ve REDDEDİLDİ:**
@@ -474,7 +474,7 @@ yazmadan "geri alabiliriz" denmeyecek.**
 
   **Düzeltildi (2026-10-01, aynı gün):** Önceki kayıt “düzeltme
   güvenli değil” diyordu; bu **sonradan aşıldı**. Çözüm: dize kalıbı
-  değil, **ek’in anlamı**. Sözlük `_marka_ekleri_veri.py` ile
+  değil, **ek’in anlamı**. Sözlük `scripts/olcum/_marka_ekleri_veri.py` ile
   **23 gerçek markanın sitesi ölçülerek** kuruldu (elle doldurulmadı):
 
   | Ek | Kaynak | Karar |

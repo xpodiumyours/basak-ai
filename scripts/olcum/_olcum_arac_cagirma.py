@@ -1,33 +1,38 @@
-"""_olcum_arac_cagirma2.py — 2. tur olcum: farkli sorularla %80 dogrulama.
+"""_olcum_arac_cagirma.py — Canli olcum: model araci GERCEKTEN cagiriyor mu?
 
-Casper karari (2026-09-22): 1. tur 8/10 (%80) cikti. Ayni oran farkli
-sorularda tekrarlanir mi? 1. turdaki sorularin HICBIRI tekrarlanmaz.
+Casper karari (2026-09-22): sozlesme guclendirildi; simdi olcum.
+10 arac isteyen soru, gercek bulut zinciri, ayni mesaj_isle yolu (web/masaustu/telegram hepsi bunu kullanir).
 
 Kosum (elle, kota harcar):
-    python _olcum_arac_cagirma2.py
+    python scripts/olcum/_olcum_arac_cagirma.py
+
+Cikti: satir satir toolStatus olaylari + ozet (kac/10 soruda arac kostu).
 """
 
 import json
 import logging
+import pathlib
 import sys
 import time
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.WARNING)
 
-sys.path.insert(0, ".")
+# Depo kokunu __file__ uzerinden bul; calisma dizinine bagimli degildir.
+KOK = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(KOK))
 
 SORULAR = [
-    ("klasor_bilgi", "basak-ai klasorunde kac tane python dosyasi var"),
-    ("dosya_oku", "basak-ai reposundaki requirements.txt icinde ne yaziyor"),
-    ("icerik_ara", "basak-ai kodunda AJAN_SOZLESMESI nerede tanimli"),
-    ("belge_ara", "basak-ai projesinde chatbot yasagi ne diyor"),
-    ("adres_kontrol", "https://basak-vercel.vercel.app/ acik mi kontrol et"),
-    ("site_ara", "site:github.com xpodiumyours basak-ai"),
-    ("gorsel_ara", "kedi fotografi ara"),
-    ("kitap_ara", "yapay zeka kitaplari ara"),
-    ("gorev_ekle", "bir test gorevi ekle: olcum turu2"),
-    ("saglik", "basak'in saglik raporu ne durumda"),
+    ("masaustu_liste", "bilgisayarimin masasustunde ne var"),
+    ("simdi_saat", "su an saat kac"),
+    ("gorev_liste", "gorevlerime bak"),
+    ("hafiza_ara", "hafizamda ne kayitli"),
+    ("matris_liste", "matris tablolaim var mi"),
+    ("hava_web", "bugun istanbulda hava nasil"),
+    ("groq_ara", "groq nedir internette arastir"),
+    ("git_durum", "basak-ai projesinin git durumu ne"),
+    ("hesapla_yuzde", "240in yuzde 18 kac"),
+    ("son_commit", "basak-ai reposunun son commitleri neler"),
 ]
 
 
@@ -41,11 +46,13 @@ def main():
     init_cache()
     beyin = Brain()
     if not beyin.bulut_musait():
-        print("BULUT YOK")
+        print("BULUT YOK: ayarlar.json'a anahtar yaz (python doktor.py)")
         return 2
 
     sonuclar = []
     for ad, soru in SORULAR:
+        # Her soru bagimsiz: gecmis temizlenir (misafir=False ->
+        # AJAN_SOZLESMESI gonderilir; misafirde sozlesme gonderilmiyor).
         try:
             ctx.kaydet(ctx.gecmis_yolu(), [])
         except OSError:
@@ -55,7 +62,7 @@ def main():
         olaylar = []
         t0 = time.time()
 
-        def cb(kod, _olaylar=olaylar):
+        def cb(kod, _olaylar=olaylar, _ad=ad, _soru=soru):
             if not isinstance(kod, str):
                 return
             if kod.startswith("BasakUI.toolStatus("):
@@ -100,18 +107,18 @@ def main():
 
     kostu = sum(1 for s in sonuclar if s["arac_kostu"])
     toplam = len(sonuclar)
-    print("\n=== OZET TUR 2 ===")
-    print("Arac kostu: %d/%d (%%%d)" % (
-        kostu, toplam, round(100 * kostu / toplam)))
+    print("\n=== OZET ===")
+    print("Arac kostu: %d/%d (%%%d)" % (kostu, toplam, round(100 * kostu / toplam)))
     print("Aracsiz kalan:")
     for s in sonuclar:
         if not s["arac_kostu"]:
             print("  - %s: %s | olaylar=%s" % (
                 s["soru"], s["metin"], s["olaylar"]))
 
-    with open("_olcum_arac_cagirma2_sonuc.json", "w", encoding="utf-8") as f:
+    sonuc_yolu = KOK / "scripts" / "olcum" / "_olcum_arac_cagirma_sonuc.json"
+    with open(sonuc_yolu, "w", encoding="utf-8") as f:
         json.dump(sonuclar, f, ensure_ascii=False, indent=2)
-    print("\nKayit: _olcum_arac_cagirma2_sonuc.json")
+    print("\nKayit: %s" % sonuc_yolu)
     return 0
 
 

@@ -10,14 +10,17 @@ yapilir, ayni aday sirasi ve ayni ayni sayfa okuma sonuclari uzerinde:
   B) erken cikis  — `uyuyor=True` ve gercek varsa dur
 Kartlar karsilastirilir. Ayni ise erken cikis guvenlidir.
 
-Kosum: python _sirket_ara_erken_cikis.py [marka ...]
+Kosum: python scripts/olcum/_sirket_ara_erken_cikis.py [marka ...]
 """
 
 import json
+import pathlib
 import sys
 import time
 
-sys.path.insert(0, ".")
+# Depo kokunu __file__ uzerinden bul; calisma dizinine bagimli degildir.
+KOK = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(KOK))
 
 MARKALAR = sys.argv[1:] or ["Trendyol", "Getir", "Arçelik"]
 
@@ -147,7 +150,8 @@ def main():
           % (tasarruf_sayfa, tasarruf_sn))
     print("Tavan koyulmadi; bu bir olcum.")
 
-    with open("data/sirket-ara-erken-cikis.json", "w",
+    # Cikti depo kokundaki data/ altina (.gitignore yollari kok gorelidir).
+    with open(KOK / "data" / "sirket-ara-erken-cikis.json", "w",
               encoding="utf-8") as f:
         json.dump(raporlar, f, ensure_ascii=False, indent=2)
     return 0

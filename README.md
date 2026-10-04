@@ -244,12 +244,13 @@ kendine yetki yazamaz.
 python -m pytest tests -q
 ```
 
-Kök dizindeki `test_brain_cevapla.py` ve `test_tts_kontrol.py` **elle
-koşulur** — canlı ağ çağrısı yaparlar, bu yüzden pakete dahil değildir:
+`scripts/olcum/` altındaki `test_brain_cevapla.py` ve `test_tts_kontrol.py`
+**elle koşulur** — canlı ağ çağrısı yaparlar, bu yüzden `tests/` paketinde
+değildir:
 
 ```powershell
-python test_brain_cevapla.py    # beyin gerçekten cevap veriyor mu?
-python test_tts_kontrol.py      # ses modeli yerinde mi?
+python scripts/olcum/test_brain_cevapla.py    # beyin gerçekten cevap veriyor mu?
+python scripts/olcum/test_tts_kontrol.py      # ses modeli yerinde mi?
 ```
 
 `tests/live/` altındaki testler **gerçek model ve kota** kullanır; normal
