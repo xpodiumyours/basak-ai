@@ -72,6 +72,11 @@ Desteklenen sağlayıcılar (hepsi ücretsiz katmanlı):
 Boş bıraktığın sağlayıcı **zincire girmez** ve hata vermez — "boş yuva"
 sayılır. Zaman aşımları ve sıralama: bkz. §5.
 
+> **Freebuff Cloud'da geliştiriyorsan:** sandbox'ta `ayarlar.json` yoktur;
+> zincir kota dolunca "bulut zinciri bos" der. Bir-kerelik ortam kurulumu
+> (Settings → Environment) ve kırılma/ayrım tablosu:
+> [`docs/FREEBUFF-ORTAM-KURULUMU.md`](docs/FREEBUFF-ORTAM-KURULUMU.md).
+
 ### 3.3.1 2026-09-22'de eklenen platformlar
 
 Adresler ve varsayılan modeller kodda gömülüdür; `mistral_api_url`,
