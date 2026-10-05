@@ -140,10 +140,20 @@ class TestBeyinVeButun:
         assert satirlar[0][0] == doktor.HATA
 
     def test_zincir_dolu_ise_ok(self):
-        satirlar = doktor.kontrol_beyin(SahteBeyin(["groq", "gemini"]))
+        satirlar = doktor.kontrol_beyin(
+            SahteBeyin(["groq", "gemini", "cloudflare"]))
         durum, _, detay = satirlar[0]
         assert durum == doktor.OK
         assert "groq" in detay and "gemini" in detay
+
+    def test_tek_saglayici_uyari(self):
+        """Tek/az saglayici SESSIZ kalmamali: kota dolunca zincir bos kalir."""
+        satirlar = doktor.kontrol_beyin(SahteBeyin(["kilo"]))
+        durum, ad, detay = satirlar[0]
+        assert durum == doktor.UYARI
+        assert ad == "Beyin zinciri"
+        assert "kilo" in detay
+        assert str(doktor.ASGARI_ZINCIR) in detay
 
     def test_beyin_kurulamazsa_hata(self):
         class Patlayan:

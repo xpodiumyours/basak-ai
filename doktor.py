@@ -22,6 +22,12 @@ if BASE not in sys.path:
 OK, UYARI, HATA = "OK", "UYARI", "HATA"
 _ETIKET = {OK: "[OK]", UYARI: "[!!]", HATA: "[XX]"}
 
+# Zincirin dayanikli sayilmasi icin en az kac farkli saglayici anahtari
+# gerekir. Tek saglayici = SESSIZ RISK: o saglayicinin kotasi dolunca
+# zincir bos kalir ve Basak cevapsiz duser (olculdu 2026-10-05). Bu esik
+# model davranisina dokunmaz; yalniz ortam sagligini gorunur kilar.
+ASGARI_ZINCIR = 3
+
 # ── paketler ──────────────────────────────────────────────────────────
 # Zorunlu: metin sohbeti bunlar olmadan ACILMAZ.
 ZORUNLU_PAKETLER = (
@@ -232,6 +238,11 @@ def kontrol_beyin(brain=None):
     if not adlar:
         return [(HATA, "Beyin zinciri",
                  "hicbir saglayici yok - ayarlar.json'a bir anahtar yaz")]
+    if len(adlar) < ASGARI_ZINCIR:
+        return [(UYARI, "Beyin zinciri",
+                 "%d saglayici: %s - kotasi dolunca zincir BOS kalir; "
+                 "en az %d farkli anahtar ekle (README 3.3)"
+                 % (len(adlar), ", ".join(adlar), ASGARI_ZINCIR))]
     return [(OK, "Beyin zinciri",
              "%d saglayici: %s" % (len(adlar), ", ".join(adlar)))]
 
