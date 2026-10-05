@@ -109,3 +109,17 @@ data/fatura-ornekleri/
 .vercel.env*
 .env*
 *.env.production
+
+# 2026-10-03 — takipsiz dosya denetimi. Üç açık risk kapatıldı:
+#
+# 1) data/_*.json: canlı sohbet dökümleri. `_goz_gecmis.json` içinde
+#    gerçek kullanıcı mesajı + asistan cevabı vardı ve HİÇBİR kural
+#    olmadığı için `git add .` ile commit'e girebiliyordu. Aynı aile:
+#    gecmis.json (kullanıcı verisi) zaten ignore edilir.
+# 2) tunnel-log.txt: geçici Cloudflare quick-tunnel logu. İçinde
+#    herkese açık trycloudflare.com adresi barındırır.
+# 3) GOREV-*.md: ajan iş emirleri. Hiçbiri izlenmiyor; iş bitince
+#    kod + test kalıcı iz, dosya çalışma kâğıdıdır.
+data/_*.json
+tunnel-log.txt
+GOREV-*.md

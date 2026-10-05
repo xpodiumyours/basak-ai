@@ -54,20 +54,30 @@ numaranızı veya özel dosyalarınızın içeriğini sohbete yapıştırmayın.
 Başak kalıcı hafızasına sır saklamaz (parola, TC, IBAN, telefon, API
 anahtarı gibi değerler otomatik olarak maskelenir), ama mesajınız
 kullanılan sağlayıcının sunucusuna açık metin olarak gider.</p>
-<p class="not" id="saglayici-tablosu-yukleniyor">Sağlayıcı tablosu
-yükleniyor…</p>
 <p>Sağlayıcının veri kartı değişirse bu tablo güncellenir.
 <strong>Doğrulanamayan</strong> bir sağlayıcı için <strong>hiçbir iddia
 ileri sürmüyoruz</strong> — ne saklar ne saklamaz diyoruz. Böyle bir
 sağlayıcıya yazı gönderiyorsanız, saklama ihtimali olan taraf olarak
 düşünmeniz daha güvenli. Tek dayanağımız resmî belgelerdir.</p>
-<table id="saglayici-tablosu" hidden>
+<!-- Satırlar: brain/registry.py veri_saklama_tablosu() çıktısının anlık
+     görüntüsü (üretim: /api/saglayici-veri ucu). JS kapalıyken ya da
+     yenileme başarısızken tablo bu satırlarla görünür. Sağlayıcı
+     kartı değişirse satırlar registry ile birlikte güncellenir. -->
+<table id="saglayici-tablosu">
 <thead><tr><th>Sağlayıcı</th><th>Mesajınızın durumu</th><th>Dayanak</th></tr></thead>
-<tbody></tbody>
+<tbody>
+<tr><td>Groq</td><td>Doğrulanmadı — iddia yok</td><td>https://groq.com/privacy-policy (2026-09-30 okundu; DPA kapsami teyit edilmedi)</td></tr>
+<tr><td>Gemini</td><td>Saklayabilir</td><td>ai.google.dev/gemini-api/terms — 30 gun depolama (Maps Grounding); AB&#x27;de yalniz Paid (sartname)</td></tr>
+<tr><td>Cloudflare</td><td>Saklamadığını resmen bildiriyor</td><td>developers.cloudflare.com/workers-ai/privacy (2026-09-30 okundu)</td></tr>
+<tr><td>Kilo Gateway</td><td>Saklayabilir</td><td>registry notu (Casper onayi 2026-08-23); belge bu oturumda yeniden okunmadi</td></tr>
+<tr><td>NVIDIA NIM</td><td>Saklayabilir</td><td>NVIDIA API Trial ToS 2.3 (oturum sonu saklanmaz) + 2.7 (inceleme yetkisi) — forum 2025-06-10 (2026-09-30 okundu)</td></tr>
+<tr><td>GLM</td><td>Saklamadığını resmen bildiriyor</td><td>docs.z.ai/legal-agreement/privacy-policy DPA 4b — icerik gercek zamanli islenir, sunucularda saklanmaz (2026-09-30 okundu)</td></tr>
+<tr><td>OpenRouter</td><td>Eğitim/model geliştirme için kullanabilir</td><td>openrouter.ai/privacy — Inputs toplanir; model egitimi/iyilestirme icin saglayici kullanimi acik</td></tr>
+<tr><td>Cohere</td><td>Doğrulanmadı — iddia yok</td><td>Trust Center&#x27;da SOC2/ISO27001/DPA var; deneme anahtari icin saklama/egitim maddesi 2026-09-30&#x27;da acikca yayimlanmadi (belge imzali NDA ile isteniyor)</td></tr>
+<tr><td>Mistral</td><td>Eğitim/model geliştirme için kullanabilir</td><td>registry notu (2026-09-22): panelden kapatilmazsa model gelistirmede kullanilabilir — belge dogrulanmadi</td></tr>
+<tr><td>SambaNova</td><td>Saklamadığını resmen bildiriyor</td><td>community.sambanova.ai/t/data-handling-and-retention/1314 (2025-08-18, SambaNova personeli; Cloud ToS referansli)</td></tr>
+</tbody>
 </table>
-<p class="not" id="saglayici-tablosu-hata" hidden>Sağlayıcı tablosu şu an
-yüklenemedi; kaynak: <code>brain/registry.py</code> → her kartın
-<code>veri_karti</code> alanı.</p>
 <script src="/saglayici-veri.js" defer></script>
 
 <h2>3. Amaç ve hukuki sebep</h2>

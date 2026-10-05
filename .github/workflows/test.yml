@@ -17,15 +17,25 @@ name: testler
 # (voice/speaker_id.py); yine de gercek calisma bagimliligi oldugu icin
 # listeden cikarilmaz.
 #
-# Not: yalniz `tests/` klasoru kosar. Kok dizindeki test_brain_cevapla.py
-# ve test_tts_kontrol.py bilerek DISARIDA — onlar canli ag cagrisi yapar
-# ve elle kosturulur (bkz. README "Elle kontroller").
+# Not: yalniz `tests/` klasoru kosar. scripts/olcum/ altindaki
+# test_brain_cevapla.py ve test_tts_kontrol.py bilerek DISARIDA —
+# onlar canli ag cagrisi yapar ve elle kosturulur
+# (bkz. README "Elle kontroller").
 
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # Haftalik kabul matrisi kosusu (2026-10-04, task_0002):
+  #   P0 kaniti (gercek provider matrisi) haftada 1 kez kaste uretilir.
+  #   Pzt 04:00 UTC -> haftalik 1 kosu; kota ve Actions dakikasi
+  #   bilincli olarak MINIMAL tutulur (gizli depoda Free plan aylik
+  #   2.000 dk; olculen kosu ortalamasi 3,3 dk -> yilda ~17 dk).
+  #   Saat: hafta basi, PR/etiket kosularinin yogun oldugu is saatine
+  #   denk gelmez; gereksiz gecikme israfini onler.
+  schedule:
+    - cron: '0 4 * * 1'
 
 # 2026-09-23: depo gizli oldu; gizli depoda Actions dakikasi bedava
 # degil (Free plan: aylik 2.000 dk). Iki israf kesildi:
@@ -101,15 +111,19 @@ jobs:
     #   listesinde surekli "skipped" gorunuyordu. Ölü tetikleyici,
     #   ölü işten daha kötüdür: P0 kanıtı üretiyor sanılır.
     #
-    #   Yeni tetikleyici (ikisi de BILINCLI):
+    #   Yeni tetikleyici (ucu de BILINCLI):
     #     1) workflow_dispatch          -> Actions sekmesinden elle
     #     2) PR etiketi 'kabul-matrisi' -> dogrudan PR'dan
+    #     3) schedule (haftalik Pzt 04:00 UTC) -> kaste, haftada 1 kez
     #
     #   Neden otomatik degil: bu isi gercek saglayici KOTASINI harcar ve
     #   gizli depoda Actions dakikasini yiyor (Free plan). Her merge'de
     #   otomatik kosmak kotadir ve olcumsuz. P0 kaniti kaste uretilir.
+    #   Schedule bunun istisnasi DEGIL: haftada 1 bilincli kosu,
+    #   "kanit hiyarsi" ile "kota israfi" arasindaki dengedir.
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
       (github.event_name == 'pull_request' &&
        contains(github.event.pull_request.labels.*.name, 'kabul-matrisi'))
     needs: pytest

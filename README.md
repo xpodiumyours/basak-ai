@@ -202,6 +202,18 @@ gerekçesiyle birlikte yorumda belirt.
 
 ## 6. Araçlar
 
+> **İki sayı dolaşıyor; ikisi de doğru, neyi saydıkları farklı.**
+>
+> | Sayı | Neyi sayar | Kaynak |
+> |---|---|---|
+> | **57** | Python çekirdeğinin **yerel araçları** — dosya okuma, web arama, hava durumu, defter, görev… Model bunları çağırır. | `tools/definitions.py` → `TOOLS` |
+> | **162** | Web kataloğundaki **çevrimiçi araçlar** — 22'si doğrudan tarayıcıda çalışır, kalanı API üzerinden. | `tools/freetools_katalog.py` → `ARACLAR`, `/araclar` |
+>
+> Vitrin "162" der çünkü `/araclar` sayfası web kataloğunu listeler.
+> Bu bölüm "57" der çünkü modelin çağırabildiği araçları anlatır.
+> Web kataloğu ile çekirdek araçları **aynı şey değildir**; ikisi de
+> ölçülmüş değerlerdir.
+
 `tools/definitions.py` → `TOOLS` listesi (57 araç). Her aracın **dört yeri**
 vardır ve dördü birden yapılmazsa araç **sessizce ölü kalır** (AGENTS.md §0):
 
@@ -237,12 +249,13 @@ kendine yetki yazamaz.
 python -m pytest tests -q
 ```
 
-Kök dizindeki `test_brain_cevapla.py` ve `test_tts_kontrol.py` **elle
-koşulur** — canlı ağ çağrısı yaparlar, bu yüzden pakete dahil değildir:
+`scripts/olcum/` altındaki `test_brain_cevapla.py` ve `test_tts_kontrol.py`
+**elle koşulur** — canlı ağ çağrısı yaparlar, bu yüzden `tests/` paketinde
+değildir:
 
 ```powershell
-python test_brain_cevapla.py    # beyin gerçekten cevap veriyor mu?
-python test_tts_kontrol.py      # ses modeli yerinde mi?
+python scripts/olcum/test_brain_cevapla.py    # beyin gerçekten cevap veriyor mu?
+python scripts/olcum/test_tts_kontrol.py      # ses modeli yerinde mi?
 ```
 
 `tests/live/` altındaki testler **gerçek model ve kota** kullanır; normal

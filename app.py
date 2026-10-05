@@ -521,15 +521,28 @@ class _OlayToplayici:
                 return
             if ad == "error":
                 self.hata = olay.get("metin", "")
-            if self.handoff_key and ad == "parca":
+            if self.handoff_key and ad in ("parca", "bitir"):
+                # 2026-10-03 CANLI OLCUM: handoff tokeni her akis parcasina
+                # konuyordu. Token biriken gecmisin tamamini icerdigi icin
+                # her parca tum gecmisi yeniden imzalayip gonderiyordu:
+                # 3 cumlelik bir cevapta 130 olayin 663.987 bayti
+                # (%98,4) tekrar eden token idi; gercek cevap 551 bayt.
+                # Ucuz degil, karesel (O(n^2)) pahaliydi.
+                # DUZELTME: olaylar yine biriktirilir (gecmis kaybi yok),
+                # token yalnizca terminal olaya konur. Istemci yalniz en
+                # son gördugu tokeni tutuyor (web/app.js:1228) ve ara
+                # adimda tokeni kullanmiyor; `runState` zaten her kosuda
+                # token tasiyor, yani yarida kopan akis elindeki son
+                # tokenle devam edebiliyor.
                 self.handoff_olaylar.append(dict(olay))
-                olay["handoff_token"] = _handoff_tokeni(
-                    {
-                        "schema": _HANDOFF_SCHEMA,
-                        "olaylar": self.handoff_olaylar,
-                    },
-                    self.handoff_key,
-                )
+                if ad == "bitir":
+                    olay["handoff_token"] = _handoff_tokeni(
+                        {
+                            "schema": _HANDOFF_SCHEMA,
+                            "olaylar": self.handoff_olaylar,
+                        },
+                        self.handoff_key,
+                    )
             self.olaylar.append(olay)
             if self.yayinla is not None:
                 try:

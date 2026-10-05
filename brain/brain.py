@@ -348,6 +348,9 @@ class Brain:
         self._ovh = self._providers.get("ovh")
         # 2026-10-01: SambaNova — resmi free tier, otomatik zincirde.
         self._sambanova = self._providers.get("sambanova")
+        # 2026-10-02: LLM7.io — resmi ucretsiz katman (100K token/24sa,
+        # kart/telefon sarti resmi metinde yok). Anahtar yoksa None.
+        self._llm7 = self._providers.get("llm7")
         # 2026-09-10: kullanicinin ozel (ucretli) saglayicisi. Anahtar
         # yoksa None'dir — bedava kurulum etkilenmez.
         self._genel = self._providers.get("genel")
@@ -432,6 +435,11 @@ class Brain:
         _sambanova = getattr(self, "_sambanova", None)
         if _uygun("sambanova", _sambanova):
             zincir.append(("sambanova", _sambanova))
+        # 2026-10-02: LLM7.io — resmi ucretsiz katman (100K token/24sa).
+        # getattr: eski kurulumlar/__new__ testleri alanı taşmaz.
+        _llm7 = getattr(self, "_llm7", None)
+        if _uygun("llm7", _llm7):
+            zincir.append(("llm7", _llm7))
         if _uygun("gemini", self._gemini):
             zincir.append(("gemini", self._gemini))
         # Ozel/ucretli saglayici otomatik zincire girmez.

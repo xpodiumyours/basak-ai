@@ -11,16 +11,19 @@ Kirilim:
      -> her aday için ayrı süre; kaç aday okundu?
   5. alan çıkarma            — yerel
 
-Kosum: python _sirket_ara_kirilim.py [marka]
+Kosum: python scripts/olcum/_sirket_ara_kirilim.py [marka]
 """
 
 import json
 import logging
+import pathlib
 import statistics
 import sys
 import time
 
-sys.path.insert(0, ".")
+# Depo kokunu __file__ uzerinden bul; calisma dizinine bagimli degildir.
+KOK = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(KOK))
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.WARNING)
@@ -166,7 +169,9 @@ def main():
               % round(ortalama_sayfa * 100 / max(ort, 0.001)))
     print("Tavan koyulmadi. Daraltma onerisi bu kirilimdan cikarilir.")
 
-    with open("data/sirket-ara-kirilim.json", "w", encoding="utf-8") as f:
+    # Cikti depo kokundaki data/ altina (.gitignore yollari kok gorelidir).
+    with open(KOK / "data" / "sirket-ara-kirilim.json", "w",
+              encoding="utf-8") as f:
         json.dump(raporlar, f, ensure_ascii=False, indent=2)
     return 0
 

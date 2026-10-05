@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# .githooks/pre-commit — commit kapisi (2026-10-03)
+#
+# AGENTS.md §6 bu kapinin "zaten zorunlu kıldığını" yazıyordu ama
+# .git/hooks/ içinde tek bir aktif hook yoktu: 1265 test kirmiz olsa
+# bile commit geciyordu. Bu dosya o bosluk kapar.
+#
+# Kapsam (AGENTS.md §5, §6):
+#   1. Sir sizintisi ayarlar.json / gecmis.json / .env* / anahtarlar
+#   2. Python sozdizimi (py_compile) — degisen .py dosyalari
+#   3. Test paketi (pytest tests -q) — SKIP=1 ile atlanabilir
+#
+# Kurulum (bir kez):  git config core.hooksPath .githooks
+# Atlamak icin:         SKIP=1 git commit ...
+# AGENTS.md §6: `git commit --no-verify` bu kapiyi atlamak, hatayi
+# gorunmez kilar — kullanma.
+
+set -uo pipefail
+
+BASARISIZ=0
+uyari() { printf '  \033[31m%s\033[0m\n' "$1" >&2; BASARISIZ=1; }
+
+# Degisen/sahneye eklenmis dosyalar; silinmisleri ele.
+degisenler() {
+  git diff --cached --name-only --diff-filter=ACM
+}
+
+# ---------------------------------------------------------------- 1. SIR
+# Sadece eklenmis dosyalara bakar: kayitta ZATEN olan bir dosya
+# yeniden degistirilirse hatirlanmaz (dosya adina gore karar verilir).
+sizintili='ayarlar.json gecmis.json ayarlar.ornek.sifre .env .env.local .env.production'
+for dosya in $(git diff --cached --name-only --diff-filter=A); do
+  ad=$(basename "$dosya")
+  for kotu in $sizintili; do
+    if [ "$ad" = "$kotu" ]; then
+      uyari "SIR: '$dosya' commit'e eklenmis. Geri al: git restore --staged '$dosya'"
+    fi
+  done
+  case "$dosya" in
+    .env|.env.*) uyari "SIR: '$dosya' commit'e eklenmis." ;;
+    *.pem|*.key) uyari "SIR: '$dosya' (anahtar dosyasi) commit'e eklenmis." ;;
+  esac
+done
+
+# Ayrica icerik taramasi: gecmisteki kazara eklenmis anahtarlari yakala.
+# Basliklar tek tek denendi; bu desen gercek anahtar sekline denk gelir.
+if git diff --cached -U0 | grep -nE '^\+.*(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)' >/dev/null 2>&1; then
+  uyari "SIR: eklenen satirlarda API/ozel anahtar deseni var (sk-/ghp_/PRIVATE KEY)."
+fi
+
+# ------------------------------------------------------- 2. SOZDIZIMI
+for f in $(degisenler | grep '\.py$'); do
+  [ -f "$f" ] || continue
+  if ! python -m py_compile "$f" 2>/tmp/precommit_syntax.txt; then
+    uyari "SYNTAX: $f derlenmedi"
+    sed 's/^/      /' /tmp/precommit_syntax.txt >&2
+  fi
+done
+
+# ------------------------------------------------------------- 3. TEST
+if [ "${SKIP:-0}" = "1" ]; then
+  printf '  SKIP=1: test paketi atlandi.\n' >&2
+elif [ -n "$(degisenler | grep '\.py$')" ]; then
+  printf '  pytest calisiyor...\n' >&2
+  if ! python -m pytest tests -q >/tmp/precommit_test.txt 2>&1; then
+    uyari "TEST: paket kirmizi."
+    tail -20 /tmp/precommit_test.txt >&2
+  fi
+fi
+
+if [ "$BASARISIZ" -ne 0 ]; then
+  printf '\ncommit YAPILMADI. Yukaridaki hatayi duzelt, ya da SKIP=1 ile bilerek atla.\n' >&2
+  exit 1
+fi
+exit 0

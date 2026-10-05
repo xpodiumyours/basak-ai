@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 import uuid
 
@@ -27,6 +28,25 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # mumkun degil. Uretimde uuid.hex[:8]; disaridan gelen sid de ayni
 # denyeden gecer.
 _SID_DESEN = re.compile(r"^[A-Za-z0-9_-]+$")
+
+# 2026-10-03: ayni oturuma eszamanli yazma korumasi.
+#
+# Web sunucusu istekleri paralel isler: app.py her mesaji
+# asyncio.to_thread ile ayri thread'de kosturur. kaydet_cift bir
+# oku-degistir-yaz dongusuydu, yazma da "w" modunda (once kirpar,
+# sonra yazar) — iki istek ayni dosyayi ayni anda islerse ikisi de
+# ayni durumu okur ve biri digerinin ciftini EZER (kayip mesaj);
+# bir okuyucu yarim JSON gormezdi.
+# Ayni desen tools/tasks.py'de uygulanmis ve test edilmistir; burada
+# ayni koruma uygulanir. RLock: aktif_id/_aktif_koy icten tekrar
+# kilit alabilir.
+_KILIT = threading.RLock()
+
+# Windows'ta os.replace, dosya baska thread'de acikken gecici olarak
+# PermissionError verir. Sinirli sayida yeniden denemek yeter;
+# hepsi basarisiz olursa yazma kaybi _yaz icinde loglanir.
+_REPLACE_DENEME = 5
+_REPLACE_BEKLE = 0.01
 
 
 def _gecerli_sid(sid):
@@ -62,20 +82,75 @@ def _yol(sid):
     return os.path.join(_dizin(), "%s.json" % sid)
 
 
+class Okunmadi(Exception):
+    """Dosya var ama su an okunamadi (Windows paylasim kilidi).
+
+    `_oku` bunu None TUTMAZ: None "bu sohbet yok" demektir. Yok
+    sanilip uzerine yazilirsa mevcut gecmis SILINIR.
+    """
+
+
 def _oku(sid):
-    try:
-        with open(_yol(sid), "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return None
+    """Oturumu okur. Dosya yoksa None, okunamıyorsa Okunmadi.
+
+    WINDOWS NOTU: dosya baska thread'de os.replace ile degistirilirken
+    `open(...,"r")` gecici PermissionError verir. Onceki surum bunu
+    None sayiyordu; `kaydet_cift` "yeni sohbet" diye basip MEVCUT
+    GECMISI EZERDI. Simdi okunamayan dosya ayri durumdur.
+    """
+    son_hata = None
+    for deneme in range(_REPLACE_DENEME):
+        try:
+            with open(_yol(sid), "r", encoding="utf-8") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return None
+        except PermissionError as e:
+            son_hata = e
+            time.sleep(_REPLACE_BEKLE * (deneme + 1))
+        except (OSError, ValueError):
+            return None
+    raise Okunmadi("oturum okunamadi: %s" % _yol(sid)) from son_hata
+
+
+def _atomik_yaz(yol, metin):
+    """Once .tmp'e yaz, sonra tek hamlede degistir.
+
+    os.replace ayni surucude atomiktir — baska thread/dosya okuyucusu
+    yarim dosya gormez. Cagranda _KILIT'i tutuyor olmali.
+
+    METIN yazilir, JSON degil: aktif oturum dosyasi ham sid okur,
+    JSON'a cevrilirse tirnak isareti kacar ve her acilista yeni
+    oturum uretilir.
+
+    WINDOWS NOTU: dosya baska bir thread'de ACILIKken os.replace
+    PermissionError verir (Windows'ta dosya silmek/degistirmek icin
+    paylasimli acilis gerekir; Linux'ta bu sorun yok). Bu gecicidir,
+    o yuzden sinirli sayida yeniden denenir: yoksa yazma sessizce
+    kaybolur.
+    """
+    if not yol:
+        raise ValueError("Oturum dosyasi yolu bos olamaz")
+    gecici = yol + ".tmp"
+    with open(gecici, "w", encoding="utf-8") as f:
+        f.write(metin)
+    son_hata = None
+    for deneme in range(_REPLACE_DENEME):
+        try:
+            os.replace(gecici, yol)
+            return
+        except PermissionError as e:
+            son_hata = e
+            time.sleep(_REPLACE_BEKLE * (deneme + 1))
+    raise son_hata
 
 
 def _yaz(oturum):
     try:
-        with open(_yol(oturum["id"]), "w", encoding="utf-8") as f:
-            json.dump(oturum, f, ensure_ascii=False)
+        _atomik_yaz(_yol(oturum["id"]),
+                    json.dumps(oturum, ensure_ascii=False))
         return True
-    except OSError as e:
+    except (OSError, ValueError) as e:
         logger.warning("Oturum yazilamadi: %s", e)
         return False
 
@@ -92,7 +167,12 @@ def sahip_mi(sid, kid):
     """sid bu kişiye ait mi? Sahip alanı yoksa casper (eski kayıt)."""
     if not _gecerli_sid(sid):
         return False
-    kayit = _oku(sid)
+    try:
+        kayit = _oku(sid)
+    except Okunmadi:
+        # Geci kilit: kimlik DOGRULANAMAZ. Kirpilmis yol (fail-closed)
+        # tercih edilir — sahipsiz sohbete erismekten iyi.
+        return False
     if kayit is None:
         return False
     from chat.kimlik import VARSAYILAN_KULLANICI
@@ -117,9 +197,9 @@ def aktif_id():
     sid = uuid.uuid4().hex[:8]
     try:
         os.makedirs(os.path.dirname(dosya), exist_ok=True)
-        with open(dosya, "w", encoding="utf-8") as f:
-            f.write(sid)
-    except OSError:
+        with _KILIT:
+            _atomik_yaz(dosya, sid)
+    except (OSError, ValueError):
         # Yazilamadi: bu oturum bellekte calisir, yeniden acilista kaybolur.
         logger.warning("aktif oturum yazilamadi: %s", dosya, exc_info=True)
     return sid
@@ -129,9 +209,9 @@ def _aktif_koy(sid):
     dosya = _aktif_dosya()
     try:
         os.makedirs(os.path.dirname(dosya), exist_ok=True)
-        with open(dosya, "w", encoding="utf-8") as f:
-            f.write(sid)
-    except OSError:
+        with _KILIT:
+            _atomik_yaz(dosya, sid)
+    except (OSError, ValueError):
         logger.warning("aktif oturum isaretlenemedi: %s", dosya,
                        exc_info=True)
 
@@ -160,7 +240,13 @@ def liste():
     for ad in os.listdir(dizin):
         if not ad.endswith(".json"):
             continue
-        o = _oku(ad[:-5])
+        try:
+            o = _oku(ad[:-5])
+        except Okunmadi:
+            # Tek bir sohbet kilitliyse listeyi bozmak yerine atlanir.
+            logger.debug("liste: oturum okunamadi, atlandi: %s", ad,
+                         exc_info=True)
+            continue
         if not o:
             continue
         if (o.get("sahip") or VARSAYILAN_KULLANICI) != kid:
@@ -176,18 +262,33 @@ def liste():
 
 
 def kaydet_cift(soru, cevap, sid=None):
-    """Bir soru-cevap ciftini aktif oturuma ekler."""
+    """Bir soru-cevap ciftini aktif oturuma ekler.
+
+    2026-10-03: oku-degistir-yaz dongusunun tamami _KILIT altinda.
+    Kilit kulani degil, MODELIN gorusunu degistirmez; yalniz iki
+    thread'in ayni dosyayi ayni anda ezip birbirinin ciftini
+    kaybetmesini engeller.
+    """
     sid = sid or aktif_id()
-    o = _oku(sid) or {"id": sid, "baslik": "", "olustu": time.time(),
-                      "guncellendi": time.time(), "mesajlar": []}
-    _sahip_kaydet(o)
-    o["mesajlar"] += [{"role": "user", "content": soru},
-                      {"role": "assistant", "content": cevap}]
-    o["mesajlar"] = o["mesajlar"][-60:]
-    if not o.get("baslik") and soru:
-        o["baslik"] = _baslik(soru)
-    o["guncellendi"] = time.time()
-    _yaz(o)
+    with _KILIT:
+        try:
+            mevcut = _oku(sid)
+        except Okunmadi:
+            # Dosya var ama kilitli: UZERINE YAZMA. Yazilamayan bir
+            # cift, silinen bir gecmisten iyidir — sessiz veri kaybi
+            # olusmaz.
+            logger.warning("oturum okunamadi, cift kaydedilmedi: %s", sid)
+            return sid
+        o = mevcut or {"id": sid, "baslik": "", "olustu": time.time(),
+                       "guncellendi": time.time(), "mesajlar": []}
+        _sahip_kaydet(o)
+        o["mesajlar"] += [{"role": "user", "content": soru},
+                          {"role": "assistant", "content": cevap}]
+        o["mesajlar"] = o["mesajlar"][-60:]
+        if not o.get("baslik") and soru:
+            o["baslik"] = _baslik(soru)
+        o["guncellendi"] = time.time()
+        _yaz(o)
     return sid
 
 
@@ -195,7 +296,13 @@ def ac(sid):
     """Oturum mesajlarini dondurur (yoksa None)."""
     if not _gecerli_sid(sid):
         return None
-    o = _oku(sid)
+    try:
+        o = _oku(sid)
+    except Okunmadi:
+        # Gecici kilit: kullaniciya bos sohbet gostermek, hata vermekten
+        # iyi. Dosya silinmedi — sonraki istekte tekrar okunur.
+        logger.debug("ac: oturum kilitli, gecici olarak gosterilmedi: %s", sid)
+        return None
     if not o:
         return None
     _aktif_koy(sid)

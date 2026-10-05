@@ -336,3 +336,6 @@ class TestSaglayiciSeffafligi:
             "groq", "gemini", "cloudflare", "kilo", "nvidia",
             "glm", "openrouter", "cohere", "mistral",
             "sambanova"]
+    # 2026-10-02: LLM7.io karta alindi ama KAPALI — canli olcumde
+    # bakiye 0 / 402 cikti. Kapali kart listede bulunmaz; sira
+    # yine yalniz registry'nin kendi sabididir.

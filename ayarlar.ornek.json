@@ -15,9 +15,11 @@
   "mistral_key": "",
   "hf_token": "",
   "chutes_key": "",
+  "llm7_key": "",
 
   "glm_model": "glm-4.7-flash",
   "groq_model": "openai/gpt-oss-120b",
+  "llm7_model": "DeepSeek-V4-Flash-0731",
   "tts_on": false,
   "yerel_goru_kapali": true,
 
@@ -27,6 +29,7 @@
     "_mistral_notu": "mistral_key: ucretsiz 'Experiment' plani. Telefon dogrulamasi ister, kart istemez. Gizlilik: panelden kapatilmazsa veri model gelistirmesinde kullanilabilir (Settings > Privacy).",
     "_hf_notu": "hf_token hem Hugging Face yonlendiricisi hem konusmaci tanima (voice/speaker_id.py) icin kullanilir. HF ucretsiz kredisi ayda yalnizca 0,10 dolar oldugu icin otomatik zincire KAPALI.",
     "_chutes_notu": "chutes_key: UCRETLIDIR (kullanim basina odeme). Bu yuzden KAPALI yuvadir; anahtar yazmak tek basina yetmez.",
+    "_llm7_notu": "llm7_key: OTOMATIK ZINCIRDE KAPALI. Canli olcum (2026-10-02): /v1/balance balance_usd=0.00000000, /v1/chat -> 402 Insufficient balance. 'turbo' tier HIZLI erisim demektir, ucretsiz DEGIL (GLM-5.3-Flash 0.02/0.04 USD, gpt-oss:20b 0.03/0.05 USD per 1M). Anahtar girilse bile bakiye 0ken her cagri 402 doner. Bakiye yukle -> satir devreye girer. Gizlilik: privacy policy sayfasi YOK, veri karti 'dogrulanmadi'.",
     "_cloudflare_cohere_notu": "cloudflare_account_id + cloudflare_api_token ve cohere_key ucretsizdir, kart istemez. Girilince zincir 9 saglayiciya cikar ve kabul matrisindeki SKIP hucreler canli olur."
   }
 }

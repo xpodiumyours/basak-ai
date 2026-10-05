@@ -151,6 +151,10 @@ def test_required_ilk_aractan_sonra_auto_finale_izin_verir():
 # 2026-10-01: SambaNova eklendi (10.) — resmi free tier 20 istek/gun +
 # 200K token/gun, tool_choice=required resmi belgeli. Hiz olcumu yok;
 # dar gunluk havuz yuzunden en sonda son care olarak.
+# 2026-10-02: LLM7.io CANLI DOGRULAMADA CIKARILDI. Olcum:
+# balance_usd=0.00000000, /v1/chat -> 402 Insufficient balance.
+# turbo tier = HIZLI erisim, ucretsiz degil. Kart KAPALI ->
+# zincire girmez; bakiye yuklenince ayrica eklenir.
 AJAN_SAGLAYICILARI = (
     "groq", "gemini", "cloudflare", "kilo",
     "nvidia", "glm", "openrouter", "cohere",
@@ -201,6 +205,8 @@ def test_9_saglayici_resmi_tool_choice_haritasi():
         # 2026-10-01: SambaNova — resmi function-calling belgesinde
         # tool_choice=required destegi acikca yaziyor.
         "sambanova": "required",
+        # 2026-10-02: LLM7.io listeden CIKARILDI (kart kapali).
+        # Kayitli kalsaydi degeri auto_enforced -> auto idi;
     }
     assert {ad: registry.ajan_tool_choice(ad)
             for ad in AJAN_SAGLAYICILARI} == beklenen
@@ -392,13 +398,17 @@ def test_ajan_zinciri_10_ucretsiz_saglayicinin_tamamini_kapsar():
     b = Brain.__new__(Brain)
     for ad in ("groq", "gemini", "glm", "nvidia", "kilo", "openrouter",
                "cloudflare", "cohere", "qwen", "genel",
-               "mistral", "huggingface", "chutes", "sambanova"):
+               "mistral", "huggingface", "chutes", "sambanova",
+               "llm7"):
         setattr(b, "_" + ad, Saglayici())
 
     adlar = [ad for ad, _ in b._bulut_zinciri(
         tools=True, tool_required=True)]
     assert set(adlar) == set(AJAN_SAGLAYICILARI)
-    assert len(adlar) == 10
+    # 2026-10-02: 10 -> 11 (LLM7.io eklendi). Sayac sabit TUTULMAZ:
+    # AJAN_SAGLAYICILARI uzunlugunu okumak, sayiyi iki yerde
+    # elle guncellemeyi ve unutmayi onler.
+    assert len(adlar) == len(AJAN_SAGLAYICILARI)
 
 
 def test_10_saglayici_x_57_gercek_arac_dogrudan_ajan_yolunda_erisebilir():
@@ -429,7 +439,7 @@ def test_10_saglayici_x_57_gercek_arac_dogrudan_ajan_yolunda_erisebilir():
             assert kosan == 1
             assert cevap == "tamam"
             sayac += 1
-    assert sayac == 10 * 57
+    assert sayac == len(AJAN_SAGLAYICILARI) * len(araclar)
 
 @pytest.mark.parametrize(
     "sinif_yolu,model,tool_choice",

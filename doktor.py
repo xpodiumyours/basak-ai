@@ -54,9 +54,10 @@ ANAHTAR_ALANLARI = (
     "groq_key", "gemini_key", "openrouter_key", "zai_key", "nvidia_key",
     "kilo_key", "cloudflare_account_id", "cloudflare_api_token",
     "cohere_key", "mistral_key", "hf_token", "chutes_key",
+    "llm7_key",
 )
 AYAR_ALANLARI = ANAHTAR_ALANLARI + (
-    "glm_model", "groq_model", "tts_on", "yerel_goru_kapali",
+    "glm_model", "groq_model", "llm7_model", "tts_on", "yerel_goru_kapali",
 )
 
 SES_MODELI_ADI = "tr_TR-dfki-medium.onnx"

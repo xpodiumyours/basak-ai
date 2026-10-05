@@ -39,7 +39,30 @@ YER_TUTUCU_ANAHTAR = "anonymous"
 VARSAYILAN_MODEL = "stepfun/step-3.7-flash:free"
 TERCIH_SIRASI = [
     "stepfun/step-3.7-flash:free",
-    "tencent/hy3:free",
+    # Duzey 1 kaniti (2026-10-04, canli, anahtarsiz): qwen3.8-27b:free
+    # sohbet 0.96-2.26 sn; tool_choice=required'ta GERCEK tool_call
+    # 1.73 sn (finish=tool_calls). Ara turlarda upstream 429 (ModelRun,
+    # "temporarily rate-limited") ve 60 sn timeout gozlendi; ikisi de
+    # _model_yedegi_gerekir_mi kapsaminda (429 + "upstream"/"timed out").
+    # Global IP kotasiyla karistirilmaz: _kilo_global_kota_mi bu metni
+    # eslemez, yedek modele gecis dogru calisir.
+    "qwen/qwen3.8-27b:free",
+    # 2026-10-04 olcum turu — asagidaki 7 model canli sohbet (200) +
+    # tool_choice=required'ta GECERLI argumanli GERCEK tool_call ile
+    # sirayla gecti (sn): liquid 0.92/0.73, poolside-xs 3.71/0.73,
+    # apodex 1.91/1.32, nemotron-nano-omni 1.37/2.59, nemotron-super
+    # 1.72/3.38, inclusionai-sante 2.65/2.15, lightning 6.0-18.6/1.93
+    # (dalgali — en sona). REDDEDILENLER (olcum kaydi, geri gelmesin):
+    # nemotron-ultra: tool'u metne yazdi; dots-3: arguman iki turda da
+    # bozuk (":" / "}}Ankara"); inkling-small ve cohere-north: gunluk
+    # limit 429; tencent/hy3: 404 — katalogdan silinmis, listeden cikti.
+    "liquid/lfm-2.5-2.6b:free",
+    "poolside/laguna-xs-2.1:free",
+    "apodex/apodex-1.1-mini:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "inclusionai/ling-3.0-flash-sante:free",
+    "nvidia/nemotron-3.5-lightning:free",
     "poolside/laguna-s-2.1:free",
     "kilo-auto/free",
 ]

@@ -8,9 +8,13 @@ dosyanın varlığını ve modelin yüklenebildiğini doğrular.
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__)))))
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+# Ses modeli depo KOKUNDEDIR (tr_TR-dfki-medium.onnx); betik
+# scripts/olcum/ altinda oldugu icin iki seviye yukari cikilir.
+BASE = os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))))
 ONNX = os.path.join(BASE, "tr_TR-dfki-medium.onnx")
 JSON = os.path.join(BASE, "tr_TR-dfki-medium.onnx.json")
 

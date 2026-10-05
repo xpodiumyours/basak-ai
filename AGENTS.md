@@ -82,7 +82,27 @@ Başak — ücretsiz bulutla çalışan, Türkçe konuşan kişisel Jarvis. Beyi
 
 ## 1. Kilitli hedef
 
-Kişisel, tamamen yerel/ücretsiz çalışan bir Jarvis: sesli + yazılı konuşabilen, Casper'ı tanıyan, **kendi notlarını (`knowledge/`) okuyup kullanabilen**, bilgisayarda arka planda güvenilir çalışan bir asistan. Bulut (Groq) sadece yerel model yetmediğinde devrede — sürekli internet/abonelik bağımlılığı hedef değil.
+**2026-10-03 düzeltmesi (Casper kararı).** Bu bölüm eskiden "tamamen
+yerel çalışan, internete bağımlılığı hedef değil" diyordu. Gerçek ürün
+öyle değil: beyin bulutta (ücretsiz katman), site herkese açık, 162
+çevrimiçi araç web'de. Kapsam **"web'de yaşayan Başak"** olarak
+tanımlandı.
+
+**Kilitli kapsam:** Başak web'de yaşar, oradan konuşulur, oradan
+kullanılır. Site, araç kataloğu ve sohbet arayüzü kalıcı ve geliştirilir.
+
+**Tek sınır:** reklam için para harcamak. Para harcanmayan her şey
+(konuşma, reklam, SEO, açık kaynak, topluluk) serbesttir.
+
+Bu, "halka açık olma" kararı değildir — **kimse ziyaret etmeye
+zorlanmaz**. Kapsam geniş, kapı açık: Başak web'de durur ve senin
+kullanımına hazırdır. Kural dosyasındaki disiplin (ölç, kanıtla,
+sır sakla, model karar versin) **halka açık bir ürün için de geçerli**;
+aslında tam olarak bu yüzden var.
+
+**Değişmeyen kısım:** ücretsizlik ve gizlilik. Bedava katmanlar
+kullanılır, kart açılmaz, kullanıcı verisi şifrelerden ayrı durur
+(§12). Yerel masaüstü sürümü de çalışmaya devam eder.
 
 ## 1.1. Sonraki özellikler
 
@@ -157,15 +177,43 @@ Her UI görevinde: önce **`ui-ux-pro-max`** skill'ini oku, sonra `ui/style.css`
 | Kapı | Komut | Ne zaman |
 |---|---|---|
 | Test paketi | `python -m pytest tests -q` — TAMAMI yeşil olmalı | Her `.py` değişikliğinde |
-| Python sözdizimi | `python -m py_compile <dosya>` | Her `.py` değişikliğinde — **pre-commit hook zaten zorunlu kılıyor** |
+| Python sözdizimi | `python -m py_compile <dosya>` | Her `.py` değişikliğinde |
 | Gerçek çalıştırma | `python basak_app.py` aç, özelliği elle dene | UI/ses/görsel değişikliklerinde, "bitti" demeden önce |
-| Sır sızıntı kontrolü | commit'e `ayarlar.json`/`gecmis.json` girmemiş | Pre-commit hook otomatik engelliyor |
+| Sır taraması | `python tools/sir_kapisi.py` | Elle; GitHub'da her push'ta kendiliğinden |
 
-`git commit --no-verify` ile bu kapıyı atlamak, hatayı görünmez kılar — kullanma.
+**2026-10-03 — kapı BİR YERDE, KURULUM GEREKTİRMEZ.** Git, çalıştırılabilir
+kod olduğu için kontrol dosyalarını bilerek kayıt dışı tutar; o yüzden "her
+makinede bir ayar" gereken kapı, depoda herkese açık olduğu için kabul
+edilmedi. Gerçek kapı GitHub'dadır:
+
+| Kapı | Nerede | Ne zaman |
+|---|---|---|
+| Test + lint | `.github/workflows/test.yml` | `main` push'unda ve her PR'da |
+| **Sır** | `.github/workflows/kapi.yml` → `tools/sir_kapisi.py` | `main`/`preview` push'unda ve her PR'da |
+
+Kurulum yok, hatırlatma yok, her makinede aynı. `.githooks/pre-commit`
+**isteğe bağlı** hızlı geri bildirim olarak durur (push'tan önce yakalar);
+kimse açmak zorunda değil.
+
+| Durum | Sonuç |
+|---|---|
+| Sır commit'e girdiyse | `kapi.yml` kırmızı → o commit geri alınmalı |
+| Gerçekten yakalamak | `git config core.hooksPath .githooks` (isteğe bağlı) |
+
+Tuzak: PowerShell 5.1 `Set-Content -Encoding UTF8` dosya başına **BOM**
+yazar; Python dosyanın ortasında BOM görürse `SyntaxError` verir. Depoda
+BOM'lu `.py` yoktur (ölçüldü: 0). Düzeltme: BOM'suz yaz (Edit aracı) ya da
+`Set-Content -Encoding utf8NoBOM` (PowerShell 7).
+
+`git commit --no-verify` ile **yerel** kapıyı atlamak hatayı görünmez
+kılar — ama GitHub kapısı yine de yakalar.
 
 ## 7. Bu dosya
 
-Casper ile konuşulmadan kapsamı büyütülmez (örn. "şimdi CI kuralım", "Docker'a taşıyayım" gibi ağır adımlar — proje buna henüz hazır değil, gerekirse ayrıca konuşulur).
+Casper ile konuşulmadan kapsamı büyütülmez (örn. "Docker'a taşıyayım"
+gibi ağır adımlar). **2026-10-03 düzeltmesi:** "şimdi CI kuralım" artık
+bu listede değil — CI zaten vardı, sır kapısı eklendi ve Casper bunu
+istedi.
 
 ## 8. Bilinen tuzaklar
 
@@ -228,12 +276,33 @@ icin kural:
   ekran, cekirdekteki `chat/flow.mesaj_isle` yolunu cagiran koprudur;
   arac beyaz listesi ve izin katmani cekirdekte aynen gecerlidir.
 
-## 10. DAL KURALI (2026-09-21, Casper karari — baglayici)
+## 10. DAL KURALI (2026-10-03, Casper karari — baglayici)
 
-- Ana dal `main`dir (GitHub varsayilani). `sadelestirme` ve `master`
-  eski adlardir: yedek olarak kalir, uzerine calisilmaz; is bitince
-  `main` ile esitlenir.
-- Her is kisa dalda (`main`den acilir), bitince ana dala
-  birlesir, dal silinir. Uzun yasayan ikinci ana dal YASAKTIR.
-- Ajan yeni ana dal, varsayilan degisikligi veya korumali-alan
-  degisikligi ONEREMEZ; gerekirse Casper'a tek cumleyle sorar.
+Uc katman vardir. **Her gelistirme bu yolu izler:**
+
+    main ──merge──► Vercel PRODUCTION
+      │
+      └─► gelisim dali ──► Vercel PREVIEW URL'i (kendi adresi)
+             │
+             └─onay─► preview ──faz sonu──► main
+
+1. **Ana dal `main`dir** ve PRODUCTION'dur. `main`'e merge otomatik
+   production deploy tetikler (olculdu 2026-10-01: merge'den 30 sn
+   sonra). Bu yuzden `main`'e merge **yalniz Casper acikca "tamam"
+   dedikten** sonra yapilir.
+2. **Kod gelisim dalinda yazilir.** Her is `main`'den acilan, kisa
+   omurlu bir dalda calisir (`fix/...`, `feat/...`, `dal/...`).
+   Uzun omurlu ikinci ana dal YASAKTIR.
+3. **Dal kendi adresinde denenir.** Vercel her push'lanan dala kendi
+   preview URL'ini verir (`vercel.json` dal kisiti icermez). Test o
+   adreste yapilir; `preview` dalina gecmeden once.
+4. **`preview` = `main`'in yayin onizleme aynasi.** Onaylanan gelisim
+   dali `preview`'a merge edilir. `preview` uzerinde dogrudan kod
+   YAZILMAZ. Faz bitince `preview` `main` ile esitlenir.
+5. **Sira sabittir:** gelisim dali -> dalin kendi URL'inda deneme ->
+   testler yesil -> Casper'e rapor -> "tamam" -> `preview` ->
+   faz sonunda `preview` -> `main`.
+6. `sadelestirme` ve `master` eski adlardir: yedek olarak kalir,
+   uzerine calisilmaz; is bitince `main` ile esitlenir.
+7. Ajan yeni ana dal, varsayilan degisikligi veya korumali-alan
+   degisikligi ONEREMEZ; gerekirse Casper'a tek cumleyle sorar.

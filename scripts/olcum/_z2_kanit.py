@@ -8,19 +8,25 @@ Kapsam doğrusu (dürüst sınır): model anahtarı olmadan canlı sohbet
 koşmadığı için SSE taşıyıcısı taklit edilir. Kartın verisi
 `chat/tools.py:_harita_olayi` tarafından üretilmiş GERÇEK çıktıdır
 (Z1 canlı Photon çağrısı); kartın DOM'u ve CSS'i tamamen gerçek
-proje kodudur. Ekran görüntüleri `_z2_kanit/` klasörüne yazılır.
+proje kodudur. Ekran görüntüleri kök dizindeki `_z2_kanit/` klasörüne
+yazılır.
 
-Çalıştırma: `python3 _z2_kanit.py`
+Çalıştırma: `python3 scripts/olcum/_z2_kanit.py`
 """
 
 import json
 import pathlib
+import sys
 from urllib.parse import unquote, urlparse
 
 from playwright.sync_api import sync_playwright
 
-WEB = pathlib.Path(__file__).resolve().parent / "web"
-CIKTI = pathlib.Path(__file__).resolve().parent / "_z2_kanit"
+# Depo kokunu __file__ uzerinden bul; calisma dizinine bagimli degildir.
+KOK = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(KOK))
+
+WEB = KOK / "web"
+CIKTI = KOK / "_z2_kanit"
 CIKTI.mkdir(exist_ok=True)
 
 

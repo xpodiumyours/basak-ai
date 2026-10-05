@@ -385,6 +385,74 @@ SAGLAYICILAR = {
                "200K token/gun. Hiz olcumu YOK — mistral'deki gibi "
                "sirada son baslar; olcumle yukselir.",
     },
+    "llm7": {
+        "ad": "LLM7.io",
+        "ucretsiz": True,
+        # 2026-10-02 CANLI DOGRULAMA — once "otomatik_ucretsiz" yazilmadi,
+        # sonra duzeltildi. Anahtarla yapilan olcum:
+        #   /v1/balance -> {"balance_usd":"0.00000000"}  HTTP 200
+        #   /v1/chat/completions -> HTTP 402 "Insufficient balance"
+        #   /v1/models -> tier="turbo" modellerin pricing alani DOLU:
+        #     GLM-5.3-Flash  input $0.02 / output $0.04 (1M token)
+        #     gpt-oss:20b    input $0.03 / output $0.05
+        # YANI "turbo" = HIZLI erisim, UCRETSIZ demek degil. Resmi
+        # limits.md'deki "Free token" satiri ayri bir kota tanimi;
+        # bakiyesiz hesapta o kota AKTIF DEGIL (402 donuyor).
+        # Bu yuzden kart KAPALI: bakiye 0ken her cagri 402 verir ve
+        # Brain'de surekli hata/cooldown uretir. Kullanici bakiye
+        # yuklediginde satir devreye girer (huggingface/chutes/ovh
+        # ile ayni kalip).
+        "otomatik_ucretsiz": False,
+        "tools": True,
+        # RESMI (docs.llm7.io/guides/function-calling.md):
+        # "Function calling depends on the selected model. Use the
+        #  Models API to find models with `tools_calling: true`."
+        # "`tool_choice: \"auto\"`: Lets the model decide whether to
+        #  call your tool or answer directly."
+        # BELGELENEN TEK tool_choice DEGERI "auto" — "required"/"none"
+        # hicbir resmi sayfada belgelenmemis; openapi.json'da
+        # /chat/completions yolu ve tool_choice alani YOK. Bu yuzden
+        # auto_enforced: zorunlu ajan turunda duz metin basari sayilmaz,
+        # siradaki saglayiciya gecer. Duz metne dokunulmaz.
+        "ajan_tool_mode": "auto_enforced",
+        "gucleri": ["genel"],
+        # RESMI UCRETSIZ KATMAN (docs.llm7.io/limits.md):
+        #   "| Free token | 1 | 60 | 250 |"  -> 1 istek/sn, 60 istek/dk,
+        #   250 istek/saat
+        #   "| Free token | 100,000 tokens per 24 hours |"
+        # Gunluk ISTEK limiti YOK — yalniz 24 saatlik token kotasi var.
+        "dakikalik_istek": 60,
+        "dakikalik_token": None,
+        "gunluk_istek": None,
+        "gunluk_token": 100000,
+        # limits.md: "Free-token quotas are provided at no charge and
+        # may be reduced without notice based on demand, service
+        # capacity, model availability, fair-use calculations,
+        # abuse-prevention controls, and other operational factors."
+        # Yani 100K SABIT BIR TAAHHUT DEGIL, talebe gore dusurulebilir.
+        # Yerelde sert kesme yapma; resmi 429 + reset basligi hakikat.
+        "yerel_kota_koru": False,
+        # RESMI VERI KARTI: BULUNAMADI. 19 URL'lik sitemap ve 49 KB
+        # llms-full.txt taranmasi rağmen privacy/retention/training
+        # kelimeleri sifir; llm7.io ana sitesinde de yasal sayfa YOK.
+        # Bu yuzden "kaydetmez" DEGIL "dogrulanmadi" — bilinmeyen
+        # bilinmeyen kalir (registry.py basligindaki kural). Kullanan
+        # kullanicya bu durum gosterilir; saglayici otomatik KAPATILMAZ
+        # (AGENTS.md madde 6).
+        "veri_saklama": "dogrulanmadi",
+        "veri_karti": "BULUNAMADI — docs.llm7.io + llm7.io taranmasi "
+                      "(2026-10-02): privacy policy / tos sayfasi "
+                      "yok. Bilinmeyen, kaydetmez varsayilmadi.",
+        "not": "OTOMATIK ZINCIRDE KAPALI. Canli olcum (2026-10-02): "
+               "balance_usd=0.0, /v1/chat -> 402 Insufficient "
+               "balance. 'turbo' tier hizli erisim demektir, ucretsiz "
+               "catisma degil; limits.md'deki 'Free token' satiri "
+               "ayri kota tanimidir ve bakiyesiz hesapta aktif "
+               "degil. Bakiye yuklenince satir devreye girer. "
+               "Model: gpt-oss:20b (tier=turbo, tools_calling=true, "
+               "128K baglam, %100 kullanilabilirlik — 2026-10-02 "
+               "katalog olcumu). Hiz olcumu YOK (bakiye engeli).",
+    },
 }
 
 # Varsayilan oncelik sirasi (secici yeniden SIRALAMAZ — bu sira korunur).
@@ -412,6 +480,19 @@ VARSAYILAN_SIRA = [
     # dar gunluk havuz + olcumsuzluk yuzunden mistral'den de sona,
     # son care olarak.
     "sambanova",
+    # 2026-10-02 eklendi: LLM7.io - CANLI DOGRULAMA SONUCU KAPALI.
+    # Ayarlar.json a anahtar girildi ve olculdu (2026-10-02):
+    #   /v1/balance -> balance_usd = 0.00000000
+    #   /v1/chat/completions -> HTTP 402 Insufficient balance
+    #   /v1/models -> tier=turbo modellerin pricing alani DOLU
+    #     (GLM-5.3-Flash 0.02/0.04, gpt-oss:20b 0.03/0.05 USD/1M)
+    # YANI turbo = HIZLI erisim, UCRETSIZ DEGIL. limits.md deki
+    # Free token satiri ayri kota tanimidir; bakiyesiz hesapta AKTIF
+    # DEGIL (402 donuyor). Kart KAPALI: bakiye 0ken her cagri 402
+    # verir ve Brain de surekli hata/cooldown uretir.
+    # Anahtar + bakiye yuklenince satir otomatik devreye girer.
+    # BAKIYE YOKKEN BURAYA YAZILIRSA ZINCIRDE HATA URETIR - yazma
+    # (ovh deseni: kapali kart listede bulunmaz).
 ]
 
 
