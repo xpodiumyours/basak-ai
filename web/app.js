@@ -1104,6 +1104,8 @@ function akiciMetinKaydi(b) {
     zamanlayici: null,
     bekleyenler: [],
     gercekParcaGeldi: false,
+    raf: null,
+    bekleyenIcerik: "",
   };
   metinAkislari.set(b, kayit);
   return kayit;
@@ -1113,6 +1115,35 @@ function akiciBekleyenleriCoz(kayit) {
   if (kayit.kuyruk.length || kayit.zamanlayici) return;
   const liste = kayit.bekleyenler.splice(0);
   for (const coz of liste) coz();
+}
+
+// Akis sirasinda her parcada tam yeniden bicimlemek yerine kare basina
+// en fazla bir yazma planlar; kota ve model akisina dokunmaz.
+function icerikYazPlanla(b, metin) {
+  const kayit = akiciMetinKaydi(b);
+  kayit.bekleyenIcerik = String(metin || "");
+  if (kayit.raf || typeof requestAnimationFrame !== "function") {
+    if (typeof requestAnimationFrame !== "function") {
+      icerikYaz(b, kayit.bekleyenIcerik);
+      sohbetAlta(false);
+    }
+    return;
+  }
+  kayit.raf = requestAnimationFrame(() => {
+    kayit.raf = null;
+    icerikYaz(b, kayit.bekleyenIcerik);
+    sohbetAlta(false);
+  });
+}
+
+function icerikYazHemen(b, metin) {
+  const kayit = akiciMetinKaydi(b);
+  if (kayit.raf && typeof cancelAnimationFrame === "function") {
+    cancelAnimationFrame(kayit.raf);
+  }
+  kayit.raf = null;
+  icerikYaz(b, metin);
+  sohbetAlta(false);
 }
 
 function akiciPompayiBaslat(b, kayit) {
@@ -1137,8 +1168,7 @@ function akiciPompayiBaslat(b, kayit) {
     }
 
     kayit.gosterilen += ek;
-    icerikYaz(b, kayit.gosterilen);
-    sohbetAlta(false);
+    icerikYazPlanla(b, kayit.gosterilen);
 
     if (kayit.kuyruk.length) {
       kayit.zamanlayici = setTimeout(adim, azalt ? 0 : (kalan > 80 ? 16 : 30));
@@ -1159,8 +1189,7 @@ function akiciMetinEkle(b, parca, gercekParca = false) {
   if (gercekParca) {
     kayit.gercekParcaGeldi = true;
     kayit.gosterilen += metin;
-    icerikYaz(b, kayit.gosterilen);
-    sohbetAlta(false);
+    icerikYazPlanla(b, kayit.gosterilen);
     return;
   }
 
@@ -1196,7 +1225,7 @@ function akiciMetniFinaleTamamla(b, finalMetin) {
         kayit.kuyruk = [];
         if (kayit.zamanlayici) clearTimeout(kayit.zamanlayici);
         kayit.zamanlayici = null;
-        icerikYaz(b, final);
+        icerikYazHemen(b, final);
       }
     }
   }
@@ -1209,6 +1238,10 @@ function akiciMetniDurdur(b) {
   if (!kayit) return;
   if (kayit.zamanlayici) clearTimeout(kayit.zamanlayici);
   kayit.zamanlayici = null;
+  if (kayit.raf && typeof cancelAnimationFrame === "function") {
+    cancelAnimationFrame(kayit.raf);
+    kayit.raf = null;
+  }
   kayit.kuyruk = [];
   akiciBekleyenleriCoz(kayit);
 }
