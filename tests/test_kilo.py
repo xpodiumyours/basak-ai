@@ -144,10 +144,14 @@ class TestRegistryKarti:
 class TestUcretsizModelFallback:
     def test_dogrudan_tool_modelleri_auto_freeden_once(self):
         from brain.kilo import TERCIH_SIRASI
-        assert TERCIH_SIRASI.index("tencent/hy3:free") < (
+        # Dogrudan tool calisan (2026-10-04 olcumu) modeller otomatik
+        # yonlendiriciden once gelir.
+        assert TERCIH_SIRASI.index("qwen/qwen3.8-27b:free") < (
             TERCIH_SIRASI.index("kilo-auto/free"))
         assert TERCIH_SIRASI.index("poolside/laguna-s-2.1:free") < (
             TERCIH_SIRASI.index("kilo-auto/free"))
+        # Katalogdan silinmis olumlu model listede kalmaz (404 olcumu).
+        assert "tencent/hy3:free" not in TERCIH_SIRASI
 
     def test_model_gecici_hatasinda_siradaki_free_model_devralir(self):
         from brain.kilo import KiloClient
@@ -177,10 +181,10 @@ class TestUcretsizModelFallback:
         assert yanit["content"] == "tamam"
         assert cagrilar[:2] == [
             "stepfun/step-3.7-flash:free",
-            "tencent/hy3:free",
+            "qwen/qwen3.8-27b:free",
         ]
         # Sonraki arac turunda ayni basarili model once kullanilir.
-        assert istemci.model == "tencent/hy3:free"
+        assert istemci.model == "qwen/qwen3.8-27b:free"
 
     def test_ip_geneli_429da_model_degistirip_kota_yakmaz(self):
         from brain.kilo import KiloClient
@@ -242,7 +246,7 @@ class TestUcretsizModelFallback:
         assert yanit["tool_calls"][0]["function"]["name"] == "simdi"
         assert cagrilar[:2] == [
             "stepfun/step-3.7-flash:free",
-            "tencent/hy3:free",
+            "qwen/qwen3.8-27b:free",
         ]
 
     def test_string_reasoning_details_kilo_istegine_geri_gonderilmez(self):
