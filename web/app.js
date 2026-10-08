@@ -139,11 +139,28 @@ function kacis(s) {
 // Satir ici bicim. Girdi ONCEDEN kacis()'tan gecmistir; burada uretilen
 // etiketler disinda HTML olusmaz. Baglanti yalniz http(s) adresine verilir.
 function satirIci(s) {
-  s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+  // Kod aralıklarını önce placeholder'a al; içerik biçimlendirilmez.
+  const kodlar = [];
+  s = s.replace(/`([^`\n]+)`/g, (m, ic) => {
+    kodlar.push(ic);
+    return "\u0000" + (kodlar.length - 1) + "\u0001";
+  });
+  // Markdown bağlantılarını placeholder'a al (otomatik link onları bozmasın).
+  const linkler = [];
+  s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, yazi, url) => {
+    linkler.push('<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + yazi + "</a>");
+    return "\u0002" + (linkler.length - 1) + "\u0003";
+  });
+  s = s.replace(/\*\*\*([^*]+)\*\*\*/g, "<strong><em>$1</em></strong>");
   s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   s = s.replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?![*\w])/g, "$1<em>$2</em>");
-  s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  s = s.replace(/(^|[^_\w])_([^_\s][^_]*?)_(?![_\w])/g, "$1<em>$2</em>");
+  s = s.replace(/~~([^~]+)~~/g, "<del>$1</del>");
+  // Çıplak URL'leri otomatik link yap.
+  s = s.replace(/(^|[\s(])(https?:\/\/[^\s<>)]+)/g,
+    '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+  s = s.replace(/\u0002(\d+)\u0003/g, (m, i) => linkler[i]);
+  s = s.replace(/\u0000(\d+)\u0001/g, (m, i) => "<code>" + kodlar[i] + "</code>");
   return s;
 }
 
@@ -151,15 +168,16 @@ function basitBicimle(metin) {
   let h = kacis(metin);
   h = h.replace(/`([^`\n]+)`/g, "<code>$1</code>");
   h = h.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  h = h.replace(/~~([^~]+)~~/g, "<del>$1</del>");
   return h.replace(/\n/g, "<br>");
 }
 
-const TABLO_SATIRI = /^\s*\|.*\|\s*$/;
-const TABLO_AYRACI = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/;
+const TABLO_AYRACI = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
 
 function tabloHucreleri(satir) {
-  return satir.trim().replace(/^\|/, "").replace(/\|$/, "").split("|")
-    .map((h) => satirIci(h.trim()));
+  return satir.trim().replace(/^\|/, "").replace(/\|$/, "")
+    .split(/(?<!\\)\|/)
+    .map((h) => satirIci(h.trim().replace(/\\\|/g, "|")));
 }
 
 // Model cevabindaki markdown'i gorunume cevirir: baslik, madde/numarali
@@ -187,38 +205,52 @@ function bicimle(metin) {
     const satir = satirlar[i];
 
     if (kod !== null) {
-      if (/^\s*```/.test(satir)) {
-        cikti.push("<pre><code>" + kod.join("\n") + "</code></pre>");
+      const kapanis = satir.match(/^(\s{0,3})(`{3,}|~{3,})\s*$/);
+      if (kapanis && kapanis[2][0] === kod.isaret &&
+          kapanis[2].length >= kod.uzunluk) {
+        cikti.push("<pre><code>" + kod.satirlar.join("\n") + "</code></pre>");
         kod = null;
       } else {
-        kod.push(satir);
+        kod.satirlar.push(satir);
       }
       continue;
     }
-    if (/^\s*```/.test(satir)) {
+    const acilis = satir.match(/^(\s{0,3})(`{3,}|~{3,})/);
+    if (acilis) {
       paragrafKapat(); listeleriKapat();
-      kod = [];
+      kod = {
+        satirlar: [],
+        isaret: acilis[2][0],
+        uzunluk: acilis[2].length,
+      };
       continue;
     }
 
-    if (TABLO_SATIRI.test(satir) && i + 1 < satirlar.length &&
+    if (satir.indexOf("|") !== -1 && i + 1 < satirlar.length &&
         TABLO_AYRACI.test(satirlar[i + 1])) {
-      paragrafKapat(); listeleriKapat();
       const basliklar = tabloHucreleri(satir);
-      const govde = [];
-      i += 2;
-      while (i < satirlar.length && TABLO_SATIRI.test(satirlar[i])) {
-        govde.push(tabloHucreleri(satirlar[i]));
-        i++;
+      const ayraclar = tabloHucreleri(satirlar[i + 1]);
+      if (basliklar.length === ayraclar.length) {
+        paragrafKapat(); listeleriKapat();
+        const govde = [];
+        i += 2;
+        while (i < satirlar.length && satirlar[i].indexOf("|") !== -1 &&
+               satirlar[i].trim() !== "") {
+          let hucreler = tabloHucreleri(satirlar[i]);
+          while (hucreler.length < basliklar.length) hucreler.push("");
+          hucreler = hucreler.slice(0, basliklar.length);
+          govde.push(hucreler);
+          i++;
+        }
+        i--;
+        cikti.push('<div class="tablo-kap"><table><thead><tr>' +
+          basliklar.map((h) => "<th>" + h + "</th>").join("") +
+          "</tr></thead><tbody>" +
+          govde.map((s) => "<tr>" + s.map((h) => "<td>" + h + "</td>")
+            .join("") + "</tr>").join("") +
+          "</tbody></table></div>");
+        continue;
       }
-      i--;
-      cikti.push('<div class="tablo-kap"><table><thead><tr>' +
-        basliklar.map((h) => "<th>" + h + "</th>").join("") +
-        "</tr></thead><tbody>" +
-        govde.map((s) => "<tr>" + s.map((h) => "<td>" + h + "</td>")
-          .join("") + "</tr>").join("") +
-        "</tbody></table></div>");
-      continue;
     }
 
     if (/^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(satir)) {
@@ -255,7 +287,27 @@ function bicimle(metin) {
         cikti.push("<" + tip + baslangic + "><li>");
         listeler.push({ tip, girinti });
       }
-      cikti.push(satirIci(madde[4]));
+      const gorev = madde[4].match(/^\[( |x|X)\]\s+(.*)$/);
+      if (gorev) {
+        cikti.push('<input type="checkbox" disabled' +
+          (gorev[1] !== " " ? " checked" : "") + "> " +
+          satirIci(gorev[2]));
+      } else {
+        cikti.push(satirIci(madde[4]));
+      }
+      continue;
+    }
+
+    if (/^\s*&gt;/.test(satir)) {
+      paragrafKapat(); listeleriKapat();
+      const satirlarAlinti = [];
+      let j = i;
+      while (j < satirlar.length && /^\s*&gt;/.test(satirlar[j])) {
+        satirlarAlinti.push(satirIci(satirlar[j].replace(/^\s*&gt;\s?/, "")));
+        j++;
+      }
+      cikti.push("<blockquote><p>" + satirlarAlinti.join("<br>") + "</p></blockquote>");
+      i = j - 1;
       continue;
     }
 
@@ -274,7 +326,7 @@ function bicimle(metin) {
   }
 
   if (kod !== null) {
-    cikti.push("<pre><code>" + kod.join("\n") + "</code></pre>");
+    cikti.push("<pre><code>" + kod.satirlar.join("\n") + "</code></pre>");
   }
   paragrafKapat();
   listeleriKapat();
@@ -1104,6 +1156,8 @@ function akiciMetinKaydi(b) {
     zamanlayici: null,
     bekleyenler: [],
     gercekParcaGeldi: false,
+    raf: null,
+    bekleyenIcerik: "",
   };
   metinAkislari.set(b, kayit);
   return kayit;
@@ -1113,6 +1167,35 @@ function akiciBekleyenleriCoz(kayit) {
   if (kayit.kuyruk.length || kayit.zamanlayici) return;
   const liste = kayit.bekleyenler.splice(0);
   for (const coz of liste) coz();
+}
+
+// Akis sirasinda her parcada tam yeniden bicimlemek yerine kare basina
+// en fazla bir yazma planlar; kota ve model akisina dokunmaz.
+function icerikYazPlanla(b, metin) {
+  const kayit = akiciMetinKaydi(b);
+  kayit.bekleyenIcerik = String(metin || "");
+  if (kayit.raf || typeof requestAnimationFrame !== "function") {
+    if (typeof requestAnimationFrame !== "function") {
+      icerikYaz(b, kayit.bekleyenIcerik);
+      sohbetAlta(false);
+    }
+    return;
+  }
+  kayit.raf = requestAnimationFrame(() => {
+    kayit.raf = null;
+    icerikYaz(b, kayit.bekleyenIcerik);
+    sohbetAlta(false);
+  });
+}
+
+function icerikYazHemen(b, metin) {
+  const kayit = akiciMetinKaydi(b);
+  if (kayit.raf && typeof cancelAnimationFrame === "function") {
+    cancelAnimationFrame(kayit.raf);
+  }
+  kayit.raf = null;
+  icerikYaz(b, metin);
+  sohbetAlta(false);
 }
 
 function akiciPompayiBaslat(b, kayit) {
@@ -1137,8 +1220,7 @@ function akiciPompayiBaslat(b, kayit) {
     }
 
     kayit.gosterilen += ek;
-    icerikYaz(b, kayit.gosterilen);
-    sohbetAlta(false);
+    icerikYazPlanla(b, kayit.gosterilen);
 
     if (kayit.kuyruk.length) {
       kayit.zamanlayici = setTimeout(adim, azalt ? 0 : (kalan > 80 ? 16 : 30));
@@ -1159,8 +1241,7 @@ function akiciMetinEkle(b, parca, gercekParca = false) {
   if (gercekParca) {
     kayit.gercekParcaGeldi = true;
     kayit.gosterilen += metin;
-    icerikYaz(b, kayit.gosterilen);
-    sohbetAlta(false);
+    icerikYazPlanla(b, kayit.gosterilen);
     return;
   }
 
@@ -1196,7 +1277,7 @@ function akiciMetniFinaleTamamla(b, finalMetin) {
         kayit.kuyruk = [];
         if (kayit.zamanlayici) clearTimeout(kayit.zamanlayici);
         kayit.zamanlayici = null;
-        icerikYaz(b, final);
+        icerikYazHemen(b, final);
       }
     }
   }
@@ -1209,6 +1290,10 @@ function akiciMetniDurdur(b) {
   if (!kayit) return;
   if (kayit.zamanlayici) clearTimeout(kayit.zamanlayici);
   kayit.zamanlayici = null;
+  if (kayit.raf && typeof cancelAnimationFrame === "function") {
+    cancelAnimationFrame(kayit.raf);
+    kayit.raf = null;
+  }
   kayit.kuyruk = [];
   akiciBekleyenleriCoz(kayit);
 }
