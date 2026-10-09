@@ -745,6 +745,12 @@ class Brain:
                 e.kaynak = ad
                 raise
             except CikisKesildi as e:
+                if not gorunen:
+                    # Kesik yanit metin tasimiyorsa basari degildir
+                    # (dusunme jetonlari bitip content bos kalabilir):
+                    # hicbir sey gosterilmedigi icin yedek zincir devralir.
+                    logger.info("%s kesik-bos dondu, siradaki deneniyor", ad)
+                    continue
                 e.kaynak = ad
                 raise
             except Exception as e:

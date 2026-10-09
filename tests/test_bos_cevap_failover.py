@@ -28,9 +28,10 @@ from brain.yayin import SonHata
 class SahteAkis:
     """OpenAI SDK taklidi: stream cagrisini donen parcalari uretir."""
 
-    def __init__(self, parcalar, kopma=None):
+    def __init__(self, parcalar, kopma=None, bitis="stop"):
         self.parcalar = list(parcalar)
         self.kopma = kopma
+        self.bitis = bitis
         self.giden = None
 
     @property
@@ -46,7 +47,13 @@ class SahteAkis:
             yield SimpleNamespace(choices=[SimpleNamespace(
                 delta=SimpleNamespace(content=p, tool_calls=None,
                                       reasoning_content=None),
-                finish_reason="stop")])
+                finish_reason=None)])
+        # Son chunk: bitis nedeni burada tasinir (akit CikisKesildi'yi
+        # buna bakarak firlatir).
+        yield SimpleNamespace(choices=[SimpleNamespace(
+            delta=SimpleNamespace(content=None, tool_calls=None,
+                                  reasoning_content=None),
+            finish_reason=self.bitis)])
         if self.kopma is not None:
             raise self.kopma
 
@@ -105,6 +112,44 @@ def test_yari_akis_kesilirse_sonhata_ikileme_yok(monkeypatch, tmp_path):
         raise AssertionError("yari akis kesilmesi SonHata olmali")
     # Ikinci saglayici HIC aranmamali (metin ikilenmesin).
     assert zincir[1][1].client.giden is None
+
+
+def test_kesik_bos_akis_sonraki_saglayiciye_gecer(monkeypatch, tmp_path):
+    """finish_reason=length ama metin hic gelmediyse basari degildir.
+
+    (2026-10-10 canli: GLM thinking jetonlari bitince content bos,
+    bitis nedeni 'length' ile donuyordu — kullaniciya bos balon iniyordu.)
+    """
+    bos_kesik = SahteAkis([], bitis="length")
+    dolu = SahteAkis(["cevap"])
+    zincir = [("groq", SimpleNamespace(client=bos_kesik, model="m1")),
+              ("gemini", SimpleNamespace(client=dolu, model="m2"))]
+    b = _hazirla(monkeypatch, tmp_path, zincir)
+
+    parcalar = list(b.cevapla_yayin(
+        [{"role": "user", "content": "selam"}], None, tools=None))
+
+    assert parcalar == [("gemini", "cevap")]
+
+
+def test_akan_kesik_bos_none_doner_failover_yoluna_duser():
+    """akan_ajan_adimi kesik-bos yaniti basari saymaz, None doner."""
+    from chat.output_control import akan_ajan_adimi
+    from brain.yayin import CikisKesildi
+
+    class Beyin:
+        def cevapla_yayin(self, *a, **k):
+            def _g():
+                raise CikisKesildi("length", kaynak="glm")
+                yield
+            return _g()
+
+    yanit, kaynak, ok = akan_ajan_adimi(
+        Beyin(), None, [{"role": "user", "content": "x"}],
+        lambda _x: None, [],
+    )
+    assert yanit is None
+    assert ok is False
 
 
 def test_aracsiz_tek_seferlik_bos_yanit_failover(monkeypatch, tmp_path):

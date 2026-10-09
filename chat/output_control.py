@@ -119,6 +119,11 @@ def akan_ajan_adimi(brain, model, mesajlar, js_callback, tools,
             ham, js_callback=js_callback,
             tercih=[kaynak] if kaynak else tercih,
         )
+        if not (tam or "").strip():
+            # Kesik yanit metin tasimiyorsa basari degildir; cagiran
+            # tek-seferlik failover yoluna dussun (yanit=None) — bos
+            # balon yerine yedek zincir denenir.
+            return None, "", False
         return {
             "content": tam,
             "_streamed": True,
