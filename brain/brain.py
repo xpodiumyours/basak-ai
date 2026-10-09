@@ -611,17 +611,18 @@ class Brain:
                     if not araclar:
                         raise RuntimeError(
                             "ajan protokolu: saglayici tool-call dondurmedi")
-                # Faz 4: tools gonderildiyse bos yanit basari degildir —
-                # siradaki saglayici denenir (aptallasma kapisi; icerik
-                # siniflandirmasi yok, yalniz bosluk denetimi).
-                if tools:
-                    araclar = (yanit.get("tool_calls")
-                               if isinstance(yanit, dict) else None)
-                    icerik = (yanit.get("content") or ""
-                              if isinstance(yanit, dict) else str(yanit or ""))
-                    if not araclar and not icerik.strip():
-                        raise RuntimeError(
-                            "bos yanit (ne tool-call ne metin)")
+                # Faz 4: bos yanit basari degildir — siradaki saglayici
+                # denenir (aptallasma kapisi; icerik siniflandirmasi yok,
+                # yalniz bosluk denetimi). Aracli/aracsiz her cagri kapsanir:
+                # bos cevap "basarili" sayilinca kullaniciya bos balon duser
+                # (2026-10-10 canli olcumu: 4/20 tur bos cevap).
+                araclar = (yanit.get("tool_calls")
+                           if isinstance(yanit, dict) else None)
+                icerik = (yanit.get("content") or ""
+                          if isinstance(yanit, dict) else str(yanit or ""))
+                if not araclar and not icerik.strip():
+                    raise RuntimeError(
+                        "bos yanit (ne tool-call ne metin)")
                 sure = time.time() - t0
                 _audit("OK kaynak=%s | %.1f sn | tools=%s | %s" %
                        (ad, sure, bool(tools), gerekce))
@@ -706,6 +707,7 @@ class Brain:
                 continue
             if _cooldown_kaldi(ad) > 0:
                 continue
+            gorunen = 0  # ekrana ulasan karakter sayisi (bos akis denetimi)
             try:
                 ham = getattr(istemci, "client", None)
                 model = getattr(istemci, "model", None)
@@ -719,16 +721,24 @@ class Brain:
                 giden = (messages if ad == "cohere"
                          else mesajlari_temizle(messages, provider=ad))
                 uretici = akit(ham, model, giden, tools=tools)
-                basladi = False  # akis ortasi kopma takibi
                 token_out = 0
                 for parca in uretici:
-                    basladi = True
-                    token_out += max(1, len(parca) // 4)
-                    yield ad, parca
-                if basladi:
-                    # Akis basarisi + yaklasik cikis token'i yaz (butce).
-                    istat.kaydet(ad, 0.0, basarili=True, tools=bool(tools),
-                                 token_in=0, token_out=token_out)
+                    metin = (parca if isinstance(parca, str)
+                             else str(parca) if parca is not None else "")
+                    if not metin:
+                        continue
+                    gorunen += len(metin)
+                    token_out += max(1, len(metin) // 4)
+                    yield ad, metin
+                if not gorunen:
+                    # Faz 4 kuralinin akis karsiligi: hic metin uretmeyen
+                    # akis basari degildir. Asagidaki except blogu bunu
+                    # hata sayar ve siradaki saglayiciyi dener — cevaba
+                    # dokunulmaz, yalniz bosluk sayilir.
+                    raise RuntimeError("bos akis (metin uretilmedi)")
+                # Akis basarisi + yaklasik cikis token'i yaz (butce).
+                istat.kaydet(ad, 0.0, basarili=True, tools=bool(tools),
+                             token_in=0, token_out=token_out)
                 _audit("OK kaynak=%s | akis | %s" % (ad, gerekce))
                 return
             except _Arac as e:
@@ -741,7 +751,7 @@ class Brain:
                 hata = str(e)
                 # Akis ORTASINDA kopma: UI'da yari metin var, baska
                 # saglayiciyla devam ETME (metin ikilenir). Dogrudan hata.
-                if basladi:
+                if gorunen:
                     _audit("AKIS KOPTU kaynak=%s: %s" % (ad, hata))
                     raise SonHata("cevap yolda kesildi (%s)" % ad)
                 logger.warning("%s akis hatasi: %s", ad, hata)
