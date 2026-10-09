@@ -261,6 +261,54 @@ def _bekleme_suresi(hata):
     return None
 
 
+def _kota_ongorulu_sira(sirali, istat):
+    """Kota/hiz ongorulu deneme sirasi (Casper talebi 2026-10-10).
+
+    Registry sirasi TABANDIR (secici.sec aynen durur; imzasi testlerle
+    kilitli). Bu fonksiyon yalniz OLCULMUS teknik gerceklerle yeniden dizer:
+      1) yerel kota dolu veya cooldown'daki sona (dongu bunlari zaten
+         atlar — sira onlari one koymaz),
+      2) token butcesi dolmaya yakin olan sona (gunluk_token'a oran —
+         bitmek uzere olani korumak icin az tuketen once),
+      3) olculen basari+hiz skoru yuksek olan one (stats.siralama, 24 sa).
+    Esitlikte registry sirasi korunur (sorted kararli). Ad/kisi/kelime
+    kurali YOK: yalniz olcum verisi. Olcum verisi yoksa/bozuksa girdi
+    sirasi aynen doner (fail-safe).
+    """
+    try:
+        skorlar = {r["model"]: i for i, r in
+                   enumerate(istat.siralama(son_saat=24))}
+    except Exception:
+        logger.debug("kota ongorulu siralama skorsuz devam", exc_info=True)
+        skorlar = {}
+
+    def _anahtar(ad):
+        tukenmis = 0
+        try:
+            if _yerel_kota_doldu(ad, istat) or _cooldown_kaldi(ad) > 0:
+                tukenmis = 1
+        except Exception:
+            logger.debug("kota durumu okunamadi, tukenmemis sayildi",
+                         exc_info=True)
+        doluluk = 0.0
+        try:
+            kart = registry.kart(ad) or {}
+            butce = kart.get("gunluk_token")
+            if butce:
+                giris, cikis = istat.token_bugun(ad)
+                doluluk = min(1.0, (giris + cikis) / float(butce))
+        except Exception:
+            logger.debug("token dolulugu okunamadi", exc_info=True)
+        return (tukenmis, round(doluluk, 2), skorlar.get(ad, len(skorlar)))
+
+    try:
+        sirali = sorted(sirali, key=_anahtar)
+    except Exception:
+        logger.debug("siralama basarisiz, registry sirasi korunuyor",
+                     exc_info=True)
+    return list(sirali), "kota ongorulu siralama (registry+kota+olcum)"
+
+
 def _yerel_kota_doldu(ad, istat):
     """Yalniz kesin ve hesaptan bagimsiz ucretsiz kotalari yerelde korur.
 
@@ -552,8 +600,10 @@ class Brain:
             gerekce = "acik tercihle siralandi"
         else:
             # Sağlayıcı sırası yalnız teknik registry/fallback sırasıdır;
-            # kullanıcı metni veya görev türü burada yorumlanmaz.
+            # kullanıcı metni veya görev türü burada yorumlanmaz. Registry
+            # TABANDIR; kota/hiz ongorusuyle olcum verisine gore dizilir.
             sirali, gerekce = secici.sec(mevcutlar=mevcutlar)
+            sirali, gerekce = _kota_ongorulu_sira(sirali, model_stats_al(state_dir()))
 
         istemciler = dict(zincir)
         hatalar = []
@@ -562,7 +612,7 @@ class Brain:
             istemci = istemciler.get(ad)
             if istemci is None:
                 continue
-            istat = model_stats_al()
+            istat = model_stats_al(state_dir())
 
             # Resmi sabit ucretsiz limit yerel kayitta dolduysa yeni istek
             # atma. Bu bir model/routing karari degil, kota korumasidir.
@@ -691,6 +741,7 @@ class Brain:
             gerekce = "acik tercihle siralandi"
         else:
             sirali, gerekce = _secici.sec(mevcutlar=mevcutlar)
+            sirali, gerekce = _kota_ongorulu_sira(sirali, model_stats_al(state_dir()))
 
         istemciler = dict(zincir)
         hatalar = []
@@ -699,7 +750,7 @@ class Brain:
             if istemci is None:
                 continue
             # Faz 4: akis yolunda da yerel kota korumasi (tam yolla ayni).
-            istat = model_stats_al()
+            istat = model_stats_al(state_dir())
             kota_nedeni = _yerel_kota_doldu(ad, istat)
             if kota_nedeni:
                 logger.info("%s akis %s, atlandi", ad, kota_nedeni)
