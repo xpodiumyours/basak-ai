@@ -1,0 +1,49 @@
+{
+  "taban": "http://127.0.0.1:8123",
+  "zaman": "2026-10-10 01:43:16",
+  "turlar": [
+    {
+      "ilk_olay_sn": 0.02,
+      "ttft_sn": 1.39,
+      "toplam_sn": 2.52,
+      "failover_sayisi": 0,
+      "failoverlar": [],
+      "kaynak": "groq",
+      "bos_cevap": false,
+      "ad": "3_yuzde"
+    },
+    {
+      "ilk_olay_sn": 0.01,
+      "ttft_sn": 52.7,
+      "toplam_sn": 54.12,
+      "failover_sayisi": 2,
+      "failoverlar": [
+        "gemini cevap veremedi — siradaki beyin deneniyor",
+        "kilo cevap veremedi — siradaki beyin deneniyor"
+      ],
+      "kaynak": "nvidia",
+      "bos_cevap": false,
+      "ad": "2_base64"
+    },
+    {
+      "ilk_olay_sn": 0.01,
+      "ttft_sn": 2.0,
+      "toplam_sn": 26.38,
+      "failover_sayisi": 3,
+      "failoverlar": [
+        "groq cevap veremedi — siradaki beyin deneniyor",
+        "glm cevap veremedi — siradaki beyin deneniyor",
+        "groq atlandi (kisa sure once hata aldi) — siradaki beyin deneniyor"
+      ],
+      "kaynak": "nvidia",
+      "bos_cevap": false,
+      "ad": "1_sha256"
+    }
+  ],
+  "ozet": {
+    "tur": 3,
+    "ttft_ort": 18.7,
+    "ttft_medyan": 2.0,
+    "failover_toplam": 5
+  }
+}

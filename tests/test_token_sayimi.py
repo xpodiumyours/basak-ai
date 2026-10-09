@@ -93,7 +93,8 @@ class TestBrainKablolama:
         from brain.brain import Brain
 
         istat = ModelIstatistik(db_yolu=str(tmp_path / "ist.db"))
-        monkeypatch.setattr(brain_mod, "model_stats_al", lambda: istat)
+        monkeypatch.setattr(brain_mod, "model_stats_al",
+                            lambda *a, **k: istat)
 
         b = Brain.__new__(Brain)   # __init__ agirliklari olmadan
         for ad in ("_glm", "_cloudflare", "_cohere", "_nvidia", "_kilo",

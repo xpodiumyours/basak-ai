@@ -203,13 +203,24 @@ class ModelIstatistik:
         if not ozet:
             return []
 
-        # Hız skoru: en hızlıya 100, en yavaşa 0
-        min_ortalama = min(r["ortalama_ms"] for r in ozet if r["ortalama_ms"] > 0) or 1
-        max_ortalama = max(r["ortalama_ms"] for r in ozet if r["ortalama_ms"] > 0) or 1
+        # Hız skoru: en hızlıya 100, en yavaşa 0. Olculmus sure yoksa
+        # (tum kayitlar 0ms: hizli atlama/hata kayitlari) min() patlar —
+        # bu yuzden hiz karsilastirmasi atlanir, yalniz basari siralar
+        # (2026-10-10: olu kod oldugu icin gorulmemis gercek veri seklinde
+        # crash; kota ongorulu siralama buna dayanir).
+        olculen = [r["ortalama_ms"] for r in ozet
+                   if r["ortalama_ms"] and r["ortalama_ms"] > 0]
+        if not olculen:
+            for r in ozet:
+                r["hiz_skoru"] = 0
+                r["skor"] = round(r["basari_orani"] * 0.6, 1)
+            return sorted(ozet, key=lambda r: r["skor"], reverse=True)
+        min_ortalama = min(olculen) or 1
+        max_ortalama = max(olculen) or 1
         fark = max_ortalama - min_ortalama or 1
 
         for r in ozet:
-            if r["ortalama_ms"] > 0:
+            if r["ortalama_ms"] and r["ortalama_ms"] > 0:
                 hiz_skoru = 100 * (1 - (r["ortalama_ms"] - min_ortalama) / fark)
             else:
                 hiz_skoru = 0
@@ -276,18 +287,38 @@ class ModelIstatistik:
                 conn.close()
 
 
-# --- Singleton ---
+# --- Singleton (acik dizin oncelikli) ---
 _stats = None
+_stats_yolu = None
 _stats_lock = threading.Lock()
 
 
-def model_stats_al() -> ModelIstatistik:
-    """Singleton ModelIstatistik örneği döndürür."""
-    global _stats
-    if _stats is not None:
-        return _stats
-    with _stats_lock:
+def model_stats_al(db_dizini=None) -> ModelIstatistik:
+    """Singleton ModelIstatistik örneği döndürür.
+
+    - db_dizini VERİLİRSE o kök kullanılır: brain state_dir()'ini verir;
+      testler STATE_DIR'i tmp'ye çevirince istatistik de oraya yazılır
+      (yalıtık, deterministik). Üretimde çözümlenmiş yol aynıdır.
+    - VERİLMEZSE eski sözleşme: conftest tohumu (test) veya gerçek DB.
+    (2026-10-10: sabit tekil nesne gerçek DB'yi paylaştığı için kota
+    öngörülü sıralama testleri makine verisine bağımlı kalıyordu.)
+    """
+    global _stats, _stats_yolu
+    if db_dizini is None:
         if _stats is not None:
             return _stats
-        _stats = ModelIstatistik()
+        yol = os.path.join(DB_DIR, "model_stats.db")
+    else:
+        yol = os.path.join(db_dizini, "model_stats.db")
+        if _stats is not None and _stats_yolu == yol:
+            return _stats
+    with _stats_lock:
+        if db_dizini is None:
+            if _stats is not None:
+                return _stats
+        elif _stats is not None and _stats_yolu == yol:
+            return _stats
+        os.makedirs(os.path.dirname(yol), exist_ok=True)
+        _stats = ModelIstatistik(db_yolu=yol)
+        _stats_yolu = yol
         return _stats

@@ -1,0 +1,42 @@
+{
+  "taban": "http://127.0.0.1:8123",
+  "zaman": "2026-10-10 01:55:09",
+  "turlar": [
+    {
+      "ilk_olay_sn": 3.59,
+      "ttft_sn": 4.72,
+      "toplam_sn": 5.44,
+      "failover_sayisi": 0,
+      "failoverlar": [],
+      "kaynak": "groq",
+      "bos_cevap": false,
+      "ad": "3_yuzde"
+    },
+    {
+      "ilk_olay_sn": 0.01,
+      "ttft_sn": 5.58,
+      "toplam_sn": 6.36,
+      "failover_sayisi": 0,
+      "failoverlar": [],
+      "kaynak": "groq",
+      "bos_cevap": false,
+      "ad": "2_base64"
+    },
+    {
+      "ilk_olay_sn": 0.03,
+      "ttft_sn": 1.36,
+      "toplam_sn": 27.64,
+      "failover_sayisi": 0,
+      "failoverlar": [],
+      "kaynak": "glm",
+      "bos_cevap": false,
+      "ad": "1_sha256"
+    }
+  ],
+  "ozet": {
+    "tur": 3,
+    "ttft_ort": 3.89,
+    "ttft_medyan": 4.72,
+    "failover_toplam": 0
+  }
+}
