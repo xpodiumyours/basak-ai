@@ -59,7 +59,8 @@ class SayanBeyin:
     def bulut_musait(self):
         return True
 
-    def cevapla(self, mesajlar, model=None, tools=None, tool_choice=None):
+    def cevapla(self, mesajlar, model=None, tools=None, tool_choice=None,
+                **kw):
         self.cagri += 1
         return {"content": "cevap %d" % self.cagri}, "sahte"
 

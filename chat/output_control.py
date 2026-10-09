@@ -12,6 +12,26 @@ def _j(obj):
     return json.dumps(obj, ensure_ascii=False)
 
 
+def durum_gozlemcisi(js_callback):
+    """Beyin zincirinin teknik durumunu (kota atlama, yedek beyin) olay
+    olarak yayinlar; web SSE'de tur="durum" olarak duser.
+
+    Kullanici metnine bakilmaz; yalnizca zincirin kendi gercekleri
+    tasinir. Bildirim hicbir yolda zinciri KIRAMAZ — yalnizca gostergedir.
+    js_callback.olay desteklemiyorsa (masaustu tek callable) None doner.
+    """
+    yay = getattr(js_callback, "olay", None)
+    if not callable(yay):
+        return None
+
+    def _goster(metin):
+        try:
+            yay("durum", metin=str(metin))
+        except Exception:
+            logger.debug("durum olayi yayinlanamadi", exc_info=True)
+    return _goster
+
+
 def kesik_mi(yanit):
     return isinstance(yanit, dict) and str(
         yanit.get("_finish_reason") or ""
@@ -51,7 +71,8 @@ def akan_final(brain, model, mesajlar, js_callback, tercih=None):
     parcalar, kaynak = [], ""
     try:
         for kaynak, parca in yayin(
-                mesajlar, model, tercih=tercih, tools=None):
+                mesajlar, model, tercih=tercih, tools=None,
+                durum=durum_gozlemcisi(js_callback)):
             parca = parca if isinstance(parca, str) else str(parca or "")
             if not parca:
                 continue
@@ -88,7 +109,8 @@ def akan_ajan_adimi(brain, model, mesajlar, js_callback, tools,
     kaynak = ""
     try:
         for kaynak, parca in yayin(
-                mesajlar, model, tercih=tercih, tools=tools):
+                mesajlar, model, tercih=tercih, tools=tools,
+                durum=durum_gozlemcisi(js_callback)):
             parca = parca if isinstance(parca, str) else str(parca or "")
             if not parca:
                 continue

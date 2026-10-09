@@ -21,7 +21,8 @@ from chat.agent_runtime import (
 )
 from chat.agent_protocol import baslangic_araclari
 from chat.output_control import (
-    akan_ajan_adimi, akan_final, kesik_cevabi_bildir, kesik_mi,
+    akan_ajan_adimi, akan_final, durum_gozlemcisi, kesik_cevabi_bildir,
+    kesik_mi,
 )
 from chat import context as ctx
 from chat.gate import temizle as _temizle
@@ -437,7 +438,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         try:
             if yanit is None:
                 yanit, kaynak = brain.cevapla(
-                    mesajlar, model, tools=ajan_tools, tool_choice=secim)
+                    mesajlar, model, tools=ajan_tools, tool_choice=secim,
+                    durum=durum_gozlemcisi(js_callback))
         except Exception as e:
             state.fail()
             emit_run_state(js_callback, state)
@@ -564,6 +566,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                         konusmaci, misafir=misafir, onbellekle=True)
                 return
             logger.info("Akis bos dondu, tek seferlik yola dusuluyor")
+            _durum = durum_gozlemcisi(js_callback)
+            if _durum:
+                _durum("Cevap yarida kaldi — yeniden deneniyor…")
         except AracIstegi as istek:
             # P0: streaming sirasinda modelin sectigi arac ve argumanlar
             # korunur; ayni soru ikinci kez modele dusundurulmez.
@@ -605,13 +610,17 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             logger.info("Model arac istedi — tam yola dusuluyor")
         except SonHata as e:
             logger.info("Akis acilamadi (%s) — tek seferlik yol", e.ozet)
+            _durum = durum_gozlemcisi(js_callback)
+            if _durum:
+                _durum("Yedek beyinlere geçiliyor…")
 
     # ── Tek seferlik yol ────────────────────────────────────────────
     # Akış hiç açılamadıysa buraya düşülür. Akış açılamadığı için
     # sağlayıcıdan başarılı çağrı gerçekleşmedi — kota yenmedi.
     try:
         yanit, kaynak = brain.cevapla(
-            mesajlar, model, tools=(etkin_tools or None))
+            mesajlar, model, tools=(etkin_tools or None),
+            durum=durum_gozlemcisi(js_callback))
     except Exception as e:
         js_callback("BasakUI.error(" + _j(
             _beyin_hata_mesaji(e, "Beyin hatasi: ")) + ")")

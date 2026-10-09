@@ -29,7 +29,7 @@ class BulutluBrain:
         return True
 
     def cevapla(self, messages, model=None, tools=None,
-                override_model=None):
+                override_model=None, **kw):
         assert model is None   # disaridan model adi tasinmaz
         return {"content": self._cevap}, "groq"
 

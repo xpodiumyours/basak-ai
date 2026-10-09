@@ -261,6 +261,20 @@ def _bekleme_suresi(hata):
     return None
 
 
+def _durum_ver(durum, metin):
+    """Zincirin teknik durumunu gostergeye bildirir (UI).
+
+    Yalnizca bilgi tasir; karar vermez, zinciri ASLA kiramaz (2026-10-10
+    sessiz-bekleme isi: kota kuyru/yedek beyin kullaniciya soylenmiyordu).
+    """
+    if not callable(durum):
+        return
+    try:
+        durum(metin)
+    except Exception:
+        logger.debug("durum bildirimi verilemedi", exc_info=True)
+
+
 def _yerel_kota_doldu(ad, istat):
     """Yalniz kesin ve hesaptan bagimsiz ucretsiz kotalari yerelde korur.
 
@@ -518,7 +532,7 @@ class Brain:
 
     def cevapla(self, messages, yerel_model=None, tools=None,
                 tercih=None, override_model=None, yapi=None,
-                tool_choice=None):
+                tool_choice=None, durum=None):
         """Mesajlara provider-neutral bulut zincirinden cevap verir.
 
         Akis: secici motoru sirayi belirler → deneme; hata verirse siradaki
@@ -570,12 +584,16 @@ class Brain:
             if kota_nedeni:
                 logger.info("%s %s, atlandi", ad, kota_nedeni)
                 _audit("KOTA kaynak=%s | %s" % (ad, kota_nedeni))
+                _durum_ver(durum, "%s atlandi (%s) — siradaki beyin "
+                           "deneniyor" % (ad, kota_nedeni))
                 continue
 
             # 429 / zaman asimi sonrasi saglayicinin reset suresince atla.
             kalan = _cooldown_kaldi(ad)
             if kalan > 0:
                 logger.info("%s cooldown (%.0f sn), atlandi", ad, kalan)
+                _durum_ver(durum, "%s atlandi (kisa sure once hata aldi) — "
+                           "siradaki beyin deneniyor" % ad)
                 continue
 
             t0 = time.time()
@@ -656,6 +674,8 @@ class Brain:
                 _audit("HATA kaynak=%s (%.1f sn): %s" %
                        (ad, sure, str(e)))
                 istat.kaydet(ad, sure, basarili=False, hata=str(e), tools=bool(tools))
+                _durum_ver(durum, "%s cevap veremedi — siradaki beyin "
+                           "deneniyor" % ad)
 
         # Tum bulutlar dustu → acik hata (yerel yedek yok — Faz 2).
         detay = "; ".join(hatalar) if hatalar else "bulut zinciri bos"
@@ -663,7 +683,7 @@ class Brain:
         raise ZincirHatasi(f"Hicbir model calismadi ({detay})", turler)
 
     def cevapla_yayin(self, messages, yerel_model=None, tercih=None,
-                      tools=None):
+                      tools=None, durum=None):
         """Akan cevap uretir: yield (kaynak, parca).
 
         Aracsiz duz sohbet icindir (tools=None). Model arac isterse
@@ -704,8 +724,12 @@ class Brain:
             if kota_nedeni:
                 logger.info("%s akis %s, atlandi", ad, kota_nedeni)
                 _audit("KOTA akis kaynak=%s | %s" % (ad, kota_nedeni))
+                _durum_ver(durum, "%s atlandi (%s) — siradaki beyin "
+                           "deneniyor" % (ad, kota_nedeni))
                 continue
             if _cooldown_kaldi(ad) > 0:
+                _durum_ver(durum, "%s atlandi (kisa sure once hata aldi) — "
+                           "siradaki beyin deneniyor" % ad)
                 continue
             gorunen = 0  # ekrana ulasan karakter sayisi (bos akis denetimi)
             try:
@@ -764,6 +788,8 @@ class Brain:
                 hatalar.append("%s: %s" % (ad, str(e)))
                 istat.kaydet(ad, 0.0, basarili=False, hata=str(e),
                              tools=bool(tools))
+                _durum_ver(durum, "%s cevap veremedi — siradaki beyin "
+                           "deneniyor" % ad)
                 if _rate_limit_mi(e):
                     _cooldown_ekle(ad, sure=_bekleme_suresi(e))
                 elif _zaman_asimi_mi(e):
