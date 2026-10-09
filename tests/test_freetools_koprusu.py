@@ -192,7 +192,8 @@ class TestFailOpen:
             raise RuntimeError("tarayici patladi")
 
         monkeypatch.setattr(kopru, "_tarayici_kos", patlar)
-        r = kopru.freetools_calistir("https://www.freetools.org/x/y")
+        r = kopru.freetools_calistir("https://www.freetools.org/x/y",
+                                    ["girdi"])
         assert "error" in r
         # diger arac aynen calisir
         r2 = calistir("simdi", {})
@@ -206,7 +207,8 @@ class TestFailOpen:
             raise TimeoutError("yavas")
 
         monkeypatch.setattr(kopru, "_tarayici_kos", uyuyan)
-        r = kopru.freetools_calistir("https://www.freetools.org/a/b")
+        r = kopru.freetools_calistir("https://www.freetools.org/a/b",
+                                    ["girdi"])
         assert "error" in r
 
 

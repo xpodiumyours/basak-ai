@@ -595,14 +595,15 @@ FREETOOLS_CALISTIR = _arac(
     "araclari etkilemez. Sunucuda tarayici yokken ayni islemi standart "
     "algoritmayla yerelde hesaplar ve bu durumu acikca yazar. Donen "
     "sonucta [Arac sayfasi: <adres>] satiri olur; kullaniciya o adresi "
-    "ver ki araci yeni sekmede kendisi de acabilsin.",
+    "ver ki araci yeni sekmede kendisi de acabilsin. form bos "
+    "birakilirsa sonuc uydurmaz, 'Girdi eksik' hatasi doner.",
     {"adres": {"type": "string",
                "description": "Arac sayfasi adresi (freetools_ara doner)"},
      "form": {"type": "array",
               "items": {"type": "string"},
               "description": "Sirayla doldurulacak giris degerleri "
-                             "(en fazla 8)"}},
-    ["adres"],
+                             "(en fazla 8); ilk deger aracin girdisidir"}},
+    ["adres", "form"],
 )
 
 TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,

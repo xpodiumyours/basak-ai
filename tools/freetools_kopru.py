@@ -401,6 +401,10 @@ def freetools_calistir(adres, form=None):
 
     adres: arac sayfasi (yalniz *.freetools.org)
     form:  sirayla doldurulacak giris degerleri (liste)
+
+    Girdi yoksa/eksikse sonuc UYDURMAZ: "Girdi eksik" hatasi doner.
+    (2026-10-10 canli kusuru: bos form'la calisan hash araci bos metnin
+    hash'ini "sonuc" diye donmus, model de kullaniciya uretildi demisti.)
     """
     adres = str(adres or "").strip()
     if not adres:
@@ -411,7 +415,12 @@ def freetools_calistir(adres, form=None):
 
     if not isinstance(form, (list, tuple)):
         form = [form] if form else []
-    form = [str(f) for f in form][:8]   # en fazla 8 giris alani
+    form = [str(f) for f in form if f is not None][:8]  # en fazla 8 giris
+    if not form or not form[0]:
+        # Girdi yoksa tarayici/kota/onbellek hic isle ugrasmaz; arac bos
+        # degerle hesap yapip "basardim" diye donmez.
+        return {"error": ("Girdi eksik: form alani bos. Araci calistirmak "
+                          "icin giris degerini form listesinde ver.")}
 
     anahtar = "%s|%s" % (adres, "\x1f".join(form))
     onbeldekiler = _onbellek_al(anahtar)

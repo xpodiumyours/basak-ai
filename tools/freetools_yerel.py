@@ -260,8 +260,14 @@ def hesapla(adres, form=None):
         return None
     if not isinstance(form, (list, tuple)):
         form = [form] if form else []
+    degerler = [str(f) for f in form if f is not None][:8]
+    if not degerler or not degerler[0]:
+        # Bos girdiyle hesapciyi calistirmak bos metnin sonucunu uretir ve
+        # "basarili" gorunur (canli kusur: e3b0c442...). Yerinde hata don.
+        return {"error": ("Girdi eksik: form alani bos. Araci calistirmak "
+                          "icin giris degerini form listesinde ver.")}
     try:
-        sonuc = fonksiyon([str(f) for f in form][:8])
+        sonuc = fonksiyon(degerler)
     except Exception:
         return {"error": "Yerel hesap başarısız: girdi okunamadı"}
     if sonuc is None:
