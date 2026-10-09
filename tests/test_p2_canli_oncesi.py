@@ -112,7 +112,8 @@ def test_gercek_provider_parcalari_ui_ya_aynen_akar():
     from chat.output_control import akan_final
 
     class Beyin:
-        def cevapla_yayin(self, mesajlar, model, tercih=None, tools=None):
+        def cevapla_yayin(self, mesajlar, model, tercih=None, tools=None,
+                          **kw):
             assert tools is None
             yield "groq", "Mer"
             yield "groq", "haba"

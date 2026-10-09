@@ -1318,6 +1318,30 @@ function olayiIsle(o) {
     // Sunucu bu olayi run boyunca birkac kez yayar; en sonuncusu gecerli.
     // Kullanici cumlesine BAKILMAZ; yalniz sunucunun saydigi arac sayisi.
     runDurumlari.set(no, { toolCount: Number(o.tool_count || 0) });
+    // Mola (sunucu suresi doldu, gorev surdurulecek): sessiz bekleme
+    // yerine acik soylensin (2026-10-10: 266 sn sessizlik olculdu).
+    if (String(o.status || "") === "paused") {
+      let b = balonlar.get(no);
+      if (!b) {
+        b = bubble("assistant", "");
+        balonlar.set(no, b);
+      }
+      durumSatiri(b, "Göreve ara verildi — kaldığı yerden devam edilecek…",
+                  "thinking");
+    }
+    return false;
+  }
+
+  if (o.tur === "durum") {
+    // Sunucunun gercek teknik durumu: kota atlama / yedek beyin / yeniden
+    // deneme. Tahmin degil, zincirin kendi karari (chat/output_control.py
+    // durum_gozlemcisi).
+    let b = balonlar.get(no);
+    if (!b) {
+      b = bubble("assistant", "");
+      balonlar.set(no, b);
+    }
+    durumSatiri(b, String(o.metin || "Çalışılıyor…"), "thinking");
     return false;
   }
 

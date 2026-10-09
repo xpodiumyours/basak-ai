@@ -182,7 +182,8 @@ def test_onbellekten_donen_cevapta_da_sinyal_var(izole):
 class _AkanAracsizBrain(_AracsizBrain):
     """Cevap KELIME KELIME akar (gercek stream yolu), arac kosmaz."""
 
-    def cevapla_yayin(self, mesajlar, model=None, tercih=None, tools=None):
+    def cevapla_yayin(self, mesajlar, model=None, tercih=None, tools=None,
+                      **kw):
         for parca in ("duz ", "akan ", "cevap"):
             yield "groq", parca
 
@@ -206,7 +207,8 @@ class _AkanAracliBrain(_AracsizBrain):
             kaynak="groq",
         )
 
-    def cevapla_yayin(self, mesajlar, model=None, tercih=None, tools=None):
+    def cevapla_yayin(self, mesajlar, model=None, tercih=None, tools=None,
+                      **kw):
         self.tur += 1
         if self.tur == 1:
             self._istek("yetenek_ac", {"alanlar": ["hesap"]}, "c1")
