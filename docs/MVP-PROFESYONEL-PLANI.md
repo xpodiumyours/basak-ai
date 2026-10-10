@@ -88,10 +88,11 @@ sorusuyla uçtan uca koşmuş bir sohbet kaydımız yok.
 
 ### P0 — KANIT (MVP'yi kapatır; profesyonelliğin ön koşulu)
 
-- [ ] **P0.1** Sağlayıcı kabulünü CI'da yeniden aç: `test.yml:96`'daki ölü
+- [x] **P0.1** Sağlayıcı kabulünü CI'da yeniden aç: `test.yml:96`'daki ölü
   dal koşulu yerine etiket veya `workflow_dispatch`. ⚠️ **Kapsam notu:**
   gizli depoda Actions dakikası sınırlı; hangi tetikleyici seçilecek
-  **Casper kararıdır**.
+  **Casper kararıdır**. *(Doğrulandı: `workflow_dispatch` + `kabul-matrisi`
+  etiketi + haftalık schedule; `tests/test_kabul_matrisi_tetikleyici.py` 21/21 yeşil.)*
 - [ ] **P0.2** `tests/live --live` paketini anahtarlı bir ortamda (Vercel
   Production veya yerel) **bir kez kayıtlı koş**; `data/canli-rapor/`
   çıktısını plana ekle. Sonuç ne olursa olsun **yazılır** — başarısız
