@@ -129,8 +129,8 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   grid-template-rows:auto minmax(0,1fr);
 }
 .topbar{
-  height:60px;
-  padding:0 18px;
+  height:56px;
+  padding:0 24px;
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -146,7 +146,7 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   min-width:0;
   color:#4b4b50;
 }
-.topbar-title strong{font-size:13px}
+.topbar-title strong{font-size:14.5px;font-weight:600;color:#1c1c21}
 .ready-inline{
   display:inline-flex;align-items:center;gap:6px;
   color:#8b8b92;font-size:11px;
@@ -317,9 +317,9 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   background:#34343a;box-shadow:0 0 0 0 rgba(52,52,58,.18);
   animation:basak-pulse 1.8s ease-out infinite
 }
-.work-title{font-size:13.5px;line-height:1.35;color:#303036;font-weight:700}
+.work-title{font-size:14px;line-height:1.4;color:#1c1c21;font-weight:650;letter-spacing:-.01em}
 .work-time{
-  color:#777780;font-size:12px;font-weight:620;
+  color:#71717a;font-size:12.5px;font-weight:550;
   font-variant-numeric:tabular-nums
 }
 .work-time::before{content:"·";margin-right:8px;color:#aaaab0}
@@ -344,7 +344,7 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   background:#4f815e;box-shadow:0 0 0 3px #fbfbfc
 }
 .work-step-body{display:grid;gap:2px;min-width:0}
-.work-step-title{font-size:13px;line-height:1.42;color:#5d5d65;font-weight:620}
+.work-step-title{font-size:13px;line-height:1.42;color:#5a5a62;font-weight:550}
 .work-step-detail{
   display:none;color:#85858d;font-size:12.5px;line-height:1.42;
   overflow-wrap:anywhere
@@ -363,7 +363,7 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   width:7px;height:7px;border-radius:999px;background:#34343a;
   box-shadow:0 0 0 3px #fbfbfc
 }
-.work-current-title{font-size:14px;line-height:1.4;color:#34343a;font-weight:650}
+.work-current-title{font-size:14.5px;line-height:1.4;color:#1c1c21;font-weight:600}
 .work-current-detail{
   color:#696971;font-size:13px;line-height:1.45;overflow-wrap:anywhere;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden
@@ -485,6 +485,8 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   line-height:1.45;
 }
 .composer textarea::placeholder{color:#9a9aa1}
+/* Hedef tasarim: odaklaninca net bir halat gorunur (erisilebilirlik) */
+.composer:focus-within{border-color:#1c1c21}
 .composer-actions{
   margin-left:auto;
   display:flex;
@@ -558,8 +560,9 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 
 /* Başak anonim ID + yapay zekâ bilgilendirme katmanı */
 .identity-row{margin-bottom:7px;color:#66666d;font-size:10.5px;font-weight:650;letter-spacing:.01em}
-.sidebar-links{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 7px}
-.sidebar-links a{text-decoration:underline;text-underline-offset:2px;color:#77777f}
+.sidebar-links{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin:0 0 10px}
+.sidebar-links a{font-size:12px;line-height:1.35;color:#77777f;padding:2px 0}
+.sidebar-links a:hover{color:#171719;text-decoration:underline;text-underline-offset:2px}
 .ai-notice{
   max-width:620px;margin:20px auto 0;padding:12px 14px;
   border:1px solid rgba(220,220,224,.9);border-radius:14px;
@@ -605,6 +608,9 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 }
 .answer-sources-list{display:flex;flex-wrap:wrap;gap:6px 10px}
 .answer-source{
+  display:inline-flex;align-items:center;
+  height:26px;padding:0 10px;
+  border:1px solid var(--line);border-radius:999px;background:#fff;
   color:#5f6670;font-size:12px;text-decoration:none;
   overflow-wrap:anywhere
 }
