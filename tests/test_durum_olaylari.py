@@ -18,7 +18,8 @@ from types import SimpleNamespace
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from brain import brain as brain_mod
-from brain.brain import Brain
+from brain.brain import Brain, ZincirHatasi
+from brain.yayin import SonHata
 from chat.output_control import durum_gozlemcisi
 
 
@@ -63,18 +64,24 @@ def _tek_cagri_sdk(cevap):
 
 class TestDurumBildirimi:
     def test_kota_atlamasi_durum_olayi_verir(self, monkeypatch, tmp_path):
+        # Kota ongorulu siralamada (C) saglikli saglayici one gecer; kota
+        # dolu olan sona kalir ve ANCAK ulasilinca atlama olayi verir.
+        # Bu yuzden saglikli gorunen de patlar: groq'ya ulasilir, atlanir.
+        def patlar(messages, **kw):
+            raise RuntimeError("baglanti koptu")
+
         zincir = [("groq", _tek_cagri_sdk("a")),
-                  ("gemini", _tek_cagri_sdk("selam"))]
+                  ("gemini", SimpleNamespace(cevapla=patlar, model="m2"))]
         kota = lambda ad, istat: ("gunluk istek kotasi"
                                   if ad == "groq" else "")
         b = _hazirla(monkeypatch, tmp_path, zincir, kota)
         gorulen = []
-        yanit, kaynak = b.cevapla(
-            [{"role": "user", "content": "selam"}],
-            durum=lambda m: gorulen.append(m))
-
-        assert kaynak == "gemini"
-        assert yanit["content"] == "selam"
+        try:
+            b.cevapla([{"role": "user", "content": "selam"}],
+                      durum=lambda m: gorulen.append(m))
+            assert False, "zincir patlamaliydi"
+        except ZincirHatasi:
+            pass
         assert any("groq" in m and "kota" in m for m in gorulen), gorulen
 
     def test_hata_failover_durum_olayi_verir(self, monkeypatch, tmp_path):
@@ -93,18 +100,32 @@ class TestDurumBildirimi:
             gorulen
 
     def test_akis_kota_atlamasi_durum_olayi_verir(self, monkeypatch, tmp_path):
-        zincir = [("groq", SimpleNamespace(client=SahteAkis(["a"]), model="m1")),
-                  ("gemini", SimpleNamespace(client=SahteAkis(["selam"]),
-                                             model="m2"))]
+        # Ayni siralama sebebi: one gecen saglikli akis hizlica patlarsa
+        # kota dolu olana ulasilir ve atlama olayi verir; sonucta SonHata.
+        class PatlayanAkis:
+            @property
+            def chat(self):
+                return SimpleNamespace(
+                    completions=SimpleNamespace(create=self.create))
+
+            def create(self, **kw):
+                raise RuntimeError("akis acilmadi")
+
+        zincir = [("groq", SimpleNamespace(client=SahteAkis(["a"]),
+                                             model="m1")),
+                  ("gemini", SimpleNamespace(client=PatlayanAkis(),
+                                               model="m2"))]
         kota = lambda ad, istat: ("gunluk istek kotasi"
                                   if ad == "groq" else "")
         b = _hazirla(monkeypatch, tmp_path, zincir, kota)
         gorulen = []
-        parcalar = list(b.cevapla_yayin(
-            [{"role": "user", "content": "selam"}], None, tools=None,
-            durum=lambda m: gorulen.append(m)))
-
-        assert parcalar == [("gemini", "selam")]
+        try:
+            list(b.cevapla_yayin(
+                [{"role": "user", "content": "selam"}], None, tools=None,
+                durum=lambda m: gorulen.append(m)))
+            assert False, "akis patlamaliydi"
+        except SonHata:
+            pass
         assert any("groq" in m and "kota" in m for m in gorulen), gorulen
 
     def test_durum_bozulursa_zincir_kirilmaz(self, monkeypatch, tmp_path):
