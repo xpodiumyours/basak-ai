@@ -441,6 +441,14 @@ function guvenliDurumBilgisi(metin) {
   const ham = String(metin || "").trim();
   if (!ham) return { baslik: "İşleniyor", detay: "" };
 
+  // Zincirin iç konuşması kullanıcıya ham gösterilmez: sağlayıcı adı +
+  // "cevap veremedi / atlandı / sıradaki beyin" satırları kullanıcıya
+  // tek cümle olur, teknik gerçek detaya iner (Detaylar düğmesi).
+  // Beyin tarafı ve testler aynen durur — çeviri yalnız ekrandadır.
+  if (/cevap veremedi|sıradaki beyin|kısa süre önce hata aldı/i.test(ham)) {
+    return { baslik: "Başka kaynaktan deneniyor", detay: ham };
+  }
+
   const i = ham.indexOf(": ");
   const baslik = (i > 0 ? ham.slice(0, i) : ham)
     .replace(/[.…]+$/, "").trim() || "İşleniyor";
