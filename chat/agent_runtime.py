@@ -10,6 +10,7 @@
 """
 
 from dataclasses import dataclass, field
+from chat.evidence import EvidenceStore
 from typing import Any
 
 RUNTIME_VERSION = "p2-provider-neutral-v3"
@@ -66,6 +67,7 @@ class AgentRunState:
     truncated_reason: str = ""
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     evidence: list[dict[str, Any]] = field(default_factory=list)
+    evidence_store: Any = field(default_factory=EvidenceStore)
     trace: list[dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self):
@@ -122,7 +124,16 @@ class AgentRunState:
             "call_id": str(call_id or ""),
         }
         self.evidence.append(item)
+        if hasattr(self, "evidence_store") and self.evidence_store is not None:
+            self.evidence_store.add("url", url, tool=tool, call_id=call_id)
         self._record("evidence", **item)
+
+    def record_evidence(self, kind, reference, tool="", call_id="", verified=True, snippet=""):
+        """ADR-2 Kanıt Katmanı: URL dışındaki araç kanıtlarını da (dosya, hesap, görev) kaydeder."""
+        if hasattr(self, "evidence_store") and self.evidence_store is not None:
+            self.evidence_store.add(kind, reference, tool=tool, call_id=call_id, verified=verified, snippet=snippet)
+        if str(reference).startswith("http://") or str(reference).startswith("https://"):
+            self.evidence_add(reference, tool=tool, call_id=call_id)
 
     def truncate(self, reason="limit"):
         self.truncated_reason = str(reason or "limit")
@@ -135,6 +146,11 @@ class AgentRunState:
         self.status = "paused"
         self.phase = "paused"
         self._record("run_paused", reason=str(reason or "sure"))
+        try:
+            from chat.checkpoints import save_checkpoint
+            save_checkpoint(self.run_id, self.trace_snapshot())
+        except Exception:
+            pass
 
     def complete(self, provider=""):
         self.provider_set(provider)
