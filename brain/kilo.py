@@ -30,20 +30,34 @@ YER_TUTUCU_ANAHTAR = "anonymous"
 # Düşünme metni bütçeden yediği için dar tutulamaz (dosya başındaki nota bak).
 # ARAC-PLANI S5 cizgisi: 4096 (1024'te duzgun cevap olculdu).
 
-# kilo-auto/free ücretsiz modeller arasında kendi yönlendirir.
-# Duzey 1 kaniti (2026-09-20 00:07, canli): kilo-auto/free yonlendiricisi
-# zorunlu arac turunda GERCEK tool_call uretmıyor (metne yazıyor —
-# "[[{"name": "simdi"...}]]"); nvidia/nemotron-3-super-120b-a12b:free ayni istekte
-# native tool_call + tur-2 devamini 9.3 sn'de tamamladi. Varsayilan bu
-# olcume gore sabitlendi (sira olcumle dizilir kurali).
+# SIRA OLCUMLE DIZILIR (AGENTS.md). Kilo'nun ucretsiz katalogu disaridan
+# degisiyor; bu yuzden her elden gecirmede adaylar canli olculur.
+#
+# 2026-10-12 OLCUMU (Kilo katalogu degisti — eski iki varsayilan 404):
+#   Katalogdan KALKANLAR (404, listede tutulmaz):
+#     stepfun/step-3.7-flash:free, qwen/qwen3.8-27b:free,
+#     apodex/apodex-1.1-mini:free, inclusionai/ling-3.0-flash-sante:free
+#   GERCEK tool_call uretenler (auto / required, sn):
+#     nvidia/nemotron-3-super-120b-a12b:free      1.36 / 1.00  GECTI
+#     nvidia/nemotron-3.5-lightning:free          0.80 / 1.20  GECTI
+#     stepfun/step-5-preview-free                 0.65 / 4.08  GECTI (yavas)
+#     liquid/lfm-2.5-2.6b:free                    metne yazdi / 4.24  RED
+#                                                  (auto turunda arac
+#                                                   cagirmadi, metin doktu)
+#   REDDEDILENLER (olcum kaydi, geri gelmesin):
+#     nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free -> _tek_model
+#       yanitini cozerken patliyor ("NoneType is not subscriptable")
+#     poolside/laguna-s-2.1:free -> required turunda upstream 429
+#     poolside/laguna-xs-2.1:free -> upstream 429
+#   kilo-auto/free yonlendiricisi (2026-09-20 kaniti): zorunlu arac turunda
+#   GERCEK tool_call uretmiyor (metne yaziyor — "[[{"name"...}]]"); bu yuzden
+#   her zaman EN SONDA durur.
 VARSAYILAN_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 TERCIH_SIRASI = [
     "nvidia/nemotron-3-super-120b-a12b:free",
-    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
     "nvidia/nemotron-3.5-lightning:free",
     "stepfun/step-5-preview-free",
     "liquid/lfm-2.5-2.6b:free",
-    "poolside/laguna-s-2.1:free",
     "kilo-auto/free",
 ]
 

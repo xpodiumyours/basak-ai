@@ -9,9 +9,12 @@
   cevap veya yeni yon secer. Devam, imzali handoff ile yeni istekte surer.
 """
 
+import logging
 from dataclasses import dataclass, field
 from chat.evidence import EvidenceStore
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 RUNTIME_VERSION = "p2-provider-neutral-v3"
 TOOL_POLICIES = frozenset(("auto", "required", "none"))
@@ -146,11 +149,14 @@ class AgentRunState:
         self.status = "paused"
         self.phase = "paused"
         self._record("run_paused", reason=str(reason or "sure"))
+        # Checkpoint yazimi run'i KIRMAZ: yazamazsa duraklama yine gecerli,
+        # yalniz kalici kopya olmaz. Bu yuzden hata yutulmaz, izlenir.
         try:
             from chat.checkpoints import save_checkpoint
             save_checkpoint(self.run_id, self.trace_snapshot())
-        except Exception:
-            pass
+        except (OSError, ValueError) as e:
+            logger.debug("Run checkpoint yazilamadi (%s): %s",
+                         self.run_id, e, exc_info=True)
 
     def complete(self, provider=""):
         self.provider_set(provider)
