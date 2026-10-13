@@ -44,12 +44,39 @@ except OSError as e:
     print("UYARI: hata.log acilamadi (%s); yalniz konsola yazilacak."
           % e, file=sys.stderr)
 
-import webview
-
 from brain import Brain
 from tools import TOOLS
-from voice import TTS, STT
 from chat import mesaj_isle, yukle, kaydet, init_cache
+
+# MASAUSTU KATMANI TEMBEL YUKLENIR (2026-10-13 OLCUMU).
+# Neden: bu dosya masaustu penceresini kurar ama sunucuda da ice
+# aktarilabilmelidir. `pywebview` ve ses kutuphanesi (`sounddevice`,
+# PortAudio sistem kutuphanesi) requirements.txt'te yalniz
+# `sys_platform == "win32"` icin kurulur; modul yuklenirken cagrildiklari
+# icin `import basak_app` Linux'ta dusuyordu ve test paketi daha
+# TOPLANIRKEN ("PortAudio library not found") kiriliyordu. Oysa uretim
+# (Vercel) Linux'tur.
+# Davranis degismez: eksik kutuphane YALNIZ gercekten o is yapilirken
+# ImportError verir; hata gizlenmez. Asagidaki erisimler kullanim aninda
+# ice aktarir.
+
+
+def _webview():
+    """pywebview'i yalniz pencere isi yapilirken ice aktarir."""
+    import webview
+    return webview
+
+
+def _tts_sinifi():
+    """TTS sinifini yalniz ses uretilirken ice aktarir."""
+    from voice import TTS
+    return TTS
+
+
+def _stt_sinifi():
+    """STT sinifini yalniz dinleme baslarken ice aktarir."""
+    from voice import STT
+    return STT
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 UI_DIR = os.path.join(BASE, "ui")
@@ -125,8 +152,9 @@ class Api:
         return self.brain
 
     def _js(self, code):
-        if webview.windows:
-            webview.windows[0].evaluate_js(code)
+        wv = _webview()
+        if wv.windows:
+            wv.windows[0].evaluate_js(code)
 
     def _kopru(self):
         """mesaj_isle'a verilecek js_callback: BasakUI.* + zengin olay."""
@@ -181,7 +209,7 @@ class Api:
         if self.tts_on:
             try:
                 if self.tts is None:
-                    self.tts = TTS(on_level=self._ses_seviyesi)
+                    self.tts = _tts_sinifi()(on_level=self._ses_seviyesi)
                 gecmis = yukle(_gecmis_yolu(), [])
                 if gecmis:
                     self.tts.speak(gecmis[-1].get("content", ""))
@@ -202,7 +230,7 @@ class Api:
         self._js("BasakUI.listening(true)")
         try:
             if self.stt is None:
-                self.stt = STT()
+                self.stt = _stt_sinifi()
             text, audio, sr = self.stt.dinle_and_id()
         except Exception as e:
             self._js("BasakUI.listening(false)")
@@ -481,8 +509,9 @@ class Api:
 
         # 3) Pencereyi yok et
         try:
-            if webview.windows:
-                webview.windows[0].destroy()
+            wv = _webview()
+            if wv.windows:
+                wv.windows[0].destroy()
         except Exception:
             logger.debug("pencere yok edilemedi", exc_info=True)
 
@@ -503,13 +532,15 @@ class Api:
 
 
 def _pencere_goster():
-    if webview.windows:
-        webview.windows[0].show()
+    wv = _webview()
+    if wv.windows:
+        wv.windows[0].show()
 
 
 def _pencere_gizle():
-    if webview.windows:
-        webview.windows[0].hide()
+    wv = _webview()
+    if wv.windows:
+        wv.windows[0].hide()
 
 
 def _kapanista_gizle():
@@ -539,7 +570,7 @@ def main():
     init_cache()
     api = Api()
     _api = api
-    pencere = webview.create_window(
+    pencere = _webview().create_window(
         "Basak", INDEX_FILE, js_api=api,
         width=1100, height=720, min_size=(900, 600),
         background_color="#0E1117",
@@ -565,7 +596,7 @@ def main():
 
     threading.Thread(target=_arka_isinma, daemon=True).start()
 
-    webview.start()
+    _webview().start()
 
 
 if __name__ == "__main__":
