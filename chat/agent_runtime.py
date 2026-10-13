@@ -171,18 +171,27 @@ class AgentRunState:
         self._record("run_truncated", reason=self.truncated_reason)
 
     def pause(self, reason="sure"):
-        """Is bitmeden kullaniciya karar birakilir; hicbir sonuc atilmaz."""
+        """Is bitmeden kullaniciya karar birakilir; hicbir sonuc atilmaz.
+
+        Duraklayan kosunun devami ISTEMCIYE IMZALI HANDOFF ILE tasinir
+        (app.py -> _handoff_tokeni / _yonlendirme_baglami_dogrula): olay
+        dokumu ve runContext sunucu imzasiyla geri doner, kullanici devam
+        eder. Sunucu tarafinda KALICI checkpoint/resume YOKTUR ve yokmus
+        gibi de yazilmaz (knowledge/kabul-plani-web-gate.md: "Gerçek
+        checkpoint/resume henüz yoktur; varmış gibi raporlanmaz").
+
+        2026-10-13 OLCUM: burada diske YAZAN bir blok vardi
+        (chat/checkpoints.py). `load_checkpoint`/`delete_checkpoint`
+        hicbir uretim yolundan cagrilmiyordu — yani yazilan dosya HICBIR
+        kosulda geri yuklenmiyordu. Ustelik Vercel'de durum dizini /tmp'dir
+        (app.py:36) ve Vercel resmi dokumana gore orasi instance basina
+        gecici "scratch space"tir, kalici degil. Katman kaldirildi
+        (AGENTS.md §0: gereksiz katman geri gelmez, saran katman yazilmaz).
+        Duraklama sinyali (runState + "checkpoint" web olayi) AYNEN durur.
+        """
         self.status = "paused"
         self.phase = "paused"
         self._record("run_paused", reason=str(reason or "sure"))
-        # Checkpoint yazimi run'i KIRMAZ: yazamazsa duraklama yine gecerli,
-        # yalniz kalici kopya olmaz. Bu yuzden hata yutulmaz, izlenir.
-        try:
-            from chat.checkpoints import save_checkpoint
-            save_checkpoint(self.run_id, self.trace_snapshot())
-        except (OSError, ValueError) as e:
-            logger.debug("Run checkpoint yazilamadi (%s): %s",
-                         self.run_id, e, exc_info=True)
 
     def complete(self, provider=""):
         self.provider_set(provider)
@@ -216,15 +225,6 @@ class AgentRunState:
             "truncated_reason": self.truncated_reason,
             "resumable": self.status == "paused",
         }
-
-    def trace_snapshot(self):
-        return {
-            **self.public_snapshot(),
-            "tool_calls": list(self.tool_calls),
-            "evidence": list(self.evidence),
-            "trace": list(self.trace),
-        }
-
 
 def emit_run_state(js_callback, state):
     if state is None:
