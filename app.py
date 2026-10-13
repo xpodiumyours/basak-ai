@@ -1195,6 +1195,76 @@ async def robots(request: Request):
                              headers={"Cache-Control": "no-store"})
 
 
+# ── Fatura okuma ekranı (katalog hattı köprüsü) ────────────────────────
+# Ekran çekirdeği çağırır (`tools.katalog`); ayrı ajan döngüsü, ayrı
+# sağlayıcı zinciri, ayrı araç çalıştırıcı kurulmaz.
+
+
+@app.get("/fatura")
+async def fatura_sayfasi():
+    """Fatura okuma ekranını döner (statik mount uzantısız yolu eşlemez)."""
+    try:
+        with open(os.path.join(str(WEB), "fatura.html"),
+                  encoding="utf-8") as f:
+            return HTMLResponse(f.read(),
+                                headers={"Cache-Control": "no-store"})
+    except OSError:
+        return HTMLResponse(
+            '<!doctype html><html lang="tr"><head><meta charset="utf-8">'
+            '<title>Ekran yok</title></head><body><p>Fatura ekranı '
+            'bulunamadı. <a href="/">Başak</a></p></body></html>',
+            status_code=404)
+
+
+@app.post("/api/fatura-oku")
+async def fatura_oku_ucu(request: Request):
+    """Okunan metinden ya da yüklenen fotoğraftan fatura raporu üretir.
+
+    metin: anahtar gerekmez (kural tabanlı çıkarım).
+    b64:   görüntü okuma zincirini kullanır; sağlayıcı anahtarı yoksa
+           okuma başarısız olur ve hata AYNEN döner (sahte sonuç yok).
+    """
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Gecersiz JSON"}, status_code=400)
+    from fatura_rapor import govde
+    from tools import katalog
+
+    b64 = str((body or {}).get("b64") or "")
+    if b64:
+        kayit = katalog.fatura_kaydet_b64(b64, (body or {}).get("ad"))
+        if not isinstance(kayit, dict) or "result" not in kayit:
+            kayit = kayit if isinstance(kayit, dict) else {}
+            return JSONResponse(
+                {"error": kayit.get("error", "Fatura kaydedilemedi.")},
+                status_code=400)
+        fatura_id = json.loads(kayit["result"])["fatura_id"]
+        sonuc = katalog.fatura_oku(fatura_id)
+        if "result" not in sonuc:
+            return JSONResponse(govde(
+                "foto", "", {}, [], fatura_id=fatura_id,
+                okuma={"ok": False,
+                       "hata": sonuc.get("error", "Okunamadi.")}))
+        veri = json.loads(sonuc["result"])
+        return JSONResponse(govde(
+            "foto", veri.get("yazi", ""), veri.get("ustbilgi") or {},
+            veri.get("satir_tablosu") or [],
+            okuma={"ok": True, "kaynak": veri.get("kaynak", ""),
+                   "model": veri.get("model", "")},
+            fatura_id=fatura_id))
+    metin = str((body or {}).get("metin") or "")
+    if not metin.strip():
+        return JSONResponse({"error": "Metin veya fotograf gerekli."},
+                            status_code=400)
+    return JSONResponse(govde(
+        "metin", metin, katalog._ustbilgi_cikar(metin),
+        katalog.satir_tablosu(metin)))
+
+
 class _Statik(StaticFiles):
     """HTML onbelleklenmesin ki dagitim degisikligi donen tarayiciya ulassin."""
 

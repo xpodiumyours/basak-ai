@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Başak — Fatura okuma</title>
+<link rel="stylesheet" href="/styles.css">
+<style>
+.shell{max-width:1080px}
+.uyari-metin{color:#9a3412;font-weight:600}
+.tamam-metin{color:#166534;font-weight:600}
+dl{display:grid;grid-template-columns:190px 1fr;gap:6px 12px;font-size:13.5px;margin:0}
+dt{color:#737373}
+dd{margin:0;font-weight:600}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13.5px}
+th,td{border:1px solid #e7e5e4;padding:8px 10px;text-align:left}
+th{background:#fafaf9;font-weight:700}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+pre{white-space:pre-wrap;word-break:break-word;background:#fafaf9;
+border:1px solid #e7e5e4;border-radius:12px;padding:12px;font-size:12.5px;
+max-height:280px;overflow:auto}
+#metin{width:100%;min-height:150px;border:1px solid #d6d3d1;border-radius:13px;
+padding:12px;background:#fff;font:inherit;resize:vertical}
+@media(max-width:760px){dl{grid-template-columns:130px 1fr}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <div>
+      <div class="brand">Başak — Fatura okuma</div>
+      <div class="sub">Faturadaki bilgiler ve ürün satırları çekirdekten
+        (<code>tools/katalog.py</code>) okunur; uydurma yok, okunamayan
+        alan boş kalır.</div>
+    </div>
+    <span class="pill" id="kimlik"><span class="dot"></span>kimlik
+      hazırlanıyor</span>
+  </div>
+
+  <div class="banner" id="bilgi">Fotoğraf yükleyebilir ya da elinizdeki
+    okunmuş yazıyı yapıştırabilirsiniz. Fotoğraf okuma sağlayıcı anahtarı
+    ister; anahtar yoksa hata aynen gösterilir, sahte sonuç üretilmez.</div>
+
+  <div class="card section">
+    <h3 style="margin-top:0">1) Fatura fotoğrafı</h3>
+    <div class="composer-tools">
+      <input type="file" id="dosya" accept="image/*">
+      <button class="action" id="gonder" disabled>Fotoğrafı oku</button>
+      <span class="pill" id="durumFoto"><span class="dot" id="noktaFoto"></span>
+        bekliyor</span>
+    </div>
+    <div id="fotoHata"></div>
+  </div>
+
+  <div class="card section">
+    <h3 style="margin-top:0">2) Okunan metin (fotoğraf olmadan)</h3>
+    <textarea id="metin" placeholder="Faturadaki yazıyı buraya yapıştırın..."></textarea>
+    <div class="composer-tools">
+      <button class="action" id="coz" disabled>Metinden çıkar</button>
+      <button class="action secondary" id="ornek">Örnek metni doldur</button>
+      <span class="pill" id="durumMetin"><span class="dot" id="noktaMetin"></span>
+        bekliyor</span>
+    </div>
+  </div>
+
+  <div id="sonuc"></div>
+</div>
+<script src="/common.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+function sayi(d) {
+  return d === null || d === undefined ? "—"
+    : Number(d).toLocaleString("tr-TR", {minimumFractionDigits: 2,
+        maximumFractionDigits: 2});
+}
+function satir(ad, deger) {
+  return "<dt>" + ad + "</dt><dd>" +
+    (deger === null || deger === undefined || deger === "" ? "—"
+      : String(deger)) + "</dd>";
+}
+function durum(kutu, nokta, metin, iyi) {
+  $(kutu).lastChild.textContent = " " + metin;
+  $(nokta).className = "dot " + (iyi === true ? "ok" : iyi === false ? "" : "");
+}
+async function rapor(govde) {
+  const r = await window.basakFetch("/api/fatura-oku", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(govde),
+  });
+  let d = {};
+  try { d = await r.json(); } catch {}
+  if (!r.ok && !d.error) d.error = "İstek başarısız (" + r.status + ")";
+  return d;
+}
+function ciz(v) {
+  const kutu = $("#sonuc");
+  if (v.error) {
+    kutu.innerHTML = '<div class="card section"><div class="banner warn">' +
+      v.error + "</div></div>";
+    return;
+  }
+  const u = v.ustbilgi || {};
+  let h = '<div class="grid2 section">';
+  h += '<div class="card"><h3 style="margin-top:0">Satıcı / düzenleyen</h3><dl>' +
+    satir("Unvan", u.firma) + satir("VKN", u.vkn) +
+    satir("Vergi dairesi", u.vergi_dairesi) +
+    satir("Mersis No", u.mersis_no) + "</dl></div>";
+  h += '<div class="card"><h3 style="margin-top:0">Alıcı</h3><dl>' +
+    satir("Unvan", u.alici) + satir("VKN", u.alici_vkn) +
+    satir("Vergi dairesi", u.alici_vergi_dairesi) + "</dl></div></div>";
+  h += '<div class="card section"><h3 style="margin-top:0">Belge bilgileri</h3><dl>' +
+    satir("Fatura No", u.fis_no) + satir("ETTN", u.ettn) +
+    satir("Tarih", u.tarih) + satir("Düzenleme saati", u.saat) +
+    satir("KDV oranı", u.kdv_oran !== undefined ? "%" + u.kdv_oran : "") +
+    satir("Para birimi", u.para_birimi) + "</dl></div>";
+  const s = v.satirlar || [];
+  h += '<div class="card section"><h3 style="margin-top:0">Ürün ve hizmet satırları (' +
+    s.length + ")</h3>";
+  h += s.length
+    ? '<table><thead><tr><th>No</th><th>Ürün Kodu</th><th>Ürün Açıklaması</th>' +
+      '<th class="num">Miktar</th><th class="num">Birim Fiyat</th>' +
+      '<th class="num">Tutar</th></tr></thead><tbody>' +
+      s.map((x) => "<tr><td>" + x.sira + "</td><td>" + x.kod + "</td><td>" +
+        x.ad + '</td><td class="num">' + x.miktar + '</td><td class="num">' +
+        sayi(x.birim_fiyat) + '</td><td class="num' +
+        (x.tutar_tutarli === false ? " uyari-metin" : "") + '">' +
+        sayi(x.tutar) + (x.tutar_tutarli === false ? " ⚠" : "") +
+        "</td></tr>").join("") + "</tbody></table>"
+    : '<p class="sub">Tabloya benzeyen satır bulunamadı.</p>';
+  h += "</div>";
+  h += '<div class="card section"><h3 style="margin-top:0">Vergi ve toplamlar</h3><dl>' +
+    satir("Matrah / ara toplam", sayi(u.ara_toplam)) +
+    satir("KDV tutarı", sayi(u.kdv_tutar)) +
+    satir("Genel toplam", sayi(u.toplam)) + "</dl></div>";
+  const d = v.denetim || [];
+  h += '<div class="card section"><h3 style="margin-top:0">Kontrol</h3><table><tbody>' +
+    (d.length ? d.map((x) => "<tr><td>" + x.ad + '</td><td class="' +
+      (x.durum === true ? "tamam-metin" : x.durum === false ? "uyari-metin" : "") +
+      '">' + (x.durum === true ? "tutuyor"
+        : x.durum === false ? "TUTMUYOR" : "ölçülemedi") +
+      "</td><td>" + x.ayrinti + "</td></tr>").join("")
+      : '<tr><td colspan="3">Denetim için yeterli sayı yok.</td></tr>') +
+    "</tbody></table></div>";
+  const e = v.eksik || [];
+  h += '<div class="card section"><h3 style="margin-top:0">Belgede çıkmayan alanlar</h3>' +
+    '<p class="sub">' + (e.length ? e.join(" · ")
+      : "Beklenen alanların hepsi okundu.") + "</p></div>";
+  h += '<div class="card section"><h3 style="margin-top:0">Okunan metin</h3><pre>' +
+    (v.yazi || "").replace(/</g, "&lt;") + "</pre></div>";
+  kutu.innerHTML = h;
+}
+const ORNEK = "MAPA MOBILYA VE AKSESUAR PAZARLAMA A.S.\n" +
+  "Tarih : 14.10.2026\nFatura No : IK-2026-10427\n" +
+  "Düzenleme Saati : 15:42\nVergi Dairesi: Ümraniye\nVKN: 6120729513\n" +
+  "Mersis No: 0612072951300010\nSATICI BİLGİLERİ\n" +
+  "MAPA MOBİLYA VE AKSESUAR PAZARLAMA A.Ş.\nALICI BİLGİLERİ\n" +
+  "Nova İç Mimarlık ve Tasarım Ltd. Şti.\n" +
+  "Vergi Dairesi: Zincirlikuyu\nVKN: 2345678901\n" +
+  "1 002.638.50 BILLY Kitaplık Beyaz 80x28x202 cm 2 4.299,00 TL 8.598,00 TL\n" +
+  "2 795.529.08 KALLAX Acik Raf Unitesi Beyaz 147x77 cm 1 7.199,00 TL 7.199,00 TL\n" +
+  "Matrah: 54.720,00 TL\nKDV (%20): 10.944,00 TL\n" +
+  "GENEL TOPLAM: 65.664,00 TL";
+
+(async () => {
+  try {
+    await window.basakKimlikHazir;
+    $("#kimlik").lastChild.textContent = " kimlik hazır";
+    $("#kimlik").querySelector(".dot").className = "dot ok";
+    $("#gonder").disabled = false;
+    $("#coz").disabled = false;
+  } catch (e) {
+    $("#kimlik").lastChild.textContent = " kimlik yok";
+    $("#bilgi").textContent = "Başak kimliği kurulamadı: " + e.message;
+  }
+})();
+
+$("#coz").addEventListener("click", async () => {
+  durum("#durumMetin", "#noktaMetin", "çıkarılıyor...", null);
+  const v = await rapor({ metin: $("#metin").value });
+  durum("#durumMetin", "#noktaMetin", v.error ? "hata" : "bitti",
+        v.error ? false : true);
+  ciz(v);
+});
+$("#ornek").addEventListener("click", () => { $("#metin").value = ORNEK; });
+$("#gonder").addEventListener("click", async () => {
+  const f = $("#dosya").files[0];
+  if (!f) { durum("#durumFoto", "#noktaFoto", "dosya seçilmedi", false); return; }
+  durum("#durumFoto", "#noktaFoto", "okunuyor...", null);
+  const b64 = await new Promise((r) => {
+    const fr = new FileReader();
+    fr.onload = () => r(fr.result);
+    fr.readAsDataURL(f);
+  });
+  const v = await rapor({ b64: b64, ad: f.name });
+  const ok = v.okuma && v.okuma.ok;
+  durum("#durumFoto", "#noktaFoto", ok ? "okundu" : "okunamadı", !!ok);
+  $("#fotoHata").innerHTML = ok ? ""
+    : '<div class="banner warn section">Okuma adımı: ' +
+      ((v.okuma && v.okuma.hata) || v.error || "hata") +
+      "<br>Kaydedilen fatura kimliği: " + (v.fatura_id || "—") + "</div>";
+  ciz(v);
+});
+</script>
+</body>
+</html>

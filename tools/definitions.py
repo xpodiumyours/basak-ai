@@ -427,10 +427,15 @@ KATALOG_KUR = _arac(
      "satirlar": {"type": "array",
                   "description": "Satirlar: marka, kod, urun_adi, barkod, "
                                  "beden, renk, varyant, adet, alis_fiyat, "
+                                 "tutar (faturadaki satir toplami), "
                                  "kategori"},
      "ustbilgi": {"type": "object",
-                  "description": "fatura_oku ustbilgi alani (fis no, "
-                                 "tarih, firma, toplam, kdv_oran)"}},
+                  "description": "fatura_oku ustbilgi alani (fis_no, "
+                                 "ettn, tarih, saat, firma, alici, vkn, "
+                                 "alici_vkn, vergi_dairesi, "
+                                 "alici_vergi_dairesi, mersis_no, "
+                                 "kdv_oran, ara_toplam, kdv_tutar, "
+                                 "toplam, para_birimi)"}},
     ["fatura_id", "satirlar"],
 )
 
