@@ -1,9 +1,32 @@
-"""chat/evidence.py — Evidence & Truthfulness Katmanı (ADR-2).
+"""chat/evidence.py — Kanıt Kaydı (ADR-2).
 
-Modelin araç çalıştırma sonuçları ile ürettiği son cevap arasındaki
-kanıt bağını doğrular. Modelin 'aracı çalıştırdım' veya 'şunu ekledim'
-gibi hayali iddialar üretmesini engellemek için araç sonuçlarını
-kanıt deposu (EvidenceStore) olarak tutar.
+Bu modül bir DENETLEYİCİ değildir. Modelin cevabını okumaz, değiştirmez,
+silmez ve cevabi engellemez (AGENTS.md §0: modelin çıktısına dokunan kod
+yasaktır). Yaptığı tek şey: bir çalıştırma sırasında GERÇEKTEN üretilen
+sonuçları kaydetmek.
+
+Neden kayıt yeterli sayılıyor: modele kanıt dayatmak yerine gerçek araç
+sonucu zaten konuşmaya geri verilir (chat/tools.py -> role="tool");
+nihai cevabı "doğru" diye işaretlemek ya da cümle elemek modele güveni
+keser ve ölçülmüş biçimde yasaklanmıştır (bkz. AGENTS.md §0
+"GERİ GETİRİLMESİ KESİNLİKLE YASAK", silinen `olcu.py` çıkış kapısı).
+
+Burada tutulanlar:
+  * kind="url"  — aracın döndürdüğü gerçek kaynak adresleri
+                  (chat/tools.py kaynak çıkarımı)
+  * kind="tool" — BAŞARILI her araç çağrısının gerçek sonucu
+                  (chat/agent_runtime.py -> tool_done)
+  * kind="file"/"task"/"calculation"/"general" — çagiran kod ne bildirirse
+                  (agent_runtime.record_evidence)
+
+Sayı tek kaynaktan okunur: `AgentRunState._kanit_sayisi()` ve bu sayı
+`runState.evidence_count` olarak arayüze düşer.
+
+2026-10-13 düzeltmesi: bu dosyanın eski başlığı "araç çalıştırma
+sonuçları ile üretilen son cevap arasındaki kanıt bağını DOĞRULAR" diyordu.
+Kod hiçbir şeyi doğrulamıyordu; doğrulayan bir katman da yoktu
+(`olcu.py` 2026-09-25'te bilinçli silindi, bkz. SILME-GOREVI.md). Yanlış
+iddia metinden kaldırıldı.
 """
 
 from dataclasses import dataclass, field

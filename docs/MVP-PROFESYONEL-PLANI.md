@@ -544,3 +544,65 @@ yazmadan "geri alabiliriz" denmeyecek.**
 - **P0 kapısı geçmeden bu belge "profesyonel" sayılmaz.** MVP kanıtı
   eksik: gerçek modelle, gerçek kullanıcı sorusuyla, uçtan uca koşmuş
   sohbet kaydı **yok**.
+
+---
+
+## 7. 2026-10-13 — TUTARLILIK TURU (ölçülerek; kod okunarak)
+
+Bu bölüm bir taban ölçümü değil, **düzeltme kaydıdır**. Amaç: koddaki ile
+yazıdaki iddianın aynı olması. Yukarıdaki tarihli satırlar (2026-10-01)
+tarihî kayıt olarak durur; aşağıdakiler onları geçersiz kıldığı yerde
+açıkça yazar.
+
+### 7.1 Düzeltilen çelişkiler (hepsi ölçülerek bulundu)
+
+| # | Çelişki | Kanıt | Sonuç |
+|---|---|---|---|
+| 1 | Canlı FULL TEST **çöküyordu**: `_alan_sema_testi` soruyu `ALAN_SORULARI[alan]` ile try/except DIŞINDA okuyor; `freetools` + `harita` sorusu yoktu | `KeyError`; 15 alan, 13 soru | 2 soru eklendi: **15/15**; kilit testi eklendi |
+| 2 | Rapor sabit **"14 yetenek alanı"** yazıyordu | gerçek 15, sorulan 13 | sayı tek kaynaktan gelir; sabit sayı kalmadı |
+| 3 | `sir_preflight` anahtar **gerektirmeyen** kilo'yu zorunlu sır sayıyordu | `brain/kilo.py`: "API anahtarı gerektirmez" | zorunlu 7→**6**; `OPSIYONEL_SIRLER` ayrıldı |
+| 4 | `SEKIZLER` (8) ile `KAPSAM` (7) iki yönde ayrışıyordu ve bu yazılı değildi | kod | fark **belgeli ve kilitli**: +mistral, −cloudflare/cohere |
+| 5 | `chat/evidence.py` "kanıt bağını **DOĞRULAR**" diyordu | hiçbir şey doğrulanmıyor | başlık koda uyduruldu: **kayıt** tutar, denetlemez |
+| 6 | `record_evidence` tanımlıydı ama **hiçbir üretim yolundan** çağrılmıyordu | grep | `tool_done` bağlandı: başarılı her araç sonucu kanıt |
+| 7 | `pause()` diske checkpoint **yazıyordu**, hiçbir yolu **okumuyordu** | grep + Vercel `/tmp` dokümanı | katman **silindi**; kural zaten "var gibi raporlanmaz" diyordu |
+| 8 | `app.py` masaüstü kütüphaneleri olmadan **import edilemiyordu** → paket Linux'ta **toplanamıyordu** | `PortAudio library not found` + `Interrupted` | tembel yükleme; **1324 test, 1,49 sn toplama** |
+
+### 7.2 Ölçülen sonuçlar
+
+| Ölçüm | Önce | Sonra |
+|---|---|---|
+| Linux'ta toplama | **Interrupted** (1 hata) | **1324 test, 1,49 sn** |
+| Sorunlu 6 dosya (Linux) | 12 F + 3 E | **0 F + 0 E** (4 gerekçeli atlama) |
+| `test_path_guvenligi` süresi | 224 sn | **17 sn** |
+| Kabul matrisi kilit testi | 21 | **27** |
+
+### 7.3 Kayıtlı tarih uydurması (issue #4, 20 Eyl 2026) — kök neden
+
+Kayıt: kilo, `web_search` kullandı ve **"31 Temmuz 2026"** dedi; gerçek
+tarih 20 Eylül 2026'ydı. **Bugün aynı soruyla tekrarlanmadı** (canlı
+ölçüm, kilo, sıfır maliyet):
+
+- "…bu cihazın gerçek saat aracını kullanarak…" → araç `simdi` → **doğru**
+- "Şu an saat kaç? Türkiye saatiyle söyle." → araç `simdi` → **doğru**
+
+Kök neden: zincir o gün zayıf modele düşmüştü
+(`kilo:stepfun/step-3.7-flash:free` — upstream'den kaldırıldı) ve model
+`simdi` yerine `web_search` seçti. Düzelten şey **model sırası** oldu
+(`b265925`); **doğrulayan bir katman yoktur** ve yokmuş gibi de
+yazılmamalıdır (silinen `olcu.py` çıkış kapısı geri gelmez, AGENTS.md §0).
+
+### 7.4 Bilinçli olarak YAPILMAYAN ve açık kalan
+
+- **Tam Linux koşusu bu ortamda bitmedi.** Nedeni ölçüldü ve **proje
+  değil**: proje kodu olmadan ham SQLite bile WAL için 3–5 sn, 4 KB
+  `fsync` 0,81 sn (VM'in disk I/O'su). Kanıt olarak toplama + sorunlu
+  dosya grupları ölçüldü.
+- **Linux CI işi eklenmedi.** `tests/test_sunucu_ice_aktarma.py` aynı
+  arıza sınıfını Windows CI'da yakalar (paketleri engelleyerek). Tam
+  Linux işi Actions dakikası harcar → **Casper kararı**.
+- **P0.2 hâlâ açık**: `tests/live --live` paketinin bir kez kayıtlı koşusu.
+  Sağlayıcı anahtarlarının CI'da tanımlı olması gerekir (issue #4 kaydı:
+  8 sağlayıcıdan 7'si "GitHub ortamında ajan olarak hazır değil").
+- **P2.3 (Dockerfile/Procfile) açık**; P3.1 `/healthz` **yok**.
+- `AGENTS.md §1.1` "geçerli plan ANA-PLAN.md" diyor ama **`ANA-PLAN.md`
+  yok**; dosya kilitli olduğu için düzeltilmedi, buraya kaydedildi.

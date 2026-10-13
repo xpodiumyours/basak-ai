@@ -67,9 +67,16 @@ class TestJunction:
     def junction(self, dunya):
         """knowledge/dis -> disari (gercek Windows junction)."""
         bag = dunya["base"] / "knowledge" / "dis"
-        r = subprocess.run(["cmd", "/c", "mklink", "/J",
-                            str(bag), str(dunya["disiari"])],
-                           capture_output=True, text=True)
+        # Windows junction'i `mklink` ister. Bu komut yoksa (Linux/üretim
+        # platformu) alt surec HIC baslamaz ve FileNotFoundError firlar;
+        # 2026-10-13'e kadar bu, uc testi sessizce ERROR'a ceviriyordu.
+        # Fixture'in NIYETI zaten "kuramazsan atla" idi; niyet koda uyduruldu.
+        try:
+            r = subprocess.run(["cmd", "/c", "mklink", "/J",
+                                str(bag), str(dunya["disiari"])],
+                               capture_output=True, text=True)
+        except OSError as e:
+            pytest.skip("junction kurulamaz (mklink yok): %s" % e)
         if r.returncode != 0:
             pytest.skip("junction olusturulamadi: %s" % r.stderr)
         return bag
@@ -97,6 +104,11 @@ class TestPozitifDavranis:
         sonuc = file_ops.read_file("knowledge/bag.txt", str(dunya["base"]))
         assert sonuc.get("result") == "icerik"
 
+    @pytest.mark.skipif(
+        sys.platform != "win32",
+        reason="Windows buyuk/kucuk harf duyarsizligini olcer (normcase); "
+               "Linux'ta 'KNOWLEDGE' != 'knowledge' — urun karari degil, "
+               "platform gercegi. Windows CI'da kosar.")
     def test_buyuk_harf_klasor_calisir(self, dunya):
         """Windows buyuk/kucuk duyarsizdir — normcase bunu korur."""
         sonuc = file_ops.read_file("KNOWLEDGE/bag.txt", str(dunya["base"]))
