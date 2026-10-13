@@ -117,6 +117,32 @@ class AgentRunState:
         }
         self.tool_calls.append(kayit)
         self._record("tool_done", **kayit)
+        # KANIT (ADR-2): BASARILI her araç cagrisi gercek bir sonuc uretir;
+        # o sonuc bu turun kanitidir. Kayit, aracin KENDI adini ve cagri
+        # kimligini soyler; sonuc metni SINIFLANDIRILMAZ, arac adi TAHMIN
+        # EDILMEZ, anahtar kelime aranmaz (AGENTS.md §0). Basarisiz cagri
+        # uretilmis bir sonuc olmadigi icin kanit saymaz.
+        #
+        # 2026-10-13 OLCUM: bu baglanti YOKTU. `record_evidence` tanimliydi
+        # ama hicbir uretim yolundan cagrilmiyordu; depoya yalniz URL
+        # giriyordu (chat/tools.py) ve `public_snapshot().evidence_count`
+        # yalniz URL sayisini gosteriyordu. Yani "kanit" katmani kosunun
+        # gercegini degil, bulunan link sayisini raporluyordu.
+        if kayit["ok"] and getattr(self, "evidence_store", None) is not None:
+            self.evidence_store.add(
+                "tool",
+                "%s#%s" % (kayit["name"], kayit["call_id"]),
+                tool=kayit["name"],
+                call_id=kayit["call_id"],
+                snippet=kayit["result"],
+            )
+
+    def _kanit_sayisi(self):
+        """Kanit sayisinin TEK kaynagi: depo varsa depo, yoksa URL listesi."""
+        depo = getattr(self, "evidence_store", None)
+        if depo is None:
+            return len(self.evidence)
+        return depo.count()
 
     def evidence_add(self, url, tool="", call_id=""):
         url = str(url or "")
@@ -182,7 +208,11 @@ class AgentRunState:
             "phase": self.phase,
             "provider": self.provider,
             "tool_count": len(self.tool_calls),
-            "evidence_count": len(self.evidence),
+            # Tek kaynak: kanit deposu. `self.evidence` yalniz URL
+            # listesidir; araç kanitlari da ayni depoda durur. Iki sayi
+            # ayrisirsa ekran kosunun gercegini degil bir alt kumesini
+            # gosterir (2026-10-13 olcumu: yalniz URL sayiliyordu).
+            "evidence_count": self._kanit_sayisi(),
             "truncated_reason": self.truncated_reason,
             "resumable": self.status == "paused",
         }

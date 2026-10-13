@@ -79,3 +79,58 @@ def test_agent_runtime_with_evidence_and_checkpoint(tmp_path, monkeypatch):
 
     delete_checkpoint("run_prof_01")
     assert load_checkpoint("run_prof_01") is None
+
+def test_basarili_arac_cagrisi_kanit_uretir():
+    """Kanit katmani kosunun GERCEK sonuclarini kaydetmeli, sadece URL degil.
+
+    2026-10-13 olcumu: `record_evidence` hicbir uretim yolundan
+    cagrilmiyordu; depoya yalniz URL giriyordu. Bu test bagi kilitler:
+    arac sonucu tek huniden (tool_done) gecer, kanit orada dogar.
+    """
+    state = AgentRunState(run_id="r_kanit")
+    assert state.evidence_store.count() == 0
+
+    state.tool_done("sayfa_oku", "c1", True,
+                    args={"url": "https://ornek.com"},
+                    result='{"icerik": "gercek sonuc"}', turn=1)
+    assert state.evidence_store.count() == 1
+    kayit = state.evidence_store.get_items()[0]
+    assert kayit.kind == "tool"
+    assert kayit.tool == "sayfa_oku"
+    assert kayit.call_id == "c1"
+    assert "gercek sonuc" in kayit.snippet
+
+
+def test_basarisiz_arac_cagrisi_kanit_saymaz():
+    """Uretilmis sonuc yoksa kanit da yok."""
+    state = AgentRunState(run_id="r_kanit2")
+    state.tool_done("read_file", "c9", False, args={"path": "yok.md"},
+                    result="Hata: dosya yok", turn=1)
+    assert state.evidence_store.count() == 0
+
+
+def test_kanit_sayisi_tek_kaynaktan_gelir():
+    """runState.evidence_count ile depo sayisi ayrisamaz.
+
+    Ayrisirsa arayuz kosunun gercegini degil bir alt kumesini gosterir.
+    """
+    state = AgentRunState(run_id="r_kanit3")
+    state.tool_done("hesapla", "c1", True, result="3973", turn=1)
+    state.evidence_add("https://a.example", tool="sayfa_oku", call_id="c2")
+    assert state.public_snapshot()["evidence_count"] == \
+        state.evidence_store.count() == 2
+
+
+def test_evidence_modulu_cevabi_degistirdigini_iddia_etmez():
+    """Modul belgesi koda uymali: bu katman DENETLEYICI degildir.
+
+    Eski baslik "kanit bagini DOGRULAR" diyordu; kod hicbir seyi
+    dogrulamiyordu ve dogrulayan katman bilincli olarak silinmisti
+    (SILME-GOREVI.md -> olcu.py). Yanlis iddia geri gelmesin.
+    """
+    import chat.evidence as ev
+    # Turkce "İ".lower() -> "i" + U+0307 (birlesik nokta); karsilastirma
+    # icin normalize edilir, aksi halde test kendi kodlamasina takilir.
+    belge = (ev.__doc__ or "").casefold().replace("\u0307", "")
+    assert "denetleyici değildir" in belge, belge[:200]
+    assert "dogrular" not in belge.split("2026-10-13")[0]
