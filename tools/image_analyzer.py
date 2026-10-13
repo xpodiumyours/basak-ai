@@ -1,7 +1,11 @@
 """tools/image_analyzer.py — Görüntü analiz aracı.
 
 NVIDIA NIM multimodal modelleri (omni, glimmer) ile görüntü analizi yapar.
-Görüntüyü base64 olarak modele gönderir, anlamlı açıklama/dÖner.
+Görüntüyü base64 olarak modele gönderir, anlamlı açıklama döner.
+
+Bakış zinciri (tek toplam bütçe, her göz en fazla bir kez):
+  nvidia -> gemini -> groq -> cloudflare -> kilo
+Anahtarı olmayan göz çağrı yapmadan atlanır; gerekçesi hata listesine yazılır.
 
 Destek: jpg, png, webp, gif (tek kare)
 Model: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning (varsayılan)
@@ -17,6 +21,15 @@ logger = logging.getLogger(__name__)
 
 # Varsayılan model (canlı testli, hızlı, Türkçe)
 VARSAYILAN_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+
+# 2026-10-13: Groq'un resmi goruntu modeli. Eski llama-4 ailesi
+# (scout/maverick) Groq katalogundan kaldirildi; ucretsiz katmanda
+# goruntu kabul eden guncel model budur.
+GROQ_GORU_MODEL = "qwen/qwen3.8-27b"
+
+# Cloudflare Workers AI goruntu modeli (data URI kabul eder,
+# ucretsiz gunluk Neuron kotasindan harcar).
+CLOUDFLARE_GORU_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct"
 
 # 2026-09-26 ölçümü: ~2 MB fatura fotoğrafları NVIDIA'da 60 sn'de
 # zaman aşımına uğruyor (6/6 çağrı). Zaman aşımından sonra 5 dk
@@ -34,6 +47,8 @@ GORUNTU_TOPLAM_BUTCE_SN = 90.0
 _SAGLAYICI_BUTCE_SN = {
     "nvidia": 35.0,
     "gemini": 35.0,
+    "groq": 40.0,
+    "cloudflare": 30.0,
     "kilo": 25.0,
 }
 _MIN_CAGRI_SN = 3.0
@@ -59,6 +74,38 @@ def _nvidia_key_al() -> str:
     except (OSError, json.JSONDecodeError):
         return ""
 
+
+
+def _groq_anahtar_al() -> str:
+    """Groq API key'ini environment veya ayarlar.json'dan okur."""
+    import json
+    token = os.environ.get("GROQ_API_KEY", "")
+    if token:
+        return token
+    try:
+        with open(_AYARLAR_DOSYASI, "r", encoding="utf-8-sig") as f:
+            ayarlar = json.load(f)
+        return ayarlar.get("groq_key", "")
+    except (OSError, json.JSONDecodeError):
+        return ""
+
+
+def _cloudflare_anahtar_al() -> tuple[str, str]:
+    """Cloudflare hesap kimligi + token; env once, sonra ayarlar.json."""
+    import json
+    hesap = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
+    token = os.environ.get("CLOUDFLARE_API_TOKEN", "")
+    if hesap and token:
+        return hesap, token
+    try:
+        with open(_AYARLAR_DOSYASI, "r", encoding="utf-8-sig") as f:
+            ayarlar = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return hesap, token
+    if not isinstance(ayarlar, dict):
+        return hesap, token
+    return (hesap or ayarlar.get("cloudflare_account_id", ""),
+            token or ayarlar.get("cloudflare_api_token", ""))
 
 
 def _deadline(deadline_monotonic=None):
@@ -92,8 +139,6 @@ def _goruntu_b64(goruntu_yolu: str) -> tuple[str, str]:
         mime = "image/png"
     with open(goruntu_yolu, "rb") as f:
         icerik = f.read()
-    if len(icerik) > 10 * 1024 * 1024:
-        raise ValueError("Görüntü çok büyük (maks 10MB)")
     try:
         from PIL import Image, ImageOps
         import io as _io
@@ -121,6 +166,12 @@ def _goruntu_b64(goruntu_yolu: str) -> tuple[str, str]:
             mime = "image/jpeg"
     except Exception as e:
         logger.debug("Goruntu normalizasyonu atlandi: %s", e)
+    # Boyut kapisi normalizasyondan SONRA (2026-10-13): 12 MP'lik bir telefon
+    # fotografi ham halde 10MB'i asar, ama 1600 px JPEG'e cevrilince birkac
+    # yuz KB kalir. Kapi once kosunca boyle bir fotograf HICBIR goze
+    # ulasamiyordu ("Goruntu cok buyuk").
+    if len(icerik) > 10 * 1024 * 1024:
+        raise ValueError("Görüntü çok büyük (maks 10MB)")
     return base64.b64encode(icerik).decode("ascii"), mime
 
 
@@ -167,6 +218,96 @@ def _gemini_goru(yol, soru, deadline_monotonic=None):
         return {"error": "Gemini goru calismadi: %s" % str(e)[:200]}
 
 
+def _groq_goru(yol, soru, deadline_monotonic=None):
+    """Dorduncu goz: Groq (ucretsiz katman, goruntu kabul eden model).
+
+    2026-10-13: Groq'un resmi goruntu modeli qwen/qwen3.8-27b'dir; eski
+    llama-4 ailesi katalogdan kaldirildi (deprecation). Cagri toplam
+    fatura butcesini asamaz.
+    """
+    try:
+        anahtar = str(_groq_anahtar_al() or "").strip()
+        if not anahtar:
+            return {"error": "Groq anahtari yok"}
+        sure = _kalan_sure(deadline_monotonic, _SAGLAYICI_BUTCE_SN["groq"])
+        if sure < _MIN_CAGRI_SN:
+            return {"error": "Goruntu okuma zaman butcesi doldu"}
+        from openai import OpenAI
+        img_b64, mime = _goruntu_b64(yol)
+        soru = (soru or "").strip() or "Bu görüntüyü açıkla."
+        istemci = OpenAI(api_key=anahtar,
+                         base_url="https://api.groq.com/openai/v1",
+                         timeout=sure, max_retries=0)
+        baslangic = time.time()
+        yanit = istemci.chat.completions.create(
+            model=GROQ_GORU_MODEL,
+            messages=[{"role": "user", "content": [
+                {"type": "text", "text": soru},
+                {"type": "image_url",
+                 "image_url": {"url": "data:%s;base64,%s" % (mime, img_b64)}}]}],
+            max_tokens=4096)
+        metin = ((yanit.choices[0].message.content) or "").strip()
+        if not metin:
+            return {"error": "Groq bos dondu", "model": GROQ_GORU_MODEL}
+        return {"result": metin, "model": GROQ_GORU_MODEL,
+                "sure": "%.1fs" % (time.time() - baslangic),
+                "dosya": os.path.basename(yol)}
+    except Exception as e:
+        logger.warning("Groq goru yedegi calismadi: %s", e)
+        return {"error": "Groq goru calismadi: %s" % str(e)[:200]}
+
+
+def _cloudflare_goru(yol, soru, deadline_monotonic=None):
+    """Besinci goz: Cloudflare Workers AI goruntu modeli.
+
+    Govde model girdisinin kendisidir; goruntu data URI olarak gider.
+    Yanit zarfinda metin `result.response` alanindadir.
+    """
+    try:
+        hesap, token = _cloudflare_anahtar_al()
+        hesap = str(hesap or "").strip()
+        token = str(token or "").strip()
+        if not hesap or not token:
+            return {"error": "Cloudflare anahtari yok"}
+        sure = _kalan_sure(
+            deadline_monotonic, _SAGLAYICI_BUTCE_SN["cloudflare"])
+        if sure < _MIN_CAGRI_SN:
+            return {"error": "Goruntu okuma zaman butcesi doldu"}
+        import requests
+        img_b64, mime = _goruntu_b64(yol)
+        soru = (soru or "").strip() or "Bu görüntüyü açıkla."
+        url = ("https://api.cloudflare.com/client/v4/accounts/%s/ai/run/%s"
+               % (hesap, CLOUDFLARE_GORU_MODEL))
+        govde = {"messages": [{"role": "user", "content": [
+            {"type": "text", "text": soru},
+            {"type": "image_url",
+             "image_url": {"url": "data:%s;base64,%s" % (mime, img_b64)}}]}]}
+        baslangic = time.time()
+        yanit = requests.post(
+            url, json=govde, timeout=sure,
+            headers={"Authorization": "Bearer %s" % token,
+                     "Content-Type": "application/json"})
+        try:
+            veri = yanit.json()
+        except ValueError:
+            return {"error": "Cloudflare gecersiz yanit (%s)"
+                    % yanit.status_code}
+        if not isinstance(veri, dict) or not veri.get("success"):
+            hatalar = veri.get("errors") if isinstance(veri, dict) else None
+            return {"error": "Cloudflare hata: %s"
+                    % str(hatalar or yanit.status_code)[:180]}
+        metin = str((veri.get("result") or {}).get("response") or "").strip()
+        if not metin:
+            return {"error": "Cloudflare bos dondu",
+                    "model": CLOUDFLARE_GORU_MODEL}
+        return {"result": metin, "model": CLOUDFLARE_GORU_MODEL,
+                "sure": "%.1fs" % (time.time() - baslangic),
+                "dosya": os.path.basename(yol)}
+    except Exception as e:
+        logger.warning("Cloudflare goru yedegi calismadi: %s", e)
+        return {"error": "Cloudflare goru calismadi: %s" % str(e)[:200]}
+
+
 def _kilo_goru(yol, soru, deadline_monotonic=None):
     """Ucuncu goz: Kilo Step 3.7 Flash. Cagri butceyle sinirlidir."""
     try:
@@ -197,9 +338,10 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
                   kabul=None) -> dict:
     """Tek bütçeli sağlayıcı zinciriyle görüntü analiz eder.
 
-    Sağlayıcı sırası sabittir; her sağlayıcı en fazla bir kez denenir.
-    Çağıran taraf isterse kabul fonksiyonu ile kalite kapısı verir.
-    Karar kullanıcı metninden çıkarılmaz. Varsayılan bütçe 90 saniyedir.
+    Goz sirasi sabittir: nvidia -> gemini -> groq -> cloudflare -> kilo;
+    her saglayici en fazla bir kez denenir. Çağıran taraf isterse kabul
+    fonksiyonu ile kalite kapısı verir. Karar kullanıcı metninden
+    çıkarılmaz. Varsayılan bütçe 90 saniyedir.
     """
     global _NVIDIA_SERINLEME
     deadline_monotonic = _deadline(deadline_monotonic)
@@ -270,6 +412,17 @@ def image_analyze(goruntu_yolu: str, soru: str = None,
     if _kalan_sure(deadline_monotonic, GORUNTU_TOPLAM_BUTCE_SN) >= _MIN_CAGRI_SN:
         sonuc = _gemini_goru(goruntu_yolu, soru, deadline_monotonic=deadline_monotonic)
         kabul_edilen = _degerlendir("gemini", sonuc, yedek=True)
+        if kabul_edilen is not None:
+            return kabul_edilen
+    if _kalan_sure(deadline_monotonic, GORUNTU_TOPLAM_BUTCE_SN) >= _MIN_CAGRI_SN:
+        sonuc = _groq_goru(goruntu_yolu, soru, deadline_monotonic=deadline_monotonic)
+        kabul_edilen = _degerlendir("groq", sonuc, yedek=True)
+        if kabul_edilen is not None:
+            return kabul_edilen
+    if _kalan_sure(deadline_monotonic, GORUNTU_TOPLAM_BUTCE_SN) >= _MIN_CAGRI_SN:
+        sonuc = _cloudflare_goru(goruntu_yolu, soru,
+                                 deadline_monotonic=deadline_monotonic)
+        kabul_edilen = _degerlendir("cloudflare", sonuc, yedek=True)
         if kabul_edilen is not None:
             return kabul_edilen
     if _kalan_sure(deadline_monotonic, GORUNTU_TOPLAM_BUTCE_SN) >= _MIN_CAGRI_SN:

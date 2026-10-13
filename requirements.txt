@@ -21,7 +21,14 @@ uvicorn==0.51.0
 # ── Masaustu arayuz ────────────────────────────────────────────────
 pywebview==6.2.1; sys_platform == "win32"
 pystray==0.19.5; sys_platform == "win32"
-Pillow==12.1.1; sys_platform == "win32"
+# Pillow artik Linux'ta da gerekli (2026-10-13 olcumu): goruntu okuma
+# yolu (`tools/image_analyzer._goruntu_b64`) fotografi 1600 px'e kucultup
+# JPEG'e cevirir. "win32" isaretiyle buluta hic kurulmuyordu; sonuc:
+# 686 KB'lik fatura fotografinin ham hali (base64 ~915 KB) saglayiciya
+# gidiyor, gemini 35 sn butcesinde zaman asimina ugruyor ve okuma
+# tamamen basarisiz oluyordu (`/api/fatura-oku` -> okuma.ok=false).
+# Ayni ders numpy'de yasanmisti (bkz. asagidaki not).
+Pillow==12.1.1
 
 # ── Kalici hafiza (vektor arama; sqlite-vec yoksa BM25'e duser) ─────
 # sqlite-vec: manylinux wheel'i var; Linux'ta da anlam aramasi acik kalsin
