@@ -683,6 +683,19 @@ Test: `tests/test_web_fotograf_kucultma_tarayici.py` (2 test, gerçek
 Chromium; sayfa gerçek dosyalardan açılır, ağa çıkan **gövde boyu** ölçülür
 — "dosyada şu kelime var mı" değil). Tarayıcı kurulu değilse test atlanır.
 
+**CANLI son doğrulama (2026-10-14, üretim + gerçek Chromium):** 8 MP
+gürültülü fatura fotoğrafı (ham **5,31 MB** / data URL **7,08 MB** →
+tavanın üstünde) `/fatura` ekranından gönderildi:
+
+- Gönderilen gövde: **0,73 MB** → **9,7 kat** küçültme, tavanın 6 kat altı.
+- Okuma: `okuma.ok = true`, `gemini-3-flash-preview`, **63,9 sn**.
+- Ekranda okunanlar: satıcı VKN **6120729513**, alıcı VKN **2345678901**,
+fatura no **IK-2026-10427**, **2** ürün satırı (8.598,00 / 7.199,00),
+matrah **54.720,00**, KDV **10.944,00**, genel toplam **65.664,00** ve
+"Matrah + KDV = genel toplam → **tutuyor**" denetimi.
+
+Yani duvar yalnız kodda değil, **canlıda** kapandı.
+
 ### 8.3 Canlı kabul — yayındaki Başak ile GERÇEK konuşma
 
 Yeni test: `tests/live/test_canli_site_konusma.py`. **Anahtar
