@@ -65,7 +65,7 @@ padding:12px;background:#fff;font:inherit;resize:vertical}
 
   <div id="sonuc"></div>
 </div>
-<script src="/common.js"></script>
+<script src="/common.js?v=8"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 function sayi(d) {
@@ -187,11 +187,17 @@ $("#gonder").addEventListener("click", async () => {
   const f = $("#dosya").files[0];
   if (!f) { durum("#durumFoto", "#noktaFoto", "dosya seçilmedi", false); return; }
   durum("#durumFoto", "#noktaFoto", "okunuyor...", null);
-  const b64 = await new Promise((r) => {
-    const fr = new FileReader();
-    fr.onload = () => r(fr.result);
-    fr.readAsDataURL(f);
-  });
+  let b64 = "";
+  try {
+    // Sunucu gövde tavanı ~4,5 MB: ham fotoğraf uca hiç ulaşmaz (413).
+    // Tarayıcıda 1600 px JPEG'e küçültülür — sohbet ekranıyla aynı kod.
+    b64 = await window.basakFotografiKucult(f);
+  } catch (e) {
+    durum("#durumFoto", "#noktaFoto", "okunamadı", false);
+    $("#fotoHata").innerHTML =
+      '<div class="banner warn section">' + e.message + "</div>";
+    return;
+  }
   const v = await rapor({ b64: b64, ad: f.name });
   const ok = v.okuma && v.okuma.ok;
   durum("#durumFoto", "#noktaFoto", ok ? "okundu" : "okunamadı", !!ok);

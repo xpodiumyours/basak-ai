@@ -1062,29 +1062,10 @@ function onizlemeTemizle() {
   gonderimDurumu();
 }
 
+// Küçültme kodu `common.js`te tek yerde durur (fatura ekranı da aynı
+// işlevi kullanır); burada yalnız çağrılır.
 async function gorseliDataUrl(file) {
-  if (!file || !String(file.type || "").startsWith("image/")) {
-    throw new Error("Yalnız fotoğraf yüklenebilir");
-  }
-  const ham = await new Promise((coz, reddet) => {
-    const r = new FileReader();
-    r.onload = () => coz(r.result);
-    r.onerror = () => reddet(new Error("Fotoğraf okunamadı"));
-    r.readAsDataURL(file);
-  });
-  const img = await new Promise((coz, reddet) => {
-    const i = new Image();
-    i.onload = () => coz(i);
-    i.onerror = () => reddet(new Error("Fotoğraf açılamadı"));
-    i.src = ham;
-  });
-  const enBuyuk = 1600;
-  const oran = Math.min(1, enBuyuk / Math.max(img.width, img.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(img.width * oran));
-  canvas.height = Math.max(1, Math.round(img.height * oran));
-  canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL("image/jpeg", 0.82);
+  return window.basakFotografiKucult(file);
 }
 
 if (imageEl) {
