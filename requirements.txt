@@ -60,7 +60,11 @@ pyannote.audio==4.0.7; sys_platform == "win32"
 python-telegram-bot==22.8; sys_platform == "win32"
 
 # ── Test ───────────────────────────────────────────────────────────
-pytest==9.1.1; sys_platform == "win32"
+# `sys_platform == "win32"` isareti 2026-10-14'te KALDIRILDI: Linux/konteyner
+# ortaminda (Procfile, Koyeb, CI) temiz kurulumdan sonra test kosulamiyordu —
+# yerel ile uretim ortami esitligi (P2.3) tam da bunu yasaklar. Ayni ders
+# Pillow ve numpy'de de yasanmisti (yukariya bak). Surumler DEGISMEDI.
+pytest==9.1.1
 # Kapsam olcum kapisi (2026-10-01): CI'da taban olarak kosar.
 # pytest==9.1.1 ile ayni ortamda calistigi olculdu.
-pytest-cov==7.1.0; sys_platform == "win32"
+pytest-cov==7.1.0
