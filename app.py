@@ -1195,6 +1195,22 @@ async def robots(request: Request):
                              headers={"Cache-Control": "no-store"})
 
 
+# ── Sağlık ucu (P3.1) ─────────────────────────────────────────────────
+# Orkestratör için: KİMLİKSİZ ve ucuz. Sağlayıcı listesi, model adı,
+# commit sha, araç sayısı ya da zincir durumu VERMEZ — o bilgi
+# `/api/durum`'da ve token'lı kalır (2026-09-23 regresyon kilidi:
+# `tests/test_uretim_kapisi.py::test_durum_ucu_kimliksiz_okunamaz`).
+# Hiçbir sağlayıcıya, veritabanına ya da çekirdeğe dokunmaz: tek işi
+# "süreç ayakta" sorusunu yanıtlamaktır.
+
+
+@app.get("/healthz")
+async def healthz():
+    """Süreç ayakta mı — kimliksiz, sabit gövde, bağımlılık saymaz."""
+    return JSONResponse({"ok": True},
+                        headers={"Cache-Control": "no-store"})
+
+
 # ── Fatura okuma ekranı (katalog hattı köprüsü) ────────────────────────
 # Ekran çekirdeği çağırır (`tools.katalog`); ayrı ajan döngüsü, ayrı
 # sağlayıcı zinciri, ayrı araç çalıştırıcı kurulmaz.
