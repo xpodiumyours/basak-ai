@@ -16,6 +16,12 @@ Koşum:
 
 Kayıt: `data/canli-rapor/<zaman>_canli_site_konusma.json` (gitignore'da).
 Adres `BASAK_CANLI_ADRES` ile değiştirilebilir.
+
+**Kırmızı sonuç = ürün bulgusu, bozuk test değil.**
+`test_dogru_hash_ve_base64_donuyor` iki deterministik hesabı harfi harfine
+doğrular; 2026-10-14 koşusunda sha256 geçti, Base64 (Türkçe harf) kaldı.
+Kırmızıyı yeşile çevirmenin yolu **iddiayı gevşetmek değildir**; bulgu
+`docs/MVP-PROFESYONEL-PLANI.md` §8.3'te açık iş olarak durur.
 """
 
 import base64
