@@ -32,8 +32,11 @@ Yani: klasörün adına bakar. `--live` verilmezse oradaki **her** test
 `canlı hat — --live gerekli` gerekçesiyle atlanır. Klasör yolunda geçen
 her test, ismi ne olursa olsun atlanır.
 
-**Normal koşu ölçülen sonuç (2026-10-01): 1108 geçti, 19 atlandı.** 19'un
-tamamı budur. Dağılım:
+**Normal koşu ölçülen sonuç (2026-10-01): 1108 geçti, 19 atlandı.**
+**2026-10-14 güncellemesi: 21 atlandı** — aşağıdaki listeye anahtar
+GEREKTİRMEYEN canlı kabul testi eklendi (yayındaki Başak'a HTTP ile
+bağlanır; sağlayıcı anahtarı istemez, `--live` kapısı yine zorunlu).
+21'in tamamı budur. Dağılım:
 
 | Dosya | Atlanan |
 |---|---|
@@ -46,7 +49,8 @@ tamamı budur. Dağılım:
 | `test_postgres_hafiza.py` | 1 |
 | `test_seviye1_native.py` | 1 |
 | `test_seviye2_pilot.py` | 1 |
-| **Toplam** | **19** |
+| `test_canli_site_konusma.py` (2026-10-14) | 2 |
+| **Toplam** | **21** |
 
 ---
 
