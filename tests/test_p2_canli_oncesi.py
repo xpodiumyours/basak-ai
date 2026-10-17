@@ -445,7 +445,19 @@ def test_agent_run_state_kesilmeyi_cevaptan_ayri_tasir():
     assert pub["status"] == "incomplete"
     assert pub["truncated_reason"] == "length"
     assert pub["tool_count"] == 1
-    assert pub["evidence_count"] == 1
+    # 2026-10-13 SEMANTIK DUZELTMESI. `evidence_count` artik KANIT
+    # DEPOSUNU sayar, yalniz URL listesini degil. Gerekce kod:
+    # basarili her arac cagrisi gercek bir sonuc uretir ve kanittir
+    # (chat/agent_runtime.py -> tool_done). Burada IKI kanit var:
+    #   1) web_search sonucu (kind="tool", c1)
+    #   2) sayfa_oku adresi  (kind="url",  c2)
+    # Eski beklenti (1) yalniz URL semantigine aitti ve kanit deposunu
+    # hic kullanmadigi icin katmani dekoratif birakiyordu. Sayiyi
+    # degistirmekle kalmiyor, TURLERI de kilitliyoruz: bu test eskisinden
+    # daha guclu.
+    assert pub["evidence_count"] == 2
+    assert sorted(x.kind for x in s.evidence_store.get_items()) == [
+        "tool", "url"], s.evidence_store.snapshot()
     assert pub["resumable"] is False
 
 

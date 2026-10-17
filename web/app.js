@@ -1062,29 +1062,10 @@ function onizlemeTemizle() {
   gonderimDurumu();
 }
 
+// Küçültme kodu `common.js`te tek yerde durur (fatura ekranı da aynı
+// işlevi kullanır); burada yalnız çağrılır.
 async function gorseliDataUrl(file) {
-  if (!file || !String(file.type || "").startsWith("image/")) {
-    throw new Error("Yalnız fotoğraf yüklenebilir");
-  }
-  const ham = await new Promise((coz, reddet) => {
-    const r = new FileReader();
-    r.onload = () => coz(r.result);
-    r.onerror = () => reddet(new Error("Fotoğraf okunamadı"));
-    r.readAsDataURL(file);
-  });
-  const img = await new Promise((coz, reddet) => {
-    const i = new Image();
-    i.onload = () => coz(i);
-    i.onerror = () => reddet(new Error("Fotoğraf açılamadı"));
-    i.src = ham;
-  });
-  const enBuyuk = 1600;
-  const oran = Math.min(1, enBuyuk / Math.max(img.width, img.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(img.width * oran));
-  canvas.height = Math.max(1, Math.round(img.height * oran));
-  canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL("image/jpeg", 0.82);
+  return window.basakFotografiKucult(file);
 }
 
 if (imageEl) {
@@ -1127,12 +1108,15 @@ const metinAkislari = new Map();
 const runDurumlari = new Map();
 
 // KAYNAK SAYISI BILINCLI OLARAK GOSTERILMIYOR.
-// public_snapshot'taki evidence_count'un kaynagi chat/tools.py:397
-// -> _kaynaklari_cikar (chat/tools.py:140). O fonksiyon yalniz okunan
-// sayfanin adresini degil, sayfa GOVDESINDE gecen her baglantiyi da
-// (chat/tools.py:146, _URL_RE ile) kaynak sayiyor. Tek sayfa okumasi
-// birden cok "kaynak" uretebiliyor; yani sayi okunmamis adresleri de
-// kapsiyor. Yanlis kaynak sayisi gostermektense hic gosterilmiyor.
+// public_snapshot'taki evidence_count'un kaynagi artik KANIT DEPOSUDUR
+// (chat/agent_runtime.py -> AgentRunState._kanit_sayisi). Depoya iki
+// sey girer: (a) aracin dondurdugu adresler — _kaynaklari_cikar
+// (chat/tools.py:140) yalniz okunan sayfanin adresini degil, sayfa
+// GOVDESINDE gecen her baglantiyi da (chat/tools.py:146, _URL_RE ile)
+// sayar, yani okunmamis adresleri de kapsar; (b) BASARILI her arac
+// cagrisinin gercek sonucu. Iki farkli anlam tek sayida toplandigi ve
+// (a) sisik oldugu icin yanlis bir "kaynak" izlenimi vermemek adina
+// hic gosterilmiyor.
 function aracIsaretiYaz(b, durum) {
   if (!b || !durum) return;
   let el = b.querySelector(".arac-isareti");

@@ -21,7 +21,14 @@ uvicorn==0.51.0
 # ── Masaustu arayuz ────────────────────────────────────────────────
 pywebview==6.2.1; sys_platform == "win32"
 pystray==0.19.5; sys_platform == "win32"
-Pillow==12.1.1; sys_platform == "win32"
+# Pillow artik Linux'ta da gerekli (2026-10-13 olcumu): goruntu okuma
+# yolu (`tools/image_analyzer._goruntu_b64`) fotografi 1600 px'e kucultup
+# JPEG'e cevirir. "win32" isaretiyle buluta hic kurulmuyordu; sonuc:
+# 686 KB'lik fatura fotografinin ham hali (base64 ~915 KB) saglayiciya
+# gidiyor, gemini 35 sn butcesinde zaman asimina ugruyor ve okuma
+# tamamen basarisiz oluyordu (`/api/fatura-oku` -> okuma.ok=false).
+# Ayni ders numpy'de yasanmisti (bkz. asagidaki not).
+Pillow==12.1.1
 
 # ── Kalici hafiza (vektor arama; sqlite-vec yoksa BM25'e duser) ─────
 # sqlite-vec: manylinux wheel'i var; Linux'ta da anlam aramasi acik kalsin
@@ -53,7 +60,11 @@ pyannote.audio==4.0.7; sys_platform == "win32"
 python-telegram-bot==22.8; sys_platform == "win32"
 
 # ── Test ───────────────────────────────────────────────────────────
-pytest==9.1.1; sys_platform == "win32"
+# `sys_platform == "win32"` isareti 2026-10-14'te KALDIRILDI: Linux/konteyner
+# ortaminda (Procfile, Koyeb, CI) temiz kurulumdan sonra test kosulamiyordu —
+# yerel ile uretim ortami esitligi (P2.3) tam da bunu yasaklar. Ayni ders
+# Pillow ve numpy'de de yasanmisti (yukariya bak). Surumler DEGISMEDI.
+pytest==9.1.1
 # Kapsam olcum kapisi (2026-10-01): CI'da taban olarak kosar.
 # pytest==9.1.1 ile ayni ortamda calistigi olculdu.
-pytest-cov==7.1.0; sys_platform == "win32"
+pytest-cov==7.1.0

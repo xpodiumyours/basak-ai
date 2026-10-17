@@ -267,7 +267,7 @@ class TestWebYuzey:
 
     def test_surum_kilidi_yukseltildi(self):
         assert "/chat.css?v=12" in HTML
-        assert "/app.js?v=20" in HTML
+        assert "/app.js?v=21" in HTML
 
 
 class TestD4bKaroYok:

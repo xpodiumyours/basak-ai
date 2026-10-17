@@ -21,13 +21,30 @@ Sözleşme:
 - Sır listesi TEK kaynaktan gelir (Python) ve YAML'ın env bloğuyla
   kaymaz.
 
-Ağ yok, sır yok: yalnız tetikleyici metni ve preflight mantığı ölçülür.
+Ağ yok, sır yok: yalnız tetikleyici metni, preflight mantığı ve
+kapsam listelerinin TEK KAYNAKTAN turedigi ölçülür.
+
+2026-10-13 eklenen kilitler (bulunan üç çelişki, ölçülerek kapatıldı):
+1. Canlı kabul kosusu `freetools` ve `harita` alanlarinda KeyError ile
+   COKUYORDU: `_alan_sema_testi` soruyu `ALAN_SORULARI[alan]` ile alir,
+   bu iki alanin sorusu yoktu ve cagri try/except DISINDA. Simdi her
+   yetenek alaninin canli sorusu olmasi testle kilitli.
+2. `sir_preflight.GEREKEN_SIRLER` anahtar GEREKTIRMEYEN kilo'yu zorunlu
+   sayiyordu (brain/kilo.py: "API anahtarı gerektirmez",
+   kosucu.ANAHTARLAR["kilo"] == []). Simdi zorunlu liste, kapsamdaki
+   saglayicilarin anahtarlarindan TURETILEREK karsilastirilir.
+3. Kabul kapsami (KAPSAM, 7) ile "8/8" kapsam sozlesmesi (SEKIZLER, 8)
+   arasindaki iliski yazili degildi; simdi alt kume olmasi kilitli.
 """
 
 import pathlib
 import re
 
+from tests.live import github_full_acceptance
+from tests.live import kosucu
+from tests.live import matris_kosucu
 from tests.live import sir_preflight
+from tools.capabilities import CAPABILITY_NAMESPACES
 
 AKIS = pathlib.Path(".github/workflows/test.yml")
 KOK = pathlib.Path(__file__).resolve().parents[1]
@@ -143,10 +160,58 @@ class TestSirlarKaymaz:
             "preflight bu sirlari ariyor ama YAML onlari geçmiyor: %s"
             % eksik)
 
-    def test_gereken_sirler_bos_degil(self):
-        """Liste bos kalirsa preflight her seyi 'gecer' sanir."""
-        assert len(sir_preflight.GEREKEN_SIRLER) >= 7, (
-            "kapsam 7 saglayici; %d" % len(sir_preflight.GEREKEN_SIRLER))
+    def test_zorunlu_sirlar_kapsamdan_turer(self):
+        """Zorunlu sır listesi, kapsamdaki saglayicilarin anahtarlaridir.
+
+        Eski kilit `len(...) >= 7` idi ve anahtar GEREKTIRMEYEN kilo'yu
+        sayesinde gecip, gerçek bir saglayicinin anahtari eksik olsa bile
+        yesil kalabiliyordu. Simdi kume karsilastirmasi yapilir: sayi
+        degil KAYNAK dogrulanir.
+        """
+        beklenen = set()
+        for ad in matris_kosucu.KAPSAM:
+            for anahtar in kosucu.ANAHTARLAR[ad]:
+                beklenen.add(kosucu.ORTAM_ANAHTARLARI[anahtar])
+        assert set(sir_preflight.GEREKEN_SIRLER) == beklenen, (
+            "zorunlu sır listesi kapsamdan sapti: %s != %s"
+            % (sorted(sir_preflight.GEREKEN_SIRLER), sorted(beklenen)))
+
+    def test_anahtar_istemeyen_saglayici_zorunlu_sayilmaz(self):
+        """kilo anahtarsiz calisir; zorunlu sır sayilamaz.
+
+        Kaynak: brain/kilo.py "API anahtarı gerektirmez" + kilo anahtar
+        listesi bos. Zorunlu sayilirsa preflight yanlis bir "%d/%d"
+        basligi uretir ve sir eksigi olan kosuyu tam sayar.
+        """
+        assert kosucu.ANAHTARLAR["kilo"] == [], kosucu.ANAHTARLAR["kilo"]
+        assert "KILO_API_KEY" not in sir_preflight.GEREKEN_SIRLER
+        assert "KILO_API_KEY" in sir_preflight.OPSIYONEL_SIRLER
+
+    def test_iki_kapsam_listesi_sadece_belgeli_farklar_tasir(self):
+        """SEKIZLER (Duzey 1) ile KAPSAM (Duzey 2) ayni sey DEGILDIR.
+
+        Kasitli fark, kodun kendi yorumlarinda yazili:
+          * cloudflare + cohere yalniz SEKIZLER'de: Duzey 1 "8/8 native
+            protokol" sozlesmesi kucultulmez; ama anahtarlari
+            "eklenmeyecek" karariyla (2026-09-22) Duzey 2 matrisinden
+            cikarildi — 104 kalici SKIP hucresi uretiyordu.
+          * mistral yalniz KAPSAM'da: 2026-09-22'de zincire girdi ve
+            anahtari var; ancak Duzey 1'in kendi hedefi 8'lik listedir
+            (bkz. kosucu.ZORLAMA yorumu).
+        Bu test farki "belgeli" tutar: sessizce yeni saglayici eklenirse
+        ya da biri listeden dusurulurse kirmizi doner.
+        """
+        assert set(matris_kosucu.KAPSAM) - set(kosucu.SEKIZLER) == {"mistral"}
+        assert set(kosucu.SEKIZLER) - set(matris_kosucu.KAPSAM) == {
+            "cloudflare", "cohere"}
+
+    def test_her_olculen_saglayicinin_anahtar_ve_zorlama_kaydi_var(self):
+        """Hicbir saglayici anahtar/zorlama tablosu disinda kalamaz."""
+        hepsi = set(kosucu.SEKIZLER) | set(matris_kosucu.KAPSAM)
+        assert hepsi <= set(kosucu.ANAHTARLAR), (
+            "anahtar tablosunda yok: %s" % sorted(hepsi - set(kosucu.ANAHTARLAR)))
+        assert hepsi <= set(kosucu.ZORLAMA), (
+            "zorlama tablosunda yok: %s" % sorted(hepsi - set(kosucu.ZORLAMA)))
 
     def test_ondenetim_kurulumdan_once_kosuyor(self):
         """Sır denetimi `pip install` ONCESI olmali.
@@ -232,3 +297,33 @@ class TestKalanOluTetikleyiciler:
         akis = self._full_acceptance()
         assert "issue_comment" in akis
         assert "github.event.issue.number == 4" in akis
+
+class TestCanliKabulYetenekAlaniKapsami:
+    """Canli FULL TEST her yetenek alanini sorabilmeli (KeyError kilidi).
+
+    `_alan_sema_testi` alanlari `CAPABILITY_NAMESPACES` uzerinden gezer ve
+    soruyu `ALAN_SORULARI[alan]` ile okur. Bu okuma try/except DISINDA
+    oldugu icin, sorusu olmayan tek bir alan bile 60 dakikalik canli kosuyu
+    rapor üretmeden çökertir. 2026-10-13'te tam olarak bu oluyordu.
+    """
+
+    def test_her_yetenek_alaninin_canli_sorusu_var(self):
+        eksik = sorted(
+            set(CAPABILITY_NAMESPACES) - set(github_full_acceptance.ALAN_SORULARI))
+        assert not eksik, (
+            "su yetenek alanlarinin canli sorusu yok; FULL TEST burada "
+            "KeyError ile coker: %s" % eksik)
+
+    def test_soru_seti_fazla_alan_uydurmaz(self):
+        fazla = sorted(
+            set(github_full_acceptance.ALAN_SORULARI) - set(CAPABILITY_NAMESPACES))
+        assert not fazla, (
+            "ALAN_SORULARI artik var olmayan alan iceriyor: %s" % fazla)
+
+    def test_yetenek_alani_sayisi_raporda_tek_kaynaktan_gelir(self):
+        """Rapor metnine sabit sayi yazilmaz (2026-10-13: "14" yaziyordu)."""
+        kaynak = pathlib.Path(
+            "tests/live/github_full_acceptance.py"
+        ).read_text(encoding="utf-8")
+        kod = _kod(kaynak)
+        assert "14 yetenek" not in kod, "raporda sabit '14 yetenek' kaldi"

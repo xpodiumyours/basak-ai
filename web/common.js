@@ -18,6 +18,36 @@ window.basakKodIste = () => {
   return t;
 };
 
+// Fotoğrafı GÖNDERMEDEN ÖNCE tarayıcıda küçültür.
+// Neden: sunucu gövdesinin tavanı var (Vercel ~4,5 MB). 8 MP bir telefon
+// fotoğrafının ham hâli base64 ile ~8-11 MB olur ve istek sunucuya hiç
+// ulaşmaz (HTTP 413). 1600 px JPEG ise ~200-500 KB kalır.
+// Dönen değer data URL'dir; fotoğraf değilse/okunamazsa hata atar.
+window.basakFotografiKucult = async (dosya, enBuyukKenar = 1600,
+                                     kalite = 0.82) => {
+  if (!dosya || !String(dosya.type || "").startsWith("image/")) {
+    throw new Error("Yalnız fotoğraf yüklenebilir");
+  }
+  const ham = await new Promise((coz, reddet) => {
+    const r = new FileReader();
+    r.onload = () => coz(r.result);
+    r.onerror = () => reddet(new Error("Fotoğraf okunamadı"));
+    r.readAsDataURL(dosya);
+  });
+  const resim = await new Promise((coz, reddet) => {
+    const i = new Image();
+    i.onload = () => coz(i);
+    i.onerror = () => reddet(new Error("Fotoğraf açılamadı"));
+    i.src = ham;
+  });
+  const oran = Math.min(1, enBuyukKenar / Math.max(resim.width, resim.height));
+  const tuval = document.createElement("canvas");
+  tuval.width = Math.max(1, Math.round(resim.width * oran));
+  tuval.height = Math.max(1, Math.round(resim.height * oran));
+  tuval.getContext("2d").drawImage(resim, 0, 0, tuval.width, tuval.height);
+  return tuval.toDataURL("image/jpeg", kalite);
+};
+
 async function kimlikHazirla(zorla = false) {
   if (kimlikPromise && !zorla) return kimlikPromise;
 

@@ -32,8 +32,11 @@ Yani: klasörün adına bakar. `--live` verilmezse oradaki **her** test
 `canlı hat — --live gerekli` gerekçesiyle atlanır. Klasör yolunda geçen
 her test, ismi ne olursa olsun atlanır.
 
-**Normal koşu ölçülen sonuç (2026-10-01): 1108 geçti, 19 atlandı.** 19'un
-tamamı budur. Dağılım:
+**Normal koşu ölçülen sonuç (2026-10-01): 1108 geçti, 19 atlandı.**
+**2026-10-14 güncellemesi: 21 atlandı** — aşağıdaki listeye anahtar
+GEREKTİRMEYEN canlı kabul testi eklendi (yayındaki Başak'a HTTP ile
+bağlanır; sağlayıcı anahtarı istemez, `--live` kapısı yine zorunlu).
+21'in tamamı budur. Dağılım:
 
 | Dosya | Atlanan |
 |---|---|
@@ -46,7 +49,8 @@ tamamı budur. Dağılım:
 | `test_postgres_hafiza.py` | 1 |
 | `test_seviye1_native.py` | 1 |
 | `test_seviye2_pilot.py` | 1 |
-| **Toplam** | **19** |
+| `test_canli_site_konusma.py` (2026-10-14) | 2 |
+| **Toplam** | **21** |
 
 ---
 
@@ -103,18 +107,26 @@ olmayan sağlayıcının hücresi SKIP yazılır" (`tests/live/kosucu.py:11-12`)
    `python -m pytest tests -q --ignore=tests/live`.
    Yani CI **bu 19 testi hiç çalıştırmıyor** — atlamıyor, klasörü
    hiç toplamıyor.
-2. **Sağlayıcı kabul işi ölü bir dal koşuluna bağlı.**
-   `test.yml:96`:
-   ```yaml
-   if: github.event_name == 'pull_request' &&
-       github.head_ref == 'preview/fatura-goz-cerrahi-20260927'
-   ```
-   Bu dal artık yok. Yani `provider-acceptance` işi **hiç koşmuyor**.
+2. ~~**Sağlayıcı kabul işi ölü bir dal koşuluna bağlı.**~~
+   **DÜZELTİLDİ (2026-10-01, P0.1).** Ölü `head_ref` koşulu kaldırıldı;
+   iş artık `workflow_dispatch` + `kabul-matrisi` PR etiketi + haftalık
+   `schedule` ile koşuyor (`tests/test_kabul_matrisi_tetikleyici.py`).
 
-**Sonuç:** 19 canlı testin **hiçbir kaydı yok**. Bu bir tasarım kusuru
-değil — kapının kendisi doğru. Kusur, kapının arkasındaki paketin
-**hiç işletilmemiş** olması. Bu yüzden `docs/MVP-PROFESYONEL-PLANI.md`
-P0.2'de bir kez kayıtlı koşu istiyor.
+**Sonuç (DÜZELTİLDİ — 2026-10-13):** Yukarıdaki "19 canlı testin hiçbir
+kaydı yok" cümlesi **YANLIŞTI** ve ölçümle çürütüldü. `tests/live`
+*pytest paketi* hiç koşmadı, doğru; ama canlı kabulün KAYDI vardır ve
+halka açıktır:
+
+| Kayıt | Nerede | Ne gösteriyor |
+|---|---|---|
+| Canlı ajan sohbeti | GitHub **issue #4** yorumları (`basak-live-chat.yml`) | Gerçek sağlayıcı + gerçek araç koşumu (ör. `simdi`, `hesapla`, `adres_kontrol`) |
+| FULL TEST matrisi | GitHub **issue #4** (`basak-full-acceptance.yml`) | Kotasız paket özeti + 8 sağlayıcılı canlı tablo |
+
+Yani kusur "kanıt yok" değil, kanıtın **yeri**dir: kanıt depoda değil,
+issue yorumlarında duruyor ve `data/canli-rapor/` gitignore'da olduğu
+için depoya girmiyor. `docs/MVP-PROFESYONEL-PLANI.md` P0.2 hâlâ açık —
+istenen şey `tests/live --live` paketinin **bir kez kayıtlı** koşusudur;
+bu ayrımı karıştırmamak için bu satır buraya yazıldı.
 
 > **Dürüst sınır:** Bu turun yazımında canlı paket **koşmadı** —
 > ortamda sağlayıcı anahtarı yok. Buradaki her sayı, kod okunarak
