@@ -1,6 +1,8 @@
 """tools/tasks.py — Görev yönetimi.
 
-Görev ekleme, listeleme ve tamamlama fonksiyonları.
+Görev ekleme, listeleme, tamamlama ve durum güncelleme fonksiyonları.
+Durum alanı (2026-10-17): pending/in_progress/paused/done — yarım kalan
+iş list_tasks'ta durumuyla görünür, update_task_status ile ilerler.
 Görevler gorevler.json dosyasında saklanır.
 
 Eşzamanlılık (2026-08-24, Casper'in bulgusu): Api.mesaj() her mesajı ayrı
@@ -83,7 +85,9 @@ def add_task(text: str, gorevler_file: str, date: str = None) -> dict:
                 "text": text.strip(),
                 "date": tarih,
                 "done": False,
+                "status": "pending",
                 "created": bugun.strftime("%Y-%m-%d %H:%M"),
+                "updated": bugun.strftime("%Y-%m-%d %H:%M"),
             }
             gorevler.append(gorev)
             _atomik_yaz(gorevler_file, gorevler)
@@ -121,7 +125,8 @@ def list_tasks(gorevler_file: str) -> dict:
 
         satirlar = []
         for g in acik_gorevler:
-            satirlar.append(f"- [{g['id']}] {g['text']} ({g.get('date', '?')})")
+            durum = g.get("status") or ("done" if g.get("done") else "pending")
+            satirlar.append(f"- [{g['id']}] {durum} | {g['text']} ({g.get('date', '?')})")
 
         return {"result": "\n".join(satirlar)}
 
@@ -143,6 +148,9 @@ def complete_task(task_id: int, gorevler_file: str) -> dict:
             for g in gorevler:
                 if g.get("id") == task_id:
                     g["done"] = True
+                    g["status"] = "done"
+                    g["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    g["updated"] = datetime.now().strftime("%Y-%m-%d %H:%M")
                     _atomik_yaz(gorevler_file, gorevler)
                     return {"result": f"Görev #{task_id} tamamlandı: {g['text']}"}
 
@@ -151,3 +159,34 @@ def complete_task(task_id: int, gorevler_file: str) -> dict:
     except (OSError, json.JSONDecodeError) as e:
         logger.error("Görev tamamlanamadı: %s", e)
         return {"error": f"Görev tamamlanamadı: {e}"}
+
+
+def update_task_status(task_id: int, status: str, gorevler_file: str, note: str = None) -> dict:
+    """Görev durumunu günceller (pending/in_progress/paused/done)."""
+    if not gorevler_file:
+        return {"error": "Görev dosyası yolu boş olamaz"}
+    valid = {"pending", "in_progress", "paused", "done"}
+    if status not in valid:
+        return {"error": f"Geçersiz durum: {status}"}
+    try:
+        with _KILIT:
+            gorevler = _yukle(gorevler_file)
+            for g in gorevler:
+                if g.get("id") == task_id:
+                    g["status"] = status
+                    g["updated"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    if note:
+                        g["note"] = note
+                    if status == "done":
+                        g["done"] = True
+                        g["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    else:
+                        g["done"] = False
+                        # Yeniden acilan gorevde eski kapanis ani kalmamali.
+                        g.pop("completed_at", None)
+                    _atomik_yaz(gorevler_file, gorevler)
+                    return {"result": f"Görev #{task_id} durumu: {status}"}
+        return {"error": f"Görev #{task_id} bulunamadı"}
+    except (OSError, json.JSONDecodeError) as e:
+        logger.error("Görev durumu güncellenemedi: %s", e)
+        return {"error": f"Görev durumu güncellenemedi: {e}"}

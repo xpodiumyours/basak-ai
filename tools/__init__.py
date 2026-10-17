@@ -1,4 +1,4 @@
-"""tools — Başak'ın araçları. Elli yedi tane.
+"""tools — Başak'ın araçları. Elli sekiz tane.
 
 2026-09-13: 21 araçlık katman söküldü; Casper'in seçtikleri geri geldi.
 Okuyanlar serbesttir. Etkisi olanlar dardir: dosya yazma yalniz
@@ -177,6 +177,20 @@ def calistir(tool_name, args):
             except (TypeError, ValueError):
                 return {"error": "Gorev no sayi olmali."}
             return tasks.complete_task(task_id, gorevler_dosyasi())
+
+        if tool_name == "update_task_status":
+            from tools import tasks
+            try:
+                task_id = int(args.get("task_id", 0))
+            except (TypeError, ValueError):
+                return {"error": "Gorev no sayi olmali."}
+            status = args.get("status")
+            if not isinstance(status, str) or not status:
+                return {"error": "Durum gerekli."}
+            note = args.get("note")
+            if note is not None:
+                note = str(note)
+            return tasks.update_task_status(task_id, status, gorevler_dosyasi(), note)
 
         if tool_name == "ac_uygulama":
             from tools import app_launcher
