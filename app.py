@@ -41,6 +41,11 @@ app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 _BEYIN = None
 _TOOLS = None
 _PREVIEW_COOKIE = "basak_preview_oturum"
+# Zincirin dayanikli sayilmasi icin en az kac farkli saglayici anahtari
+# gerekir. Tek saglayici = SESSIZ RISK: kotasi dolunca zincir bos kalir.
+# Bu esik saglayici SIRASINI, secimini veya model davranisini etkilemez;
+# /api/durum'da ortami gorunur kilar (bkz. doktor.ASGARI_ZINCIR).
+_ASGARI_ZINCIR = 3
 # Kişilik artık isteğe göre chat.prompts.kisilik_blogu ile üretilir;
 # sabit "Casper'in asistanısın" metni web'de yabancıya sızmaz.
 
@@ -700,6 +705,27 @@ async def durum(request: Request):
         zincir = beyin._bulut_zinciri(tools=True)
     except Exception:
         zincir = []
+    saglayicilar = [ad for ad, _ in zincir]
+    try:
+        from brain.registry import VARSAYILAN_SIRA
+        beklenen_saglayicilar = list(VARSAYILAN_SIRA)
+    except Exception:
+        beklenen_saglayicilar = []
+    eksik_saglayicilar = [
+        ad for ad in beklenen_saglayicilar if ad not in saglayicilar
+    ]
+    if not saglayicilar:
+        zincir_uyarisi = (
+            "Hicbir model saglayicisi tanimli degil; sohbet cevapsiz kalir."
+        )
+    elif len(saglayicilar) < _ASGARI_ZINCIR:
+        zincir_uyarisi = (
+            "Zincirde yalniz %d saglayici var; kotasi dolunca zincir BOS "
+            "kalir. En az %d farkli anahtar tanimla."
+            % (len(saglayicilar), _ASGARI_ZINCIR)
+        )
+    else:
+        zincir_uyarisi = ""
     modeller = []
     try:
         from brain import registry
@@ -759,9 +785,10 @@ async def durum(request: Request):
         "ok": bool(zincir),
         "runtime": "vercel",
         "commit": (os.environ.get("VERCEL_GIT_COMMIT_SHA") or "vercel")[:7],
-        "saglayicilar": [ad for ad, _ in zincir],
-        "beklenen_saglayicilar": [],
-        "eksik_saglayicilar": [],
+        "saglayicilar": saglayicilar,
+        "beklenen_saglayicilar": beklenen_saglayicilar,
+        "eksik_saglayicilar": eksik_saglayicilar,
+        "zincir_uyarisi": zincir_uyarisi,
         "modeller": modeller,
         "arac_sayisi": len(tools),
         "tasima": "canli-ndjson",
