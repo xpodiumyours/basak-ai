@@ -10,7 +10,8 @@ Okuyanlar serbest, etkisi olanlar dar tablolarda (dosya/gorev/tablo
 yazma, sabit komut, beyaz liste).
 (2026-09-15: toplam 52; ara-toplam formulu bayat oldugu icin kaldirildi.
 2026-09-23: hava_durumu eklendi — 53. 2026-10-01: harita_goster eklendi —
-56; ayni gun konum_coz eklendi — guncel toplam 57; sayi testlerle kilitli,
+56; ayni gun konum_coz eklendi — 57; 2026-10-17: update_task_status
+eklendi — guncel toplam 58; sayi testlerle kilitli,
 bak: tests/test_seviye0_sozlesme.py + tests/test_agent_protocol.py.)
 """
 
@@ -208,6 +209,17 @@ GOREV_BITIR = _arac(
     "Nodaki gorevi kapatir.",
     {"task_id": {"type": "integer", "description": "Gorev no"}},
     ["task_id"],
+)
+
+GOREV_GUNCELLE = _arac(
+    "update_task_status",
+    "Gorev durumunu gunceller (pending/in_progress/paused/done).",
+    {"task_id": {"type": "integer", "description": "Gorev no"},
+     "status": {"type": "string",
+                "enum": ["pending", "in_progress", "paused", "done"],
+                "description": "Yeni durum"},
+     "note": {"type": "string", "description": "Not (opsiyonel)"}},
+    ["task_id", "status"],
 )
 
 UYGULAMA_AC = _arac(
@@ -614,7 +626,7 @@ FREETOOLS_CALISTIR = _arac(
 TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
           KITAP_ARA, DERIN_OKU, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
-         HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR,
+         HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR, GOREV_GUNCELLE,
          UYGULAMA_AC, ICERIK_ARA, GITHUB_DURUM,
          GIT_GECMIS, GIT_DEGISENLER, ADRES_KONTROL, TEST_KOS,
          MATRIS_AC, MATRIS_LISTE, SATIR_EKLE, KANIT_EKLE,

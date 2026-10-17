@@ -1,7 +1,7 @@
 # Başak
 
 Windows üzerinde çalışan, Türkçe konuşan kişisel yapay zeka asistanı.
-Masaüstü arayüzü (Jarvis tarzı), kalıcı hafıza, 57 araç, sesli giriş/çıkış
+Masaüstü arayüzü (Jarvis tarzı), kalıcı hafıza, 58 araç, sesli giriş/çıkış
 ve fatura fotoğrafından satış kataloğu üreten bir hat içerir.
 
 > **Bu dosya 2026-09-19'da yazıldı.** O güne kadar README yoktu; projeye
@@ -142,7 +142,7 @@ basak_app.py          masaüstü pencere + JS köprüsü (pywebview)
 │   ├── secici.py     sıra kararı (registry sırasını korur, oyun kurmaz)
 │   ├── yayin.py      akan cevap (streaming) + araç isteği
 │   └── adapters/     her sağlayıcı için ince adaptör
-├── tools/            57 araç (şema + çalıştırma dalı)
+├── tools/            58 araç (şema + çalıştırma dalı)
 ├── memory/           SQLite hafıza motoru
 ├── voice/            Piper TTS + Whisper STT + konuşmacı tanıma
 ├── data/             çalışma verisi (git dışı): fatura, katalog, audit
@@ -206,15 +206,15 @@ gerekçesiyle birlikte yorumda belirt.
 >
 > | Sayı | Neyi sayar | Kaynak |
 > |---|---|---|
-> | **57** | Python çekirdeğinin **yerel araçları** — dosya okuma, web arama, hava durumu, defter, görev… Model bunları çağırır. | `tools/definitions.py` → `TOOLS` |
+> | **58** | Python çekirdeğinin **yerel araçları** — dosya okuma, web arama, hava durumu, defter, görev… Model bunları çağırır. | `tools/definitions.py` → `TOOLS` |
 > | **162** | Web kataloğundaki **çevrimiçi araçlar** — 22'si doğrudan tarayıcıda çalışır, kalanı API üzerinden. | `tools/freetools_katalog.py` → `ARACLAR`, `/araclar` |
 >
 > Vitrin "162" der çünkü `/araclar` sayfası web kataloğunu listeler.
-> Bu bölüm "57" der çünkü modelin çağırabildiği araçları anlatır.
+> Bu bölüm "58" der çünkü modelin çağırabildiği araçları anlatır.
 > Web kataloğu ile çekirdek araçları **aynı şey değildir**; ikisi de
 > ölçülmüş değerlerdir.
 
-`tools/definitions.py` → `TOOLS` listesi (57 araç). Her aracın **dört yeri**
+`tools/definitions.py` → `TOOLS` listesi (58 araç). Her aracın **dört yeri**
 vardır ve dördü birden yapılmazsa araç **sessizce ölü kalır** (AGENTS.md §0):
 
 1. `tools/definitions.py` — modele sunulan şema

@@ -45,6 +45,7 @@ DURUM_METNI = {
     "add_task": "Görev ekleniyor",
     "list_tasks": "Görevler listeleniyor",
     "complete_task": "Görev kapatılıyor",
+    "update_task_status": "Görev durumu güncelleniyor",
     "ac_uygulama": "Uygulama açılıyor",
     "icerik_ara": "İçerikte aranıyor",
     "github_durum": "GitHub ölçülüyor",
@@ -88,7 +89,7 @@ DURUM_METNI = {
 
 # Durum satırında gösterilecek argüman — araca göre değişir.
 DURUM_ALANI = ("query", "url", "adres", "path", "folder", "proje", "text",
-               "task_id", "sehir", "konum")
+               "task_id", "status", "sehir", "konum")
 
 
 def _j(obj):
