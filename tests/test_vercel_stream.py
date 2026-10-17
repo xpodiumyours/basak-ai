@@ -296,6 +296,11 @@ def test_web_ui_gercek_olaylari_detayli_gosterir_ve_sirlari_maskeler():
     ab = ekran.index("function aracIsaretiYaz(")
     isaret = ekran[ab:ekran.index("\n}\n", ab) + 3]
 
+    # Taze deneme dugmesi bitir dalindan cagrilir: taklit degil,
+    # gercek kod betige girer.
+    tb = ekran.index("function tekrarDugmesiEkle(")
+    tekrar = ekran[tb:ekran.index("\n}\n", tb) + 3]
+
     script = r"""
 const balonlar = new Map();
 const runDurumlari = new Map();
@@ -308,9 +313,17 @@ function bubble(_role, text) {
     dataset: { ham: String(text || "") },
     querySelector() { return null; },
     closest() { return null; },
-    remove() {}
+    remove() {},
+    appendChild(c) { eklenenler.push(c.className || ""); }
   };
 }
+const eklenenler = [];
+let gonderiliyor = false;
+function send() {}
+const document = { createElement(ad) {
+  return { ad, className: "", textContent: "", _olay: {},
+           addEventListener(t, f) { this._olay[t] = f; } };
+} };
 function durumSatiri(b, metin) {
   const gorunen = guvenliDurum(metin);
   b.durum = gorunen;
@@ -334,7 +347,7 @@ function akiciMetinEkle(b, metin) { icerikYaz(b, (b.dataset.ham || "") + String(
 function akiciMetniFinaleTamamla(b, metin) { icerikYaz(b, String(metin || "")); return Promise.resolve(); }
 function akiciMetniDurdur() {}
 function sohbetAlta() {}
-""" + guvenli + "\n" + isaret + "\n" + olay_isle + r"""
+""" + guvenli + "\n" + isaret + "\n" + tekrar + "\n" + olay_isle + r"""
 
 const b = bubble("assistant", "");
 balonlar.set("abc", b);
@@ -383,9 +396,13 @@ if (b.dataset.ham !== "Merhaba") {
   throw new Error("parçalar birleşmedi: " + b.dataset.ham);
 }
 
+b._tekrarMetin = "soru";
 Promise.resolve(olayiIsle({istek:"abc", tur:"bitir", cevap:"Merhaba", kaynak:"sahte"})).then(() => {
 if (b.dataset.ham !== "Merhaba") {
   throw new Error("bitir cevabı bozdu: " + b.dataset.ham);
+}
+if (!eklenenler.includes("tekrar-yaz")) {
+  throw new Error("taze deneme düğmesi çıkmadı: " + eklenenler.join(","));
 }
 if (balonlar.has("abc")) {
   throw new Error("bitir sonrası istek balonu temizlenmedi");
