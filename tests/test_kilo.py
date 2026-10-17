@@ -144,14 +144,25 @@ class TestRegistryKarti:
 class TestUcretsizModelFallback:
     def test_dogrudan_tool_modelleri_auto_freeden_once(self):
         from brain.kilo import TERCIH_SIRASI
-        # Dogrudan tool calisan (2026-10-04 olcumu) modeller otomatik
+        # Dogrudan tool calisan (2026-10-12 olcumu) modeller otomatik
         # yonlendiriciden once gelir.
-        assert TERCIH_SIRASI.index("qwen/qwen3.8-27b:free") < (
+        assert TERCIH_SIRASI.index(
+            "nvidia/nemotron-3-super-120b-a12b:free") < (
             TERCIH_SIRASI.index("kilo-auto/free"))
-        assert TERCIH_SIRASI.index("poolside/laguna-s-2.1:free") < (
+        assert TERCIH_SIRASI.index("nvidia/nemotron-3.5-lightning:free") < (
             TERCIH_SIRASI.index("kilo-auto/free"))
-        # Katalogdan silinmis olumlu model listede kalmaz (404 olcumu).
-        assert "tencent/hy3:free" not in TERCIH_SIRASI
+        # Katalogdan silinmis olumlu modeller listede kalmaz (404 olcumu,
+        # 2026-10-12: Kilo ucretsiz katalogu degisti).
+        for olu in ("tencent/hy3:free",
+                    "stepfun/step-3.7-flash:free",
+                    "qwen/qwen3.8-27b:free",
+                    "apodex/apodex-1.1-mini:free",
+                    "inclusionai/ling-3.0-flash-sante:free"):
+            assert olu not in TERCIH_SIRASI
+        # Upstream 429 veren modeller de oncelik listesinde durmaz.
+        for dolu in ("poolside/laguna-s-2.1:free",
+                     "poolside/laguna-xs-2.1:free"):
+            assert dolu not in TERCIH_SIRASI
 
     def test_model_gecici_hatasinda_siradaki_free_model_devralir(self):
         from brain.kilo import KiloClient
@@ -173,6 +184,8 @@ class TestUcretsizModelFallback:
         istemci = KiloClient.__new__(KiloClient)
         istemci.client = types.SimpleNamespace(
             chat=types.SimpleNamespace(completions=Comp()))
+        # Katalogdan KALKAN bayat model: canli saglayici 404 doner, yedek
+        # guncel TERCIH_SIRASI basindan devralir.
         istemci.model = "stepfun/step-3.7-flash:free"
 
         yanit = istemci.cevapla(
@@ -181,10 +194,10 @@ class TestUcretsizModelFallback:
         assert yanit["content"] == "tamam"
         assert cagrilar[:2] == [
             "stepfun/step-3.7-flash:free",
-            "qwen/qwen3.8-27b:free",
+            "nvidia/nemotron-3-super-120b-a12b:free",
         ]
         # Sonraki arac turunda ayni basarili model once kullanilir.
-        assert istemci.model == "qwen/qwen3.8-27b:free"
+        assert istemci.model == "nvidia/nemotron-3-super-120b-a12b:free"
 
     def test_ip_geneli_429da_model_degistirip_kota_yakmaz(self):
         from brain.kilo import KiloClient
@@ -246,7 +259,7 @@ class TestUcretsizModelFallback:
         assert yanit["tool_calls"][0]["function"]["name"] == "simdi"
         assert cagrilar[:2] == [
             "stepfun/step-3.7-flash:free",
-            "qwen/qwen3.8-27b:free",
+            "nvidia/nemotron-3-super-120b-a12b:free",
         ]
 
     def test_string_reasoning_details_kilo_istegine_geri_gonderilmez(self):

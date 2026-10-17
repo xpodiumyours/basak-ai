@@ -2,7 +2,7 @@
 
 Kaniti uc ayri katmanda raporlar:
 1) Kotasiz: guncel arac semasi + dispatcher + saglayici-arac baglanti yolu.
-2) Canli protokol: saglayicilar 14 yetenek alanindaki guncel
+2) Canli protokol: saglayicilar TUM yetenek alanlarindaki guncel
    gercek arac semalarini kendi gercek API'sinde kabul edip tool-call
    dondurur mu?
 3) Canli uctan uca: her saglayici salt sohbeti ve gercek `simdi`
@@ -38,6 +38,13 @@ ALAN_SORULARI = {
     "matris_satir": "Bir matris satırını düzenlemek gerekiyor; uygun satır aracını seç.",
     "masaustu": "Beyaz listedeki bir masaüstü uygulamasını açmak gerekiyor; uygun aracı seç.",
     "hesap": "120 çarpı 18 bölü 100 hesabını yap; uygun hesap aracını seç.",
+    # 2026-10-13: freetools ve harita alanlarinin canli sorusu YOKTU.
+    # `_alan_sema_testi` soruyu `ALAN_SORULARI[alan]` ile alan sirasinda
+    # okur ve orada try/except YOKTUR; bu yuzden FULL TEST tam bu iki
+    # alanda KeyError ile COKUYORDU ve rapor hic uretilemiyordu.
+    # Kapsam 13 -> 15 (chat.agent_protocol.YETENEK_ALANLARI ile esit).
+    "freetools": "Ucretsiz cevrimici arac katalogunda bir arac aramam gerekiyor; uygun aracı seç.",
+    "harita": "Bir adresin haritada gosterilmesi veya konumunun cozulmesi gerekiyor; uygun aracı seç.",
 }
 
 
@@ -340,9 +347,9 @@ def main():
         "**Sonuç:** " + pytest_ozet,
         "",
         (
-            "✅ %d/%d araç şeması + dispatcher + 14 yetenek alanı "
+            "✅ %d/%d araç şeması + dispatcher + %d yetenek alanı "
             "+ dinamik sağlayıcı-arac bağlantı yolu test paketinden geçti."
-            % (arac_sayisi, arac_sayisi)
+            % (arac_sayisi, arac_sayisi, alan_sayisi)
             if kotasiz_ok else
             "❌ Kotasız yapısal test paketi tam geçmedi."
         ),
@@ -352,8 +359,9 @@ def main():
         "",
         "#### 2) Gerçek sağlayıcı + gerçek API protokolü",
         "",
-        "Her hazır sağlayıcı 14 yetenek alanında güncel gerçek Başak araç "
-        "şemalarını kendi API'sine alır ve o alandan tool_call üretmek zorundadır.",
+        "Her hazır sağlayıcı %d yetenek alanında güncel gerçek Başak araç "
+        "şemalarını kendi API'sine alır ve o alandan tool_call üretmek zorundadır."
+        % alan_sayisi,
         "",
         "| Sağlayıcı | Sonuç | Alan | Şema | Salt sohbet | Gerçek simdi | Not |",
         "|---|---|---:|---:|---|---|---|",

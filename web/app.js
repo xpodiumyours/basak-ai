@@ -1127,12 +1127,15 @@ const metinAkislari = new Map();
 const runDurumlari = new Map();
 
 // KAYNAK SAYISI BILINCLI OLARAK GOSTERILMIYOR.
-// public_snapshot'taki evidence_count'un kaynagi chat/tools.py:397
-// -> _kaynaklari_cikar (chat/tools.py:140). O fonksiyon yalniz okunan
-// sayfanin adresini degil, sayfa GOVDESINDE gecen her baglantiyi da
-// (chat/tools.py:146, _URL_RE ile) kaynak sayiyor. Tek sayfa okumasi
-// birden cok "kaynak" uretebiliyor; yani sayi okunmamis adresleri de
-// kapsiyor. Yanlis kaynak sayisi gostermektense hic gosterilmiyor.
+// public_snapshot'taki evidence_count'un kaynagi artik KANIT DEPOSUDUR
+// (chat/agent_runtime.py -> AgentRunState._kanit_sayisi). Depoya iki
+// sey girer: (a) aracin dondurdugu adresler — _kaynaklari_cikar
+// (chat/tools.py:140) yalniz okunan sayfanin adresini degil, sayfa
+// GOVDESINDE gecen her baglantiyi da (chat/tools.py:146, _URL_RE ile)
+// sayar, yani okunmamis adresleri de kapsar; (b) BASARILI her arac
+// cagrisinin gercek sonucu. Iki farkli anlam tek sayida toplandigi ve
+// (a) sisik oldugu icin yanlis bir "kaynak" izlenimi vermemek adina
+// hic gosterilmiyor.
 function aracIsaretiYaz(b, durum) {
   if (!b || !durum) return;
   let el = b.querySelector(".arac-isareti");
