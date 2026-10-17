@@ -279,6 +279,12 @@ class Dugum {
     if (c.ust) c.ust.cocuklar = c.ust.cocuklar.filter((x) => x !== c);
     c.ust = this; this.cocuklar.push(c); return c;
   }
+  addEventListener(tur, fn) {
+    (this._olaylar = this._olaylar || {})[tur] = fn;
+  }
+  click() {
+    if (this._olaylar && this._olaylar.click) this._olaylar.click();
+  }
   querySelector(sec) {
     const sinif = sec.replace(".", "");
     for (const c of this.cocuklar) {
@@ -381,6 +387,8 @@ def _glue_sonucu(tool_count):
 const balonlar = new Map();
 const runDurumlari = new Map();
 const cagrildi = [];
+let gonderiliyor = false;
+function send(o) { cagrildi.push("gonder:" + JSON.stringify(o)); }
 function bubble() { const b = new Dugum("div"); b.className = "bubble";
                     const i = new Dugum("div"); i.className = "icerik";
                     b.appendChild(i); return b; }
@@ -400,7 +408,7 @@ function akiciMetniFinaleTamamla(b, metin) {
   b.querySelector(".icerik").textContent = metin;
   return Promise.resolve();
 }
-""" + _isaret_kodu() + _kod_dilimi("function olayiIsle(") + """
+""" + _isaret_kodu() + _kod_dilimi("function tekrarDugmesiEkle(") + _kod_dilimi("function olayiIsle(") + """
 (async () => {
   const balon = bubble();
   balonlar.set("r1", balon);
@@ -446,6 +454,74 @@ def test_glue_kaynak_sayisi_asla_yazilmaz():
     """evidence_count 7 gonderilse bile ekranda kaynak sayisi cikmaz."""
     for sayi in (0, 2):
         assert "kaynak" not in _glue_sonucu(sayi)["isaretMetni"].lower()
+
+
+def test_glue_tekrar_dugmesi_tazele_gonderir():
+    """bitir'de GERCEK 'Daha duzgun yaz' dugmesi cikar; tiklaninca
+    ayni soru tazele+haric ile yeniden istenir, cevap metni degismez."""
+    betik = (_DOM_SHIM + """
+const balonlar = new Map();
+const runDurumlari = new Map();
+const cagrildi = [];
+let gonderiliyor = false;
+function send(o) { cagrildi.push("gonder:" + JSON.stringify(o)); }
+function bubble() { const b = new Dugum("div"); b.className = "bubble";
+                    const i = new Dugum("div"); i.className = "icerik";
+                    b.appendChild(i); return b; }
+function calismaKaydi() { return {yonlendir:{}, canli:{}}; }
+function durumSatiri() {}
+function planiGuncelle() {}
+function kaynakEkle() {}
+function araciTamamla() {}
+function calismaMolaVer() {}
+function calismaYanitaGecti() {}
+function akiciMetinEkle() {}
+function akiciMetniDurdur() {}
+function durumuKapat() {}
+function sohbetAlta() {}
+function calismaBitir() {}
+function akiciMetniFinaleTamamla(b, metin) {
+  b.querySelector(".icerik").textContent = metin;
+  return Promise.resolve();
+}
+""" + _isaret_kodu() + _kod_dilimi("function tekrarDugmesiEkle(")
+        + _kod_dilimi("function olayiIsle(") + """
+(async () => {
+  const balon = bubble();
+  balon._tekrarMetin = "deneme sorusu";
+  balonlar.set("r1", balon);
+  olayiIsle({istek:"r1", tur:"runState", tool_count:0,
+             evidence_count:0, status:"completed"});
+  await olayiIsle({istek:"r1", tur:"bitir", cevap:"Basak cevabi",
+                   kaynak:"groq"});
+  const dugme = balon.querySelector(".tekrar-yaz");
+  const bilgi = {
+    dugmeVar: !!dugme,
+    dugmeMetni: dugme ? dugme.textContent : null,
+    cevapMetni: balon.querySelector(".icerik").textContent,
+  };
+  if (dugme) dugme.click();
+  bilgi.sira = cagrildi;
+  console.log(JSON.stringify(bilgi));
+})();
+""")
+    ciktil = subprocess.run(
+        [_node(), "-e", betik], capture_output=True, text=True,
+        encoding="utf-8", timeout=60,
+    )
+    assert ciktil.returncode == 0, ciktil.stderr
+    bilgi = json.loads(ciktil.stdout.strip())
+    assert bilgi["dugmeVar"], "bitir sonrasi tekrar dugmesi cikmadi"
+    assert bilgi["dugmeMetni"] == "Daha düzgün yaz"
+    assert bilgi["cevapMetni"] == "Basak cevabi", (
+        "dugme cevap metnine karismis"
+    )
+    gonderiler = [c for c in bilgi["sira"]
+                  if c.startswith("gonder:")]
+    assert len(gonderiler) == 1, bilgi["sira"]
+    istek = json.loads(gonderiler[0][len("gonder:"):])
+    assert istek == {"text": "deneme sorusu", "tazele": True,
+                     "haric": "groq"}
 
 
 # ─────────────────────────────────────────────────────────────────

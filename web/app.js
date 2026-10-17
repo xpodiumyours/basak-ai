@@ -1132,6 +1132,22 @@ function aracIsaretiYaz(b, durum) {
   b.appendChild(el);
 }
 
+function tekrarDugmesiEkle(b, metin, kaynak) {
+  // Kullanici istegiyle taze deneme: ayni soru onbellege bakilmadan
+  // yeniden kosar, begenilmeyen saglayici en sona alinir. Kod metne
+  // bakmaz, cevaba dokunmaz; yeni turu model yazar.
+  if (!b || !metin || b.querySelector(".tekrar-yaz")) return;
+  const dugme = document.createElement("button");
+  dugme.type = "button";
+  dugme.className = "tekrar-yaz";
+  dugme.textContent = "Daha düzgün yaz";
+  dugme.addEventListener("click", () => {
+    if (gonderiliyor) return;
+    send({ text: metin, tazele: true, haric: kaynak || "" });
+  });
+  b.appendChild(dugme);
+}
+
 const uyu = (ms) => new Promise((coz) => setTimeout(coz, ms));
 
 function akisBirimleri(metin) {
@@ -1474,6 +1490,7 @@ function olayiIsle(o) {
       .then(() => {
         calismaBitir(b);
         aracIsaretiYaz(b, bitisDurumu);
+        tekrarDugmesiEkle(b, b._tekrarMetin, o && o.kaynak);
         sohbetAlta(false);
         return true;
       });
@@ -1680,6 +1697,7 @@ async function send(secenek = {}) {
   if (gorsel) gorselBalonaEkle(userBubble, gorsel);
 
   const bekleyenBalon = bubble("assistant", "");
+  bekleyenBalon._tekrarMetin = gonderilecekMetin;
   aktifIstekDenetleyici = new AbortController();
   kullaniciDurdurdu = false;
   durumSatiri(bekleyenBalon, "Mesaj Başak’a iletiliyor…", "thinking");
@@ -1725,6 +1743,8 @@ async function send(secenek = {}) {
         ek,
         tool_policy:toolPolicy,
         yonlendirme_baglami:secenek.yonlendirmeBaglami || null,
+        tazele:!!secenek.tazele,
+        haric:String(secenek.haric || ""),
       }),
       signal:aktifIstekDenetleyici.signal,
     });
