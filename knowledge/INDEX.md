@@ -10,6 +10,9 @@ Basak once bu dosyayi okur, sonra sadece ilgili dosyalari acar.
 - **kabul-plani-web-gate.md** | konu: Web Gate kabul plani + tek kural (beyin yalniz cekirdekte) | guncelleme: 2026-09-19 | 8 native protokol, 52 arac, 364 hucre kabul cizgisi (2026-09-22 kapsam: elde anahtari olan 7 saglayici); ikinci-Basak sapmasinin ve temizliginin kaydi
 - **web-kopru-plani.md** | konu: Kullaniciya acik web sohbet koprusunun mimari kararlari | guncelleme: 2026-09-19 | HTTP kopru + SSE; mesaj_isle'ye baglanir, ikinci beyin yazilmaz; token + kademe erisim
 - **beyin-ve-gelir-plani.md** | konu: Beyin verimliligi + gelir arastirmasi | guncelleme: 2026-09-22 | Audit olcumu (temiz 152 kayit: 25 tam basarisizlik), Cloudflare anahtari firsati, saglayici kapanma listesi, Turkiye odeme gercegi (PayPal/Wise kapali), gelir yollari ve 5 islik sira
+- **kota-darbesi-kitabi.md** | konu: Kota biterse ne yapilir (el kitabi) | guncelleme: 2026-09-29 | Tum saglayicilar ayni anda yorulursa tani ve mudahale sirasi
+- **lansman-metinleri.md** | konu: Tanitim metinleri | guncelleme: 2026-09-29 | Ilk kullanicilara ulasmak icin kopyala-yapistir metinleri
+- **yayin-kayitlari.md** | konu: Yayin kayitlari | guncelleme: 2026-10-14 | Main'e birlesen her yayinin tarih, commit ve canli kaniti
 - **README.md** | konu: Kutuphane kurallari | Bu klasore atilan her .md/.txt dosyasi Basak tarafindan okunur
 
  *(Not: 2026-08-21'de mikro notlar tek tek dosyalardan iki toplu dosyaya birlestirildi; hicbir bilgi kaybolmadi. Yeni kucuk bilgiler dogrudan ilgili toplu dosyaya eklenecek — her seferinde yeni dosya acilmayacak.)*

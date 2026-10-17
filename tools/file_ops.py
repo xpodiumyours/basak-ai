@@ -419,7 +419,7 @@ def write_file_ops(yol: str, icerik: str, base_dir: str) -> dict:
     # BEYAZ LISTE KONTROLU
     if not _yazma_izni_var_mi(mutlak_yol, base_dir):
         return {"error": ("Güvenlik engeli: salt okunur, buraya yazma "
-                          "izni yok. Yazılabilir: knowledge/, defter-notları, "
+                          "izni yok. Yazılabilir: knowledge/, "
                           "ev klasörün ve C:\\Projects (onayla). "
                           "Sistem ve şifre dosyalarına asla yazılmaz.")}
 
