@@ -112,6 +112,17 @@ _FIYAT_RE = re.compile(
     r"\s*(TL|₺|TRY)?", re.IGNORECASE)
 _ID_RE = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 
+# Tablo satırı: [sıra] kod açıklama miktar birim tutar
+# Açıklama açgözlü değil; satır sonu iki tutarla çıpalandığı için
+# açıklamadaki ölçüler ("15 cm", "80x28x202 cm") miktar sanılmaz.
+_SATIR_TABLO_RE = re.compile(
+    r"^\s*(?:(\d{1,3})[.)]?\s+)?"
+    r"([A-Za-z0-9][A-Za-z0-9.\-_/]{2,29})\s+"
+    r"(.+?)\s+"
+    r"(\d{1,4})\s+"
+    r"(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*(?:TL|₺|TRY)?\s+"
+    r"(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*(?:TL|₺|TRY)?\s*$")
+
 
 def _j(veri):
     return json.dumps(veri, ensure_ascii=False)
@@ -407,6 +418,42 @@ def _aday_satirlar(yazi):
     return adaylar
 
 
+def satir_tablosu(yazi):
+    """OCR metnindeki ürün satırlarını yapısal hâle çevirir.
+
+    Her satır: sıra, kod, açıklama, miktar, birim fiyat, tutar ve
+    miktar × birim fiyat = tutar denetiminin sonucu. Tablo satırı
+    sayılmayan satırlar hiç dönmez (uydurma yok); eşleşme yoksa boş
+    liste. Fiyat okunamazsa alan None kalır ve `tutar_tutarli` None
+    olur ("bilmiyorum", yanlış değil).
+    """
+    satirlar = []
+    for ham in str(yazi or "").splitlines():
+        m = _SATIR_TABLO_RE.match(ham.strip())
+        if not m:
+            continue
+        sira, kod, ad, mik, birim, tutar = m.groups()
+        try:
+            miktar = int(mik)
+        except ValueError:
+            continue
+        birim_deger, _uy = fiyat_coz(birim)
+        tutar_deger, _uy2 = fiyat_coz(tutar)
+        denetim = None
+        if birim_deger is not None and tutar_deger is not None and miktar > 0:
+            denetim = abs(round(miktar * birim_deger, 2) - tutar_deger) <= 0.05
+        satirlar.append({
+            "sira": int(sira) if sira else len(satirlar) + 1,
+            "kod": kod.strip(),
+            "ad": ad.strip(),
+            "miktar": miktar,
+            "birim_fiyat": birim_deger,
+            "tutar": tutar_deger,
+            "tutar_tutarli": denetim,
+        })
+    return satirlar
+
+
 def _okuma_yarim(yazi):
     """Okuma sağlıksızsa yarım sayılır ve başarı olarak kabul edilmez.
 
@@ -472,45 +519,213 @@ def _oku_yukle(fatura_id):
     return veri if isinstance(veri, dict) else None
 
 
-def _ustbilgi_cikar(yazi):
-    """OCR metninden fiş üst bilgilerini kurallarla çıkarır.
+# ── Belge üst bilgisi etiketleri ──────────────────────────────────
+# Belge biçimi değişir, olgu değişmez: aynı bilgi hangi belgede
+# olursa olsun aynı anahtara yazılır. Desenler etikete bağlıdır,
+# sıra/bağlam tahminine değil.
+_NO_RE = re.compile(
+    r"(?:Fi[şs]|Fatura|Belge|e-Fatura|e-Arşiv|Seri\s*S[ıi]ra)\s*No\.?"
+    r"\s*(?:[:.]\s*|\s+)"
+    r"(?=[A-Za-z0-9./\-]*\d)([A-Za-z0-9][A-Za-z0-9./\-]{3,29})",
+    re.IGNORECASE)
+_ETTN_RE = re.compile(
+    r"\b([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\b")
+# Etiketten sonra ayraç (iki nokta/nokta) ya da en az bir boşluk
+# gelmelidir; böylece "Firmamız", "Vergi Dairesimiz" gibi ekli
+# kelimeler etiket sayılmaz.
+_AYRAC = r"\s*(?:[:.]\s*|\s+)"
+_SATICI_RE = re.compile(
+    r"(?:Sat[ıi]c[ıi](?:\s*[ÜU]nvan[ıi])?|Düzenleyen|İrsaliye\s*Firma|"
+    r"Firma)" + _AYRAC + r"([^\r\n]{3,80})", re.IGNORECASE)
+_ALICI_RE = re.compile(
+    r"(?:Al[ıi]c[ıi](?:\s*[ÜU]nvan[ıi])?|Mü[şs]teri|Say[ıi]n)"
+    + _AYRAC + r"([^\r\n]{3,80})", re.IGNORECASE)
+_VKN_RE = re.compile(
+    r"(?:VKN|Vergi\s*Kimlik\s*No\.?|TCKN|T\.?\s?C\.?\s*Kimlik\s*No\.?)"
+    r"\s*[:.]?\s*(\d{10,11})", re.IGNORECASE)
+_VD_RE = re.compile(
+    r"Vergi\s*Dairesi" + _AYRAC + r"([^\r\n]{2,60})", re.IGNORECASE)
+_KDV_ORAN_RE = re.compile(
+    r"KDV\s*(?:oran[ıi]?\s*)?[:.(]{0,2}\s*(?:%\s*(\d{1,2})"
+    r"|(\d{1,2})\s*%)"
+    r"|KDV\s*oran[ıi]\s*[:.]?\s*(\d{1,2})", re.IGNORECASE)
+_TUTAR_RE = r"(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*(TL|₺|TRY|EUR|€|\$)?"
+# Matrah: vergisiz tutar — "Ara Toplam" ile aynı olgu, aynı anahtar.
+_ARA_TOPLAM_RE = re.compile(r"(?:Ara\s*Toplam|Matrah)\s*[:.]?\s*"
+                            + _TUTAR_RE, re.IGNORECASE)
+# "KDV (%20): 10.944,00 TL" gibi oran parantezli yazım da tutarı verir.
+_KDV_TUTAR_RE = re.compile(
+    r"(?:Toplam\s*KDV|KDV\s*Tutar[ıi]|Hesaplanan\s*KDV"
+    r"|KDV\s*(?:\([^)\r\n]{0,12}\))?)\s*[:.]?\s*"
+    + _TUTAR_RE, re.IGNORECASE)
+# "Ara Toplam" ve "Toplam KDV" genel toplam sayılmaz.
+_TOPLAM_RE = re.compile(
+    r"(?<!ara\s)(?:Genel\s*Toplam|Toplam)\s*[:.]?\s*"
+    r"(?:\d+\s*ad\s*\d+\s*d(?:z|üz))?\s*" + _TUTAR_RE, re.IGNORECASE)
+_PARA_BIRIMI = {"tl": "TL", "try": "TL", "₺": "TL", "eur": "EUR",
+                "€": "EUR", "usd": "USD", "$": "USD"}
+_MERSIS_RE = re.compile(r"Mersis\s*(?:No\.?)?\s*[:.]?\s*(\d{10,20})",
+                        re.IGNORECASE)
+_SAAT_RE = re.compile(r"Saat[ıi]?\s*[:.]?\s*(\d{1,2}[:.]\d{2})",
+                      re.IGNORECASE)
+# Etiketsiz tarih yalnız satır başında kabul edilir; "Son Ödeme Tarihi"
+# gibi başka bir tarihin değeri düzenleme tarihi sayılmaz.
+_TARIH_SATIR_RE = re.compile(
+    r"^[ \t]*Tarih\s*[:.]\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4})",
+    re.MULTILINE)
 
-    Fiş no, tarih, satıcı firma, KDV, toplam. Bulunamayan alan
-    hiç yazılmaz (uydurma yok); model bunları esnafa sorar.
-    Desenler Tutku tipi Satış Teklif Form dökümlerine göredir;
-    uymayan fişte alanlar boş kalır, satır verisi etkilenmez.
+# Bölüm başlığı değer değildir: "SATICI BİLGİLERİ" satıcı adı sayılmaz.
+_DEGER_DEGIL = ("bilgileri", "bilgisi", "unvani", "adres", "adresi",
+                "yetkili", "vergi", "vkn", "tel", "telefon", "web",
+                "mersis", "kisi")
+_BOLUM_RE = {
+    "firma": re.compile(r"^[ \t]*(?:SATICI|DÜZENLEYEN|SATICI\s+ÜNVANI)\b.*$",
+                        re.IGNORECASE | re.MULTILINE),
+    "alici": re.compile(r"^[ \t]*(?:ALICI|MÜŞTERİ|ALICI\s+ÜNVANI)\b.*$",
+                        re.IGNORECASE | re.MULTILINE),
+}
+_ALICI_ISARET_RE = re.compile(r"ALIC[Iİ]|MÜ[ŞS]TER[Iİ]", re.IGNORECASE)
+_TR_ASCII = str.maketrans("çğıöşüÇĞİÖŞÜ", "cgiosuCGIOSU")
+
+
+def _sadelestir(metin):
+    """Karşılaştırma için Türkçe harfleri ASCII'ye indirir."""
+    return re.sub(r"[^a-z0-9]+", " ",
+                  str(metin or "").translate(_TR_ASCII).lower()).strip()
+
+
+def _deger_mi(metin):
+    """Yakalanan metin gerçek bir değer mi, bölüm başlığı mı?"""
+    sade = _sadelestir(metin)
+    kelimeler = sade.split()
+    if not kelimeler:
+        return False
+    return not (len(kelimeler) == 1 and kelimeler[0] in _DEGER_DEGIL)
+
+
+def _ilk_deger(desen, yazi):
+    """Desenin ilk gerçek değer veren eşleşmesi (başlık veren atlanır)."""
+    for m in desen.finditer(yazi):
+        if _deger_mi(m.group(1)):
+            return m
+    return None
+
+
+def _bolum_adi(yazi, anahtar):
+    """Bölüm başlığından sonraki ilk ad satırı.
+
+    Etiket satırları ("Tel: ...") ve sayı içeren adres satırları
+    atlanır; ad, başlığın hemen altındaki satırdır.
+    """
+    m = _BOLUM_RE[anahtar].search(yazi)
+    if not m:
+        return ""
+    for satir in yazi[m.end():].splitlines()[:6]:
+        s = satir.strip()
+        if not s or ":" in s or any(k.isdigit() for k in s):
+            continue
+        if len(s.split()) >= 2:
+            return s.rstrip(".")
+    return ""
+
+
+def _ustbilgi_cikar(yazi):
+    """OCR metninden belge üst bilgilerini kurallarla çıkarır.
+
+    Etiketler belge biçimine bağlı değildir: fiş, fatura ve e-Arşiv
+    dökümünde aynı olgu aynı anahtara yazılır (belge no, ETTN, tarih,
+    saat, düzenleyen, alıcı, VKN, vergi dairesi, Mersis no, KDV oranı,
+    ara toplam/matrah, KDV tutarı, genel toplam, para birimi,
+    adet/düzine). Alıcının vergi bilgisi alıcı işaretinden sonra aranır
+    ve ayrı anahtara yazılır (alici_vkn, alici_vergi_dairesi).
+    Bölüm başlığı değer sayılmaz: "SATICI BİLGİLERİ" satıcı adı olmaz;
+    ad, başlığın altındaki satırdır. Bulunamayan alan hiç yazılmaz
+    (uydurma yok); eksik alanı esnafa model sorar. Satır verisi
+    etkilenmez.
     """
     ust = {}
     if not yazi:
         return ust
-    m = re.search(r"Fi[şs]\s*No\s*[:.]?\s*([0-9][0-9.]{6,24})", yazi)
+    m = _NO_RE.search(yazi)
     if m:
         ust["fis_no"] = m.group(1).strip()
-    m = re.search(r"(?:Fi[şs]\s*|Fatura\s*)Tarihi\s*[:.]?\s*"
+    m = _ETTN_RE.search(yazi)
+    if m:
+        ust["ettn"] = m.group(1)
+    m = re.search(r"(?:Fi[şs]\s*|Fatura\s*|Düzenleme\s*)Tarihi\s*[:.]?\s*"
                   r"(\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4})", yazi)
     if m:
         ust["tarih"] = m.group(1)
+    if not ust.get("tarih"):
+        m = _TARIH_SATIR_RE.search(yazi)
+        if m:
+            ust["tarih"] = m.group(1)
     if not ust.get("tarih"):
         m = re.search(r"(\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4})\s+\d{1,2}:\d{2}",
                       yazi)
         if m:
             ust["tarih"] = m.group(1)
-    m = re.search(r"(?:İrsaliye\s*Firma|Firma)\s*[:.]?\s*"
-                  r"([^\r\n]{3,80})", yazi)
+    m = _ilk_deger(_SATICI_RE, yazi)
     if m:
-        aday = m.group(1).strip().rstrip(".")
-        if len(aday) >= 3:
+        ust["firma"] = m.group(1).strip().rstrip(".")
+    else:
+        aday = _bolum_adi(yazi, "firma")
+        if aday:
             ust["firma"] = aday
-    m = re.search(r"KDV\s*[(%]?\s*(\d{1,2})\s*[%)]?", yazi, re.IGNORECASE)
+    m = _ilk_deger(_ALICI_RE, yazi)
     if m:
-        ust["kdv_oran"] = int(m.group(1))
-    m = re.search(
-        r"Toplam\s*[:.]?\s*(?:\d+\s*ad\s*\d+\s*d(?:z|üz))?\s*"
-        r"(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*(?:TL|₺|TRY)?", yazi)
+        ust["alici"] = m.group(1).strip().rstrip(".")
+    else:
+        aday = _bolum_adi(yazi, "alici")
+        if aday:
+            ust["alici"] = aday
+    m = _VKN_RE.search(yazi)
     if m:
+        ust["vkn"] = m.group(1)
+    m = _ilk_deger(_VD_RE, yazi)
+    if m:
+        ust["vergi_dairesi"] = m.group(1).strip().rstrip(".")
+    m = _MERSIS_RE.search(yazi)
+    if m:
+        ust["mersis_no"] = m.group(1)
+    m = _SAAT_RE.search(yazi)
+    if m:
+        ust["saat"] = m.group(1)
+    # Alıcı bloğu satıcı bloğundan sonra gelir: alıcının vergi
+    # bilgisi alıcı işaretinden SONRAKİ ilk kayıttır. İşaret yoksa
+    # alıcıya özel alan hiç yazılmaz (uydurma yok).
+    isaret = _ALICI_ISARET_RE.search(yazi)
+    if isaret:
+        kuyruk = yazi[isaret.start():]
+        m = _VKN_RE.search(kuyruk)
+        if m:
+            ust["alici_vkn"] = m.group(1)
+        m = _ilk_deger(_VD_RE, kuyruk)
+        if m:
+            ust["alici_vergi_dairesi"] = m.group(1).strip().rstrip(".")
+    m = _KDV_ORAN_RE.search(yazi)
+    if m:
+        oran = next((g for g in m.groups() if g), None)
+        if oran is not None:
+            ust["kdv_oran"] = int(oran)
+    for anahtar, desen in (("ara_toplam", _ARA_TOPLAM_RE),
+                           ("kdv_tutar", _KDV_TUTAR_RE),
+                           ("toplam", _TOPLAM_RE)):
+        m = desen.search(yazi)
+        if not m:
+            continue
         tutar, _uy = fiyat_coz(m.group(1))
-        if tutar is not None:
-            ust["toplam"] = tutar
+        if tutar is None:
+            continue
+        ust[anahtar] = tutar
+        birim = _PARA_BIRIMI.get(str(m.group(2) or "").lower())
+        if birim and not ust.get("para_birimi"):
+            ust["para_birimi"] = birim
+    if not ust.get("para_birimi"):
+        m = re.search(r"(TRY|TL|₺|EUR|€|USD|\$)", yazi)
+        if m:
+            ust["para_birimi"] = _PARA_BIRIMI.get(m.group(1).lower(), "")
     m = re.search(r"(\d+)\s*ad\s+(\d+)\s*d(?:z|üz)", yazi)
     if m:
         ust["adet"] = int(m.group(1))
@@ -556,13 +771,16 @@ def fatura_oku(fatura_id):
         return {"error": ("Görüntü okundu ancak kalite kapısını geçemedi; "
                           "satır/adet/toplam doğrulanamadı.")}
     ust = _ustbilgi_cikar(yazi)
+    tablo = satir_tablosu(yazi)
     saglayici = sonuc.get("yedek") or sonuc.get("model", "")
     _oku_kaydet(fatura_id, {"yazi": yazi, "ustbilgi": ust,
+                            "satir_tablosu": tablo,
                             "model": sonuc.get("model",""),
                             "saglayici": saglayici,
                             "kaynak": kaynak, "okuma": _simdi()})
     return {"result": _j({"fatura_id": fatura_id, "yazi": yazi,
                           "aday_satirlar": _aday_satirlar(yazi),
+                          "satir_tablosu": tablo,
                           "ustbilgi": ust, "kaynak": kaynak,
                           "saglayici": saglayici,
                           "model": sonuc.get("model","")})}
@@ -614,6 +832,22 @@ def _satir_dogrula(ham, sira):
     alis, uyari = fiyat_coz(ham.get("alis_fiyat"))
     if uyari:
         uyarilar.append("%d. satır: %s" % (sira, uyari))
+    # Tutarlılık: faturadaki satır tutarı basılıysa miktar × birim
+    # fiyat ile karşılaştırılır; tutmuyorsa satır reddedilmez, hangi
+    # sayının yanlış olduğu esnafa SORULUR.
+    # Sınır: birim fiyat düzine bazlıysa çarpım tutmaz ve soru üretir —
+    # kod birim varsaymaz, bu yüzden doğru davranış soru sormaktır.
+    tutar, uyari = fiyat_coz(ham.get("tutar"))
+    if uyari:
+        uyarilar.append("%d. satır: satır tutarı %s" % (sira, uyari))
+    if tutar is not None and alis is not None and adet > 0:
+        hesap = round(adet * alis, 2)
+        if abs(hesap - tutar) > 0.05:
+            uyarilar.append(
+                "%d. satır: %d adet × %s = %s, basılı satır tutarı %s — "
+                "SOR: '%s' satırında miktar mı, birim fiyat mı, tutar mı "
+                "yanlış?" % (sira, adet, fiyat_yaz(alis), fiyat_yaz(hesap),
+                             fiyat_yaz(tutar), kod))
     kategori_ham = str(ham.get("kategori", "") or "").strip()
     kategori = jargon_coz(kategori_ham) if kategori_ham else ""
     if not kategori:
@@ -626,7 +860,7 @@ def _satir_dogrula(ham, sira):
             "marka_norm": kodu_normla(marka),
             "barkod": barkod, "beden": beden_normla(ham.get("beden")),
             "renk": renk, "varyant": varyant,
-            "adet": adet, "alis_fiyat": alis,
+            "adet": adet, "alis_fiyat": alis, "tutar": tutar,
             "kategori": kategori,
             "urun_adi": str(ham.get("urun_adi", "") or "").strip()}, \
         uyarilar
@@ -710,6 +944,37 @@ def katalog_kur(fatura_id, satirlar, ustbilgi=None):
                               "%d ad. Satırları tekrar kontrol et "
                               "(eksik/yanlış satır olabilir); katalog "
                               "kaydedilmedi.") % (hesap, hedef)}
+    # Fatura düzeyi tutarlılık: satır tutarlarının toplamı basılı
+    # toplama (genel toplam ya da matrah/ara toplam) uymalı. Hiçbir
+    # satır bundan dolayı reddedilmez; uyuşmazlık esnafa SORU olur.
+    # Sınır: satırlar KDV hariç listelenip belgede yalnız genel toplam
+    # varsa fark KDV kadardır ve soru üretilir — kod oran varsaymaz.
+    _kaynak_ust = yan.get("ustbilgi") if isinstance(yan.get("ustbilgi"),
+                                                    dict) else {}
+    _verilen_ust = ustbilgi if isinstance(ustbilgi, dict) else {}
+
+    def _ust_sayi(ad):
+        for kaynak in (_kaynak_ust, _verilen_ust):
+            deger = kaynak.get(ad)
+            if deger is not None:
+                try:
+                    return float(deger)
+                except (TypeError, ValueError):
+                    return None
+        return None
+
+    tutarlar = [s["tutar"] for s in temizler if s.get("tutar") is not None]
+    basili = [d for d in (_ust_sayi("toplam"), _ust_sayi("ara_toplam"))
+              if d]
+    if temizler and len(tutarlar) == len(temizler) and basili:
+        hesap = round(sum(tutarlar), 2)
+        if not any(abs(hesap - b) <= max(0.05, b * 0.002) for b in basili):
+            uyarilar.append(
+                "Fatura düzeyi: satır tutarları toplamı %s, basılı toplam "
+                "%s — SOR: satırlardan birinin miktarı, birim fiyatı veya "
+                "tutarı yanlış okunmuş olabilir mi?"
+                % (fiyat_yaz(hesap),
+                   " / ".join(fiyat_yaz(b) for b in basili)))
     gruplar = {}
     for satir in temizler:
         anahtar = (satir["marka_norm"], satir["kod_norm"])
@@ -737,7 +1002,8 @@ def katalog_kur(fatura_id, satirlar, ustbilgi=None):
                                        toplam, barkodlar),
             "varyantlar": [{"beden": u["beden"], "renk": u["renk"],
                              "barkod": u["barkod"], "adet": u["adet"],
-                             "alis_fiyat": u["alis_fiyat"]}
+                             "alis_fiyat": u["alis_fiyat"],
+                             "tutar": u.get("tutar")}
                             for u in uyeler],
             "toplam_adet": toplam,
             "stok_durumu": _stok_durumu(toplam),

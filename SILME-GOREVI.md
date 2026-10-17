@@ -1,5 +1,7 @@
 # SİLME GÖREVİ — Başak'ı çekirdeğe indir
 
+> **TERK EDILDI - TARIHSEL KAYIT (2026-10-17 denetimi).** Bu plan kismen uygulandi (`olcu.py`, `brain/orkestra.py`, `chat/approval.py`, `_chat_legacy.py`, `gorevler.json` silindi) ama yonu terk edildi: `tools/`, `chat/tools.py` ve gorev sistemi KALDI ve buyudu (58 arac). Yeni isler bu plana dayanarak uretilmez.
+
 **Tarih:** 2026-09-13 · **Karar:** Casper · **Taban commit:** `27b03a9`
 
 ## 0. Hedef — tek cümle

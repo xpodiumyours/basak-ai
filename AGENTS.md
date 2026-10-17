@@ -108,9 +108,13 @@ kullanılır, kart açılmaz, kullanıcı verisi şifrelerden ayrı durur
 
 **GEÇERLİ PLAN TEK DOSYADIR: `ANA-PLAN.md` (2026-08-25 sürümü).** Sıra, kabul ölçüsü ve "bugün neredeyiz" oradan okunur. Yeni plan belgesi açılmaz.
 
+> **BAYAT ADRES (2026-10-17 denetimi).** `ANA-PLAN.md` 2026-09-11'de geri alinarak silindi (13b2100); `_arsiv/` klasoru de yok. Bu madde guncel plan gostermez; guncel plan karari Casper'indir.
+
 `GOREV_LISTESI.md`, `ANAPLAN-SONRASI-PROFESYONEL-MIMARI.md`, `Resmidökümanuyum.md`, `BASAK-VIZYON-VE-YOL-HARITASI.md` 2026-08-25'te `_arsiv/eski-planlar-2026-08-25/` altına taşındı. Bu dosyanın ilerleyen bölümlerinde onlara yapılan atıflar **tarihî kayıttır**, yürürlükteki plan değildir. Sırası gelen bir madde arşivden çıkarılıp `ANA-PLAN.md`'e işlenir.
 
 ## 2. Şu an neredeyiz / sıra
+
+> **TARIHSEL BOLUM (2026-10-17 denetimi).** Asagidaki 1-37. maddeler 2026-08-22/24 mimarisini anlatir; bir kismi artik gecerli degil: `brain/kota.py`, `tools/permissions.py`, `tools/executor.py`, `olcu.py`, `chat.py`, `tools/notes.py`, `tools/zamanlayici.py`, `tools/deney.py`, `tools/fay.py`, `tools/bayat.py`, `data/karne.json` SILINDI; B1 karne okuma 24c2f09 ile sokuldu (bekci `tests/test_chatbot_yasagi.py` `karne_kullan` adini yasaklar); `defter/` 2026-09-11'de kaldirildi. Guncel durum = kod + bekci testleri; bu liste tarih referansidir, talimat degildir.
 
 1. **Çalışıyor:** sohbet (bulut zinciri), TTS açma/kapama, sesli dinleme (STT), geçmiş (`gecmis.json`), 3D orb durum göstergesi (bekliyor/düşünüyor/cevaplıyor/hata/dinliyor — `ui/app.js`).
 2. **YAPILDI (2026-08-21, kanıtlı):** `knowledge/` notları her cevaba karışıyor — `chat.py` `_load_knowledge()` tüm `.md/.txt` dosyalarını okuyup sohbete "Casper'ın notları" bloğu olarak ekliyor; üstelik `GOREV_LISTESI.md` + `AGENTS.md` de dahil, sınır 12.000 karakter. Kanıt: 12.113 karakter yüklendi, doğum günü sorusu notlardan cevaplandı.

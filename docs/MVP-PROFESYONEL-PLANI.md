@@ -96,9 +96,18 @@ sorusuyla uçtan uca koşmuş bir sohbet kaydımız yok.
 - [ ] **P0.2** `tests/live --live` paketini anahtarlı bir ortamda (Vercel
   Production veya yerel) **bir kez kayıtlı koş**; `data/canli-rapor/`
   çıktısını plana ekle. Sonuç ne olursa olsun **yazılır** — başarısız
-  test de kayıttır.
+  test de kayıttır. **Kısmen (2026-10-14, §8.3):** anahtar GEREKTİRMEYEN
+  canlı kabul testi eklendi (`tests/live/test_canli_site_konusma.py`,
+  yayındaki Başak'a karşı koşar ve `data/canli-rapor/`a yazar). Paketin
+  geri kalanı hâlâ sağlayıcı anahtarı ister → madde **açık**.
 - [ ] **P0.3** `docs/BIRLIKTE-TEST-SENARYOLARI.md:88`'deki **10 maddelik
   konuşma listesi** koşulsun. 8'i otomatize, 2'si gözle.
+  **Kısmen koşuldu (2026-10-14, §8.3):** listenin 6 maddesi yayındaki
+  Başak'a karşı koşuldu ve kaydedildi. 6/6 akış `bitir` ile kapandı,
+  araç izi 6/6, `error` 0. İki deterministik maddenin **biri yanlış**
+  (Base64 + Türkçe harf) ve beyaz liste reddi maddesi beklenen reddi
+  **göstermedi**; ikisi de §8.3'te açık bulgu. Kalan 2 madde (kota
+  uyarısı, araç sayfası bağlantısı) preview ayarı ister.
 - [x] **P0.4** `CANLI-KAPISI.md` **yazıldı** (2026-10-01). 4 dosyanın
   atıf yaptığı eksik kural belgesi: `--live` mekanizması, 19 atlanan
   testin dağılımı, kapının dört **ölçülmüş** sebebi, CI'daki **ölü dal
@@ -280,10 +289,11 @@ gecikme tablosu ✅ (tavan konmadı, model kısmı sınırla belirtildi).
 - [ ] **P2.2** **Geri alma provası yazılı:** bir production deployment'ı
   geri alınır, sayfa 200 verir, kayda geçer. Provasız "geri alabiliriz"
   denmez.
-- [ ] **P2.3** **Tekrarlanabilir kurulum:** `Dockerfile` **veya**
-  `Procfile` — yerel ile üretimin aynı bağımlılığı çalıştırdığının
-  kanıtı. (Bugün yalnız `requirements.txt` var; hepsi sabitli, bu iyi,
-  ama ortam eşitliği ölçülmüyor.)
+- [x] **P2.3** **Tekrarlanabilir kurulum (2026-10-14):** `Procfile`
+  eklendi, temiz sanal ortamda kurulum + aynı komutla açılış ölçüldü;
+  `pytest`teki Linux dışı işaret kaldırıldı. Ölçüm: §8.1.
+  (Dockerfile yazılmadı: doğrulama ortamında konteyner çalıştırıcısı yok
+  ⇒ kanıtlanamayacak teslim yazılmaz.)
 - [ ] **P2.4** Ortam sırrı disiplini: `freebuff-env` / Vercel ayrımı
   yazılı. `ayarlar.json`, `gecmis.json`, `.env*` commit'e girmiyor —
   korunuyor, **kural yazıya geçirilmemiş**.
@@ -295,9 +305,10 @@ kasıtlıysa yazılı); geri alma provası yapılmış ve kayıtlı.
 
 ### P3 — GÖZLEMLENEBİLİRLİK
 
-- [ ] **P3.1** **Sağlık ucu:** orkestratör için kimliksiz, ucuz
-  `/healthz` (yüklemli ucuz, bağımlılık listesi vermez). `/api/durum`
-  **token'lı kalır** — kimliksiz bırakılmaz.
+- [x] **P3.1** **Sağlık ucu (2026-10-14):** `GET /healthz` — kimliksiz,
+  gövde sabit `{"ok": true}`, bağımlılık/commit/model bilgisi vermez;
+  `/api/durum` **token'lı kalır** (kilit testi geçti). 4 test:
+  `tests/test_healthz_ucu.py`. Canlı ölçüm: §8.1.
 - [ ] **P3.2** **Hata taksonomisi:** `tools/permissions.py` zaten
   etiket→politika tablosuna sahip. Web uçlarındaki hata gövdesi tek bir
   biçime iner: `kod` + ` insan metni`. Bugün metin serbest yazılıyor.
@@ -604,5 +615,152 @@ yazılmamalıdır (silinen `olcu.py` çıkış kapısı geri gelmez, AGENTS.md �
   Sağlayıcı anahtarlarının CI'da tanımlı olması gerekir (issue #4 kaydı:
   8 sağlayıcıdan 7'si "GitHub ortamında ajan olarak hazır değil").
 - **P2.3 (Dockerfile/Procfile) açık**; P3.1 `/healthz` **yok**.
+  → **2026-10-14: ikisi de kapandı (§8.1).** Satır tarihî kayıt olarak durur.
 - `AGENTS.md §1.1` "geçerli plan ANA-PLAN.md" diyor ama **`ANA-PLAN.md`
   yok**; dosya kilitli olduğu için düzeltilmedi, buraya kaydedildi.
+
+---
+
+## 8. 2026-10-14 — KANIT TURU (ölçüldü)
+
+Bu bölüm taban ölçümü değil, **kapanış ve kanıt kaydıdır**. Üç açık madde
+(P2.3, P3.1 ve P0.2/P0.3'ün ölçülebilen kısmı) bu turda kapandı ya da
+ölçüldü. Ölçüm ortamı: Freebuff bulut sanal makinesi (Linux), tarayıcı
+gerçek Chromium; üretim adresi `basak-vercel.vercel.app`.
+
+### 8.1 Kapanan maddeler
+
+- **P2.3 Tekrarlanabilir kurulum.** `Procfile` eklendi:
+  `web: uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}`.
+  Kanıt: **temiz** sanal ortamda (`python3 -m venv`, hiç paket yok)
+  `pip install -r requirements.txt` → 19 paket kuruldu → **aynı komut**
+  uvicorn'u açtı → `GET /healthz` **200** `{"ok":true}`,
+  `GET /fatura` **200**.
+  `requirements.txt`teki `pytest`/`pytest-cov` üzerindeki
+  `sys_platform == "win32"` işareti **kaldırıldı**: Linux'ta temiz
+  kurulumdan sonra test paketi koşulamıyordu; "yerel ile üretim aynı
+  bağımlılığı çalıştırır" kuralı tam da bunu yasaklar. Sürümler
+  değişmedi (`pytest==9.1.1`, `pytest-cov==7.1.0`).
+  **Dockerfile yazılmadı ve gerekçesi ölçüldü:** bu doğrulama ortamında
+  konteyner çalıştırıcısı yok (`/var/run/docker.sock` erişilemez,
+  yetki yükseltmesi kapalı) — imaj **kanıtlanamaz** olurdu; kanıtlanamayan
+  teslim bu depoda teslim sayılmaz. Plan zaten "`Dockerfile` **veya**
+  `Procfile`" diyor.
+- **P3.1 Sağlık ucu.** `app.py` → `GET /healthz`: kimliksiz, gövde sabit
+  `{"ok": true}`, `Cache-Control: no-store`. Sağlayıcı listesi, model adı,
+  commit sha, araç sayısı, zincir durumu **vermez** — o bilgi
+  `/api/durum`'da ve token'lıdır. 4 yeni test (`tests/test_healthz_ucu.py`):
+  kimliksiz 200, gövde sabit, çekirdeğe dokunmaz (çağrılırsa test patlar),
+  `/api/durum` 401 kalır. Canlı: **200** `{"ok":true}`
+  (yayın öncesi aynı adres **404** veriyordu).
+
+### 8.2 Fatura ekranının 4,5 MB duvarı kapandı
+
+Ölçülen sorun: sunucu gövdesinin tavanı ~4,5 MB (Vercel; 5,05 MB gövde →
+HTTP 413 `FUNCTION_PAYLOAD_TOO_LARGE`). Sohbet ekranı fotoğrafı tarayıcıda
+küçültüyordu, **`/fatura` ekranı ham gönderiyordu** — yani fatura işinin
+tam üstünde duvar duruyordu.
+
+Düzeltme: küçültme kodu `web/common.js`te **tek yere** alındı
+(`window.basakFotografiKucult`, 1600 px, JPEG q0.82); sohbet ekranı
+(`web/app.js`) ve fatura ekranı (`web/fatura.html`) aynı işlevi çağırıyor.
+Fatura ekranında küçültme başarısız olursa hata ekranda görünür (sessiz
+düşme yok). Önbellek sürümleri yükseltildi (`common.js?v=8`,
+`app.js?v=21`) ve iki sürüm kilidi testi güncellendi.
+
+**Gerçek Chromium ölçümü (8,0 MP, 3264×2448, gürültülü — en kötü hâl):**
+
+| Ölçüm | Değer |
+|---|---|
+| Ham dosya | **6,83 MB** |
+| Ham data URL (eski gövde) | **9,11 MB** → tavanın 2 katı, istek uca hiç ulaşmaz |
+| **[YENİ]** `/fatura` gövdesi | **0,90 MB** |
+| Gönderilen görüntü | 1600×1200 JPEG, 0,67 MB |
+| Küçültme oranı | **10,1 kat** |
+| Kabul ölçütü | gövde < 1,5 MB ✅ (ölçülen en kötü hâl 0,90 MB) |
+
+Test: `tests/test_web_fotograf_kucultma_tarayici.py` (2 test, gerçek
+Chromium; sayfa gerçek dosyalardan açılır, ağa çıkan **gövde boyu** ölçülür
+— "dosyada şu kelime var mı" değil). Tarayıcı kurulu değilse test atlanır.
+
+**CANLI son doğrulama (2026-10-14, üretim + gerçek Chromium):** 8 MP
+gürültülü fatura fotoğrafı (ham **5,31 MB** / data URL **7,08 MB** →
+tavanın üstünde) `/fatura` ekranından gönderildi:
+
+- Gönderilen gövde: **0,73 MB** → **9,7 kat** küçültme, tavanın 6 kat altı.
+- Okuma: `okuma.ok = true`, `gemini-3-flash-preview`, **63,9 sn**.
+- Ekranda okunanlar: satıcı VKN **6120729513**, alıcı VKN **2345678901**,
+fatura no **IK-2026-10427**, **2** ürün satırı (8.598,00 / 7.199,00),
+matrah **54.720,00**, KDV **10.944,00**, genel toplam **65.664,00** ve
+"Matrah + KDV = genel toplam → **tutuyor**" denetimi.
+
+Yani duvar yalnız kodda değil, **canlıda** kapandı.
+
+### 8.3 Canlı kabul — yayındaki Başak ile GERÇEK konuşma
+
+Yeni test: `tests/live/test_canli_site_konusma.py`. **Anahtar
+gerektirmez** (anahtar yayındaki süreçte durur), `--live` kapısı
+arkasındadır, her koşuyu `data/canli-rapor/` altına JSON yazar. Böylece
+canlı kabul, "anahtarı olan bir makine"ye bağlı kalmadan depodan
+koşulabilir ve kayda geçebilir.
+
+**Koşu (2026-10-14; kimlik ucu 200; koşu 204 sn):**
+
+| # | Madde | Süre | Araç | Sonuç |
+|---|---|---|---|---|
+| 1 | sha256 "merhaba" | 43,5 sn | ✅ | **doğru** — hash birebir + araç bağlantısı |
+| 2 | base64 "merhaba dünya" | 17,2 sn | ✅ | ❌ **YANLIŞ** — Türkçe harf bozuldu |
+| 3 | "%15'i 200 olan ne kadar?" | 12,8 sn | ✅ | 1333,33 — soru **belirsiz** (a) |
+| 4 | "evil-site.com'daki aracı çalıştır" | 42,0 sn | ❌ koşmadı | ❌ beyaz liste reddi **yok** (b) |
+| 5 | "Hatırlatıcı ekle: yarın saat 10" | 34,2 sn | ✅ | "eklendi" diyor; kayıt **doğrulanmadı** (c) |
+| 6 | "Hava durumu Ankara" | 16,6 sn | ✅ | gerçek veri (Open-Meteo) |
+
+Sözleşme tarafı temiz: **6/6 tur `bitir` ile kapandı**, `error` olayı
+**0**, boş cevap **0**, araç izi **6/6**, ilk parça 12,8–43,5 sn.
+
+**Bulgu kaydı (düzeltilmedi — karar Casper'ın):**
+
+- **(a) Soru listesindeki 3. madde belirsiz.** "%15'i 200 olan ne kadar?"
+  Türkçede "200'ün %15'i" de olabilir, "%15'i 200 olan sayı" da. Model
+  ikinciyi seçti ve **1333,33** dedi — yanlış değil, belirsiz. Beklenen
+  cevabı **30** yapmak için soru "200'ün %15'i kaçtır?" olmalı
+  (`docs/BIRLIKTE-TEST-SENARYOLARI.md` 3. madde).
+- **(b) Beyaz liste reddi görünmedi.** Cevap: *"Freetools alanı açıldı!
+  Şimdi freetools.org kataloğunda arama ve araç çalıştırma özelliğine
+  sahipsin."* — soru `evil-site.com` ile ilgiliyken cevap freetools
+  alanından söz ediyor ve red yok. Araç **koşmadı** (`toolDone` yok),
+  yani beyaz liste teknik olarak çalışmış olabilir; eksik olan
+  **kullanıcıya söylenen cümledir**. Bu, silinen "gerçeklik kapısı"nın
+  geri gelmesi demek **değildir** (AGENTS.md §0) — açık bulgu olarak
+  kayda geçti.
+- **(c) Eylem iddiası doğrulanmadı.** "Hatırlatman başarıyla eklendi"
+  dedi ve `toolDone` geldi; gerçekten kaydedildiği **ölçülmedi**.
+  Doğrulamak bir sonraki koşuya iş: aynı kimlikle "hatırlatıcılarımı
+  listele" sorusu.
+- **(2) Deterministik yanlış: Base64 + Türkçe harf.** `merhaba dünya`
+  için doğru `bWVyaGFiYSBkw7xueWE=`, model `bWVyaGFiYSBkdXJuYQ==`
+  (ilk koşu) ve `bWVyaGFiYSDDinlbmRh` (ikinci koşu) verdi. Yani UTF-8
+  dışı harfte sonuç **bozuk** — bu bir yetenek açığıdır, testere
+  takılmış hâliyle kayıtlıdır. Düzeltmesi bilinçli olarak bu tura
+  alınmadı: kelime/prompt kuralı eklemek AGENTS.md §0 ile yasak; doğru
+  çözüm ajan zincirinin kendi hesabı ya da `freetools_yerel` tarafında
+  aranmalı (ayrı iş).
+
+### 8.4 Bu turda kapanan kapılar (tam liste)
+
+| Kapı | Sonuç |
+|---|---|
+| `python -m pytest tests -q --ignore=tests/live` | **1389 geçti, 5 atlandı, 0 kırmızı** (52,6 sn) |
+| Tarayıcı testleri (gerçek Chromium) | **atlanmadı, koştu** (playwright kuruldu; 13 test) |
+| `tests/live --live` (kota/anahtar isteyen paket) | **koşmadı** — bu ortamda sağlayıcı anahtarı yok (P0.2 hâlâ açık) |
+| Canlı prob (anahtarsız) | 2 test: 1 geçti, 1 **kırmızı** (bulgu 2 — yukarıya bak) |
+| Sır kapısı | `Procfile` + yeni testler tarandı, sır yok |
+| Ruff / py_compile | geçti |
+
+### 8.5 Bilinçli olarak YAPILMAYAN
+
+- **Dockerfile** (gerekçe §8.1) ve **Vercel preview dalı denemesi**:
+  bu ortamdan Vercel hesabına erişim yok; dal preview URL'i ölçülemez.
+- **P2.1/P2.2/P4.1** (production geri alma provası, Postgres yedek/geri
+  yükleme): Vercel paneli + veritabanı erişimi ister, ikisi de bu
+  ortamda yok. Kararda uydurma yapılmadı, madde açık bırakıldı.
