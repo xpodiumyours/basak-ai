@@ -386,6 +386,21 @@ def calistir(tool_name, args):
             from tools import harita
             return harita.konum_coz(str(args.get("adres", "")))
 
+        if tool_name == "yakin_ara":
+            from tools import harita
+            yaricap = args.get("yaricap_m")
+            if isinstance(yaricap, str) and not yaricap.strip():
+                yaricap = None
+            return harita.yakin_ara(str(args.get("merkez", "")),
+                                    str(args.get("aranan", "")),
+                                    yaricap)
+
+        if tool_name == "mesafe_sure":
+            from tools import harita
+            return harita.mesafe_sure(str(args.get("nereden", "")),
+                                      str(args.get("nereye", "")),
+                                      str(args.get("seyahat", "") or "araba"))
+
         if tool_name == "freetools_ara":
             from tools import freetools_katalog
             return freetools_katalog.ara(str(args.get("sorgu", "")),

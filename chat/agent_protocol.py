@@ -28,7 +28,7 @@ YETENEK_ALANLARI = {
         "gorsel_ara", "kitap_ara", "sirket_ara", "hava_durumu",
     ),
     "internet_oku": ("derin_oku", "sayfa_oku", "adres_kontrol"),
-    "harita": ("harita_goster", "konum_coz"),
+    "harita": ("harita_goster", "konum_coz", "yakin_ara", "mesafe_sure"),
     "dosyalar": (
         "read_file", "list_files", "belge_ara", "dosya_bilgi",
         "icerik_ara", "write_file_tool",
@@ -65,7 +65,9 @@ ALAN_ACIKLAMALARI = {
     "internet_oku": "bilinen bir URL'nin sayfasini okuma veya adresin canli "
                     "olup olmadigini kontrol",
     "harita": "adres/yer icin harita baglantisi ve yol tarifi; adresin "
-              "enlem/boylam koordinati",
+              "enlem/boylam koordinati; merkezin cevresinde belirli turde "
+              "yer arama (market, eczane, restoran...); iki konum arasi "
+              "karayolu mesafesi ve sure",
     "dosyalar": "bilgisayardaki dosya/klasor ve proje icerigi; knowledge yazma",
     "projeler": "Git, GitHub, CI, test ve proje hat sagligi",
     "gorevler": "yerel gorevler, hatirlatmalar ve cihazdan dogrulanan su "

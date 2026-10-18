@@ -11,7 +11,8 @@ yazma, sabit komut, beyaz liste).
 (2026-09-15: toplam 52; ara-toplam formulu bayat oldugu icin kaldirildi.
 2026-09-23: hava_durumu eklendi — 53. 2026-10-01: harita_goster eklendi —
 56; ayni gun konum_coz eklendi — 57; 2026-10-17: update_task_status
-eklendi — guncel toplam 58; sayi testlerle kilitli,
+eklendi — 58. 2026-10-18: yakin_ara (Overpass, OSM POI) + mesafe_sure
+(OSRM) eklendi — guncel toplam 60; sayi testlerle kilitli,
 bak: tests/test_seviye0_sozlesme.py + tests/test_agent_protocol.py.)
 """
 
@@ -574,6 +575,58 @@ KONUM_COZ = _arac(
     ["adres"],
 )
 
+YAKIN_ARA = _arac(
+    "yakin_ara",
+    "Merkezin cevresinde istenen turdeki yerleri OpenStreetMap (Overpass) "
+    "kaynagindan bulur; mesafeye gore yakindan uzaga "
+    "siralı doner. merkez: adres, yer adı veya 'enlem,boylam'; metin "
+    "girilirse önce konum_coz'de koordinata baglanir. aranan sabit "
+    "tabir listesindendir: market, eczane, hastane, banka, bankamatik, "
+    "restoran, kafe, benzinlik, firin, okul, otopark, polis, durak, "
+    "park — listede olmayan kelime hata dondurur ve listeyi soyler. "
+    "Donus: merkez (enlem/boylam/gosterim_adi/kaynak), aranan, "
+    "yaricap_m, sonuclar (en fazla 15; her sonucta ad, tip, osm, "
+    "mesafe_m, enlem, boylam, baglanti), denenen_hatlar (her Overpass "
+    "hattin durumu "
+    "ve hata sebebi). Ayni sorgu 10 dakika onbellekten doner. Yaricap "
+    "50-10000 m (bos -> 1000). Sonuc bulunamazsa hata doner; mesafe "
+    "uydurulmaz. Anahtar ve kart gerekmez; ag cagrisi SSRF denetimli "
+    "ortak yardimcilarla gider.",
+    {"merkez": {"type": "string",
+                "description": "Adres, yer adi veya 'enlem,boylam'"},
+     "aranan": {"type": "string",
+                "description": "Tabir: market | eczane | hastane | banka "
+                               "| bankamatik | restoran | kafe | "
+                               "benzinlik | firin | okul | otopark | "
+                               "polis | durak | park"},
+     "yaricap_m": {"type": "integer",
+                   "description": "50-10000; bossa 1000"}},
+    ["merkez", "aranan"],
+)
+
+MESAFE_SURE = _arac(
+    "mesafe_sure",
+    "Iki konum arasi karayolu mesafesini ve seyahat sureyi OSRM "
+    "(OpenStreetMap demo hatti, anahtarsiz) ile hesaplar. nereden/nereye: "
+    "adres, yer adi veya 'enlem,boylam'; metin girilirse once konum_coz'de "
+    "koordinata baglanir. seyahat: araba (bossa), bisiklet, piyade; "
+    "bisiklet/piyade resmi olarak yalniz FOSSGIS hattindan doner, araba "
+    "birincil hattin basarisiz durumunda FOSSGIS yedegi denenir. Donus: "
+    "nereden/nereye (gosterim_adi + koordinat), seyahat, mesafe_km, "
+    "sure_dk, kaynak/hat, baglanti (Google Maps yol tarifi), "
+    "denenen_hatlar. Sonuc karayolu uzerindeki gercek rota uzerinden "
+    "hesaplandir; kus-bagisi mesafe degildir. Rota bulunamazsa hata "
+    "doner, sayi uydurulmaz. Demo hattin politika limiti hafif "
+    "kullanimdir; agir istek akisi bu aracin amaci degildir.",
+    {"nereden": {"type": "string",
+                 "description": "Adres, yer adi veya 'enlem,boylam'"},
+     "nereye": {"type": "string",
+                "description": "Adres, yer adi veya 'enlem,boylam'"},
+     "seyahat": {"type": "string",
+                 "description": "araba | bisiklet | piyade (bossa araba)"}},
+    ["nereden", "nereye"],
+)
+
 SIRKET_ARA = _arac(
     "sirket_ara",
     "Markanın resmi sitesini ve iletişim/vergi bilgilerini arar; "
@@ -633,7 +686,7 @@ TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
          SATIR_KAPAT, SATIR_AC, SATIR_SIL, SATIR_TASI,
          MATRIS_DURUM, GORSEL_URET, SAGLIK_RAPORU, SATIR_DUZENLE,
           SIMDI, HESAPLA, HAFIZA_ARA, SIRKET_ARA, HAVA_DURUMU, HARITA_GOSTER,
-         KONUM_COZ,
+         KONUM_COZ, YAKIN_ARA, MESAFE_SURE,
          FATURA_OKU, KATALOG_KUR, KATALOG_GETIR, KATALOG_LISTELE,
          KATALOG_FIYAT, KATALOG_ONAYLA, YETKI_BELGESI, URUN_ESLESTIR,
          YAYIN_PAKETI, CIKTI_OKU,

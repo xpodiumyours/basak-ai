@@ -74,8 +74,8 @@ class TestUcYer:
                     "array", "object"
                 ), (ad, alan, sema)
 
-        assert len(adlar) == 58
-        assert len(set(adlar)) == 58
+        assert len(adlar) == 60
+        assert len(set(adlar)) == 60
 
     def test_bilinmeyen_reddedilir(self):
         r = calistir("yok-boyle-alet", {})

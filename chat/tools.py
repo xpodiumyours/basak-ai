@@ -82,6 +82,8 @@ DURUM_METNI = {
     "hava_durumu": "Hava durumu okunuyor",
     "harita_goster": "Harita bağlantısı hazırlanıyor",
     "konum_coz": "Konum koordinatı çözülüyor",
+    "yakin_ara": "Yakın çevre konumları aranıyor",
+    "mesafe_sure": "Mesafe ve süre hesaplanıyor",
     "freetools_ara": "freetools kataloğu aranıyor",
     "freetools_calistir": "freetools aracı çalıştırılıyor",
     "yetenek_ac": "Araçlar açılıyor",
