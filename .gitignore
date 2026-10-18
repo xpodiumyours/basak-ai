@@ -123,3 +123,7 @@ data/fatura-ornekleri/
 data/_*.json
 tunnel-log.txt
 GOREV-*.md
+
+# Yerel test sanal ortami (venv)
+.venv/
+venv/
