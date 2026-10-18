@@ -175,7 +175,12 @@ def _kaynaklari_cikar(tool_name, args, net):
 
 
 # ── Z2 harita olayı (D4b = B onaylı) ─────────────────────────────────
-_HARITA_ARACLARI = ("harita_goster", "konum_coz")
+# Z3 (2026-10-18): yakin_ara + mesafe_sure eklendi — yüzey davranisi
+# DEGISTI: kartlar yine yalnız BAGLANTI/KOORDINAT tasir; gomulu karo
+# YOK (D4b karari ve KVKK gorevi aynidir).
+_HARITA_ARACLARI = ("harita_goster", "konum_coz", "yakin_ara", "mesafe_sure")
+# Z3 coklu kart tavani; web tarafindaki liste tavaninin aynidir.
+_HARITA_Z3_KART_TAVANI = 3
 # Atif metni ODbL uyumlulugu icin ingilizce resmi bicim.
 _HARITA_ATFI = "© OpenStreetMap contributors"
 # Bu kaynaklar OSM turevi coğrafi kodlama verisidir (Nominatim/Photon).
@@ -201,24 +206,32 @@ def _harita_sonuc(ham):
 
 
 def _harita_olayi(tool_name, ham):
-    """Z0/Z1 arac sonucundan harita olayi uretir; gosterilecek veri yoksa None.
+    """Z0/Z1/Z3 arac sonucundan harita olayi uretir; gosterilecek veri yoksa None.
 
-    D4b = B: gomulu karo YOK. web/ yalniz Z0'in baglantisini ve Z1'in
-    koordinatini gosterir; "Haritada ac" dugmesi kullaniciyi Google
-    Maps'e goturur. Karo yuklenmedigi icin web/ gizlilik sozu ve KVKK
-    envanteri DEGISMEZ (tests/test_web_gizlilik_beyani.py).
+    D4b = B: gomulu karo YOK. web/ yalniz Z0'in baglantisini, Z1'in
+    koordinatini ve Z3'in baglanti/ozet kartlarini gosterir; "Haritada
+    ac" dugmesi kullaniciyi Google Maps'e goturur. Karo yuklenmedigi
+    icin web/ gizlilik sozu ve KVKK envanteri DEGISMEZ
+    (tests/test_web_gizlilik_beyani.py).
 
     Koordinattan baglanti gerekiyorsa ayni testli URL kurucusu
     (harita_goster) kullanilir; JS tarafinda ikinci bir URL bilgisi
-    olmaz. Atif yalniz OSM turevi kaynaktan gelen koordinatta gider:
+    olmaz. Atif yalniz OSM turevi kaynaktan gelen veride gider:
     gosterilen verinin gercek kaynagini yazmak, olmayan atif ya da
     olmayan kaynagin atfini eklemekten dogru.
+
+    Donus tipi tek olay sozlugu YA DA sozluk listesi (yakin_ara coklu
+    sonuc); cagiran her ogeyi ayri harita olayi olarak yollar.
     """
     if tool_name not in _HARITA_ARACLARI or not isinstance(ham, dict):
         return None
     veri = _harita_sonuc(ham)
     if not veri:
         return None
+    if tool_name == "yakin_ara":
+        return _yakin_ara_olaylari(veri)
+    if tool_name == "mesafe_sure":
+        return _mesafe_sure_olayi(veri)
 
     baglanti = str(veri.get("baglanti") or "").strip()
     enlem = veri.get("enlem")
@@ -243,6 +256,75 @@ def _harita_olayi(tool_name, ham):
             veri.get("gosterim_adi") or veri.get("konum") or "").strip(),
         "atf": _HARITA_ATFI if (enlem is not None
                                 and kaynak in _OSM_TUREV_KAYNAKLAR) else "",
+    }
+
+
+def _yakin_ara_olaylari(veri):
+    """yakin_ara sonucunku en yakin 3 arace harita olaylarını kurar.
+
+    Her olay baglantiyi SONUCTAN alir; link/koordinat uydurulmaz.
+    Sonuc listesi bos ya da bozuksa None doner — uydurma yok.
+    """
+    sonuclar = veri.get("sonuclar")
+    if not isinstance(sonuclar, list) or not sonuclar:
+        return None
+    olaylar = []
+    for sonuc in sonuclar[:_HARITA_Z3_KART_TAVANI]:
+        if not isinstance(sonuc, dict):
+            continue
+        baglanti = str(sonuc.get("baglanti") or "").strip()
+        enlem = sonuc.get("enlem")
+        boylam = sonuc.get("boylam")
+        if not baglanti or enlem is None or boylam is None:
+            continue
+        ad = str(sonuc.get("ad") or "").strip()
+        if not ad:
+            continue
+        etiket = ad
+        mesafe = sonuc.get("mesafe_m")
+        if isinstance(mesafe, (int, float)) and mesafe >= 0:
+            etiket = "%s (%d m)" % (ad, int(mesafe))
+        olaylar.append({
+            "baglanti": baglanti,
+            "enlem": enlem,
+            "boylam": boylam,
+            "gosterim_adi": etiket,
+            "atf": _HARITA_ATFI,  # Overpass = OSM turevi
+        })
+    return olaylar or None
+
+
+def _mesafe_sure_olayi(veri):
+    """mesafe_sure sonucunu tek harita olayina cevirir.
+
+    baglanti SONUCTAN gelir; ozet metin mesafe/sure sayilarindan kurulur
+    (UI tarafinda ikinci bir girdi bilgisi olmaz). Rota verisi OSM
+    grafik uzerinde isleyen OSRM turevidir — atif gider. Uygun olmayan
+    sonuclar olay VERMEZ (uydurma yok).
+    """
+    baglanti = str(veri.get("baglanti") or "").strip()
+    if not baglanti:
+        return None
+    nereden = veri.get("nereden") or {}
+    nereye = veri.get("nereye") or {}
+    if not isinstance(nereden, dict) or not isinstance(nereye, dict):
+        return None
+    bas = str(nereden.get("gosterim_adi") or "").strip()
+    bit = str(nereye.get("gosterim_adi") or "").strip()
+    if not bas or not bit:
+        return None
+    mesafe = veri.get("mesafe_km")
+    sure = veri.get("sure_dk")
+    ozet = "%s — %s" % (bas, bit)
+    if isinstance(mesafe, (int, float)) and isinstance(sure, (int, float)):
+        ozet = "%s (%.1f km · %.1f dk)" % (ozet, float(mesafe), float(sure))
+    # Sayisız özet yine de linkle gider; mesafe/sure uydurulmaz.
+    return {
+        "baglanti": baglanti,
+        "enlem": nereye.get("enlem"),
+        "boylam": nereye.get("boylam"),
+        "gosterim_adi": ozet,
+        "atf": _HARITA_ATFI,  # OSRM/FOSSGIS = OSM grafik ueroutput
     }
 
 
@@ -543,12 +625,15 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                             _url, tool=ad, call_id=cagri_id
                         )
                         emit_run_state(js_callback, run_state)
-                # Z2: web/ yuzeyi Z0 baglantisini + Z1 koordinatini gosterir.
+                # Z2/Z3: web/ yuzeyi baglanti + koordinat kartlarini gosterir;
+                # yakin_ara coklu (en fazla 3) olay dorebilir.
                 _harita = _harita_olayi(ad, ham)
                 if _harita:
-                    _web_olay(
-                        js_callback, "harita", tool_id=cagri_id, **_harita,
-                    )
+                    for _ol in (_harita if isinstance(_harita, list)
+                                else [_harita]):
+                        _web_olay(
+                            js_callback, "harita", tool_id=cagri_id, **_ol,
+                        )
             tur_sonuclari.append((ad, net, cagri_id))
             if basarili:
                 kosan += 1

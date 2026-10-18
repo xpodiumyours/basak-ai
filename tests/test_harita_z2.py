@@ -49,6 +49,42 @@ def _z1(enlem=40.981169, boylam=29.025471, kaynak="photon"):
     }, ensure_ascii=False)}
 
 
+def _z3(sonuclar=None):
+    """yakin_ara sonucunun calistir() biciminde taklidi (ag cagrisi yok)."""
+    if sonuclar is None:
+        sonuclar = [
+            {"ad": "A Eczanesi", "tip": "pharmacy",
+             "osm": "node/1", "enlem": 40.981, "boylam": 29.026,
+             "mesafe_m": 230, "baglanti":
+             "https://www.google.com/maps/search/?api=1&query=40.981%2C29.026"},
+            {"ad": "B Eczanesi", "tip": "pharmacy",
+             "osm": "node/2", "enlem": 40.982, "boylam": 29.027,
+             "mesafe_m": 380, "baglanti":
+             "https://www.google.com/maps/search/?api=1&query=40.982%2C29.027"},
+        ]
+    return {"result": json.dumps({
+        "merkez": {"gosterim_adi": "Kadıköy Moda", "enlem": 40.980,
+                   "boylam": 29.025, "kaynak": "photon"},
+        "aranan": "eczane", "yaricap_m": 1000,
+        "sonuc_sayisi": len(sonuclar), "sonuclar": sonuclar,
+        "denenen_hatlar": [{"kaynak": "overpass", "durum": "ok"}],
+    }, ensure_ascii=False)}
+
+
+def _ms():
+    """mesafe_sure sonucunun calistir() biciminde taklidi."""
+    return {"result": json.dumps({
+        "nereden": {"gosterim_adi": "Kadıköy Moda", "enlem": 40.980,
+                    "boylam": 29.025, "kaynak": "photon"},
+        "nereye": {"gosterim_adi": "Taksim", "enlem": 41.033,
+                   "boylam": 28.974, "kaynak": "photon"},
+        "seyahat": "araba", "mesafe_km": 15.7, "sure_dk": 19.8,
+        "kaynak": "osrm", "hat": "router.project-osrm.org",
+        "baglanti": "https://www.google.com/maps/dir/?api=1&destination=Taksim",
+        "denenen_hatlar": [{"kaynak": "osrm", "durum": "ok"}],
+    }, ensure_ascii=False)}
+
+
 # ── Sunucu: olayın içeriği ──────────────────────────────────────────
 
 class TestOlayIcerigi:
@@ -91,6 +127,84 @@ class TestOlayIcerigi:
 
     def test_hicbir_sonuc_alani_yoksa_olay_uretmez(self):
         assert ct._harita_olayi("konum_coz", {"result": "{}"}) is None
+
+
+class TestZ3Olaylari:
+    """Z3 (2026-10-18): yakin_ara coklu kart, mesafe_sure rota ozeti.
+
+    Yuzey kurari YENIDEN D4b kuralindadir: gomulu karo yok, yalniz link
+    + koordinat + atif; kart sayisi web tarafindaki tavanla ayni.
+    """
+
+    def test_yakin_ara_sonuc_kadar_olay_ve_kart_etiketinde_mesafe(self):
+        o = ct._harita_olayi("yakin_ara", _z3())
+        assert isinstance(o, list) and len(o) == 2
+        assert o[0]["gosterim_adi"] == "A Eczanesi (230 m)"
+        assert o[1]["gosterim_adi"] == "B Eczanesi (380 m)"
+        assert o[0]["baglanti"] == (
+            "https://www.google.com/maps/search/?api=1&query=40.981%2C29.026")
+        assert o[0]["enlem"] == 40.981 and o[0]["boylam"] == 29.026
+        assert o[0]["atf"] == "© OpenStreetMap contributors"
+
+    def test_yakin_ara_kart_tavani_3(self):
+        sonuc = [
+            {"ad": "X%d" % i, "enlem": 40.98 + i / 1000.0,
+             "boylam": 29.02, "mesafe_m": i * 100,
+             "baglanti": "https://www.google.com/maps/search/?api=1&q=%d"
+                         % i}
+            for i in range(5)
+        ]
+        o = ct._harita_olayi("yakin_ara", _z3(sonuclar=sonuc))
+        assert isinstance(o, list) and len(o) == 3
+
+    def test_yakin_ara_eksik_alanli_sonuc_atlanir(self):
+        sonuc = [{"ad": "Saglam", "enlem": 40.981, "boylam": 29.026,
+                  "mesafe_m": 100,
+                  "baglanti": "https://www.google.com/maps/"},
+                 {"ad": "Baglantisızı", "enlem": 40.982,
+                  "boylam": 29.027, "mesafe_m": 200, "baglanti": ""},
+                 {"ad": "Isimsiz", "enlem": 40.983,
+                  "boylam": 29.028, "mesafe_m": 300,
+                  "baglanti": "https://www.google.com/maps/"}]
+        o = ct._harita_olayi("yakin_ara", _z3(sonuclar=sonuc))
+        assert isinstance(o, list) and len(o) == 2
+        assert o[0]["gosterim_adi"] == "Saglam (100 m)"
+        assert o[1]["gosterim_adi"] == "Isimsiz (300 m)"
+
+    def test_yakin_ara_bos_sonuc_olay_uretmez(self):
+        assert ct._harita_olayi("yakin_ara", _z3(sonuclar=[])) is None
+        assert ct._harita_olayi("yakin_ara", {"result": "{}"}) is None
+        assert ct._harita_olayi("yakin_ara", {"error": "Sonuc yok"}) is None
+
+    def test_mesafe_sure_ozet_kart_ve_koordinat(self):
+        o = ct._harita_olayi("mesafe_sure", _ms())
+        assert isinstance(o, dict)
+        assert o["gosterim_adi"] == "Kadıköy Moda — Taksim " \
+            "(15.7 km · 19.8 dk)"
+        assert o["baglanti"].startswith("https://www.google.com/maps/dir/")
+        assert o["enlem"] == 41.033 and o["boylam"] == 28.974
+        assert o["atf"] == "© OpenStreetMap contributors"
+
+    def test_mesafe_sure_sayisiz_ozet_uydurma_yapmaz(self):
+        veri = _ms()
+        d = json.loads(veri["result"])
+        d["mesafe_km"] = None
+        d["sure_dk"] = None
+        veri["result"] = json.dumps(d, ensure_ascii=False)
+        o = ct._harita_olayi("mesafe_sure", veri)
+        assert isinstance(o, dict)
+        assert o["gosterim_adi"] == "Kadıköy Moda — Taksim"
+
+    def test_mesafe_sure_baglantisisiz_olay_uretmez(self):
+        veri = _ms()
+        d = json.loads(veri["result"])
+        d["baglanti"] = ""
+        veri["result"] = json.dumps(d, ensure_ascii=False)
+        assert ct._harita_olayi("mesafe_sure", veri) is None
+
+    def test_dort_arac_kilit_listede(self):
+        assert ct._HARITA_ARACLARI == ("harita_goster", "konum_coz",
+                                       "yakin_ara", "mesafe_sure")
 
 
 # ── Sunucu: olay gerçekten yolda ────────────────────────────────────
