@@ -1,4 +1,4 @@
-"""tools/harita.py — Harita: baglanti uretimi (Z0) + konum cozumleme (Z1).
+"""tools/harita.py — Harita: baglanti (Z0), konum (Z1), sube bulma (Z3).
 
 Z0 (`harita_goster`): ag cagrisi YOK, anahtar YOK, kota YOK. Yalniz Google
 Maps URL semasi uretilir; kullanici tiklayinca harita kendi tarayicisinda
@@ -11,6 +11,11 @@ tools/web_search.py icindeki `_guvenli_adres` + `_GuvenliYonlendirme`
 kullanilir (her yonlendirme adimi yeniden denetlenir). Bulunamazsa hata
 doner; koordinat UYDURULMAZ.
 
+Z3 (`sube_bul`): marka + merkez + yaricap -> OpenStreetMap Overpass uzerinden
+markanin kayitli subeleri. Anahtar YOK, kota YOK (makul kullanim); OSM acik
+verisi ODbL'dir, sonuc kaydinda `atif` alani tasir. Sonuc 0 ise sube YOK
+degil, OSM'de KAYITLI DEGIL demektir; bu ayrim sonucta acikca yazilir.
+
 Her cagri `denenen_hatlar` alanini doner: hangi hat denendi, kac aday verdi
 ya da NEDEN basarisiz oldu. Bu alan 2026-10-01'de yasanan sessiz bozulmaya
 karsi eklendi: Photon'a gonderilen gecersiz `lang=tr` parametresi HTTP 400
@@ -20,6 +25,8 @@ aylarca gorunmedi.
 
 import json
 import logging
+import math
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -95,7 +102,7 @@ _HAT_PHOTON = "photon"
 _HAT_OPEN_METEO = "open-meteo"
 
 
-def _json_al(url):
+def _json_al(url, sure=None):
     """Korumali tek GET; SSRF denetimi + yonlendirme denetimi uygular.
 
     Koruma tools/web_search.py'den cagrilir; burada yeni savunma yazilmaz.
@@ -117,7 +124,7 @@ def _json_al(url):
             "Accept": "application/json",
             "Accept-Encoding": "identity",
         })
-        with opener.open(istek, timeout=_ZAMAN_ASIMI) as yanit:
+        with opener.open(istek, timeout=sure or _ZAMAN_ASIMI) as yanit:
             return json.loads(yanit.read().decode("utf-8")), None
     except urllib.error.HTTPError as e:
         logger.info("Konum servisi HTTP hatasi: %s", e)
@@ -311,5 +318,215 @@ def konum_coz(adres):
         "kaynak": kaynak,
         "aday_sayisi": len(adaylar),
         "adaylar": adaylar,
+        "denenen_hatlar": denenen,
+    })}
+
+
+# ── Z3: sube bulma (marka + bolge -> kayitli subeler) ───────────────
+#
+# OpenStreetMap Overpass API: anahtar YOK, kota YOK (makul kullanim),
+# ODbL atfi zorunlu. Sorgu tek istektir; marka regex olarak kacirilir,
+# yaricap ve sonuc sayisi sinirlidir (Overpass genel sunucusu icin
+# nazik davranis). `sube_sayisi == 0` subenin YOLDA olmadigi anlamina
+# GELMEZ — yalnizca OSM'de kayitli olmadigi anlamina gelir; bu ayrim
+# sonucta `not` alaninda acikca yazilir.
+
+OVERPASS_TABANI = "https://overpass-api.de/api/interpreter"
+# Yedek aynalar: ana sunucu bakimda olabilir ya da belirli IP araliklarini
+# engelleyebilir (2026-10-20: bulut IP'sinden nginx 406 olculdu). Sira
+# onemli: ana sunucu once, topluluk aynalari sonra denenir; her deneme
+# `denenen_hatlar` kaydina hata sebebiyle yazilir (Z1'deki desen).
+OVERPASS_AYNALAR = (
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.osm.ch/api/interpreter",
+)
+_SUBE_ZAMAN_ASIMI = 20
+_SUBE_SONUC_TAVANI = 50
+_YARICAP_VARSAYILAN = 5.0     # km
+_YARICAP_TAVANI = 25.0        # km — genel Overpass sunucusu icin ust sinir
+_ATFI = "Veri: © OpenStreetMap katkıda bulunanlar (ODbL)"
+
+
+def _ayna_adi(url):
+    """Hata mesajinda kisa ayna adi (host) gorunur, tam URL degil."""
+    try:
+        return urllib.parse.urlsplit(str(url or "")).hostname or str(url)
+    except ValueError:
+        return str(url)
+
+
+def _mesafe_km(en1, boylam1, en2, boylam2):
+    """Iki nokta arasi kus ucusu mesafesi (haversine, km)."""
+    p1, p2 = math.radians(en1), math.radians(en2)
+    dp = math.radians(en2 - en1)
+    db = math.radians(boylam2 - boylam1)
+    a = (math.sin(dp / 2) ** 2
+         + math.cos(p1) * math.cos(p2) * math.sin(db / 2) ** 2)
+    return 2 * 6371.0 * math.asin(math.sqrt(a))
+
+
+def _merkez_coz(konum):
+    """'enlem,boylam' dogrudan okunur; degilse konum_coz'e devredilir.
+
+    Donus: (enlem, boylam, gosterim_adi, kaynak) ya da (None, None, "", hata).
+    """
+    temiz = _konum_temizle(konum)
+    if not temiz:
+        return None, None, "", "Konum boş olamaz."
+    parcalar = [p.strip() for p in temiz.split(",")]
+    if len(parcalar) == 2:
+        enlem = _sayi(parcalar[0])
+        boylam = _sayi(parcalar[1])
+        if _gecerli_koordinat(enlem, boylam):
+            return enlem, boylam, temiz, "koordinat"
+    sonuc = konum_coz(temiz)
+    if "result" in sonuc:
+        veri = json.loads(sonuc["result"])
+        return (veri["enlem"], veri["boylam"],
+                veri["gosterim_adi"], veri["kaynak"])
+    return None, None, "", sonuc.get("error") or "Konum bulunamadı."
+
+
+def _overpass_sorgusu(enlem, boylam, yaricap_m, marka_deseni):
+    """Overpass QL — marka adi brand/name etiketlerinde aranir, tek istek."""
+    merkez = "%.6f,%.6f" % (enlem, boylam)
+    etiketler = ("brand", "name")
+    dallar = []
+    for etiket in etiketler:
+        for tip in ("node", "way"):
+            dallar.append('%s(around:%d,%s)["%s"~"%s",i];'
+                          % (tip, yaricap_m, merkez, etiket, marka_deseni))
+    return ("[out:json][timeout:%d];(\n%s\n);\nout center %d;"
+            % (_SUBE_ZAMAN_ASIMI, "\n".join(dallar), _SUBE_SONUC_TAVANI))
+
+
+def _sube_kaydi(eleman, enlem, boylam):
+    """Overpass elemanindan sube kaydi; merkezi olmayan eleman atlanir."""
+    if not isinstance(eleman, dict):
+        return None
+    if eleman.get("type") == "node":
+        en = _sayi(eleman.get("lat"))
+        boy = _sayi(eleman.get("lon"))
+    else:
+        merkez = eleman.get("center") or {}
+        en = _sayi(merkez.get("lat"))
+        boy = _sayi(merkez.get("lon"))
+    if not _gecerli_koordinat(en, boy):
+        return None
+    etiket = eleman.get("tags") or {}
+    if not isinstance(etiket, dict):
+        etiket = {}
+    adres_parcalari = []
+    for anahtar in ("addr:street", "addr:housenumber", "addr:district",
+                    "addr:city", "addr:postcode"):
+        deger = str(etiket.get(anahtar) or "").strip()
+        if deger and deger not in adres_parcalari:
+            adres_parcalari.append(deger)
+    return {
+        "ad": str(etiket.get("name") or etiket.get("brand") or "").strip(),
+        "enlem": round(en, 6),
+        "boylam": round(boy, 6),
+        "adres": ", ".join(adres_parcalari),
+        "tip": str(etiket.get("shop") or etiket.get("amenity")
+                    or etiket.get("office") or "").strip(),
+        "telefon": str(etiket.get("phone") or etiket.get("contact:phone")
+                       or "").strip(),
+        "website": str(etiket.get("website") or etiket.get("contact:web")
+                       or "").strip(),
+        "mesafe_km": round(_mesafe_km(enlem, boylam, en, boy), 2),
+        "osm_id": eleman.get("id"),
+        "osm_tip": eleman.get("type"),
+    }
+
+
+def sube_bul(marka, konum, yaricap_km=None):
+    """Markanin bir bolgedeki kayitli subelerini OpenStreetMap'te bulur.
+
+    marka:     aranacak marka adi (regex olarak kacirilir).
+    konum:     merkez — 'enlem,boylam' ya da adres/yer adi (konum_coz).
+    yaricap_km: arama yaricapi (varsayilan 5, en fazla 25).
+
+    Donus: {"result": JSON} — marka, merkez, yaricap_km, sube_sayisi,
+    subeler (ad, enlem, boylam, adres, tip, telefon, website, mesafe_km,
+    osm_id, osm_tip; en yakin ilk), atif, denenen_hatlar. Sonuc 0 ise hata
+    DEGILDIR — OSM'de kayitli oldugu anlamina gelmez:
+    OSM'de kayitli olmadigi `not` alaninda belirtilir. Ag/servis hatasi
+    ya da bulunamayan merkez {"error": ...} doner; sube UYDURULMAZ.
+    """
+    temiz_marka = _konum_temizle(marka)
+    if not temiz_marka:
+        return {"error": "Marka boş olamaz."}
+    if len(temiz_marka) > 120:
+        return {"error": "Marka çok uzun (en fazla 120 karakter)."}
+
+    try:
+        yaricap = float(yaricap_km) if yaricap_km not in (None, "") \
+            else _YARICAP_VARSAYILAN
+    except (TypeError, ValueError):
+        return {"error": "yaricap_km sayı olmalı (km)."}
+    if yaricap <= 0:
+        return {"error": "yaricap_km sıfırdan büyük olmalı."}
+    yaricap = min(yaricap, _YARICAP_TAVANI)
+
+    enlem, boylam, gosterim_adi, merkez_kaynak = _merkez_coz(konum)
+    if enlem is None:
+        return {"error": "Merkez bulunamadı: %s" % merkez_kaynak}
+
+    # Overpass regex RE2'dir; kullanici girdisi desen olamaz — kacirilir.
+    marka_deseni = re.escape(temiz_marka)
+    sorgu = _overpass_sorgusu(enlem, boylam, int(yaricap * 1000),
+                              marka_deseni)
+    sorgu_metni = urllib.parse.urlencode({"data": sorgu})
+
+    veri = None
+    denenen = []
+    for ayna in OVERPASS_AYNALAR:
+        aday_veri, hata = _json_al(ayna + "?" + sorgu_metni,
+                                   sure=_SUBE_ZAMAN_ASIMI)
+        if isinstance(aday_veri, dict):
+            veri = aday_veri
+            denenen.append({"ayna": ayna, "durum": "ok"})
+            break
+        denenen.append({"ayna": ayna, "durum": "hata",
+                        "hata": hata or "beklenmeyen yanıt"})
+    if veri is None:
+        ozet = "; ".join("%s: %s" % (_ayna_adi(k.get("ayna")),
+                                     k.get("hata") or "basarisız")
+                         for k in denenen)
+        return {"error": "OpenStreetMap servisine ulaşılamadı. Denenen "
+                         "aynalar: %s" % ozet}
+
+    subeler = []
+    gorulen = set()
+    for eleman in (veri.get("elements") or []):
+        kayit = _sube_kaydi(eleman, enlem, boylam)
+        if not kayit:
+            continue
+        anahtar = (kayit["osm_tip"], kayit["osm_id"])
+        if anahtar in gorulen:
+            continue
+        gorulen.add(anahtar)
+        subeler.append(kayit)
+    subeler.sort(key=lambda k: k["mesafe_km"])
+    subeler = subeler[:_SUBE_SONUC_TAVANI]
+
+    not_metni = ""
+    if not subeler:
+        not_metni = ("Kayıt bulundu; ancak OpenStreetMap'te bu markanın bu "
+                     "bölgede etiketli şubesi görünmüyor. Şubesi olabilir — "
+                     "OSM kaydı eksik olabilir; harita_goster ile bölgede "
+                     "arama yapılabilir.")
+
+    return {"result": _j({
+        "marka": temiz_marka,
+        "merkez": {"enlem": round(enlem, 6), "boylam": round(boylam, 6),
+                   "gosterim_adi": gosterim_adi,
+                   "kaynak": merkez_kaynak},
+        "yaricap_km": yaricap,
+        "sube_sayisi": len(subeler),
+        "subeler": subeler,
+        "atif": _ATFI,
+        "not": not_metni,
         "denenen_hatlar": denenen,
     })}
