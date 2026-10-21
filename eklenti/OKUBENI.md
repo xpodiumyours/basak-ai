@@ -47,9 +47,12 @@ yalnız 127.0.0.1'e açıktır ve yalnız tarayıcı uzantısı kaynağı kabul 
   ve "gerçekten oldu mu" doğrulaması gerekiyor).
 - **Akış yok.** Cevap tek parça gelir; "yazıyor…" görünür ama kelime kelime
   akmaz.
-- **Bulutta bugün çalışmaz.** Vercel'in sunucusuz fonksiyonu WebSocket
-  tutamaz; canlı kanal için Koyeb/Oracle gibi kalıcı bir çalışma alanı
-  gerekir. Yerelde çalışır.
+- **Bulutta bugün çalışmaz.** (Düzeltme 2026-10-21: Vercel artık WebSocket'i
+  yerel destekliyor — public beta, Fluid Compute, tüm planlar.) Yine de
+  bağlantı fonksiyon süresi dolunca kapanır (Hobby: 300 sn), tek bir
+  instance'a çivilenir ve sohbet isteği başka instance'a düşebilir. Bu
+  yüzden bulut için ya paylaşımlı depo (Redis/Postgres) + yeniden bağlanma,
+  ya da Koyeb/Oracle gibi tek kalıcı süreç gerekir. Yerelde çalışır.
 - **`chrome://` ve mağaza sayfaları okunamaz** (tarayıcının kendi kısıtı).
 - Eklenti, kurulmadan önce açılmış sekmelerde içerik betiğini kendisi
   enjekte eder; yine olmazsa "bu sekme okunamıyor" der, uydurmaz.

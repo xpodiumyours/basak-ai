@@ -72,9 +72,13 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   **Dürüst sınır:** yeni derlemenin içerik düzeyinde canlı olduğu
   doğrulanamadı — `/healthz` sözleşmesi gövdeye sürüm koymayı yasaklıyor,
   oturum açmadan `/api/durum` okunamıyor ve Vercel paneli erişimi yok.
-  Eklenti **bugün yalnız yerelde** çalışır: Vercel sunucusuz fonksiyonu
-  WebSocket tutamaz; bulut kanalı kalıcı bir alan (Koyeb/Oracle) ya da
-  Postgres tabanlı posta kutusu ister. Gerçek Chrome'da kurulum bu
+  Eklenti **bugün yalnız yerelde** çalışır. **Düzeltme (2026-10-21):** burada
+  önce "Vercel WebSocket tutamaz" yazıyordu, YANLIŞ — Vercel artık WS'i yerel
+  destekliyor (public beta, Fluid Compute, tüm planlar). Gerçek engel başka:
+  bağlantı fonksiyon azami süresinde kapanır (Hobby 300 sn), tek instance'a
+  çivilenir ve sohbet isteği başka instance'a düşebilir; çekirdek sokete
+  ulaşamaz. Çözüm ya paylaşımlı depo (Redis/Postgres) + yeniden bağlanma ya da
+  Koyeb/Oracle gibi tek kalıcı süreç. Gerçek Chrome'da kurulum bu
   ortamda denenemedi (tarayıcı yok).
   **Açık bulgu:** `preview` dalı `main`den 6 commit geride/ayrık
   (`5131b38`, 38 dosya); §10'daki "preview = main aynası" kuralı bugün

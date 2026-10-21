@@ -12,8 +12,13 @@ Sinirlar
   moz-extension://) disindaki Origin reddedilir.
 - Anahtar: `ayarlar.json` -> "eklenti_anahtari" ya da ortam degiskeni
   BASAK_EKLENTI_ANAHTARI doluysa URL'deki ?token= eslesmek zorunda.
-- Uzun omurlu bir surec ister. Vercel'in sunucusuz fonksiyonu WebSocket
-  tutamaz; bulutta Koyeb/Oracle gibi kalici bir calisma alani gerekir.
+- Kalici bir surec ister. DUZELTME (2026-10-21, Vercel KB): Vercel artik
+  WebSocket'i yerel olarak destekliyor (public beta, Fluid Compute, tum
+  planlar). Ama baglanti fonksiyonun AZAMI suresinde kapanir (Hobby 300 sn),
+  baglanti tek bir instance'a CIVILENIR ve sohbet istegi baska bir instance'a
+  dusebilir; o zaman cekirdek sokete ulasamaz. Bu yuzden bulut icin ya
+  paylasimli bir depo (Redis/Postgres) + yeniden baglanma, ya da Koyeb gibi
+  tek kalici surec gerekir. Engel protokol degil, instance dagitimi.
 
 Protokol (eklenti tarafi)
 -------------------------
