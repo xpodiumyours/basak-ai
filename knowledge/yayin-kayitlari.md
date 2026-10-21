@@ -98,3 +98,20 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   `/healthz` 200, `/` 200.
   Önceki maddedeki "preview 6 commit ayrık" notu bu merge ile geçersizdir;
   kayıt düzeltilerek değil, eklenerek tutulur.
+- 2026-10-21: `b0b9eb0` — eklentinin **bulut kanalı** açıldı (Vercel WS).
+  `chat/eklenti_ws.py` (`/api/eklenti`) + `tools/tarayici_kanal.py`:
+  sohbet ve sayfa istekleri AYNI WebSocket'ten yürür; model döngüsü
+  eklentinin bağlı olduğu instance'ta kalır, instance'lar arası yönlendirme
+  gerekmez. `sayfa_bakis` aktif kanal varsa kanalı, yoksa eski yerel köprüyü
+  kullanır (geliştirme yolu korunuyor). Eklenti varsayılanı artık
+  `wss://basak-vercel.vercel.app/api/eklenti`.
+  **Canlı kanıt (yerel süreç YOK):** bu makineden gerçek WSS bağlantısı
+  açıldı, panel mesajı gönderildi, cevap aynı soketten geldi:
+  `{"ok": true, "sonuc": {"cevap": "Ben Başak, size yardımcı olmak için
+  buradayım.", "kaynak": "groq"}}`. Yani sohbet bulutta, eklenti
+  protokolüyle koşuyor.
+  Yerel kapı: 1511 test geçti / 31 atlandı; ruff temiz; 5 yeni test
+  (TestClient WS: panel mesajı → `sayfa_gozlem` aynı soketten gidip döndü).
+  **Sınırlar:** Hobby'de bağlantı 300 sn'de kapanır (eklenti yeniden
+  bağlanır); tek tur 300 sn'yi aşarsa kesilir; kalıcı disk yok. Sayfa
+  gözleminin gerçek Chrome'da uçtan uca denenmesi hâlâ yapılmadı.

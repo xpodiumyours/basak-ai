@@ -11,7 +11,11 @@ yere basmaz, hiçbir kutuya yazmaz.
 1. `chrome.sidePanel` ile sağda panel açar: **sohbet** + bağlantı + önizleme.
 2. Açık sekmeyi `icerik.js` ile okur: her düğme/bağlantı/kutu/metin,
    rolü + adı + değeri + kapalı mı bilgisiyle.
-3. Yerel Başak köprüsüne (`ws://127.0.0.1:8788`) bağlanır.
+3. **Buluttaki** Başak'a bağlanır:
+   `wss://basak-vercel.vercel.app/api/eklenti` (2026-10-21'den itibaren
+   varsayılan). Yerel geliştirme için panel alanına
+   `ws://127.0.0.1:8788` yazılabilir. Sohbet ve sayfa isteği AYNI
+   bağlantıdan gider; model döngüsü o bağlantının instance'ında kalır.
 4. Panelde yazdığın mesaj **çekirdeğe** gider (`chat.flow.mesaj_isle`);
    cevap aynı kanaldan panele döner. Eklentide ikinci beyin yoktur.
 5. Başak `sayfa_bakis` aracını çağırdığında gözlem bu kanaldan gider;
@@ -21,10 +25,10 @@ Gizli öğeler gönderilmez, **şifre alanının değeri asla okunmaz**.
 
 ## Kurulum (Chrome / Edge)
 
-1. Başak'ı bu bilgisayarda başlat: `basak-web.cmd` (ya da `python basak_web.py`).
-   Konsolda şu satırı gör: `Basak eklenti koprusu: ws://127.0.0.1:8788`.
-2. Chrome → `chrome://extensions` → sağ üstten **Geliştirici modu** aç.
-3. **Paketlenmemiş öğe yükle** → bu `eklenti/` klasörünü seç.
+1. Chrome → `chrome://extensions` → sağ üstten **Geliştirici modu** aç.
+2. **Paketlenmemiş öğe yükle** → bu `eklenti/` klasörünü seç.
+3. Başak sitesinde **giriş yap** (eklenti oturum çerezini kullanır; çerez
+   yoksa ziyaretçi olarak bağlanır ve kişisel hafızan açılmaz).
 4. Araç çubuğundaki Başak simgesine bas → sağ panel açılır.
 5. Panelde **Bağlantı** bölümünü aç → **Bağlan** → rozet `BAĞLI` olur.
 6. Panelde yaz: *"bu sayfada ne var, ne yapabilirim?"* — Başak sayfayı kendi
@@ -47,12 +51,11 @@ yalnız 127.0.0.1'e açıktır ve yalnız tarayıcı uzantısı kaynağı kabul 
   ve "gerçekten oldu mu" doğrulaması gerekiyor).
 - **Akış yok.** Cevap tek parça gelir; "yazıyor…" görünür ama kelime kelime
   akmaz.
-- **Bulutta bugün çalışmaz.** (Düzeltme 2026-10-21: Vercel artık WebSocket'i
-  yerel destekliyor — public beta, Fluid Compute, tüm planlar.) Yine de
-  bağlantı fonksiyon süresi dolunca kapanır (Hobby: 300 sn), tek bir
-  instance'a çivilenir ve sohbet isteği başka instance'a düşebilir. Bu
-  yüzden bulut için ya paylaşımlı depo (Redis/Postgres) + yeniden bağlanma,
-  ya da Koyeb/Oracle gibi tek kalıcı süreç gerekir. Yerelde çalışır.
+- **Bulutta çalışır** (2026-10-21 canlı ölçüm: `wss://basak-vercel.
+  vercel.app/api/eklenti` → gerçek cevap, sağlayıcı `groq`). İki sınır var:
+  bağlantı fonksiyon süresi dolunca kapanır (Hobby: 300 sn) ve eklenti
+  yeniden bağlanır; tek tur 300 saniyeyi aşarsa kesilir. Kalıcı disk yok,
+  bu yüzden geçmiş istek gövdesiyle taşınır.
 - **`chrome://` ve mağaza sayfaları okunamaz** (tarayıcının kendi kısıtı).
 - Eklenti, kurulmadan önce açılmış sekmelerde içerik betiğini kendisi
   enjekte eder; yine olmazsa "bu sekme okunamıyor" der, uydurmaz.
