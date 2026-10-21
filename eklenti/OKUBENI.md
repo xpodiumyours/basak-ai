@@ -63,6 +63,9 @@ yalnız 127.0.0.1'e açıktır ve yalnız tarayıcı uzantısı kaynağı kabul 
 - **Mağaza yok.** Kurulum zip + "paketlenmemiş öğe yükle" ile yapılır;
   güncelleme el ile. Kurulum sayfası: `/eklenti.html`, paket:
   `/eklenti/eklenti.zip`.
+- **Panel şartı.** Sayfayla ilgili işler paneldeki sohbetten yürür; bulutta
+  web ekranındaki sohbet eklentinin bağlantısına erişemez (farklı instance).
+  Bu durumda araç "bu istek üzerinden erişilemedi" der, uydurmaz.
 - **Akış yok.** Cevap tek parça gelir; "yazıyor…" görünür ama kelime kelime
   akmaz.
 - **Bulutta çalışır** (2026-10-21 canlı ölçüm: `wss://basak-vercel.

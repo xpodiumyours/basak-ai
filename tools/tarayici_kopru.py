@@ -103,8 +103,11 @@ class Kopru:
                 return {"error": "Bu kullanici icin bagli tarayici yok; "
                                  "Basak eklentisini bu hesapta bagla: %s"
                                  % EKLENTI_ADRESI}
-            return {"error": "Tarayiciya bagli istemci yok; Basak "
-                             "eklentisini kur ve panelden baglan: %s"
+            # "Yok" demek yanlis olabilir: eklenti baska bir baglantida
+            # (baska instance) duruyor olabilir. Durust ifade: erisilemedi.
+            return {"error": "Tarayiciya bu istek uzerinden erisilemedi; "
+                             "eklenti kurulu degilse kur, kuruluysa sohbeti "
+                             "eklenti panelinden surdur: %s"
                              % EKLENTI_ADRESI}
         try:
             sure = float(sure or ZAMAN_ASIMI)

@@ -137,3 +137,10 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   Kapılar: pytest 1533 / 31 atlandı; onay akışı node vm ile 6/6
   (onaysız eylem yok, Vazgeç durdurur, panel kapalı = fail-closed).
   **Sınır:** gerçek Chrome'da onay kartının görsel doğrulaması yapılmadı.
+  **Ölçülen sınır (aynı gün):** web ekranındaki sohbet eklentiye ULAŞAMAZ.
+  `Kanal` yalnız WebSocket isteğinin bağlamında yaşar; web isteği boş
+  `KOPRU` görür. Bu yüzden araç hatası "bağlı istemci yok" değil "bu istek
+  üzerinden erişilemedi; sohbeti panelden sürdür" der. Canlı kanıt: web
+  sohbetine "açık sekmedeki Giriş yap düğmesine bas" yazıldı → cevap
+  "eklentiyi kurup bağlanmanız gerekiyor" (kaynak: glm), uydurma yok.
+  Kalıcı çözüm: bağlantı kaydını paylaşımlı depoya yazmak (sıradaki iş).
