@@ -157,6 +157,53 @@ def matris_liste():
     return {"result": "\n".join(satirlar)}
 
 
+def calisma_ozeti(limit=6):
+    """Tum tablolarin okunabilir ozeti: baslik, skor, son satirlar.
+
+    Salt-okunur. Web ekrani (/durum) bunu "yapilan is" blogunu doldurmak
+    icin okur; model araci degildir. Dosya yoksa liste bos doner.
+    """
+    try:
+        os.makedirs(matris_kok(), exist_ok=True)
+        ids = []
+        for ad in sorted(os.listdir(matris_kok())):
+            if ad.startswith("matris_") and ad.endswith(".json"):
+                try:
+                    ids.append(int(ad[7:-5]))
+                except ValueError:
+                    continue
+    except OSError as e:
+        return {"hata": "Tablolar okunamadi: %s" % e, "liste": []}
+
+    liste = []
+    for i in ids:
+        veri = _yukle(i)
+        if veri is None:
+            continue
+        canli = [s for s in veri.get("satirlar", []) if not s.get("arsiv")]
+        biten = [s for s in canli if s.get("durum") == "kanitli"]
+        satirlar = []
+        for s in sorted(canli, key=lambda x: x.get("id", 0), reverse=True)[:limit]:
+            satirlar.append({
+                "id": s.get("id"),
+                "tur": s.get("tur", ""),
+                "metin": s.get("metin", ""),
+                "durum": s.get("durum", ""),
+                "olustu": s.get("olustu", ""),
+                "kanitlar": [k.get("metin", "") for k in s.get("kanitlar", [])],
+            })
+        liste.append({
+            "id": i,
+            "baslik": veri.get("baslik", ""),
+            "fikir": veri.get("fikir", ""),
+            "olustu": veri.get("olustu", ""),
+            "kanitli": len(biten),
+            "toplam": len(canli),
+            "satirlar": satirlar,
+        })
+    return {"liste": liste, "toplam": len(liste), "hata": None}
+
+
 def satir_ekle(matris, tur, metin, ust=None, neden="", bagli=None):
     """Agaca satir ekler. tur: arastirma|katman|adim|detay.
 

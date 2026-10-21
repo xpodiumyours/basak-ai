@@ -343,6 +343,156 @@
     }
   }
 
+  /* ── Yapılan işin özeti (çekirdekten okunur) ─────────────────── */
+  /* Kaynak: /api/calisma → tools/calisma.py. Bu sayfa hiçbir şey
+     UYDURMAZ: kayıt yoksa "kayıt yok" yazar. Model çağrısı yapılmaz
+     (ölçüm turundaki tek gerçek model çağrısı "beyin yanıt veriyor"
+     satırıdır). */
+  var calismaEl = document.getElementById("calisma");
+
+  function blokEkle(baslik, not) {
+    var kutu = document.createElement("div");
+    kutu.className = "is-blok";
+    var h = document.createElement("h3");
+    h.textContent = baslik;
+    kutu.appendChild(h);
+    if (not) {
+      var p = document.createElement("p");
+      p.className = "not";
+      p.textContent = not;
+      kutu.appendChild(p);
+    }
+    calismaEl.appendChild(kutu);
+    return kutu;
+  }
+
+  function isSatirEkle(kutu, baslik, alt, kanitlar) {
+    var s = document.createElement("div");
+    s.className = "is-satir";
+    var b = document.createElement("b");
+    b.textContent = baslik;
+    s.appendChild(b);
+    if (alt) {
+      var sp = document.createElement("span");
+      sp.textContent = alt;
+      s.appendChild(sp);
+    }
+    if (kanitlar && kanitlar.length) {
+      for (var i = 0; i < kanitlar.length; i++) {
+        var k = document.createElement("span");
+        k.className = "is-kanit";
+        k.textContent = "Kanıt: " + kanitlar[i];
+        s.appendChild(k);
+      }
+    }
+    kutu.appendChild(s);
+  }
+
+  function hataEkle(kutu, hata) {
+    var p = document.createElement("p");
+    p.className = "olcum-notu uyari";
+    p.textContent = String(hata);
+    kutu.appendChild(p);
+  }
+
+  async function calismaOku() {
+    if (!calismaEl) return;
+    try {
+      var r = await window.basakFetch("/api/calisma", { cache: "no-store" });
+      if (!r.ok) throw new Error("Sunucu " + r.status + " döndü");
+      var d = await r.json();
+      calismaEl.textContent = "";
+
+      /* 1) Canlıya çıkan işler (yayın kaydı) */
+      var yayin = d.yayin || {};
+      var yb = blokEkle("Canlıya çıkan işler",
+        yayin.hata ? "" : (yayin.liste || []).length + " kayıt (en yeni üstte)");
+      if (yayin.hata) {
+        hataEkle(yb, yayin.hata);
+      } else {
+        var yl = yayin.liste || [];
+        if (!yl.length) {
+          var yp = document.createElement("p");
+          yp.className = "not";
+          yp.textContent = "Kayıt yok.";
+          yb.appendChild(yp);
+        }
+        for (var y = 0; y < yl.length; y++) {
+          isSatirEkle(yb, yl[y].metin, yl[y].tarih);
+        }
+      }
+
+      /* 2) Çalışma notları */
+      var notlar = d.notlar || {};
+      var nb = blokEkle("Çalışma notları",
+        notlar.hata ? "" : (notlar.liste || []).length + " not");
+      if (notlar.hata) {
+        hataEkle(nb, notlar.hata);
+      } else {
+        var nl = notlar.liste || [];
+        if (!nl.length) {
+          var np = document.createElement("p");
+          np.className = "not";
+          np.textContent = "Kayıt yok.";
+          nb.appendChild(np);
+        }
+        for (var n = 0; n < nl.length; n++) {
+          isSatirEkle(nb, nl[n].baslik, nl[n].ozet || nl[n].ad);
+        }
+      }
+
+      /* 3) Fikir tabloları (kanıtlı satırlar) */
+      var tablolar = d.tablolar || {};
+      var tb = blokEkle("Fikir tabloları",
+        tablolar.hata ? "" : (tablolar.liste || []).length + " tablo");
+      if (tablolar.hata) {
+        hataEkle(tb, tablolar.hata);
+      } else {
+        var tl = tablolar.liste || [];
+        if (!tl.length) {
+          var tp = document.createElement("p");
+          tp.className = "not";
+          tp.textContent = "Bu sunucuda henüz fikir tablosu yok.";
+          tb.appendChild(tp);
+        }
+        for (var t = 0; t < tl.length; t++) {
+          var tablo = tl[t];
+          isSatirEkle(tb, "#" + tablo.id + " " + tablo.baslik,
+            tablo.kanitli + "/" + tablo.toplam + " kanıtlı" +
+            (tablo.fikir ? " · " + tablo.fikir : ""));
+          var satirlar = tablo.satirlar || [];
+          for (var s2 = 0; s2 < satirlar.length; s2++) {
+            isSatirEkle(tb, satirlar[s2].metin,
+              satirlar[s2].durum + (satirlar[s2].olustu ? " · " + satirlar[s2].olustu : ""),
+              satirlar[s2].kanitlar);
+          }
+        }
+      }
+
+      /* 4) Görevler */
+      var gorevler = d.gorevler || {};
+      var gb = blokEkle("Görevler", gorevler.hata ? "" :
+        (gorevler.acik || 0) + " açık · " + (gorevler.kapali || 0) + " kapanmış");
+      if (gorevler.hata) {
+        hataEkle(gb, gorevler.hata);
+      } else {
+        var gl = gorevler.liste || [];
+        if (!gl.length) {
+          var gp = document.createElement("p");
+          gp.className = "not";
+          gp.textContent = gorevler.toplam ? "Açık görev yok." : "Kayıt yok.";
+          gb.appendChild(gp);
+        }
+        for (var g = 0; g < gl.length; g++) {
+          isSatirEkle(gb, gl[g].text, gl[g].status + (gl[g].date ? " · " + gl[g].date : ""));
+        }
+      }
+    } catch (hata) {
+      calismaEl.textContent = "Çalışma özeti okunamadı: " +
+        String((hata && hata.message) || hata);
+    }
+  }
+
   /* ── Başlat ───────────────────────────────────────────────────── */
   satirEkle("beyin", "Beyin yanıt veriyor");
   satirEkle("arac", "Kaç araç var");
@@ -355,5 +505,6 @@
   if (yenileEl) yenileEl.addEventListener("click", function () { olc(); });
 
   kabulOku();
+  calismaOku();
   olc();
 })();

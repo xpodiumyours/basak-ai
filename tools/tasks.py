@@ -135,6 +135,38 @@ def list_tasks(gorevler_file: str) -> dict:
         return {"error": f"Görevler listelenemedi: {e}"}
 
 
+def gorev_ozeti(gorevler_file: str) -> dict:
+    """Gorevlerin sayimi ve acik olanlarin listesi (salt-okunur).
+
+    Web ekrani (/durum) "acik is var mi?" sorusunu buradan yanitlar.
+    Model araci degildir; dosyaya yazmaz.
+    """
+    sonuc = {"toplam": 0, "acik": 0, "kapali": 0, "liste": [], "hata": None}
+    try:
+        if not gorevler_file or not os.path.exists(gorevler_file):
+            return sonuc
+        with open(gorevler_file, "r", encoding="utf-8-sig") as f:
+            gorevler = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        sonuc["hata"] = "Gorevler okunamadi: %s" % e
+        return sonuc
+
+    sonuc["toplam"] = len(gorevler)
+    for g in gorevler:
+        bitti = bool(g.get("done")) or g.get("status") == "done"
+        if bitti:
+            sonuc["kapali"] += 1
+            continue
+        sonuc["acik"] += 1
+        sonuc["liste"].append({
+            "id": g.get("id"),
+            "text": g.get("text", ""),
+            "status": g.get("status") or "pending",
+            "date": g.get("date", ""),
+        })
+    return sonuc
+
+
 def complete_task(task_id: int, gorevler_file: str) -> dict:
     """Bir görevi tamamlandı olarak işaretle (kilitle + atomik yaz)."""
     if not gorevler_file:

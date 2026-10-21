@@ -183,3 +183,22 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   `groq` → "7", kanal el sıkışması açık).
   **Sınır:** sayfanın görünümü gerçek Chrome'da gözle doğrulanmadı; ölçüm
   mantığı yerel sunucuya karşı gerçekten koşturuldu (node + DOM taklidi).
+
+- 2026-10-21: `568d08d` + takip commitleri — **kanıt sayfası kendi hatasını
+  yakaladı** ve kalıcı kapı kuruldu. Kapsam: `web/durum.js` içinde iki ayrı
+  fonksiyon `satirEkle` adını taşıyordu; JavaScript'te ikinci tanım birincisini
+  sessizce siler ve sayfa açılır açılmaz "kutu.appendChild is not a function"
+  patlaması veriyordu. Yani "çalışıyor mu" diyen sayfa, tam da ölçüm anında
+  çöküyordu. Düzeltildi (`isSatirEkle`); sonra hata BILEREK geri konup kapının
+  gerçekten yakaladığı kanıtlandı: 5 test kırmızıya döndü.
+  **Kalıcı kapı:** `tests/test_durum_js_calisir.py` (6 test) — (a) her web/ ve
+  eklenti/ betiği `node --check`; (b) aynı isimli iki fonksiyon taraması
+  (sessiz ezme); (c) `web/durum.js` SAHTE TARAYICIDA (mini DOM) gerçekten
+  koşturulur: çökerse kırmızı, render edilen satırlar/çalışma özeti kontrol
+  edilir. Kapı ağa çıkmaz.
+  Ayrıca `/api/calisma` ucu + `tools/calisma.py` (çekirdekten okuyan
+  çalışma özeti: yayın kaydı, çalışma notları, fikir tabloları, görevler).
+  Kapılar: pytest **1559 geçti / 10 atlandı / 0 hata**; ruff temiz; node
+  --check temiz. Canlı ölçüm (yerel sunucu): beyin turu `kilo` 2,1 sn; 62 araç;
+  kanal "Kanal açık"; akış "harf harf akıyor"; checkpoint "yok"; çalışma özeti
+  6 yayın kaydı + 11 not okundu.

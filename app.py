@@ -795,6 +795,30 @@ async def durum(request: Request):
     }
 
 
+@app.get("/api/calisma")
+async def calisma(request: Request):
+    """Yapilan isin ozeti: notlar, yayin kaydi, fikir tablolari, gorevler.
+
+    "Saatlerdir suren calismanin sonucu ne?" sorusunun canli cevabi. Kaynak
+    cekirdektir: `tools/calisma.py` yalniz OKUR (notlar, yayin kaydi,
+    kişiye ozel tablolar ve gorevler). Ikinci beyin yoktur; model cagrisi
+    yapilmaz; hicbir sey yazilmaz.
+
+    Kimlik ister: notlar ozel icerik tasir.
+    """
+    if _kimlik(request) is None:
+        return _giris_engeli()
+    from tools import calisma as calisma_modulu
+    try:
+        veri = calisma_modulu.ozet()
+    except Exception:
+        logger.warning("calisma ozeti okunamadi", exc_info=True)
+        return JSONResponse({"error": "Calisma ozeti okunamadi"},
+                            status_code=500)
+    return JSONResponse(veri,
+                        headers={"Cache-Control": "private, no-store"})
+
+
 @app.post("/api/olcum")
 async def olcum_say(request: Request):
     """Cerezsiz anonim sayfa sayaci — kimlik/cerez istemez.
