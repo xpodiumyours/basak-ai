@@ -16,6 +16,7 @@ const PING_ARALIK = 20000;
 let baglanti = null;
 let pingZamani = null;
 let deneme = 0;
+let yenidenZaman = null;   // zamanlanmış yeniden bağlanma (tek tane)
 let durum = "kapali";      // kapali | baglaniyor | bagli | hata
 let sonHata = "";
 let sayac = 0;
@@ -37,24 +38,28 @@ function durumuYaz(yeni, hata) {
   chrome.action.setBadgeBackgroundColor({ color: "#00e5ff" });
 }
 
-async function gozlemAl() {
+async function sekmeyeSor(istek) {
   const sekmeler = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   const sekme = sekmeler && sekmeler[0];
   if (!sekme || !sekme.id) throw new Error("açık sekme bulunamadı");
   try {
-    return await chrome.tabs.sendMessage(sekme.id, { tip: "gozlem" });
+    return await chrome.tabs.sendMessage(sekme.id, istek);
   } catch (hata) {
     // Eklenti kurulmadan önce açılmış sekmede içerik betiği yoktur.
     try {
       await chrome.scripting.executeScript({ target: { tabId: sekme.id }, files: ["icerik.js"] });
-      return await chrome.tabs.sendMessage(sekme.id, { tip: "gozlem" });
+      return await chrome.tabs.sendMessage(sekme.id, istek);
     } catch (hata2) {
       throw new Error("bu sekme okunamıyor (chrome:// veya mağaza sayfası olabilir)");
     }
   }
 }
 
-function sohbetGonder(metin) {
+async function gozlemAl() {
+  return sekmeyeSor({ tip: "gozlem" });
+}
+
+function sohbetGonder(metin, gecmis) {
   return new Promise((coz) => {
     const yazi = metin.trim();
     if (!yazi) { coz({ ok: false, hata: "mesaj boş" }); return; }
@@ -69,21 +74,36 @@ function sohbetGonder(metin) {
       coz({ ok: false, hata: "Başak 90 saniye içinde yanıt vermedi." });
     }, 90000);
     bekleyenSohbet.set(id, { coz, zaman });
-    baglanti.send(JSON.stringify({ id, islem: "sohbet", veri: { metin: yazi } }));
+    baglanti.send(JSON.stringify({
+      id, islem: "sohbet",
+      veri: { metin: yazi, gecmis: Array.isArray(gecmis) ? gecmis : [] }
+    }));
   });
 }
 
 async function islemYap(mesaj) {
-  if (mesaj.islem === "sayfa_gozlem") {
-    try {
+  const veri = mesaj.veri || {};
+  try {
+    if (mesaj.islem === "sayfa_gozlem") {
       const gozlem = await gozlemAl();
-      if (gozlem && gozlem.hata) {
-        return { id: mesaj.id, ok: false, hata: gozlem.hata };
-      }
+      if (!gozlem) throw new Error("sayfa cevap vermedi (sekme yenilenmeli)");
+      if (gozlem.hata) return { id: mesaj.id, ok: false, hata: gozlem.hata };
       return { id: mesaj.id, ok: true, sonuc: gozlem };
-    } catch (hata) {
-      return { id: mesaj.id, ok: false, hata: String(hata.message || hata) };
     }
+    if (mesaj.islem === "sayfa_tikla") {
+      const cevap = await sekmeyeSor({ tip: "tikla", sira: veri.sira });
+      if (!cevap) throw new Error("sayfa cevap vermedi (sekme yenilenmeli)");
+      if (cevap.hata) return { id: mesaj.id, ok: false, hata: cevap.hata };
+      return { id: mesaj.id, ok: true, sonuc: cevap.sonuc };
+    }
+    if (mesaj.islem === "sayfa_yaz") {
+      const cevap = await sekmeyeSor({ tip: "yaz", sira: veri.sira, metin: veri.metin });
+      if (!cevap) throw new Error("sayfa cevap vermedi (sekme yenilenmeli)");
+      if (cevap.hata) return { id: mesaj.id, ok: false, hata: cevap.hata };
+      return { id: mesaj.id, ok: true, sonuc: cevap.sonuc };
+    }
+  } catch (hata) {
+    return { id: mesaj.id, ok: false, hata: String(hata.message || hata) };
   }
   return { id: mesaj.id, ok: false, hata: "bilinmeyen işlem: " + mesaj.islem };
 }
@@ -95,11 +115,25 @@ function durdurPing() {
   }
 }
 
+/* Yeniden bağlanma: Vercel bağlantıyı fonksiyon süresinde (Hobby 300 sn)
+ * kapatır, ağ da kopabilir. Deneme SINIRSIZDIR; bekleme 1→2→4→8→16→30 sn.
+ * `deneme` yalnız başarılı bağlantıda sıfırlanır. */
 function yenidenDene() {
-  if (deneme > 0) return;
+  if (yenidenZaman !== null) return;
   const bekle = Math.min(EN_COK_BEKLEME, 1000 * Math.pow(2, Math.min(deneme, 5)));
   deneme += 1;
-  setTimeout(() => { baglan(); }, bekle);
+  yenidenZaman = setTimeout(() => { yenidenZaman = null; baglan(); }, bekle);
+}
+
+/* Bağlantı kopunca bekleyen panel mesajı sessizce askıda kalmasın:
+ * 90 sn bekletmek yerine açık hata döneriz (mesaj sunucuya ulaşmış da
+ * olabilir, ulaşmamış da — kullanıcı tekrar gönderir). */
+function bekleyenleriBosaltt(sebep) {
+  for (const [id, kayit] of bekleyenSohbet) {
+    clearTimeout(kayit.zaman);
+    kayit.coz({ ok: false, hata: sebep });
+    bekleyenSohbet.delete(id);
+  }
 }
 
 async function baglan() {
@@ -121,6 +155,7 @@ async function baglan() {
 
   ws.onopen = () => {
     deneme = 0;
+    if (yenidenZaman !== null) { clearTimeout(yenidenZaman); yenidenZaman = null; }
     durumuYaz("bagli");
     durdurPing();
     pingZamani = setInterval(() => {
@@ -131,8 +166,9 @@ async function baglan() {
   };
   ws.onclose = () => {
     durdurPing();
-    if (durum !== "hata") durumuYaz("kapali", "bağlantı kapandı");
+    if (durum !== "hata") durumuYaz("kapali", "bağlantı kapandı, yeniden bağlanılıyor…");
     baglanti = null;
+    bekleyenleriBosaltt("Bağlantı yenilendi; mesaj yanıtsız kaldı — tekrar gönder.");
     yenidenDene();
   };
   ws.onerror = () => {
@@ -185,13 +221,16 @@ chrome.runtime.onMessage.addListener((mesaj, _gonderen, yanitla) => {
       }
       if (baglanti) { try { baglanti.close(); } catch (hata) {} baglanti = null; }
       deneme = 0;
+      if (yenidenZaman !== null) { clearTimeout(yenidenZaman); yenidenZaman = null; }
       await baglan();
       yanitla({ durum, sonHata });
     })();
     return true;
   }
   if (mesaj.tip === "sohbet") {
-    (async () => { yanitla(await sohbetGonder(String(mesaj.metin || ""))); })();
+    (async () => {
+      yanitla(await sohbetGonder(String(mesaj.metin || ""), mesaj.gecmis));
+    })();
     return true;
   }
   if (mesaj.tip === "onizleme") {

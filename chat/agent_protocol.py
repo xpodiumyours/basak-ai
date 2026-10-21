@@ -56,7 +56,7 @@ YETENEK_ALANLARI = {
     ),
     "masaustu": ("ac_uygulama",),
     "hesap": ("hesapla",),
-    "tarayici": ("sayfa_bakis",),
+    "tarayici": ("sayfa_bakis", "sayfa_tikla", "sayfa_yaz"),
     "freetools": ("freetools_ara", "freetools_calistir"),
 }
 
@@ -84,8 +84,8 @@ ALAN_ACIKLAMALARI = {
     "hesap": "guvenli matematik hesabi",
     "freetools": "freetools.org katalogunda arama ve oradaki bir araci "
                  "tarayicida calistirip sonucunu okuma",
-    "tarayici": "kullanicinin acik sekmesindeki sayfayi okuma (oge listesi, "
-                "metin ve konum); tikla/yaz yok",
+    "tarayici": "kullanicinin acik sekmesindeki sayfayi okuma, ogeye "
+                "tikla ve alana yazma",
 }
 
 _ALAN_METNI = "; ".join(

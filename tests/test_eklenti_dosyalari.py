@@ -90,6 +90,41 @@ def test_baglanti_canli_tutulur():
     assert "clearInterval" in kaynak
 
 
+def test_icerik_betigi_tiklama_ve_yazma_tasir():
+    """Eklenti EL'dir: iki eylem de icerik betiginde karsilanir.
+
+    `sira` alani olmadan cekirdegin ref'i ogeye baglanamaz; `tikla`/`yaz`
+    olmadan sayfa_bakis yalniz goz olur, eli olmaz.
+    """
+    kaynak = _oku("icerik.js")
+    assert "sira:" in kaynak, "gozlem kalici oge kimligi tasimiyor"
+    assert 'mesaj.tip === "tikla"' in kaynak
+    assert 'mesaj.tip === "yaz"' in kaynak
+    assert "__basakTikla" in kaynak and "__basakYaz" in kaynak
+
+
+def test_arka_betigi_eylemleri_yonlendirir():
+    kaynak = _oku("arka.js")
+    assert 'mesaj.islem === "sayfa_tikla"' in kaynak
+    assert 'mesaj.islem === "sayfa_yaz"' in kaynak
+
+
+def test_yeniden_baglanma_sinirsizdir():
+    """Vercel baglantiyi 300 sn'de kapatir; tek denemeden sonra vazgecmek
+    eklentiyi kalici olarak olu birakirdi."""
+    kaynak = _oku("arka.js")
+    assert "if (deneme > 0) return;" not in kaynak, \
+        "ilk basarisiz denemeden sonra yeniden baglanma duruyor"
+    assert "yenidenZaman" in kaynak
+
+
+def test_panel_gecmisi_her_mesajla_gonderir():
+    """Bulutta kalici disk yok: konusma gecmisi istemciden tasinir."""
+    kaynak = _oku("panel.js")
+    assert "GECMIS" in kaynak
+    assert "gecmis:" in kaynak
+
+
 def test_eklentide_ajan_dongusu_yok():
     """Tek beyin kurali: eklenti model cagirmaz, saglayici bilmez."""
     for ad in ("icerik.js", "arka.js", "panel.js"):

@@ -58,11 +58,19 @@ def ogeleri_coz(ham_ogeler):
         deger = _metin(oge.get("deger"))
         if not ad and not deger:
             continue
+        # Kimlik eklentiden gelir (sayfa omru boyunca ayni oge ayni numara).
+        # Sekme surulmeden once uretir; burada yalniz tasinir. Gozlemde
+        # kimlik yoksa eski davranis (konum) gecerlidir.
+        try:
+            sira = int(oge.get("sira"))
+        except (TypeError, ValueError):
+            sira = None
         temiz.append({
             "rol": rol,
             "ad": ad,
             "deger": deger,
             "kapali": bool(oge.get("kapali")),
+            "sira": sira,
         })
     return temiz
 
@@ -113,7 +121,10 @@ def modelle(ham, baslangic=0, adet=VARSAYILAN_ADET):
     dilim = ogeler[baslangic:baslangic + adet]
     satirlar = []
     for i, oge in enumerate(dilim):
-        sira = baslangic + i
+        # Ref'in sayi kismi OGENIN KALICI KIMLIGIDIR, listedeki yeri degil:
+        # liste suzulup sayfalandigi icin konum kayar, kimlik kaymaz.
+        kimlik = oge.get("sira")
+        sira = kimlik if kimlik is not None else baslangic + i
         satirlar.append({
             "ref": "%s-%d" % (nesil, sira),
             "rol": oge["rol"],

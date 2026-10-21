@@ -12,7 +12,8 @@ yazma, sabit komut, beyaz liste).
 2026-09-23: hava_durumu eklendi — 53. 2026-10-01: harita_goster eklendi —
 56; ayni gun konum_coz eklendi — 57; 2026-10-17: update_task_status
 eklendi — 58; 2026-10-20: sube_bul eklendi; 2026-10-21: sayfa_bakis
-eklendi — guncel toplam 60; sayi testlerle kilitli,
+eklendi — 60; ayni gun sayfa_tikla + sayfa_yaz eklendi — guncel toplam
+62; sayi testlerle kilitli,
 bak: tests/test_seviye0_sozlesme.py + tests/test_agent_protocol.py.)
 """
 
@@ -656,6 +657,33 @@ SAYFA_BAKIS = _arac(
     [],
 )
 
+SAYFA_TIKLA = _arac(
+    "sayfa_tikla",
+    "Acik sekmede, sayfa_bakis'in dondurdugu ref'teki ogeye tiklar. "
+    "Ref sayfanin o anki gozlemine baglidir; sayfa degistiyse ya da oge "
+    " artik yoksa hata doner. Gorunmeyen ve kapali (disabled) ogeye "
+    "tiklanmaz. Doner: yapildi, sira, rol, ad, url, baslik. Tiklamadan "
+    "sonra sayfayi kendisi yeniden okumaz.",
+    {"ref": {"type": "string",
+             "description": "sayfa_bakis'in verdigi oge referansi"}},
+    ["ref"],
+)
+
+SAYFA_YAZ = _arac(
+    "sayfa_yaz",
+    "Acik sekmede, sayfa_bakis'in dondurdugu ref'teki alana metin yazar "
+    "(input, textarea, select, contenteditable). Yazarken alanin "
+    "input/change olaylari tetiklenir; cerev dokusu (React/Vue) degeri "
+    "gorur. Sifre ve dosya secimi alanina YAZMAZ. Doner: yapildi, sira, "
+    "rol, ad, uzunluk, url. Yazdiktan sonra sayfayi kendisi yeniden "
+    "okumaz.",
+    {"ref": {"type": "string",
+             "description": "sayfa_bakis'in verdigi alan referansi"},
+     "metin": {"type": "string",
+               "description": "Alana yazilacak metin"}},
+    ["ref", "metin"],
+)
+
 TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
           KITAP_ARA, DERIN_OKU, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
@@ -671,7 +699,7 @@ TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
          KATALOG_FIYAT, KATALOG_ONAYLA, YETKI_BELGESI, URUN_ESLESTIR,
          YAYIN_PAKETI, CIKTI_OKU,
          FREETOOLS_ARA, FREETOOLS_CALISTIR,
-         SAYFA_BAKIS]
+         SAYFA_BAKIS, SAYFA_TIKLA, SAYFA_YAZ]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

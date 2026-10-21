@@ -76,7 +76,30 @@ def _kimlik_coz(websocket):
         return None
 
 
-def _cevapla(metin, kid, kanal):
+def _gecmis_coz(ham):
+    """Panelden gelen konuşma geçmişini API biçimine indirger.
+
+    Yalnız yapı denetlenir (rol + metin); metin kırpılmaz, yeniden
+    yazılmaz. Geçersiz giriş `None` döner: o zaman sunucudaki geçmiş
+    kullanılır.
+    """
+    if not isinstance(ham, list):
+        return None
+    temiz = []
+    for mesaj in ham:
+        if not isinstance(mesaj, dict):
+            continue
+        rol = str(mesaj.get("role") or "").strip()
+        if rol not in ("user", "assistant"):
+            continue
+        icerik = mesaj.get("content")
+        if not isinstance(icerik, str) or not icerik.strip():
+            continue
+        temiz.append({"role": rol, "content": icerik})
+    return temiz or None
+
+
+def _cevapla(metin, kid, kanal, gecmis=None):
     """Çekirdeği çalıştırır (iş parçacığında); panel cevabını döndürür."""
     from chat.flow import mesaj_isle
     from chat.kimlik import kullanici_kur
@@ -90,7 +113,8 @@ def _cevapla(metin, kid, kanal):
     ayikla = _CevapToplayici()
     try:
         mesaj_isle(metin, beyin, kisilik_blogu(kid, misafir=not kid),
-                   ayikla, toollar, misafir=not kid)
+                   ayikla, toollar, misafir=not kid,
+                   gecmis_override=_gecmis_coz(gecmis))
     finally:
         tarayici_kanal.kanal_temizle()
     if ayikla.hata and not ayikla.cevap:
@@ -116,13 +140,15 @@ async def eklenti_kanali(websocket: WebSocket):
 
     async def _sohbet(mesaj):
         kimlik = mesaj.get("id")
-        metin = str(((mesaj.get("veri") or {}).get("metin")) or "").strip()
+        veri = mesaj.get("veri") or {}
+        metin = str((veri.get("metin")) or "").strip()
         if not metin:
             await websocket.send_json(
                 {"id": kimlik, "ok": False, "hata": "mesaj boş"})
             return
         try:
-            sonuc = await asyncio.to_thread(_cevapla, metin, kid, kanal)
+            sonuc = await asyncio.to_thread(
+                _cevapla, metin, kid, kanal, veri.get("gecmis"))
         except Exception as hata:            # noqa: BLE001 - kanal kesilmesin
             logger.warning("kanal sohbet hatasi: %s", hata)
             sonuc = {"hata": "Başak çalıştırılamadı: %s" % str(hata)[:200]}

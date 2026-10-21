@@ -6,6 +6,11 @@
 
 const $ = (id) => document.getElementById(id);
 
+/* Oturum geçmişi: bulutta kalıcı disk yok ve bağlantı 300 sn'de yenilenir.
+ * Bu yüzden her mesajla birlikte son konuşma gönderilir; model, hangi
+ * instance'a düşerse düşsün konuşmayı hatırlar. Kırpma yok (AGENTS §0). */
+const GECMIS = [];
+
 function durumYaz(durum, hata) {
   const rozet = $("durum");
   rozet.textContent = durum === "bagli" ? "bağlı" :
@@ -68,7 +73,9 @@ $("yaz").addEventListener("submit", async (olay) => {
 
   let cevap;
   try {
-    cevap = await chrome.runtime.sendMessage({ tip: "sohbet", metin });
+    cevap = await chrome.runtime.sendMessage({
+      tip: "sohbet", metin, gecmis: GECMIS.slice()
+    });
   } catch (hata) {
     cevap = { ok: false, hata: String(hata) };
   }
@@ -84,6 +91,8 @@ $("yaz").addEventListener("submit", async (olay) => {
     return;
   }
   const sonuc = cevap.sonuc || {};
+  GECMIS.push({ role: "user", content: metin });
+  GECMIS.push({ role: "assistant", content: sonuc.cevap || "" });
   balon("basak", sonuc.cevap || "(boş cevap)");
   if (sonuc.kaynak) {
     const kaynak = document.createElement("div");

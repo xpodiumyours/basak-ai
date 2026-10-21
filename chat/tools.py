@@ -35,6 +35,8 @@ DURUM_METNI = {
     "derin_oku": "Derin okunuyor",
     "sayfa_oku": "Sayfa okunuyor",
     "sayfa_bakis": "Açık sayfa okunuyor",
+    "sayfa_tikla": "Açık sayfada tıklanıyor",
+    "sayfa_yaz": "Açık sayfaya yazılıyor",
     "read_file": "Dosya okunuyor",
     "list_files": "Klasör listeleniyor",
     "git_durum": "Proje durumu ölçülüyor",

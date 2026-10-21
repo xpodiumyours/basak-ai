@@ -3,8 +3,10 @@
 Bu eklenti **göz ve bağlantıdır**. Karar vermez, model çağırmaz, sohbet
 etmez. Başak'ın beyni Python çekirdeğinde kalır (AGENTS.md §9).
 
-Bugünkü hâli **salt-okunur**: açık sekmeyi okur, Başak'a iletir. Hiçbir
-yere basmaz, hiçbir kutuya yazmaz.
+Bugünkü hâli **göz + el**: açık sekmeyi okur, Başak'a iletir; Başak
+istediğinde görünen bir öğeye tıklar ve yazılabilir alana yazı yazar.
+Kural: görünmeyen, kapalı (disabled), kopmuş öğeye eylem yok; **şifre ve
+dosya alanına yazma yok**.
 
 ## Ne yapar
 
@@ -21,6 +23,11 @@ yere basmaz, hiçbir kutuya yazmaz.
 5. Başak `sayfa_bakis` aracını çağırdığında gözlem bu kanaldan gider;
    yani sohbet sırasında sayfa isteği aynı bağlantıyı kilitler.
 
+6. Başak `sayfa_tikla` / `sayfa_yaz` araçlarını çağırdığında eylem aynı
+   kanaldan gider. Her öğenin sayfa ömrü boyunca sabit bir kimliği vardır;
+   Başak'ın ref'i `<nesil>-<kimlik>` olur. Sayfa yenilenmişse eski ref
+   reddedilir — yanlış düğmeye basılmaz.
+
 Gizli öğeler gönderilmez, **şifre alanının değeri asla okunmaz**.
 
 ## Kurulum (Chrome / Edge)
@@ -31,9 +38,10 @@ Gizli öğeler gönderilmez, **şifre alanının değeri asla okunmaz**.
    yoksa ziyaretçi olarak bağlanır ve kişisel hafızan açılmaz).
 4. Araç çubuğundaki Başak simgesine bas → sağ panel açılır.
 5. Panelde **Bağlantı** bölümünü aç → **Bağlan** → rozet `BAĞLI` olur.
-6. Panelde yaz: *"bu sayfada ne var, ne yapabilirim?"* — Başak sayfayı kendi
-   okur (`sayfa_bakis`), Türkçe anlatır.
-7. **Bu sayfayı gör → Gözlem al** → Başak'ın gördüğü ham listeyi gösterir.
+7. Panelde yaz: *"bu sayfada ne var, ne yapabilirim?"* — Başak sayfayı kendi
+   okur (`sayfa_bakis`), Türkçe anlatır. "Şu kutuya adımı yaz, Kaydet'e
+   bas" gibi bir iş istersen önce bakar, sonra tıklar/yazar.
+8. **Bu sayfayı gör → Gözlem al** → Başak'ın gördüğü ham listeyi gösterir.
 
 Sohbet ayrıca Başak'ın kendi ekranında (`http://127.0.0.1:8787`) da sürer;
 üç yüz (panel, web, Telegram) aynı çekirdeği çağırır.
@@ -47,8 +55,11 @@ yalnız 127.0.0.1'e açıktır ve yalnız tarayıcı uzantısı kaynağı kabul 
 
 ## Sınırlar (dürüst liste)
 
-- **Tıklama/yazma yok.** Bu sürüm yalnız okur. Tıklama ayrı iş (onay kapısı
-  ve "gerçekten oldu mu" doğrulaması gerekiyor).
+- **Onay kapısı yok.** Eylem, Başak "yap" dediğinde doğrudan uygulanır;
+  ödeme/gönderim gibi geri alınamaz düğmeler için ayrıca sorulmaz. Bu,
+  sıradaki dilim (tek çağrılık onay).
+- **Eylem sonrası doğrulama modelin işi.** Tıklama/yazma "yapıldı" der ve
+  sayfanın yeni adını döner; sonucu görmek için Başak yeniden bakar.
 - **Akış yok.** Cevap tek parça gelir; "yazıyor…" görünür ama kelime kelime
   akmaz.
 - **Bulutta çalışır** (2026-10-21 canlı ölçüm: `wss://basak-vercel.
@@ -70,6 +81,13 @@ NODE_PATH=/yol/node_modules node eklenti/test/gozlem.test.mjs
 Üç bambaşka sayfa şekli (vitrin, form, panel) aynı `icerik.js` ile okunur;
 gizli öğe, şifre sızıntısı, adsız alan kaybı ve site adı gömülü olması
 testle yasaklanmıştır. jsdom yoksa betik **kırmızı** çıkar (sessiz geçmez).
+
+Tıklama/yazma ayrıca `eklenti/test/eylem.test.mjs` ile ölçülür: gerçek
+tıklama, input/change olayları, şifre reddi, kopmuş öğe ve adres değişimi.
+
+```bash
+NODE_PATH=/yol/node_modules node eklenti/test/eylem.test.mjs
+```
 
 Köprünün kendisi Python tarafında `tests/test_tarayici_ws.py` ile ölçülür:
 sahte eklenti bağlanır, `sayfa_bakis` uçtan uca çalışır, yanlış anahtar ve

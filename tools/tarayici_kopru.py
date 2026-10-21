@@ -137,6 +137,16 @@ def cevabi_coz(cevap):
     return sonuc
 
 
+# Her kullanicinin SON gozleminin sayfasi. Eylem ref'i bu nesle karsi
+# dogrulanir: bayat ref ile tiklanmaz/yazilmaz (tarayici_goz.ref_coz).
+_SON = {}
+_SON_KILIT = threading.Lock()
+
+
+def _kimlik(kullanici):
+    return str(kullanici or aktif_kullanici()).strip() or "casper"
+
+
 def sayfa_bakis(baslangic=0, adet=tarayici_goz.VARSAYILAN_ADET, kullanici=None):
     """Kullanicinin acik sekmesindeki sayfayi modele okunur halde doner.
 
@@ -147,15 +157,69 @@ def sayfa_bakis(baslangic=0, adet=tarayici_goz.VARSAYILAN_ADET, kullanici=None):
     """
     from tools import tarayici_kanal
 
+    kullanici = _kimlik(kullanici)
+    istek = {"baslangic": baslangic, "adet": adet}
     kanal = tarayici_kanal.aktif_kanal()
     if kanal is not None:
-        ham = kanal.istek("sayfa_gozlem",
-                          {"baslangic": baslangic, "adet": adet})
+        ham = kanal.istek("sayfa_gozlem", istek)
     else:
-        ham = KOPRU.iste("sayfa_gozlem",
-                         {"baslangic": baslangic, "adet": adet},
-                         kullanici=kullanici)
+        ham = KOPRU.iste("sayfa_gozlem", istek, kullanici=kullanici)
     sonuc = cevabi_coz(ham)
     if "error" in sonuc:
         return sonuc
-    return tarayici_goz.modelle(sonuc, baslangic=baslangic, adet=adet)
+    gorunum = tarayici_goz.modelle(sonuc, baslangic=baslangic, adet=adet)
+    if "error" in gorunum:
+        return gorunum
+    with _SON_KILIT:
+        _SON[kullanici] = {
+            "nesil": gorunum["sayfa"]["nesil"],
+            "url": gorunum["sayfa"]["url"],
+            "zaman": time.time(),
+        }
+    return gorunum
+
+
+def _eylem(islem, ref, kullanici=None, metin=None):
+    """Ref'i dogrular, eklentiye iletir; her hata acik sozluk doner."""
+    from tools import tarayici_kanal
+
+    kullanici = _kimlik(kullanici)
+    with _SON_KILIT:
+        son = dict(_SON.get(kullanici) or {})
+    if not son:
+        return {"error": "Once sayfa_bakis ile sayfa okunmali; ref o "
+                         "gozlemden gelir."}
+    try:
+        sira = tarayici_goz.ref_coz(ref, son.get("nesil"))
+    except ValueError as hata:
+        return {"error": str(hata)}
+
+    veri = {"sira": sira}
+    if islem == "sayfa_yaz":
+        veri["metin"] = "" if metin is None else str(metin)
+
+    kanal = tarayici_kanal.aktif_kanal()
+    if kanal is not None:
+        ham = kanal.istek(islem, veri)
+    else:
+        ham = KOPRU.iste(islem, veri, kullanici=kullanici)
+    sonuc = cevabi_coz(ham)
+    if "error" in sonuc:
+        return sonuc
+
+    # Adres degistiyse sayfa gercekten yenidir: eski ref'ler artik gecersiz.
+    yeni_url = str((sonuc or {}).get("url") or "").strip()
+    if yeni_url and son.get("url") and yeni_url != son["url"]:
+        with _SON_KILIT:
+            _SON.pop(kullanici, None)
+    return sonuc
+
+
+def sayfa_tikla(ref, kullanici=None):
+    """Gozlemde gorunen ogeye tiklar (ref: <nesil>-<kimlik>)."""
+    return _eylem("sayfa_tikla", ref, kullanici=kullanici)
+
+
+def sayfa_yaz(ref, metin, kullanici=None):
+    """Gozlemde gorunen yazilabilir alana metin yazar."""
+    return _eylem("sayfa_yaz", ref, kullanici=kullanici, metin=metin)

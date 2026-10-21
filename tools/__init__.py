@@ -397,6 +397,15 @@ def calistir(tool_name, args):
             return tarayici_kopru.sayfa_bakis(
                 args.get("baslangic", 0), args.get("adet", 60))
 
+        if tool_name == "sayfa_tikla":
+            from tools import tarayici_kopru
+            return tarayici_kopru.sayfa_tikla(str(args.get("ref", "")))
+
+        if tool_name == "sayfa_yaz":
+            from tools import tarayici_kopru
+            return tarayici_kopru.sayfa_yaz(str(args.get("ref", "")),
+                                            args.get("metin", ""))
+
         if tool_name == "freetools_ara":
             from tools import freetools_katalog
             return freetools_katalog.ara(str(args.get("sorgu", "")),
