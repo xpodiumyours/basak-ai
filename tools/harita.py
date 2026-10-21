@@ -348,6 +348,81 @@ _YARICAP_TAVANI = 25.0        # km — genel Overpass sunucusu icin ust sinir
 _ATFI = "Veri: © OpenStreetMap katkıda bulunanlar (ODbL)"
 
 
+_PHOTON_TABANI = "https://photon.komoot.io/api/?"
+
+
+def _sade(metin):
+    """Marka karşılaştırması için Türkçe-duyarsız küçük harf."""
+    tablo = str.maketrans({"ç": "c", "Ç": "c", "ğ": "g", "Ğ": "g",
+                           "ı": "i", "İ": "i", "ö": "o", "Ö": "o",
+                           "ş": "s", "Ş": "s", "ü": "u", "Ü": "u"})
+    return " ".join(str(metin or "").translate(tablo).lower().split())
+
+
+def _photon_adresi(marka, enlem, boylam):
+    """Photon POI araması — Overpass'a ulaşılamadığında yedek hat."""
+    return _PHOTON_TABANI + urllib.parse.urlencode({
+        "q": marka,
+        "lat": "%.6f" % enlem,
+        "lon": "%.6f" % boylam,
+        "limit": 50,
+    })
+
+
+def _photon_subeleri(veri, marka, enlem, boylam, yaricap_km):
+    """Photon yanıtını şube kayıtlarına çevirir (ağ yok, saf dönüşüm).
+
+    Yalnız adı markayı içeren ve yarıçap içinde kalan kayıtlar alınır;
+    eşleşmeyen kayıt şube sayılmaz (uydurma yok).
+    """
+    if not isinstance(veri, dict):
+        return []
+    ozellikler = veri.get("features")
+    if not isinstance(ozellikler, list):
+        return []
+    aranan = _sade(marka)
+    tipler = {"N": "node", "W": "way", "R": "relation"}
+    subeler = []
+    for ozellik in ozellikler:
+        if not isinstance(ozellik, dict):
+            continue
+        p = ozellik.get("properties") or {}
+        geometri = ozellik.get("geometry") or {}
+        koordinat = geometri.get("coordinates") or []
+        if not isinstance(p, dict) or len(koordinat) < 2:
+            continue
+        boy = _sayi(koordinat[0])
+        en = _sayi(koordinat[1])
+        if not _gecerli_koordinat(en, boy):
+            continue
+        ad = str(p.get("name") or "").strip()
+        if aranan and aranan not in _sade(ad):
+            continue
+        mesafe = _mesafe_km(enlem, boylam, en, boy)
+        if mesafe > yaricap_km:
+            continue
+        adres_parcalari = []
+        for anahtar in ("street", "housenumber", "district", "city",
+                        "postcode"):
+            deger = str(p.get(anahtar) or "").strip()
+            if deger and deger not in adres_parcalari:
+                adres_parcalari.append(deger)
+        subeler.append({
+            "ad": ad or marka,
+            "enlem": round(en, 6),
+            "boylam": round(boy, 6),
+            "adres": ", ".join(adres_parcalari),
+            "tip": str(p.get("osm_value") or "").strip(),
+            "telefon": str(p.get("phone") or "").strip(),
+            "website": str(p.get("website") or "").strip(),
+            "mesafe_km": round(mesafe, 2),
+            "osm_id": p.get("osm_id"),
+            "osm_tip": tipler.get(str(p.get("osm_type") or "").upper(), ""),
+        })
+    subeler.sort(key=lambda k: k["mesafe_km"])
+    return subeler[:_SUBE_SONUC_TAVANI]
+
+
 def _ayna_adi(url):
     """Hata mesajinda kisa ayna adi (host) gorunur, tam URL degil."""
     try:
@@ -490,30 +565,53 @@ def sube_bul(marka, konum, yaricap_km=None):
             break
         denenen.append({"ayna": ayna, "durum": "hata",
                         "hata": hata or "beklenmeyen yanıt"})
-    if veri is None:
+    subeler = []
+    gorulen = set()
+    if isinstance(veri, dict):
+        for eleman in (veri.get("elements") or []):
+            kayit = _sube_kaydi(eleman, enlem, boylam)
+            if not kayit:
+                continue
+            anahtar = (kayit["osm_tip"], kayit["osm_id"])
+            if anahtar in gorulen:
+                continue
+            gorulen.add(anahtar)
+            if kayit["mesafe_km"] <= yaricap:
+                subeler.append(kayit)
+        subeler.sort(key=lambda k: k["mesafe_km"])
+        subeler = subeler[:_SUBE_SONUC_TAVANI]
+
+    kaynak_veri = "overpass" if subeler else ""
+
+    # 2. hat (2026-10-21 olcumu): Overpass aynalari bulut IP'sinden
+    # 406/zaman asimi donuyor; o zaman Photon POI aramasi denenir
+    # (ayni OpenStreetMap kayitlari, farkli servis). Sonuc yine OSM.
+    photon_ok = False
+    if not subeler:
+        p_veri, p_hata = _json_al(_photon_adresi(temiz_marka, enlem, boylam),
+                                  sure=_SUBE_ZAMAN_ASIMI)
+        photon_ok = isinstance(p_veri, dict)
+        if photon_ok:
+            subeler = _photon_subeleri(p_veri, temiz_marka, enlem, boylam,
+                                       yaricap)
+            denenen.append({"ayna": _PHOTON_TABANI, "durum": "ok"
+                            if subeler else "bos"})
+            if subeler:
+                kaynak_veri = "photon"
+        else:
+            denenen.append({"ayna": _PHOTON_TABANI, "durum": "hata",
+                            "hata": p_hata or "beklenmeyen yanıt"})
+
+    if veri is None and not photon_ok:
         ozet = "; ".join("%s: %s" % (_ayna_adi(k.get("ayna")),
                                      k.get("hata") or "basarisız")
                          for k in denenen)
         return {"error": "OpenStreetMap servisine ulaşılamadı. Denenen "
                          "aynalar: %s" % ozet}
 
-    subeler = []
-    gorulen = set()
-    for eleman in (veri.get("elements") or []):
-        kayit = _sube_kaydi(eleman, enlem, boylam)
-        if not kayit:
-            continue
-        anahtar = (kayit["osm_tip"], kayit["osm_id"])
-        if anahtar in gorulen:
-            continue
-        gorulen.add(anahtar)
-        subeler.append(kayit)
-    subeler.sort(key=lambda k: k["mesafe_km"])
-    subeler = subeler[:_SUBE_SONUC_TAVANI]
-
     not_metni = ""
     if not subeler:
-        not_metni = ("Kayıt bulundu; ancak OpenStreetMap'te bu markanın bu "
+        not_metni = ("Arama yapıldı; OpenStreetMap'te bu markanın bu "
                      "bölgede etiketli şubesi görünmüyor. Şubesi olabilir — "
                      "OSM kaydı eksik olabilir; harita_goster ile bölgede "
                      "arama yapılabilir.")
@@ -526,6 +624,7 @@ def sube_bul(marka, konum, yaricap_km=None):
         "yaricap_km": yaricap,
         "sube_sayisi": len(subeler),
         "subeler": subeler,
+        "veri_kaynagi": kaynak_veri,
         "atif": _ATFI,
         "not": not_metni,
         "denenen_hatlar": denenen,

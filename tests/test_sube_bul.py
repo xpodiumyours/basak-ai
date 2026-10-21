@@ -174,7 +174,11 @@ class TestHataYollari:
         assert "error" in r
         assert "429" in r["error"]
         # Tum aynalar denenir, hata mesaji hangilerinin denendigini soyler.
-        assert len(sahte.adresler) == 3
+        # 2026-10-21: Overpass aynalari tikandiginda Photon yedek hatti da
+        # denenir (ayni OSM kayitlari) — yani 3 + 1 istek.
+        overpass = [u for u in sahte.adresler if "overpass" in u]
+        assert len(overpass) == 3
+        assert any("photon" in u for u in sahte.adresler)
         assert "aynalar" in r["error"]
 
     def test_ilk_ayna_bozuk_ikinciden_devralir(self, monkeypatch):
