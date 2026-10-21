@@ -158,9 +158,13 @@ def test_zip_paketi_calisan_dosyalari_tasir(web_istemci):
 
     for gerekli in ("manifest.json", "arka.js", "icerik.js", "panel.js",
                     "panel.html", "panel.css", "OKUBENI.md", "sinyal.png"):
-        assert gerekli in adlar, gerekli
+        assert "basak-eklenti/" + gerekli in adlar, gerekli
     assert not any(ad.startswith("test/") for ad in adlar), adlar
+    # Zip tek klasör altında toplanır: kullanıcı açınca seçilebilir bir
+    # klasör bulur, dosyalar dağılmaz.
+    for ad in adlar:
+        assert ad.startswith("basak-eklenti/"), ad
     # Paket, kaynaktaki manifest ile aynı sürümü taşır.
     with zipfile.ZipFile(io.BytesIO(cevap.content)) as paket:
-        manifest = paket.read("manifest.json").decode("utf-8")
+        manifest = paket.read("basak-eklenti/manifest.json").decode("utf-8")
     assert '"manifest_version": 3' in manifest

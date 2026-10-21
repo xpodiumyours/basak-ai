@@ -37,7 +37,7 @@ görebilir</strong> ve — sen onayladıkça — tıklayabilir, kutuya yazabilir
 Başak'ın kendisidir: eklenti karar vermez, model çağırmaz, kendi başına hiçbir şeye basmaz.</p>
 
 <a class="indir" href="/eklenti/eklenti.zip" download>Eklentiyi indir (.zip)</a>
-<p class="small">Sürüm 0.1.0 · Chrome / Edge (Chromium 116+) · kurulum 4 adım, mağaza gerekmez.</p>
+<p class="small">Sürüm 0.2.0 · Chrome / Edge (Chromium 116+) · kurulum 3 adım, mağaza gerekmez.</p>
 
 <h2>Ne zaman işine yarar?</h2>
 <ul>
@@ -52,16 +52,17 @@ Web ekranında böyle bir şey sorarsan Başak uydurmak yerine bunu söyler.</p>
 
 <h2>Kurulum</h2>
 <div class="adim"><strong>1. Zip'i indir ve aç</strong>
-<p>Yukarıdaki düğme <code>basak-eklenti.zip</code> indirir. Bir klasöre çıkar; içinde
+<p>Yukarıdaki düğme <code>basak-eklenti.zip</code> indirir. Açınca içinden
+<code>basak-eklenti</code> adlı tek klasör çıkar; içinde
 <code>manifest.json</code>, <code>arka.js</code>, <code>icerik.js</code>, <code>panel.html</code> olur.</p></div>
-<div class="adim"><strong>2. Geliştirici modunu aç</strong>
+<div class="adim"><strong>2. Geliştirici modunu aç ve yükle</strong>
 <p>Chrome'da <code>chrome://extensions</code> adresini aç, sağ üstten <strong>Geliştirici modu</strong>'nu
-aç. (Edge'de <code>edge://extensions</code>.)</p></div>
-<div class="adim"><strong>3. Paketlenmemiş öğe yükle</strong>
-<p><strong>Paketlenmemiş öğe yükle</strong> → zip'i çıkardığın klasörü seç.</p></div>
-<div class="adim"><strong>4. Panelden bağlan</strong>
-<p>Araç çubuğundaki Başak simgesine bas → sağ panel açılır → <strong>Bağlan</strong>.
-Rozet <strong>bağlı</strong> olduğunda Başak açık sekmeyi görür.</p></div>
+aç, sonra <strong>Paketlenmemiş öğe yükle</strong> → <code>basak-eklenti</code> klasörünü seç.
+(Edge'de <code>edge://extensions</code>.)</p></div>
+<div class="adim"><strong>3. Simgeye bas</strong>
+<p>Araç çubuğundaki Başak simgesine bas → sağ panel açılır. <strong>Bağlantı kendiliğinden
+kurulur</strong>; rozet <strong>bağlı</strong> olduğunda Başak açık sekmeyi görür. Paneldeki
+<strong>Bağlan</strong> düğmesi yalnız bağlantı kopmuşsa gerekir.</p></div>
 
 <p class="note">Eklenti oturum çerezini kullanır. Başak sitesinde giriş yaptıysan kendi
 geçmişinle, yapmadıysan misafir olarak bağlanır. Aynı sayfada sohbet web ekranında
@@ -115,7 +116,7 @@ onu tanımaz.</p>
 <p><strong>Hangi veriler gider?</strong> Yalnız açık sekmenin okunabilir öğe listesi
 (rol, ad, değer, kapalı mı). Şifre değeri ve dosya içeriği listede yoktur.</p>
 
-<p class="small">Sorun mu var? <a href="/destek.html">Destek</a> · <a href="/bilgilendirme.html">Kullanım ve veri bilgisi</a></p>
+<p class="small">Sorun mu var? <a href="/destek.html">Destek</a> · <a href="/durum.html">Başak şu an çalışıyor mu?</a> · <a href="/bilgilendirme.html">Kullanım ve veri bilgisi</a></p>
 </div>
 </main></body>
 </html>

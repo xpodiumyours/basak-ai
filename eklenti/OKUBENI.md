@@ -30,18 +30,22 @@ dosya alanına yazma yok**.
 
 Gizli öğeler gönderilmez, **şifre alanının değeri asla okunmaz**.
 
-## Kurulum (Chrome / Edge)
+## Kurulum (Chrome / Edge) — 3 adım
 
-1. Chrome → `chrome://extensions` → sağ üstten **Geliştirici modu** aç.
-2. **Paketlenmemiş öğe yükle** → bu `eklenti/` klasörünü seç.
-3. Başak sitesinde **giriş yap** (eklenti oturum çerezini kullanır; çerez
-   yoksa ziyaretçi olarak bağlanır ve kişisel hafızan açılmaz).
-4. Araç çubuğundaki Başak simgesine bas → sağ panel açılır.
-5. Panelde **Bağlantı** bölümünü aç → **Bağlan** → rozet `BAĞLI` olur.
-7. Panelde yaz: *"bu sayfada ne var, ne yapabilirim?"* — Başak sayfayı kendi
-   okur (`sayfa_bakis`), Türkçe anlatır. "Şu kutuya adımı yaz, Kaydet'e
-   bas" gibi bir iş istersen önce bakar, sonra tıklar/yazar.
-8. **Bu sayfayı gör → Gözlem al** → Başak'ın gördüğü ham listeyi gösterir.
+1. **Zip'i indir ve aç** → içinden `basak-eklenti` klasörü çıkar.
+2. Chrome → `chrome://extensions` → **Geliştirici modu** → **Paketlenmemiş öğe
+   yükle** → `basak-eklenti` klasörünü seç.
+3. Araç çubuğundaki Başak simgesine bas → sağ panel açılır. **Bağlantı
+   kendiliğinden kurulur** (kurulumda ve tarayıcı açılışında); rozet `BAĞLI`
+   olur. Paneldeki **Bağlan** düğmesi yalnız bağlantı kopmuşsa gerekir.
+
+Başak sitesinde **giriş yapmış olmak** yeterlidir (eklenti oturum çerezini
+kullanır; çerez yoksa ziyaretçi olarak bağlanır ve kişisel hafıza açılmaz).
+
+Panelde yaz: *"bu sayfada ne var, ne yapabilirim?"* — Başak sayfayı kendi
+okur (`sayfa_bakis`), Türkçe anlatır. "Şu kutuya adımı yaz, Kaydet'e bas"
+gibi bir iş istersen önce bakar, sonra tıklar/yazar.
+**Bu sayfayı gör → Gözlem al** → Başak'ın gördüğü ham listeyi gösterir.
 
 Sohbet ayrıca Başak'ın kendi ekranında (`http://127.0.0.1:8787`) da sürer;
 üç yüz (panel, web, Telegram) aynı çekirdeği çağırır.

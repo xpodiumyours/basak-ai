@@ -158,3 +158,28 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   bilir; eski (key'siz) kurulum farklı kimlik taşır → /eklenti.html SSS'ye
   "kaldır + yeniden yükle" notu eklendi. Gerçek Chrome'da kartın görsel
   doğrulaması yapılmadı.
+- 2026-10-21: **canlı kanıt sayfası** (`/durum.html`) + kurulum 4 → 3 adım.
+  `web/durum.html` + `web/durum.js`: sayfa KENDİSİNİ ölçer — beyin turu
+  (`/api/sohbet`, gerçek cevap + sağlayıcı + süre), araç sayısı ve model
+  sağlayıcılar (`/api/durum`), tarayıcı eklentisi kanalı (tarayıcıdan
+  `wss://<host>/api/eklenti` el sıkışması — eklentinin kullandığı adres),
+  canlı sürüm damgası, cevap akışı ve checkpoint yokluğu. Ölçülemeyen
+  satır "yeşil" yazılmaz; "ölçülemedi" yazılır. İkinci beyin/ikinci sağlayıcı
+  zinciri yok (AGENTS.md §9: Web Gate = arayüz + köprü + ölçüm ekranı).
+  Kayıtlı ölçüm (`web/durum-kabul.json`) canlı DEĞİLDİR; tarihi yazılıdır ve
+  canlı araç sayısıyla karşılaştırılır (farklıysa "ölçüm eski" uyarısı).
+  `/lab.html` (ölü `/api/matris` ucunu okuyordu) tek kanıt sayfasına
+  yönlendirildi; `web/lab.js` silindi. Sohbet ekranının kenar çubuğuna
+  "Durum" bağlantısı eklendi.
+  **Kurulum 3 adım:** bağlantı zaten kurulumda ve tarayıcı açılışında kendiliğinden
+  kuruluyordu (`arka.js` → `baglan()`); "Bağlan" düğmesi yalnız koptuğunda
+  gerekiyor. Kart, `/eklenti.html` ve `OKUBENI.md` buna göre yazıldı. Zip artık
+  TEK klasör taşıyor (`basak-eklenti/...`): kullanıcı açınca seçilebilir klasör
+  bulur, dosyalar dağılmaz. Eklenti sürümü 0.1.0 → 0.2.0.
+  Kapılar: pytest 1544 / 31 atlandı; ruff temiz; node --check temiz;
+  `tests/test_durum_sayfasi.py` 7 yeni kapı. **Canlı ölçüm (yerel sunucu):**
+  beyin turu `kilo` 2,3 sn; 62 araç; eklenti kanalı "Kanal açık"; akış "harf
+  harf akıyor"; checkpoint "yok". Canlı Vercel'de de doğrulandı (beynin turu
+  `groq` → "7", kanal el sıkışması açık).
+  **Sınır:** sayfanın görünümü gerçek Chrome'da gözle doğrulanmadı; ölçüm
+  mantığı yerel sunucuya karşı gerçekten koşturuldu (node + DOM taklidi).

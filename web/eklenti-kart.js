@@ -57,18 +57,19 @@
     noktaEl.className = "eklenti-nokta " + tur;
     if (tur === "kurulu") {
       durumEl.textContent =
-        "Bu tarayıcıda kurulu görünüyor. Panelde Bağlan'a basınca Başak " +
-        "açık sekmeyi görebilir; her tıklama senden onay ister.";
+        "Bu tarayıcıda kurulu görünüyor. Araç çubuğundaki Başak simgesine " +
+        "basınca panel açılır ve bağlantı kendiliğinden kurulur; her tıklama " +
+        "senden onay ister.";
       if (adimlarEl) adimlarEl.hidden = true;
     } else if (tur === "yok") {
       durumEl.textContent =
-        "Bu tarayıcıda kurulu görünmüyor. Sayfayla ilgili işler için dört " +
+        "Bu tarayıcıda kurulu görünmüyor. Sayfayla ilgili işler için üç " +
         "adım yeterli:";
       if (adimlarEl) adimlarEl.hidden = false;
     } else {
       durumEl.textContent =
-        "Tarayıcı eklenti durumunu bildirmedi. Kuruluysa panelde Bağlan'a " +
-        "basın; değilse dört adım:";
+        "Tarayıcı eklenti durumunu bildirmedi. Kuruluysa Başak simgesine " +
+        "bas; değilse üç adım:";
       if (adimlarEl) adimlarEl.hidden = false;
     }
   }

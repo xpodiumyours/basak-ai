@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fbfbfc">
+<title>Başak — Durum</title>
+<meta name="description" content="Başak şu an çalışıyor mu? Beyin yanıt veriyor mu, kaç aracı var, tarayıcı eklentisi kanalı açık mı — hepsi az önce gerçekten ölçülür.">
+<link rel="canonical" href="/durum.html">
+<link rel="stylesheet" href="/styles.css">
+<style>
+:root{--durum-yesil:#166534;--durum-kirmizi:#991b1b;--durum-notr:#78716c}
+.kontrol-liste{display:grid;gap:2px;margin-top:10px}
+.kontrol{display:grid;grid-template-columns:220px 1fr;gap:14px;align-items:start;
+  padding:12px 0;border-top:1px solid #eee}
+.kontrol:first-child{border-top:0}
+.kontrol strong{font-size:14px;color:#171717}
+.kontrol .durum{font-size:13px;line-height:1.55;color:#44403c}
+.kontrol .durum.pass{color:var(--durum-yesil);font-weight:700}
+.kontrol .durum.fail{color:var(--durum-kirmizi);font-weight:700}
+.kontrol .durum.waiting{color:var(--durum-notr)}
+.kontrol .ayrinti{display:block;font-weight:400;color:#57534e;margin-top:2px}
+.olcum-notu{margin-top:14px;padding:12px 14px;border-radius:12px;background:#f4f4f6;
+  color:#505057;font-size:12.5px;line-height:1.6}
+.olcum-notu.uyari{background:#fff7ed;color:#9a3412}
+.olcum-notu iyi{background:#ecfccb;color:#365314}
+table.olcum{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+table.olcum th,table.olcum td{text-align:left;padding:9px 8px;border-bottom:1px solid #eee;
+  vertical-align:top;color:#57534e}
+table.olcum th{color:#171717;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.sayilar{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.sayi{border:1px solid #e7e5e4;background:#fff;border-radius:12px;padding:12px 14px;min-width:130px}
+.sayi b{display:block;font-size:22px;letter-spacing:-.02em}
+.sayi span{color:#737373;font-size:12px}
+ul.duz{margin:10px 0 0;padding-left:20px;color:#57534e;font-size:14px;line-height:1.7}
+ul.duz li{margin:4px 0}
+@media(max-width:760px){.kontrol{grid-template-columns:1fr;gap:4px}}
+</style>
+</head>
+<body>
+<main class="shell">
+  <header class="topbar">
+    <div>
+      <a href="/" class="brand">Başak</a>
+      <div class="sub">Durum — canlı ölçüm</div>
+    </div>
+    <a class="pill" href="/">Sohbete dön</a>
+  </header>
+
+  <section class="hero">
+    <h1>Başak şu an çalışıyor mu?</h1>
+    <p>Bu sayfa kendini ölçer. Aşağıdaki satırlar az önce gerçekten denendi; yazılanlar
+    tahmin değil, ölçülen sonuç. Ölçülemeyen şey ölçülemiyor diye yazılır.</p>
+  </section>
+
+  <section class="card">
+    <div class="duzen">
+      <div class="icerik-alani">
+        <h2>Canlı kontroller</h2>
+        <div id="kontroller" class="kontrol-liste">
+          <p class="muted">Ölçülüyor…</p>
+        </div>
+        <p id="sonOlcum" class="muted" style="margin-top:12px"></p>
+      </div>
+      <div class="kenar">
+        <button id="yenile" class="action" type="button">Yeniden ölç</button>
+        <p class="muted">Her ölçüm gerçek bir istek yapar; sağlayıcının günlük ücretsiz
+        hakkından bir tur harcanır.</p>
+        <a class="action secondary" href="/eklenti.html">Tarayıcı eklentisi</a>
+        <a class="action secondary" href="/araclar">Araç kataloğu</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Yapılan iş — depoda kayıtlı son ölçüm</h2>
+    <p class="muted">Bu blok <strong>canlı ölçüm değildir</strong>: depoda kayıtlı test
+    koşusunun sonucudur ve tarihi yazılıdır. Yukarıdaki canlı satırlar her zaman
+    tazedir; bu blok arka planı gösterir.</p>
+    <div id="kabul">Yükleniyor…</div>
+  </section>
+
+  <section class="card">
+    <h2>Olmayanlar (dürüst liste)</h2>
+    <div id="sinirlar"><p class="muted">Yükleniyor…</p></div>
+  </section>
+
+  <p class="muted" style="margin:22px 0 0">
+    <a href="/">← Sohbete dön</a> ·
+    <a href="/eklenti.html">Tarayıcı eklentisi</a> ·
+    <a href="/bilgilendirme.html">Kullanım ve veri bilgisi</a>
+  </p>
+</main>
+<script src="/common.js"></script>
+<script src="/durum.js?v=1"></script>
+</body>
+</html>

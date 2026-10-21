@@ -41,7 +41,9 @@ _STATIK = {
     "/common.js": ("common.js", "application/javascript; charset=utf-8"),
     "/chat.css": ("chat.css", "text/css; charset=utf-8"),
     "/lab.html": ("lab.html", "text/html; charset=utf-8"),
-    "/lab.js": ("lab.js", "application/javascript; charset=utf-8"),
+    "/durum.html": ("durum.html", "text/html; charset=utf-8"),
+    "/durum.js": ("durum.js", "application/javascript; charset=utf-8"),
+    "/durum-kabul.json": ("durum-kabul.json", "application/json; charset=utf-8"),
 }
 
 # POST govdesi tavanlari. Sohbet govdesi gecmisi ve ekleri tasir; 16 KiB

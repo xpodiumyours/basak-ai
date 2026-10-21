@@ -1332,6 +1332,10 @@ async def eklenti_paketi():
 
     Paket her istekte kaynaktan uretilir: diskte ikinci kopya tutulmaz,
     surum kaymasi olmaz. `test/` klasoru pakete girmez.
+
+    Zip'in icinde dosyalar TEK klasor altinda durur (`basak-eklenti/...`):
+    kullanici zip'i acinca dagilan dosyalar yerine secilebilir bir klasor
+    bulur — kurulum 3 adim olsun diye.
     """
     import io
     import zipfile
@@ -1347,7 +1351,7 @@ async def eklenti_paketi():
             goreli = yol.relative_to(kok)
             if goreli.parts and goreli.parts[0] in ("test", "__pycache__"):
                 continue
-            paket.write(yol, goreli.as_posix())
+            paket.write(yol, ("basak-eklenti/" + goreli.as_posix()))
     return Response(
         content=tampon.getvalue(),
         media_type="application/zip",
