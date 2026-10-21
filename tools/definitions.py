@@ -648,8 +648,8 @@ SAYFA_BAKIS = _arac(
     "baslik, nesil), ogeler (ref, rol, ad, deger, kapali) ve sayfalama "
     "(toplam, baslangic, donen, sonraki_baslangic). sayfalama."
     "sonraki_baslangic varsa ayni arac o degerle surdurulur; oge sayisinda "
-    "tavan yoktur. Bagli tarayici istemcisi yoksa hata doner. Sayfada "
-    "tiklama ve yazma yapmaz.",
+    "tavan yoktur. Bagli tarayici istemcisi yoksa hata doner ve hata "
+    "eklentinin kurulum adresini tasir. Sayfada tiklama ve yazma yapmaz.",
     {"baslangic": {"type": "integer",
                     "description": "Oge sirasi (bossa 0)"},
      "adet": {"type": "integer",
@@ -662,8 +662,9 @@ SAYFA_TIKLA = _arac(
     "Acik sekmede, sayfa_bakis'in dondurdugu ref'teki ogeye tiklar. "
     "Ref sayfanin o anki gozlemine baglidir; sayfa degistiyse ya da oge "
     " artik yoksa hata doner. Gorunmeyen ve kapali (disabled) ogeye "
-    "tiklanmaz. Doner: yapildi, sira, rol, ad, url, baslik. Tiklamadan "
-    "sonra sayfayi kendisi yeniden okumaz.",
+    "tiklanmaz. Eylem kullanicinin onayindan gecer: eklenti panelde "
+    "sorar, onay gelmezse uygulanmaz. Doner: yapildi, sira, rol, ad, url, "
+    "baslik. Tiklamadan sonra sayfayi kendisi yeniden okumaz.",
     {"ref": {"type": "string",
              "description": "sayfa_bakis'in verdigi oge referansi"}},
     ["ref"],
@@ -674,9 +675,10 @@ SAYFA_YAZ = _arac(
     "Acik sekmede, sayfa_bakis'in dondurdugu ref'teki alana metin yazar "
     "(input, textarea, select, contenteditable). Yazarken alanin "
     "input/change olaylari tetiklenir; cerev dokusu (React/Vue) degeri "
-    "gorur. Sifre ve dosya secimi alanina YAZMAZ. Doner: yapildi, sira, "
-    "rol, ad, uzunluk, url. Yazdiktan sonra sayfayi kendisi yeniden "
-    "okumaz.",
+    "gorur. Eylem kullanicinin onayindan gecer: eklenti panelde sorar, "
+    "onay gelmezse uygulanmaz. Sifre ve dosya secimi alanina YAZMAZ. "
+    "Doner: yapildi, sira, rol, ad, uzunluk, url. Yazdiktan sonra sayfayi "
+    "kendisi yeniden okumaz.",
     {"ref": {"type": "string",
              "description": "sayfa_bakis'in verdigi alan referansi"},
      "metin": {"type": "string",

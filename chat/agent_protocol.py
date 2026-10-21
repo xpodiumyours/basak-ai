@@ -85,7 +85,7 @@ ALAN_ACIKLAMALARI = {
     "freetools": "freetools.org katalogunda arama ve oradaki bir araci "
                  "tarayicida calistirip sonucunu okuma",
     "tarayici": "kullanicinin acik sekmesindeki sayfayi okuma, ogeye "
-                "tikla ve alana yazma",
+                "tikla ve alana yazma (eklenti kurulu ve bagli olmali)",
 }
 
 _ALAN_METNI = "; ".join(

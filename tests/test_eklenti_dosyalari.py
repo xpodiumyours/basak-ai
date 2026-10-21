@@ -125,6 +125,24 @@ def test_panel_gecmisi_her_mesajla_gonderir():
     assert "gecmis:" in kaynak
 
 
+def test_onay_kapisi_panelde_ve_arka_ucta_var():
+    """Tıklama/yazma kullanıcı onayı olmadan uygulanmamalı.
+
+    Onay kararı EKLENTİDE verilir (panel sorar); çekirdek sınıflandırma
+    yapmaz. Kapı üç dosyada birlikte durur: arka uç sorar, panel gösterir,
+    sayfa onay/iptal düğmelerini taşır.
+    """
+    arka = _oku("arka.js")
+    panel = _oku("panel.js")
+    html = _oku("panel.html")
+
+    assert "onayIste" in arka and "ONAY_SURESI" in arka
+    assert "Kullanıcı onay vermedi." in arka
+    assert "onay-cevap" in arka and "onay-cevap" in panel
+    assert 'id="onayla"' in html and 'id="onayVazgec"' in html
+    assert "onay-muaf" in html
+
+
 def test_eklentide_ajan_dongusu_yok():
     """Tek beyin kurali: eklenti model cagirmaz, saglayici bilmez."""
     for ad in ("icerik.js", "arka.js", "panel.js"):

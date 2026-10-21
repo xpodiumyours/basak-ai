@@ -55,11 +55,14 @@ yalnız 127.0.0.1'e açıktır ve yalnız tarayıcı uzantısı kaynağı kabul 
 
 ## Sınırlar (dürüst liste)
 
-- **Onay kapısı yok.** Eylem, Başak "yap" dediğinde doğrudan uygulanır;
-  ödeme/gönderim gibi geri alınamaz düğmeler için ayrıca sorulmaz. Bu,
-  sıradaki dilim (tek çağrılık onay).
+- **Onay her eylemde sorulur.** Kart hedefin adını gösterir; "5 dakika
+  sorma" işaretlenirse yalnız o sekme için muafiyet verilir. **Panel
+  kapalıysa onay sorulamaz ve eylem yapılmaz** (fail-closed).
 - **Eylem sonrası doğrulama modelin işi.** Tıklama/yazma "yapıldı" der ve
   sayfanın yeni adını döner; sonucu görmek için Başak yeniden bakar.
+- **Mağaza yok.** Kurulum zip + "paketlenmemiş öğe yükle" ile yapılır;
+  güncelleme el ile. Kurulum sayfası: `/eklenti.html`, paket:
+  `/eklenti/eklenti.zip`.
 - **Akış yok.** Cevap tek parça gelir; "yazıyor…" görünür ama kelime kelime
   akmaz.
 - **Bulutta çalışır** (2026-10-21 canlı ölçüm: `wss://basak-vercel.

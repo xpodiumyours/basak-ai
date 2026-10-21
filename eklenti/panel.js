@@ -109,6 +109,60 @@ $("metin").addEventListener("keydown", (olay) => {
   }
 });
 
+/* ── Onay kapısı ──────────────────────────────────────────────────────
+ * Tıklama/yazma burada sorulur. Cevap gelmezse ya da panel kapalıysa
+ * eklenti eylemi UYGULAMAZ (fail-closed). Karar kullanıcının.
+ */
+
+let aktifOnay = null;
+
+function onayMetni(mesaj) {
+  const hedef = mesaj.ad ? '"' + mesaj.ad + '"' : "(adsız öğe)";
+  const rol = mesaj.rol ? " (" + mesaj.rol + ")" : "";
+  if (mesaj.islem === "sayfa_yaz") {
+    const yazi = mesaj.metin || "";
+    return "Başak " + hedef + rol + " alanına şunu yazmak istiyor: " + yazi;
+  }
+  return "Başak " + hedef + rol + " öğesine tıklamak istiyor.";
+}
+
+function onayGoster(mesaj) {
+  aktifOnay = mesaj;
+  $("onayMetin").textContent = onayMetni(mesaj);
+  $("onayAdres").textContent = mesaj.url || "";
+  $("onayMuaf").checked = false;
+  $("onayKarti").hidden = false;
+  $("onayla").focus();
+}
+
+function onayGizle() {
+  aktifOnay = null;
+  $("onayKarti").hidden = true;
+}
+
+async function onayCevap(onay) {
+  if (!aktifOnay) return;
+  const istek = aktifOnay;
+  const muaf = $("onayMuaf").checked;
+  onayGizle();
+  try {
+    await chrome.runtime.sendMessage({
+      tip: "onay-cevap", istekId: istek.istekId, onay: !!onay, muaf: !!(onay && muaf)
+    });
+  } catch (hata) {
+    /* cevap ulaşmazsa eklenti eylemi yapmaz — sessiz uygulama yok */
+  }
+}
+
+$("onayla").addEventListener("click", () => { onayCevap(true); });
+$("onayVazgec").addEventListener("click", () => { onayCevap(false); });
+
+chrome.runtime.onMessage.addListener((mesaj) => {
+  if (!mesaj || mesaj.tip !== "onay") return undefined;
+  onayGoster(mesaj);
+  return undefined;
+});
+
 /* ── Bağlantı ─────────────────────────────────────────────────────── */
 
 $("baglan").addEventListener("click", async () => {

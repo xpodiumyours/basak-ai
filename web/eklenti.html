@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fbfbfc">
+<title>Başak — Tarayıcı eklentisi</title>
+<meta name="description" content="Başak'ın açık sekmeyi görmesini ve onayınla tıklama/yazma yapmasını sağlayan Chrome eklentisi: kurulum, güvenlik ve sınırlar.">
+<link rel="canonical" href="/eklenti.html">
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#19191c;background:#fbfbfc}
+*{box-sizing:border-box}body{margin:0}main{width:min(760px,calc(100% - 32px));margin:0 auto;padding:44px 0 72px}
+a{color:inherit}.back{font-size:13px;color:#666}
+.card{margin-top:24px;padding:26px;border:1px solid #e5e5e8;border-radius:18px;background:#fff;box-shadow:0 10px 36px rgba(0,0,0,.04)}
+h1{margin:0 0 8px;font-size:30px;letter-spacing:-.035em}h2{margin:28px 0 8px;font-size:17px}
+p,li{color:#55555c;line-height:1.65;font-size:14px}ul,ol{padding-left:20px}
+.note{padding:13px 15px;border-radius:12px;background:#f4f4f6;color:#505057}
+.uyari{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}
+.small{font-size:12px;color:#77777f}
+.indir{display:inline-flex;align-items:center;gap:9px;margin:14px 0 4px;padding:12px 18px;border-radius:12px;background:#171717;color:#fff;font-weight:700;text-decoration:none;font-size:14px}
+.indir:hover{background:#2b2b2f}
+.adim{padding:12px 14px;border:1px solid #ececef;border-radius:12px;margin:10px 0;background:#fcfcfd}
+.adim strong{display:block;color:#19191c;font-size:13px;margin-bottom:3px}
+.adim p{margin:0;font-size:13px}
+code{background:#f1f1f4;border-radius:5px;padding:1px 5px;font-size:12.5px}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid #eee;vertical-align:top;color:#55555c}
+th{color:#19191c;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+</style>
+</head>
+<body><main>
+<a class="back" href="/">← Başak'a dön</a>
+<div class="card">
+<h1>Tarayıcı eklentisi</h1>
+<p>Başak normalde <strong>yalnız konuşur</strong>. Eklenti kurulduğunda <strong>açık sekmeyi
+görebilir</strong> ve — sen onayladıkça — tıklayabilir, kutuya yazabilir. Beyin yine
+Başak'ın kendisidir: eklenti karar vermez, model çağırmaz, kendi başına hiçbir şeye basmaz.</p>
+
+<a class="indir" href="/eklenti/eklenti.zip" download>Eklentiyi indir (.zip)</a>
+<p class="small">Sürüm 0.1.0 · Chrome / Edge (Chromium 116+) · kurulum 4 adım, mağaza gerekmez.</p>
+
+<h2>Ne zaman işine yarar?</h2>
+<ul>
+<li>“Bu sayfada ne var, bana özetle.”</li>
+<li>“Şu kutuya adımı yaz, Kaydet'e bas.”</li>
+<li>“Bu formda hangi alanları doldurmam gerekiyor?”</li>
+<li>“Bu tabloyu okuyup eksik satırları söyle.”</li>
+</ul>
+<p>Bunları web sohbetinden de sorabilirsin; Başak sayfayı göremediği için eklentiyi
+kurmanı önerir. Kurulu ve bağlıysa doğrudan yapar.</p>
+
+<h2>Kurulum</h2>
+<div class="adim"><strong>1. Zip'i indir ve aç</strong>
+<p>Yukarıdaki düğme <code>basak-eklenti.zip</code> indirir. Bir klasöre çıkar; içinde
+<code>manifest.json</code>, <code>arka.js</code>, <code>icerik.js</code>, <code>panel.html</code> olur.</p></div>
+<div class="adim"><strong>2. Geliştirici modunu aç</strong>
+<p>Chrome'da <code>chrome://extensions</code> adresini aç, sağ üstten <strong>Geliştirici modu</strong>'nu
+aç. (Edge'de <code>edge://extensions</code>.)</p></div>
+<div class="adim"><strong>3. Paketlenmemiş öğe yükle</strong>
+<p><strong>Paketlenmemiş öğe yükle</strong> → zip'i çıkardığın klasörü seç.</p></div>
+<div class="adim"><strong>4. Panelden bağlan</strong>
+<p>Araç çubuğundaki Başak simgesine bas → sağ panel açılır → <strong>Bağlan</strong>.
+Rozet <strong>bağlı</strong> olduğunda Başak açık sekmeyi görür.</p></div>
+
+<p class="note">Eklenti oturum çerezini kullanır. Başak sitesinde giriş yaptıysan kendi
+geçmişinle, yapmadıysan misafir olarak bağlanır. Aynı sayfada sohbet web ekranında
+sürerken de devam edebilirsin; iki ekran aynı çekirdeği çağırır.</p>
+
+<h2>Onay kapısı</h2>
+<p>Tıklama ve yazma <strong>her zaman</strong> panelde sorulur: Başak'ın hangi öğeye
+dokunmak istediğini görürsün, <strong>Onayla</strong> ya da <strong>Vazgeç</strong> dersin.
+İstersen “5 dakika boyunca sorma”yı işaretlersin; muafiyet yalnız o sekme için ve
+5 dakika geçerlidir.</p>
+<p class="note uyari"><strong>Panel kapalıyken onay sorulamaz ve eylem yapılmaz.</strong>
+Bu bilinçli: sessizce tıklayan bir asistan istemiyoruz. İstediğin an paneli kapatarak
+Başak'ın elini tamamen durdurabilirsin (gözü açık kalır).</p>
+
+<h2>Güvenlik — ne yapmaz?</h2>
+<table>
+<tr><th>Konu</th><th>Davranış</th></tr>
+<tr><td>Şifre alanı</td><td>Değeri <strong>hiç okunmaz</strong>, alanına <strong>yazılmaz</strong>.</td></tr>
+<tr><td>Dosya seçimi</td><td>Metin yazılmaz, dosya yüklenmez.</td></tr>
+<tr><td>Gizli öğeler</td><td>Kullanıcının görmediği öğe gözleme girmez; ona dokunulamaz.</td></tr>
+<tr><td>Bayat hedef</td><td>Sayfa değiştiyse eski referans reddedilir; yanlış düğmeye basılmaz.</td></tr>
+<tr><td>Arka plan</td><td>Kendi kendine çalışmaz; yalnız sen mesaj yazdığında harekete geçer.</td></tr>
+<tr><td>Site listesi</td><td>Kodda site adı yok: her sitede aynı kurallar geçerlidir.</td></tr>
+</table>
+
+<h2>Sınırlar (dürüst liste)</h2>
+<ul>
+<li><strong>Tek sekme:</strong> etkin sekme okunur; arka plan sekmeleri görülmez.</li>
+<li><strong>300 saniye:</strong> bulut bağlantısı fonksiyon süresi dolunca yenilenir (~1 sn).
+Tek bir tur 300 saniyeyi aşarsa kesilir.</li>
+<li><strong>Kalıcı disk yok:</strong> konuşma geçmişini panel taşır; panel kapanırsa yeni
+sohbet gibi devam eder.</li>
+<li><strong>Okunamayan sayfalar:</strong> <code>chrome://</code>, eklenti mağazası ve PDF
+görüntüleyici okunamaz.</li>
+<li><strong>Mağaza yok:</strong> eklenti Chrome Web Store'da değil; zip + “paketlenmemiş
+öğe yükle” yolu kullanılır. Bu yol güncellemeyi el ile yapmanı gerektirir.</li>
+</ul>
+
+<h2>Sık sorulanlar</h2>
+<p><strong>Başak neden eklentiyi öneriyor?</strong> Bir sayfa adresi verip sayfayla ilgili
+bir şey istediğinde Başak'ın o sayfayı görmesi gerekir. Göremiyorsa uydurmak yerine
+kurulum adresini verir.</p>
+<p><strong>Kaldırınca ne olur?</strong> Bağlantı kesilir, Başak sayfayı görmez; sohbet
+web ekranında aynen sürer.</p>
+<p><strong>Hangi veriler gider?</strong> Yalnız açık sekmenin okunabilir öğe listesi
+(rol, ad, değer, kapalı mı). Şifre değeri ve dosya içeriği listede yoktur.</p>
+
+<p class="small">Sorun mu var? <a href="/destek.html">Destek</a> · <a href="/bilgilendirme.html">Kullanım ve veri bilgisi</a></p>
+</div>
+</main></body>
+</html>

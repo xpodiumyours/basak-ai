@@ -115,3 +115,25 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   **Sınırlar:** Hobby'de bağlantı 300 sn'de kapanır (eklenti yeniden
   bağlanır); tek tur 300 sn'yi aşarsa kesilir; kalıcı disk yok. Sayfa
   gözleminin gerçek Chrome'da uçtan uca denenmesi hâlâ yapılmadı.
+- 2026-10-21: `b7f6bcc` — eklentiye **el** (tıklama/yazma) + kopma onarımı.
+  `sayfa_tikla` / `sayfa_yaz` (araç sayısı 60 → 62); ref `<nesil>-<kimlik>`
+  ile öğenin kalıcı kimliğine bağlandı (süzme sırayı kaydırmıyor). Panel
+  her mesajla oturum geçmişini taşır (bulutta kalıcı disk yok).
+  Yeniden bağlanma hatası düzeltildi: `if (deneme > 0) return` yüzünden
+  ilk başarısız denemeden sonra hiç denemiyordu; artık sınırsız,
+  1→30 sn geri çekilme.
+  **Canlı kanıt:** bu makineden WSS ile sahte eklenti — `sayfa_gozlem` →
+  `sayfa_yaz {sira:11}` → `sayfa_tikla {sira:12}` → cevap (`groq`).
+  Kapılar: 1526 test / 31 atlandı; ruff temiz; jsdom eylem 13/13.
+- 2026-10-21: onay kapısı + eklenti dağıtımı (`/eklenti.html`).
+  Tıklama/yazma artık **panelde onay** ister: kart hedefin adını gösterir,
+  Onayla/Vazgeç; "5 dakika sorma" yalnız o sekme için muafiyet verir.
+  Panel kapalıysa onay sorulamaz → **eylem yapılmaz** (fail-closed).
+  Eylem isteklerinin süresi 90 sn'ye çıktı (onay beklemesi 20 sn'lik
+  varsayılana sığmıyordu). Site tarafında `/eklenti.html` kurulum sayfası
+  ve `/eklenti/eklenti.zip` (kaynaktan üretilen paket, `test/` hariç);
+  sohbet kenar çubuğuna "Tarayıcı eklentisi" bağlantısı eklendi. Bağlı
+  istemci yokken araç hatası kurulum adresini taşır.
+  Kapılar: pytest 1533 / 31 atlandı; onay akışı node vm ile 6/6
+  (onaysız eylem yok, Vazgeç durdurur, panel kapalı = fail-closed).
+  **Sınır:** gerçek Chrome'da onay kartının görsel doğrulaması yapılmadı.

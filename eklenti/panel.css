@@ -245,6 +245,52 @@ input:focus { border-color: var(--vurgu); box-shadow: 0 0 0 2px rgba(0, 229, 255
 .liste .kapali { color: var(--kirmizi); font-size: 9px; text-transform: uppercase; }
 .liste .fazla { color: var(--metin-soluk); background: transparent; border-left-color: transparent; }
 
+/* ── Onay kapısı kartı ──────────────────────────────────────────── */
+.onay {
+  flex: 0 0 auto;
+  margin: 0 12px 8px;
+  padding: 10px 11px;
+  border-radius: var(--yaricap);
+  border: 1px solid rgba(255, 176, 32, 0.55);
+  background: rgba(255, 176, 32, 0.08);
+  box-shadow: 0 0 0 1px rgba(255, 176, 32, 0.08) inset;
+}
+.onay[hidden] { display: none; }
+.onay-baslik {
+  color: var(--amber);
+  font-size: 10px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.onay-metin { color: var(--parlak); font-size: 11.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.onay-adres { color: var(--metin-soluk); font-size: 9.5px; margin-top: 4px; overflow-wrap: anywhere; }
+.onay-muaf {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--metin-soluk);
+  font-size: 10px;
+  cursor: pointer;
+}
+.onay-muaf input { width: auto; height: auto; margin: 0; accent-color: var(--vurgu); }
+.onay-dugme { display: flex; gap: 7px; margin-top: 9px; }
+.onay-dugme button {
+  flex: 1 1 0;
+  height: 28px;
+  border-radius: var(--yaricap);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  border: 1px solid var(--kenar-guclu);
+  background: transparent;
+}
+.onay-ver { border-color: var(--yesil) !important; color: var(--yesil); }
+.onay-ver:hover { background: rgba(0, 255, 136, 0.1); }
+.onay-vazgec { color: var(--metin-soluk); }
+.onay-vazgec:hover { background: rgba(255, 59, 92, 0.08); color: var(--kirmizi); }
+
 .alt { flex: 0 0 auto; padding: 0 12px 12px; }
 .not { color: var(--metin-soluk); font-size: 9px; line-height: 1.5; }
 

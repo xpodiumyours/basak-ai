@@ -38,17 +38,22 @@ function durumuYaz(yeni, hata) {
   chrome.action.setBadgeBackgroundColor({ color: "#00e5ff" });
 }
 
-async function sekmeyeSor(istek) {
+async function sekmeAl() {
   const sekmeler = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   const sekme = sekmeler && sekmeler[0];
   if (!sekme || !sekme.id) throw new Error("açık sekme bulunamadı");
+  return sekme;
+}
+
+async function sekmeyeSor(istek, sekme) {
+  const hedef = sekme || (await sekmeAl());
   try {
-    return await chrome.tabs.sendMessage(sekme.id, istek);
+    return await chrome.tabs.sendMessage(hedef.id, istek);
   } catch (hata) {
     // Eklenti kurulmadan önce açılmış sekmede içerik betiği yoktur.
     try {
-      await chrome.scripting.executeScript({ target: { tabId: sekme.id }, files: ["icerik.js"] });
-      return await chrome.tabs.sendMessage(sekme.id, istek);
+      await chrome.scripting.executeScript({ target: { tabId: hedef.id }, files: ["icerik.js"] });
+      return await chrome.tabs.sendMessage(hedef.id, istek);
     } catch (hata2) {
       throw new Error("bu sekme okunamıyor (chrome:// veya mağaza sayfası olabilir)");
     }
@@ -81,6 +86,104 @@ function sohbetGonder(metin, gecmis) {
   });
 }
 
+/* ── Onay kapısı ────────────────────────────────────────────────────
+ * Kural: tıklama ve yazma, KULLANICI ONAYI OLMADAN uygulanmaz. Karar
+ * kodun değil kullanıcının: panel bir kart gösterir, Onayla/Vazgeç der.
+ * Panel kapalıysa istek kimseye ulaşmaz → eylem YAPILMAZ (fail-closed).
+ * "5 dakika sorma" kutusu işaretlenirse yalnız o sekme için muafiyet
+ * saklanır; süre dolunca kapı yine sorar.
+ */
+const ONAY_SURESI = 60000;        // panel cevabı için üst sınır (ms)
+const ONAY_MUAFIYET = 5 * 60 * 1000;
+let onaySayaci = 0;
+const bekleyenOnay = new Map();   // istekId -> {coz, zaman, sekmeId}
+
+async function muafiyetOku() {
+  try {
+    const veri = await chrome.storage.session.get("onayMuafiyet");
+    return veri ? veri.onayMuafiyet || null : null;
+  } catch (hata) {
+    return null;                  // oturum deposu yoksa muafiyet de yok
+  }
+}
+
+async function muafiyetYaz(sekmeId) {
+  try {
+    await chrome.storage.session.set({
+      onayMuafiyet: { sekmeId, bitis: Date.now() + ONAY_MUAFIYET }
+    });
+  } catch (hata) { /* muafiyet yazılamazsa her eylemde sorulur */ }
+}
+
+async function onayIste(sekme, islem, ayrinti) {
+  const muaf = await muafiyetOku();
+  if (muaf && muaf.sekmeId === sekme.id && muaf.bitis > Date.now()) {
+    return { onay: true, muaf: true };
+  }
+
+  onaySayaci += 1;
+  const istekId = "o" + onaySayaci;
+  const cevap = new Promise((coz) => {
+    const zaman = setTimeout(() => {
+      const kayit = bekleyenOnay.get(istekId);
+      if (!kayit) return;
+      bekleyenOnay.delete(istekId);
+      coz({ onay: false, hata: "Onay gelmedi (60 saniye)." });
+    }, ONAY_SURESI);
+    bekleyenOnay.set(istekId, { coz, zaman, sekmeId: sekme.id });
+  });
+
+  try {
+    await chrome.runtime.sendMessage({
+      tip: "onay", istekId, islem,
+      sekmeId: sekme.id,
+      ad: ayrinti.ad || "",
+      rol: ayrinti.rol || "",
+      metin: ayrinti.metin || "",
+      url: ayrinti.url || ""
+    });
+  } catch (hata) {
+    // Panel açık değil: soru kimseye ulaşmadı. Sessizce uygulamak yok.
+    const kayit = bekleyenOnay.get(istekId);
+    if (kayit) {
+      clearTimeout(kayit.zaman);
+      bekleyenOnay.delete(istekId);
+    }
+    return { onay: false,
+      hata: "Onay için Başak paneli açık olmalı (araç çubuğu simgesi)." };
+  }
+  return cevap;
+}
+
+async function eylemAyrinti(sekme, sira, metin) {
+  const ayrinti = { ad: "", rol: "", url: "", metin: metin || "" };
+  try {
+    const gozlem = await sekmeyeSor({ tip: "gozlem" }, sekme);
+    if (gozlem && !gozlem.hata) {
+      ayrinti.url = gozlem.url || "";
+      const oge = (gozlem.ogeler || []).find((o) => o.sira === sira);
+      if (oge) {
+        ayrinti.ad = oge.ad || "";
+        ayrinti.rol = oge.rol || "";
+      }
+    }
+  } catch (hata) { /* ayrıntı yoksa da onay sorulur */ }
+  return ayrinti;
+}
+
+async function eylemiUygula(mesaj, istek, sekme, metin) {
+  const veri = mesaj.veri || {};
+  const ayrinti = await eylemAyrinti(sekme, veri.sira, metin);
+  const onay = await onayIste(sekme, mesaj.islem, ayrinti);
+  if (!onay.onay) {
+    return { id: mesaj.id, ok: false, hata: onay.hata || "Kullanıcı onay vermedi." };
+  }
+  const cevap = await sekmeyeSor(istek, sekme);
+  if (!cevap) throw new Error("sayfa cevap vermedi (sekme yenilenmeli)");
+  if (cevap.hata) return { id: mesaj.id, ok: false, hata: cevap.hata };
+  return { id: mesaj.id, ok: true, sonuc: cevap.sonuc };
+}
+
 async function islemYap(mesaj) {
   const veri = mesaj.veri || {};
   try {
@@ -91,16 +194,13 @@ async function islemYap(mesaj) {
       return { id: mesaj.id, ok: true, sonuc: gozlem };
     }
     if (mesaj.islem === "sayfa_tikla") {
-      const cevap = await sekmeyeSor({ tip: "tikla", sira: veri.sira });
-      if (!cevap) throw new Error("sayfa cevap vermedi (sekme yenilenmeli)");
-      if (cevap.hata) return { id: mesaj.id, ok: false, hata: cevap.hata };
-      return { id: mesaj.id, ok: true, sonuc: cevap.sonuc };
+      const sekme = await sekmeAl();
+      return await eylemiUygula(mesaj, { tip: "tikla", sira: veri.sira }, sekme, "");
     }
     if (mesaj.islem === "sayfa_yaz") {
-      const cevap = await sekmeyeSor({ tip: "yaz", sira: veri.sira, metin: veri.metin });
-      if (!cevap) throw new Error("sayfa cevap vermedi (sekme yenilenmeli)");
-      if (cevap.hata) return { id: mesaj.id, ok: false, hata: cevap.hata };
-      return { id: mesaj.id, ok: true, sonuc: cevap.sonuc };
+      const sekme = await sekmeAl();
+      return await eylemiUygula(
+        mesaj, { tip: "yaz", sira: veri.sira, metin: veri.metin }, sekme, veri.metin);
     }
   } catch (hata) {
     return { id: mesaj.id, ok: false, hata: String(hata.message || hata) };
@@ -231,6 +331,16 @@ chrome.runtime.onMessage.addListener((mesaj, _gonderen, yanitla) => {
     (async () => {
       yanitla(await sohbetGonder(String(mesaj.metin || ""), mesaj.gecmis));
     })();
+    return true;
+  }
+  if (mesaj.tip === "onay-cevap") {
+    const kayit = bekleyenOnay.get(mesaj.istekId);
+    if (!kayit) { yanitla({ ok: false, hata: "onay isteği bulunamadı" }); return true; }
+    clearTimeout(kayit.zaman);
+    bekleyenOnay.delete(mesaj.istekId);
+    if (mesaj.onay && mesaj.muaf) muafiyetYaz(kayit.sekmeId);
+    kayit.coz({ onay: !!mesaj.onay });
+    yanitla({ ok: true });
     return true;
   }
   if (mesaj.tip === "onizleme") {

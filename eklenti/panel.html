@@ -16,6 +16,17 @@
     <div id="mesajlar" class="mesajlar" aria-live="polite">
       <div class="bos">Başak'a bu sayfayla ilgili bir şey sor. Sayfayı kendi okur.</div>
     </div>
+    <div id="onayKarti" class="onay" role="alertdialog" aria-labelledby="onayBaslik" hidden>
+      <p id="onayBaslik" class="onay-baslik">Başak bir eylem yapmak istiyor</p>
+      <p id="onayMetin" class="onay-metin"></p>
+      <p id="onayAdres" class="onay-adres"></p>
+      <label class="onay-muaf"><input id="onayMuaf" type="checkbox"> 5 dakika boyunca sorma</label>
+      <div class="onay-dugme">
+        <button id="onayla" class="onay-ver" type="button">Onayla</button>
+        <button id="onayVazgec" class="onay-vazgec" type="button">Vazgeç</button>
+      </div>
+    </div>
+
     <form id="yaz" class="yaz">
       <textarea id="metin" rows="2" spellcheck="false"
         placeholder="Örn: bu ekranda ne var, ne yapabilirim?"></textarea>
@@ -42,7 +53,7 @@
   </details>
 
   <footer class="alt">
-    <p class="not">Sohbet Başak'ın çekirdeğinden geçer; eklenti karar vermez, model çağırmaz. Onayın olmadan hiçbir şeye basmaz.</p>
+    <p class="not">Sohbet Başak'ın çekirdeğinden geçer; eklenti karar vermez, model çağırmaz. Tıklama ve yazma yalnız senin onayınla uygulanır; panel kapalıyken onay sorulamaz, eylem yapılmaz.</p>
   </footer>
 
   <script src="panel.js"></script>

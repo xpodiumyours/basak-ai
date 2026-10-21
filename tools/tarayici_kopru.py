@@ -19,6 +19,7 @@ Cekirdek cagrisi: KOPRU.iste(islem, veri, sure)
   doner; istisna disari sizmaz, sohbet kesilmez.
 """
 
+import os
 import queue
 import threading
 import time
@@ -27,6 +28,16 @@ from chat.kimlik import aktif_kullanici
 from tools import tarayici_goz
 
 ZAMAN_ASIMI = 15.0
+
+# Tıklama/yazma, EKLENTİDEKİ onay kapısından geçer: panel kullanıcıya
+# sorar, cevap gelene kadar bekler. Bu yüzden eylem süresi gözlemden uzun.
+EYLEM_SURESI = 90.0
+
+# Eklentinin kurulum sayfası: "bağlı istemci yok" hatası bu adresi taşır
+# (kullanıcı hatanın nedenini ve çözümünü araç sonucundan okur).
+# Bu katmanda alan adı GÖMÜLMEZ (tests/test_tarayici_gozu.py): adres ya
+# ortamdan gelir ya da sitenin kendi köküne göre göreli yoldur.
+EKLENTI_ADRESI = os.environ.get("BASAK_EKLENTI_ADRESI") or "/eklenti.html"
 
 
 class Kopru:
@@ -90,9 +101,11 @@ class Kopru:
         if gonder is None:
             if baska_var:
                 return {"error": "Bu kullanici icin bagli tarayici yok; "
-                                 "Basak eklentisini bu hesapta bagla."}
-            return {"error": "Tarayiciya bagli istemci yok; "
-                             "once Basak eklentisini ac."}
+                                 "Basak eklentisini bu hesapta bagla: %s"
+                                 % EKLENTI_ADRESI}
+            return {"error": "Tarayiciya bagli istemci yok; Basak "
+                             "eklentisini kur ve panelden baglan: %s"
+                             % EKLENTI_ADRESI}
         try:
             sure = float(sure or ZAMAN_ASIMI)
         except (TypeError, ValueError):
@@ -198,11 +211,12 @@ def _eylem(islem, ref, kullanici=None, metin=None):
     if islem == "sayfa_yaz":
         veri["metin"] = "" if metin is None else str(metin)
 
+    # Onay kararı eklentide verilir (panel sorar); burada yalnız beklenir.
     kanal = tarayici_kanal.aktif_kanal()
     if kanal is not None:
-        ham = kanal.istek(islem, veri)
+        ham = kanal.istek(islem, veri, sure=EYLEM_SURESI)
     else:
-        ham = KOPRU.iste(islem, veri, kullanici=kullanici)
+        ham = KOPRU.iste(islem, veri, sure=EYLEM_SURESI, kullanici=kullanici)
     sonuc = cevabi_coz(ham)
     if "error" in sonuc:
         return sonuc

@@ -1326,6 +1326,38 @@ async def fatura_oku_ucu(request: Request):
         katalog.satir_tablosu(metin)))
 
 
+@app.get("/eklenti/eklenti.zip")
+async def eklenti_paketi():
+    """Eklentiyi tek dosyada indirir (magaza yok: zip + paketlenmemis yukleme).
+
+    Paket her istekte kaynaktan uretilir: diskte ikinci kopya tutulmaz,
+    surum kaymasi olmaz. `test/` klasoru pakete girmez.
+    """
+    import io
+    import zipfile
+
+    kok = BASE / "eklenti"
+    if not kok.is_dir():
+        return Response(status_code=404)
+    tampon = io.BytesIO()
+    with zipfile.ZipFile(tampon, "w", zipfile.ZIP_DEFLATED) as paket:
+        for yol in sorted(kok.rglob("*")):
+            if not yol.is_file():
+                continue
+            goreli = yol.relative_to(kok)
+            if goreli.parts and goreli.parts[0] in ("test", "__pycache__"):
+                continue
+            paket.write(yol, goreli.as_posix())
+    return Response(
+        content=tampon.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": 'attachment; filename="basak-eklenti.zip"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
 class _Statik(StaticFiles):
     """HTML onbelleklenmesin ki dagitim degisikligi donen tarayiciya ulassin."""
 
