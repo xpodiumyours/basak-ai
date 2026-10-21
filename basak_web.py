@@ -174,8 +174,10 @@ def _eklenti_sohbet(metin, kullanici=None):
 
     if kullanici:
         kullanici_kur(kullanici)
+    else:
+        kullanici_kur("misafir")     # kimlik yok: kisisel koke dusme
     ayikla = _EklentiAyiklayici()
-    mesaj_isle(metin, BEYIN, kisilik_blogu(kullanici, misafir=False),
+    mesaj_isle(metin, BEYIN, kisilik_blogu(kullanici, misafir=not kullanici),
                ayikla, TOOLS)
     if ayikla.hata and not ayikla.cevap:
         raise RuntimeError(ayikla.hata)
@@ -215,11 +217,26 @@ def _cookie_al(handler, ad):
     return ""
 
 
-def _aktif_kimlik(handler):
-    """Istegin kisi kimligi; None = 401 gerekir.
+def _yerel_sunucu(handler):
+    """Sunucu yalnız bu makineye mi bağlı (masaüstü açılışı)?
 
-    once imzali cookie; yoksa kullanici tablosu bosken tek-kullanici
-    modu (casper) — eski yerel/test davranisi bozulmaz.
+    0.0.0.0'a bağlı sunucu önizleme/sunucudur; orada kişisel kimlik
+    VARSAYILMAZ (2026-10-21, canlıda görülen sızıntı: önizleme, giriş
+    olmayan herkesi "casper" sayıp "Casper'ın kişisel asistanıyım"
+    diyordu).
+    """
+    try:
+        adres = str(handler.server.server_address[0])
+    except (AttributeError, IndexError, TypeError):
+        return False
+    return adres in ("127.0.0.1", "::1", "localhost")
+
+
+def _aktif_kimlik(handler):
+    """İsteğin kişi kimliği; None = kimliksiz (misafir) ziyaretçi.
+
+    Önce imzalı cookie. Yoksa tek-kişi (casper) modu YALNIZ yerel
+    sunucuda geçerli; dışarı açık sunucuda kimlik uydurulmaz.
     """
     import kullanici as kullanici_modulu
     from chat.kimlik import VARSAYILAN_KULLANICI
@@ -228,7 +245,7 @@ def _aktif_kimlik(handler):
     kid = kullanici_modulu.oturum_coz(token)
     if kid:
         return kid
-    if not kullanici_modulu.giris_zorunlu_mu():
+    if not kullanici_modulu.giris_zorunlu_mu() and _yerel_sunucu(handler):
         return VARSAYILAN_KULLANICI
     return None
 
@@ -248,9 +265,13 @@ def _sohbet_islet(istek, metin, misafir=False, kid=None):
     kid: web girisindeki kisi — yeni thread'in contextvar'i default
     'casper'a sifirlanir; burada tekrar kurulur (kişi izolasyonu).
     """
+    from chat.kimlik import kullanici_kur
     if kid:
-        from chat.kimlik import kullanici_kur
         kullanici_kur(kid)
+    elif misafir:
+        # Kimliksiz ziyaretci: hafiza/knowledge kökü kişisel köke
+        # (casper) DÜŞMEZ; nötr bir kök kullanilir.
+        kullanici_kur("misafir")
     from chat.prompts import kisilik_blogu
     ayikla = _OlayAyiklayici(istek)
     try:
@@ -326,8 +347,14 @@ class _Kopru(BaseHTTPRequestHandler):
             return False
         kid = _aktif_kimlik(self)
         if kid is None:
-            self._gonder(401, {"error": "giris gerekli"})
-            return True
+            import kullanici as kullanici_modulu
+            if (kullanici_modulu.giris_zorunlu_mu()
+                    or kullanici_modulu.uretim_mi()):
+                self._gonder(401, {"error": "giris gerekli"})
+                return True
+            # Kimlik yok ama giriş zorunlu değil: ziyaretçi NÖTR misafir
+            # olarak devam eder (kişisel kimlik uydurulmaz).
+            return False
         from chat.kimlik import kullanici_kur
         kullanici_kur(kid)
         return False
@@ -562,6 +589,10 @@ class _Kopru(BaseHTTPRequestHandler):
             if self._kimlik_zorunlu(yol):
                 return
             kid = _aktif_kimlik(self)
+            if kid is None:
+                # Kimlik yok (dışarı açık sunucu, girişsiz ziyaretçi):
+                # kişisel kimlik uydurulmaz, nötr misafir olarak devam.
+                misafir = True
         if not metin or len(metin) > 4000:
             self._gonder(400, {"error": "mesaj bos veya cok uzun"})
             return

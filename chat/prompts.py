@@ -24,8 +24,10 @@ def kimlik_blogu(kullanici_adi="Casper"):
     )
 
 
-# Geriye uyumluluk: sabit (yerel Casper). flow kimlik_blogu() kullanır.
-KIMLIK_BLOGU = kimlik_blogu("Casper")
+# 2026-10-21: eski sabit `KIMLIK_BLOGU = kimlik_blogu("Casper")` KALDIRILDI.
+# Hiçbir yerden okunmuyordu ama sahibin adını koda gömüyordu; ileride
+# kazara kullanılıp "Casper'ın asistanıyım" sızıntısını geri getirmesin.
+# Kişilik artık istek başına `kisilik_blogu(kid, misafir=...)` ile üretilir.
 
 
 # Cevap dili (2026-09-25): Anthropic cok dilli destek belgesi, uretimde hedef
