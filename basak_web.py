@@ -177,6 +177,20 @@ def _eklenti_sohbet(metin, kullanici=None):
     return {"cevap": ayikla.cevap, "kaynak": ayikla.kaynak}
 
 
+def _sunucu_ayarlari():
+    """(port, adres) — ortam degiskeni > ayarlar.json > yerel varsayilan.
+
+    Barindirilan onizleme icin `BASAK_WEB_PORT=3001 BASAK_WEB_DIS=1`
+    yeter; ayarlar.json'a dokunmak gerekmez. Ortam bos ise davranis
+    eskisi gibi: 8787 + yalniz bu makine.
+    """
+    port = int(os.environ.get("BASAK_WEB_PORT") or _ayar("web_port", 8787))
+    dis = (bool(_ayar("web_dis_erisim", False))
+           or os.environ.get("BASAK_WEB_DIS", "").strip().lower()
+           in ("1", "true", "evet", "yes"))
+    return port, "0.0.0.0" if dis else "127.0.0.1"
+
+
 def _ayar(anahtar, varsayilan=None):
     try:
         with open(AYARLAR, "r", encoding="utf-8-sig") as f:
@@ -617,9 +631,8 @@ def main():
     BEYIN = Brain()
     TOOLS = _TOOLS
 
-    port = int(_ayar("web_port", 8787))
-    dis = bool(_ayar("web_dis_erisim", False))
-    adres = "0.0.0.0" if dis else "127.0.0.1"
+    port, adres = _sunucu_ayarlari()
+    dis = adres != "127.0.0.1"
     sunucu = ThreadingHTTPServer((adres, port), _Kopru)
     print("Basak web koprusu: http://%s:%d  (%s erisim)"
           % ("127.0.0.1" if not dis else adres, port,
