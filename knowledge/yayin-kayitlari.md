@@ -79,3 +79,18 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   **Açık bulgu:** `preview` dalı `main`den 6 commit geride/ayrık
   (`5131b38`, 38 dosya); §10'daki "preview = main aynası" kuralı bugün
   ihlal durumunda. Zorla eşitleme yapılmadı — içe alma kararı Casper'ın.
+- 2026-10-21: `da4acd0` (merge) — önizleme ana dala alındı; **mirror kuralı
+  yeniden sağlandı** (main = preview = `da4acd0`, zorlama yok, fast-forward).
+  Kapsam: `sube_bul` (marka + konum + yarıçapla OpenStreetMap Overpass'tan
+  kayıtlı şubeler), üretilen görselin `/gorsel/{ad}` rotasından çizilmesi ve
+  6 dosyadaki sayaç çakışmasının tek gerçeğe göre çözümü. Ajan kataloğu
+  **59 → 60 araç**, yetenek alanı **16**; `sayfa_bakis` ile `sube_bul`
+  ikisi de kayıtlı, tekrar yok (`validate_registry().ok == True`).
+  Yerel kapı: **1477 test geçti / 31 atlandı**; ruff temiz; jsdom **14/14**;
+  `node --check` üç betikte temiz.
+  **Canlı kanıt (bu kez derleme içeriği de doğrulandı):** `/gorsel/deneme.jpg`
+  → **401 `{"error":"giris gerekli"}`** — bu rota yalnız yeni derlemede var;
+  eski derlemede FastAPI'nin `{"detail":"Not Found"}` 404'ü dönerdi. Ayrıca
+  `/healthz` 200, `/` 200.
+  Önceki maddedeki "preview 6 commit ayrık" notu bu merge ile geçersizdir;
+  kayıt düzeltilerek değil, eklenerek tutulur.
