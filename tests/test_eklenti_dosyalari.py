@@ -45,11 +45,13 @@ def test_izinler_beklenen_kume():
     manifest = json.loads(_oku("manifest.json"))
     assert set(manifest["permissions"]) == {
         "storage", "tabs", "scripting", "sidePanel"}
-    # ws://127.0.0.1 sart: arka plan betigi yerel Basak koprusune
-    # WebSocket acar; ana makine izni yoksa baglanti sessizce kurulamaz.
+    # wss:// sart: eklenti artik BULUT kanalina baglanir (2026-10-21).
+    # ws://127.0.0.1 yalniz yerel gelistirme icin listede kalir.
     assert set(manifest["host_permissions"]) == {
         "http://*/*", "https://*/*",
-        "ws://127.0.0.1/*", "http://127.0.0.1/*"}
+        "ws://127.0.0.1/*", "http://127.0.0.1/*",
+        "wss://basak-vercel.vercel.app/*",
+        "https://basak-vercel.vercel.app/*"}
 
 
 def test_panelde_satir_ici_script_yok():

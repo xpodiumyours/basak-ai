@@ -138,9 +138,23 @@ def cevabi_coz(cevap):
 
 
 def sayfa_bakis(baslangic=0, adet=tarayici_goz.VARSAYILAN_ADET, kullanici=None):
-    """Kullanicinin acik sekmesindeki sayfayi modele okunur halde doner."""
-    ham = KOPRU.iste("sayfa_gozlem", {"baslangic": baslangic, "adet": adet},
-                     kullanici=kullanici)
+    """Kullanicinin acik sekmesindeki sayfayi modele okunur halde doner.
+
+    Aktif bir WEB SOCKET kanali varsa (bulut yolu) istek o kanaldan gider:
+    boylece cagri, eklentinin bagli oldugu instance uzerinde kalir ve
+    instance'lar arasi yonlendirme gerekmez. Kanal yoksa eski yerel kopru
+    (127.0.0.1) kullanilir.
+    """
+    from tools import tarayici_kanal
+
+    kanal = tarayici_kanal.aktif_kanal()
+    if kanal is not None:
+        ham = kanal.istek("sayfa_gozlem",
+                          {"baslangic": baslangic, "adet": adet})
+    else:
+        ham = KOPRU.iste("sayfa_gozlem",
+                         {"baslangic": baslangic, "adet": adet},
+                         kullanici=kullanici)
     sonuc = cevabi_coz(ham)
     if "error" in sonuc:
         return sonuc

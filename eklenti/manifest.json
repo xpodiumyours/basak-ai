@@ -9,7 +9,9 @@
     "http://*/*",
     "https://*/*",
     "ws://127.0.0.1/*",
-    "http://127.0.0.1/*"
+    "http://127.0.0.1/*",
+    "wss://basak-vercel.vercel.app/*",
+    "https://basak-vercel.vercel.app/*"
   ],
   "background": { "service_worker": "arka.js" },
   "content_scripts": [

@@ -38,6 +38,12 @@ if os.environ.get("VERCEL"):
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
+# Tarayici eklentisinin BULUT kanali: /api/eklenti (WebSocket).
+# Tek beyin kurali korunur — kanal yalniz tasiyicidir (chat/eklenti_ws.py).
+from chat.eklenti_ws import router as _eklenti_router  # noqa: E402
+
+app.include_router(_eklenti_router)
+
 _BEYIN = None
 _TOOLS = None
 _PREVIEW_COOKIE = "basak_preview_oturum"

@@ -5,7 +5,9 @@
  * (AGENTS.md §9: beyin çekirdekte, eklenti yalnız göz ve el).
  */
 
-const VARSAYILAN_SUNUCU = "ws://127.0.0.1:8788";
+// BULUT kanali (2026-10-21): eklenti artik canli Basak'a baglanir.
+// Yerel gelistirme icin panelden adresi ws://127.0.0.1:8788 yapilabilir.
+const VARSAYILAN_SUNUCU = "wss://basak-vercel.vercel.app/api/eklenti";
 const EN_COK_BEKLEME = 30000;
 // Servis calisani bosta ~30 sn sonra olur; acik WebSocket'i canli tutmak
 // icin duzenli ping gonderilir. Sunucu islemsiz mesaji yanitsiz yutar.
