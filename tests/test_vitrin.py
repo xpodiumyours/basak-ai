@@ -12,7 +12,7 @@ yapabilir?" bölümünün geri gelmezliği burada kilitlenir:
 - cipler sahte/hazir cevap DEGILDIR: iclerinde donmus yanit yoktur,
   metin kullanici mesaji olarak chat.flow.mesaj_isle'den gecer.
 
-Cache surumu kilidi (chat.css?v=11) tests/test_vercel_stream.py'dedir.
+Cache surumu kilidi (chat.css?v=13 / app.js?v=22) tests/test_vercel_stream.py'dedir.
 """
 
 import os

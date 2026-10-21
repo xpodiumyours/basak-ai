@@ -145,6 +145,12 @@ function satirIci(s) {
     kodlar.push(ic);
     return "\u0000" + (kodlar.length - 1) + "\u0001";
   });
+  // Gorseller: yalniz ayni kokenli /gorsel/ yolu (dis sunucudan gorsel cekilmez).
+  const gorseller = [];
+  s = s.replace(/!\[([^\]\n]*)\]\((\/gorsel\/[^\s)<>"]+)\)/g, (m, alt, src) => {
+    gorseller.push('<img class="answer-image" src="' + src + '" alt="' + alt + '" loading="lazy">');
+    return "\u0004" + (gorseller.length - 1) + "\u0005";
+  });
   // Markdown bağlantılarını placeholder'a al (otomatik link onları bozmasın).
   const linkler = [];
   s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, yazi, url) => {
@@ -160,6 +166,7 @@ function satirIci(s) {
   s = s.replace(/(^|[\s(])(https?:\/\/[^\s<>)]+)/g,
     '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
   s = s.replace(/\u0002(\d+)\u0003/g, (m, i) => linkler[i]);
+  s = s.replace(/\u0004(\d+)\u0005/g, (m, i) => gorseller[i]);
   s = s.replace(/\u0000(\d+)\u0001/g, (m, i) => "<code>" + kodlar[i] + "</code>");
   return s;
 }

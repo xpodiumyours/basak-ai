@@ -277,6 +277,10 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em;
 }
 .message-row.user .icerik code{background:rgba(255,255,255,.15)}
+/* Uretilen gorsel (tools/gorsel -> /gorsel/<ad>): tek origin, dis sunucu yok.
+   Balon 65ch'e kisitli oldugu icin genislik sinirlanmazsa 1024px'lik
+   gorsel tasan. Mevcut --line/--soft belirtecleri kullanildi. */
+.icerik .answer-image{display:block;max-width:100%;height:auto;margin:0 0 12px;border:1px solid var(--line);border-radius:14px;background:var(--soft)}
 /* Cevap metni bicimi (web/app.js bicimle): mevcut --ink/--muted/--line/--soft */
 .icerik>:first-child{margin-top:0}
 .icerik>:last-child{margin-bottom:0}
