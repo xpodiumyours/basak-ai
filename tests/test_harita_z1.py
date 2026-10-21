@@ -336,7 +336,7 @@ class TestDortYer:
     def test_alan_sayisi_ve_namespace_degismedi(self):
         """Yeni arac AYNI alana girdi: namespace 15 kalir."""
         from chat.agent_protocol import ALAN_ACIKLAMALARI, YETENEK_ALANLARI
-        assert len(YETENEK_ALANLARI) == 15
+        assert len(YETENEK_ALANLARI) == 16
         assert set(ALAN_ACIKLAMALARI) == set(YETENEK_ALANLARI)
 
     def test_alan_aciklamasi_koordinati_soyler(self):
@@ -355,8 +355,8 @@ class TestDortYer:
         from tools.capabilities import validate_registry
         sonuc = validate_registry()
         assert sonuc["ok"] is True
-        assert sonuc["tool_count"] == 58
-        assert sonuc["namespace_count"] == 15
+        assert sonuc["tool_count"] == 59
+        assert sonuc["namespace_count"] == 16
 
 
 # ── Uctan uca: sirket_ara adresi -> koordinat (cevrimdisi) ────────

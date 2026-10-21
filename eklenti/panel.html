@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Başak</title>
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header class="ust">
+    <span class="orb" aria-hidden="true"></span>
+    <div class="ad">BAŞAK<small>bu sayfada</small></div>
+    <span id="durum" class="rozet kapali" role="status">kapalı</span>
+  </header>
+
+  <section class="sohbet">
+    <div id="mesajlar" class="mesajlar" aria-live="polite">
+      <div class="bos">Başak'a bu sayfayla ilgili bir şey sor. Sayfayı kendi okur.</div>
+    </div>
+    <form id="yaz" class="yaz">
+      <textarea id="metin" rows="2" spellcheck="false"
+        placeholder="Örn: bu ekranda ne var, ne yapabilirim?"></textarea>
+      <button id="gonder" class="gonder" type="submit" aria-label="Gönder">↑</button>
+    </form>
+  </section>
+
+  <details class="kutu" id="baglanti-kutusu">
+    <summary>Bağlantı</summary>
+    <label for="sunucu">Başak'ın adresi</label>
+    <input id="sunucu" type="text" spellcheck="false" value="ws://127.0.0.1:8788">
+    <label for="anahtar">Anahtar (varsa)</label>
+    <input id="anahtar" type="password" spellcheck="false" placeholder="ayarlar.json → eklenti_anahtari">
+    <button id="baglan" class="ikincil" type="button">Bağlan</button>
+    <p id="hata" class="hata" role="alert"></p>
+  </details>
+
+  <details class="kutu">
+    <summary>Bu sayfayı gör</summary>
+    <p class="ipucu">Başak'ın bu sekmede ne gördüğünü gösterir. Hiçbir şeye basmaz.</p>
+    <button id="onizle" class="ikincil" type="button">Gözlem al</button>
+    <p id="ozet" class="ozet"></p>
+    <ul id="liste" class="liste"></ul>
+  </details>
+
+  <footer class="alt">
+    <p class="not">Sohbet Başak'ın çekirdeğinden geçer; eklenti karar vermez, model çağırmaz. Onayın olmadan hiçbir şeye basmaz.</p>
+  </footer>
+
+  <script src="panel.js"></script>
+</body>
+</html>

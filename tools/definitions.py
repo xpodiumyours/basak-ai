@@ -11,7 +11,7 @@ yazma, sabit komut, beyaz liste).
 (2026-09-15: toplam 52; ara-toplam formulu bayat oldugu icin kaldirildi.
 2026-09-23: hava_durumu eklendi — 53. 2026-10-01: harita_goster eklendi —
 56; ayni gun konum_coz eklendi — 57; 2026-10-17: update_task_status
-eklendi — guncel toplam 58; sayi testlerle kilitli,
+eklendi; 2026-10-21: sayfa_bakis eklendi — guncel toplam 59; sayi testlerle kilitli,
 bak: tests/test_seviye0_sozlesme.py + tests/test_agent_protocol.py.)
 """
 
@@ -623,6 +623,21 @@ FREETOOLS_CALISTIR = _arac(
     ["adres", "form"],
 )
 
+SAYFA_BAKIS = _arac(
+    "sayfa_bakis",
+    "Kullanicinin acik sekmesindeki sayfayi okur. Doner: sayfa (url, "
+    "baslik, nesil), ogeler (ref, rol, ad, deger, kapali) ve sayfalama "
+    "(toplam, baslangic, donen, sonraki_baslangic). sayfalama."
+    "sonraki_baslangic varsa ayni arac o degerle surdurulur; oge sayisinda "
+    "tavan yoktur. Bagli tarayici istemcisi yoksa hata doner. Sayfada "
+    "tiklama ve yazma yapmaz.",
+    {"baslangic": {"type": "integer",
+                    "description": "Oge sirasi (bossa 0)"},
+     "adet": {"type": "integer",
+              "description": "Sayfa basina oge sayisi (1-200, bossa 60)"}},
+    [],
+)
+
 TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
           KITAP_ARA, DERIN_OKU, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
@@ -637,7 +652,8 @@ TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
          FATURA_OKU, KATALOG_KUR, KATALOG_GETIR, KATALOG_LISTELE,
          KATALOG_FIYAT, KATALOG_ONAYLA, YETKI_BELGESI, URUN_ESLESTIR,
          YAYIN_PAKETI, CIKTI_OKU,
-         FREETOOLS_ARA, FREETOOLS_CALISTIR]
+         FREETOOLS_ARA, FREETOOLS_CALISTIR,
+         SAYFA_BAKIS]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

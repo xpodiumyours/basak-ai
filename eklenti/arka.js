@@ -1,0 +1,190 @@
+/* eklenti/arka.js — servis çalışanı: Başak'a bağlanır, sayfayı iletir.
+ *
+ * Tek işi var: çekirdekten gelen "sayfa_gozlem" isteğini açık sekmeye
+ * sorup cevabı geri yazmak. Karar vermez, sayfa yorumlamaz, model çağırmaz
+ * (AGENTS.md §9: beyin çekirdekte, eklenti yalnız göz ve el).
+ */
+
+const VARSAYILAN_SUNUCU = "ws://127.0.0.1:8788";
+const EN_COK_BEKLEME = 30000;
+
+let baglanti = null;
+let deneme = 0;
+let durum = "kapali";      // kapali | baglaniyor | bagli | hata
+let sonHata = "";
+let sayac = 0;
+let cagriSayaci = 0;
+const bekleyenSohbet = new Map();   // panel mesaji -> cozucu
+
+async function ayarlariAl() {
+  const veri = await chrome.storage.local.get(["sunucu", "anahtar"]);
+  return {
+    sunucu: String(veri.sunucu || VARSAYILAN_SUNUCU).trim(),
+    anahtar: String(veri.anahtar || "").trim()
+  };
+}
+
+function durumuYaz(yeni, hata) {
+  durum = yeni;
+  sonHata = hata || "";
+  chrome.action.setBadgeText({ text: yeni === "bagli" ? "●" : "" });
+  chrome.action.setBadgeBackgroundColor({ color: "#00e5ff" });
+}
+
+async function gozlemAl() {
+  const sekmeler = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const sekme = sekmeler && sekmeler[0];
+  if (!sekme || !sekme.id) throw new Error("açık sekme bulunamadı");
+  try {
+    return await chrome.tabs.sendMessage(sekme.id, { tip: "gozlem" });
+  } catch (hata) {
+    // Eklenti kurulmadan önce açılmış sekmede içerik betiği yoktur.
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: sekme.id }, files: ["icerik.js"] });
+      return await chrome.tabs.sendMessage(sekme.id, { tip: "gozlem" });
+    } catch (hata2) {
+      throw new Error("bu sekme okunamıyor (chrome:// veya mağaza sayfası olabilir)");
+    }
+  }
+}
+
+function sohbetGonder(metin) {
+  return new Promise((coz) => {
+    const yazi = metin.trim();
+    if (!yazi) { coz({ ok: false, hata: "mesaj boş" }); return; }
+    if (!baglanti || baglanti.readyState !== WebSocket.OPEN) {
+      coz({ ok: false, hata: "Bağlantı yok — önce Bağlan'a bas." });
+      return;
+    }
+    cagriSayaci += 1;
+    const id = "p" + cagriSayaci;
+    const zaman = setTimeout(() => {
+      bekleyenSohbet.delete(id);
+      coz({ ok: false, hata: "Başak 90 saniye içinde yanıt vermedi." });
+    }, 90000);
+    bekleyenSohbet.set(id, { coz, zaman });
+    baglanti.send(JSON.stringify({ id, islem: "sohbet", veri: { metin: yazi } }));
+  });
+}
+
+async function islemYap(mesaj) {
+  if (mesaj.islem === "sayfa_gozlem") {
+    try {
+      const gozlem = await gozlemAl();
+      if (gozlem && gozlem.hata) {
+        return { id: mesaj.id, ok: false, hata: gozlem.hata };
+      }
+      return { id: mesaj.id, ok: true, sonuc: gozlem };
+    } catch (hata) {
+      return { id: mesaj.id, ok: false, hata: String(hata.message || hata) };
+    }
+  }
+  return { id: mesaj.id, ok: false, hata: "bilinmeyen işlem: " + mesaj.islem };
+}
+
+function yenidenDene() {
+  if (deneme > 0) return;
+  const bekle = Math.min(EN_COK_BEKLEME, 1000 * Math.pow(2, Math.min(deneme, 5)));
+  deneme += 1;
+  setTimeout(() => { baglan(); }, bekle);
+}
+
+async function baglan() {
+  if (baglanti && (baglanti.readyState === WebSocket.OPEN ||
+                   baglanti.readyState === WebSocket.CONNECTING)) return;
+  const { sunucu, anahtar } = await ayarlariAl();
+  const adres = anahtar
+    ? sunucu + (sunucu.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(anahtar)
+    : sunucu;
+  durumuYaz("baglaniyor");
+  let ws;
+  try {
+    ws = new WebSocket(adres);
+  } catch (hata) {
+    durumuYaz("hata", "adres geçersiz: " + sunucu);
+    return;
+  }
+  baglanti = ws;
+
+  ws.onopen = () => {
+    deneme = 0;
+    durumuYaz("bagli");
+  };
+  ws.onclose = () => {
+    if (durum !== "hata") durumuYaz("kapali", "bağlantı kapandı");
+    baglanti = null;
+    yenidenDene();
+  };
+  ws.onerror = () => {
+    durumuYaz("hata", "Başak'a ulaşılamadı: " + sunucu);
+  };
+  ws.onmessage = async (olay) => {
+    let mesaj;
+    try {
+      mesaj = JSON.parse(olay.data);
+    } catch (hata) {
+      return;
+    }
+    sayac += 1;
+
+    // Panel sohbetinin cevabı mı?
+    if (!mesaj.islem && mesaj.id && bekleyenSohbet.has(mesaj.id)) {
+      const kayit = bekleyenSohbet.get(mesaj.id);
+      bekleyenSohbet.delete(mesaj.id);
+      clearTimeout(kayit.zaman);
+      kayit.coz(mesaj);
+      return;
+    }
+
+    // Çekirdekten gelen istek (sayfa_gozlem).
+    const cevap = await islemYap(mesaj);
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(cevap));
+  };
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+  baglan();
+});
+chrome.runtime.onStartup.addListener(() => { baglan(); });
+
+chrome.runtime.onMessage.addListener((mesaj, _gonderen, yanitla) => {
+  if (!mesaj || !mesaj.tip) return;
+
+  if (mesaj.tip === "durum") {
+    yanitla({ durum, sonHata, sayac });
+    return true;
+  }
+  if (mesaj.tip === "baglan") {
+    (async () => {
+      if (mesaj.sunucu !== undefined || mesaj.anahtar !== undefined) {
+        await chrome.storage.local.set({
+          sunucu: String(mesaj.sunucu || "").trim() || VARSAYILAN_SUNUCU,
+          anahtar: String(mesaj.anahtar || "").trim()
+        });
+      }
+      if (baglanti) { try { baglanti.close(); } catch (hata) {} baglanti = null; }
+      deneme = 0;
+      await baglan();
+      yanitla({ durum, sonHata });
+    })();
+    return true;
+  }
+  if (mesaj.tip === "sohbet") {
+    (async () => { yanitla(await sohbetGonder(String(mesaj.metin || ""))); })();
+    return true;
+  }
+  if (mesaj.tip === "onizleme") {
+    (async () => {
+      try {
+        yanitla({ ok: true, gozlem: await gozlemAl() });
+      } catch (hata) {
+        yanitla({ ok: false, hata: String(hata.message || hata) });
+      }
+    })();
+    return true;
+  }
+  return undefined;
+});
+
+baglan();

@@ -56,6 +56,7 @@ YETENEK_ALANLARI = {
     ),
     "masaustu": ("ac_uygulama",),
     "hesap": ("hesapla",),
+    "tarayici": ("sayfa_bakis",),
     "freetools": ("freetools_ara", "freetools_calistir"),
 }
 
@@ -83,6 +84,8 @@ ALAN_ACIKLAMALARI = {
     "hesap": "guvenli matematik hesabi",
     "freetools": "freetools.org katalogunda arama ve oradaki bir araci "
                  "tarayicida calistirip sonucunu okuma",
+    "tarayici": "kullanicinin acik sekmesindeki sayfayi okuma (oge listesi, "
+                "metin ve konum); tikla/yaz yok",
 }
 
 _ALAN_METNI = "; ".join(

@@ -34,6 +34,7 @@ DURUM_METNI = {
     "kitap_ara": "Kitaplarda aranıyor",
     "derin_oku": "Derin okunuyor",
     "sayfa_oku": "Sayfa okunuyor",
+    "sayfa_bakis": "Açık sayfa okunuyor",
     "read_file": "Dosya okunuyor",
     "list_files": "Klasör listeleniyor",
     "git_durum": "Proje durumu ölçülüyor",

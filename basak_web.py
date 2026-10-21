@@ -118,6 +118,65 @@ class _OlayAyiklayici:
             logger.debug("UI kodu cozulemedi: %r", kod[:120], exc_info=True)
 
 
+class _EklentiAyiklayici:
+    """Eklenti paneli icin olay ayiklayici: son cevabi toplar.
+
+    Ayni cekirdek yolu (mesaj_isle) calisir; fark yalniz tasiyicidir —
+    HTTP olay kuyrugu yerine tek cevap sozlugu.
+    """
+
+    def __init__(self):
+        self.cevap = ""
+        self.kaynak = ""
+        self.hata = ""
+        self.bitti = False
+
+    def olay(self, tur, **veri):
+        """Durum olaylari simdilik yalniz iz birakir (akis sonra eklenecek)."""
+        logger.debug("eklenti olayi: %s %s", tur, sorted(veri))
+
+    def __call__(self, kod):
+        try:
+            if not str(kod).startswith("BasakUI."):
+                return
+            ad, icerik = kod[8:].split("(", 1)
+            parca = json.loads("[%s]" % icerik.rsplit(")", 1)[0])
+            if ad == "bitir":
+                self.bitti = True
+                self.cevap = str(parca[0] or "")
+                self.kaynak = str(parca[1] or "") if len(parca) > 1 else ""
+            elif ad == "error":
+                self.hata = str(parca[0] or "")
+        except Exception:
+            logger.debug("eklenti UI kodu cozulemedi: %r", str(kod)[:120])
+
+
+def _eklenti_sohbet(metin, kullanici=None):
+    """Eklenti panelinden gelen mesaj — TEK cekirdek girisi.
+
+    Kendi beyin/arac zinciri YOKTUR: chat.flow.mesaj_isle cagrilir.
+    Boylece panel, web ekrani ve Telegram ayni Basak'i konusturur.
+    """
+    metin = str(metin or "").strip()
+    if not metin:
+        raise ValueError("mesaj bos")
+    if BEYIN is None or TOOLS is None:
+        raise RuntimeError("cekirdek hazir degil")
+
+    from chat.flow import mesaj_isle
+    from chat.kimlik import kullanici_kur
+    from chat.prompts import kisilik_blogu
+
+    if kullanici:
+        kullanici_kur(kullanici)
+    ayikla = _EklentiAyiklayici()
+    mesaj_isle(metin, BEYIN, kisilik_blogu(kullanici, misafir=False),
+               ayikla, TOOLS)
+    if ayikla.hata and not ayikla.cevap:
+        raise RuntimeError(ayikla.hata)
+    return {"cevap": ayikla.cevap, "kaynak": ayikla.kaynak}
+
+
 def _ayar(anahtar, varsayilan=None):
     try:
         with open(AYARLAR, "r", encoding="utf-8-sig") as f:
@@ -565,6 +624,18 @@ def main():
     print("Basak web koprusu: http://%s:%d  (%s erisim)"
           % ("127.0.0.1" if not dis else adres, port,
              "DIS + token" if dis else "yalniz bu bilgisayar"))
+
+    # Tarayici eklentisi koprusu (goz). Yerel WebSocket; eklenti baglanirsa
+    # `sayfa_bakis` aracı acik sekmeyi okuyabilir. Kapatmak icin
+    # ayarlar.json -> "eklenti_acik": false.
+    if _ayar("eklenti_acik", True):
+        try:
+            from tools import tarayici_ws
+            eklenti_koprusu = tarayici_ws.baslat(sohbet_isle=_eklenti_sohbet)
+            print("Basak eklenti koprusu: ws://127.0.0.1:%d  (eklenti baglanabilir)"
+                  % eklenti_koprusu.port)
+        except Exception as hata:            # noqa: BLE001 - sohbet kesilmesin
+            logger.warning("eklenti koprusu acilmadi: %s", hata)
     print("Kapatmak icin pencereyi kapat.")
     try:
         sunucu.serve_forever()

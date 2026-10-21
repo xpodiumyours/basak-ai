@@ -45,6 +45,8 @@ ALAN_SORULARI = {
     # Kapsam 13 -> 15 (chat.agent_protocol.YETENEK_ALANLARI ile esit).
     "freetools": "Ucretsiz cevrimici arac katalogunda bir arac aramam gerekiyor; uygun aracı seç.",
     "harita": "Bir adresin haritada gosterilmesi veya konumunun cozulmesi gerekiyor; uygun aracı seç.",
+    # 2026-10-21: tarayici alani eklendi (sayfa_bakis). Kapsam 15 -> 16.
+    "tarayici": "Kullanicinin acik sekmesindeki sayfayi okumam gerekiyor; uygun aracı seç.",
 }
 
 

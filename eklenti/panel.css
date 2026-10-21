@@ -1,0 +1,252 @@
+/* eklenti/panel.css — Başak paleti (ui/style.css :root ile aynı kimlik). */
+:root {
+  --bg: #07070d;
+  --bg-girdi: rgba(5, 10, 20, 0.85);
+  --kenar: rgba(0, 255, 255, 0.18);
+  --kenar-guclu: rgba(0, 255, 255, 0.35);
+  --metin: #c8f0ff;
+  --metin-soluk: #4a6a85;
+  --parlak: #e6fbff;
+  --vurgu: #00e5ff;
+  --yesil: #00ff88;
+  --kirmizi: #ff3b5c;
+  --amber: #ffb020;
+  --yaricap: 6px;
+  --mono: 'Fira Code', 'Cascadia Mono', Consolas, monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  background: var(--bg);
+  color: var(--metin);
+  display: flex;
+  flex-direction: column;
+  min-width: 300px;
+}
+
+/* ── Üst şerit ─────────────────────────────────────────────────── */
+.ust {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--kenar);
+  background: #080b12;
+  flex: 0 0 auto;
+}
+
+.orb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex: 0 0 20px;
+  background: radial-gradient(circle at 34% 30%, #bff9ff, var(--vurgu) 42%, #00586b 100%);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.45);
+}
+
+.ad { color: var(--parlak); font-size: 13px; letter-spacing: 0.5px; }
+.ad small { display: block; color: var(--metin-soluk); font-size: 9.5px; letter-spacing: 0.6px; }
+
+.rozet {
+  margin-left: auto;
+  font-size: 9.5px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+  border: 1px solid var(--kenar);
+  color: var(--metin-soluk);
+}
+.rozet.iyi { color: #00212b; background: var(--yesil); border-color: var(--yesil); }
+.rozet.kotu { color: var(--kirmizi); border-color: rgba(255, 59, 92, 0.5); }
+
+/* ── Sohbet ────────────────────────────────────────────────────── */
+.sohbet {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mesajlar {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bos { color: var(--metin-soluk); font-size: 11px; line-height: 1.6; padding: 4px 2px; }
+
+.balon {
+  max-width: 92%;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.balon.kullanici {
+  align-self: flex-end;
+  background: rgba(0, 229, 255, 0.12);
+  border: 1px solid var(--kenar-guclu);
+  color: var(--parlak);
+  border-bottom-right-radius: 3px;
+}
+.balon.basak {
+  align-self: flex-start;
+  background: rgba(10, 20, 35, 0.72);
+  border: 1px solid var(--kenar);
+  border-bottom-left-radius: 3px;
+}
+.balon.hata {
+  align-self: flex-start;
+  color: var(--kirmizi);
+  border: 1px solid rgba(255, 59, 92, 0.4);
+  background: rgba(255, 59, 92, 0.07);
+  font-size: 11px;
+}
+.balon.bekliyor { color: var(--metin-soluk); font-size: 11px; }
+
+.kaynak {
+  align-self: flex-start;
+  color: var(--metin-soluk);
+  font-size: 9.5px;
+  padding: 0 4px;
+  overflow-wrap: anywhere;
+}
+
+.yaz {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  padding: 9px 12px 12px;
+  border-top: 1px solid var(--kenar);
+  background: #05070c;
+}
+
+.yaz textarea {
+  flex: 1 1 auto;
+  resize: none;
+  min-height: 40px;
+  max-height: 110px;
+  padding: 9px 10px;
+  border-radius: var(--yaricap);
+  border: 1px solid var(--kenar);
+  background: var(--bg-girdi);
+  color: var(--parlak);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  outline: none;
+}
+.yaz textarea:focus { border-color: var(--vurgu); box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.12); }
+
+.gonder {
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--vurgu);
+  background: var(--vurgu);
+  color: #00212b;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.gonder:hover:not(:disabled) { box-shadow: 0 0 14px rgba(0, 229, 255, 0.45); }
+.gonder:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Katlanır bölümler ─────────────────────────────────────────── */
+.kutu {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  border-top: 1px solid var(--kenar);
+}
+
+summary {
+  cursor: pointer;
+  font-size: 10px;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: var(--vurgu);
+  list-style: none;
+}
+summary::-webkit-details-marker { display: none; }
+summary::after { content: " +"; color: var(--metin-soluk); }
+details[open] summary::after { content: " −"; }
+
+label {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--metin-soluk);
+  margin: 8px 0 3px;
+}
+
+input {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--yaricap);
+  border: 1px solid var(--kenar);
+  background: var(--bg-girdi);
+  color: var(--parlak);
+  font-family: inherit;
+  font-size: 11.5px;
+  outline: none;
+}
+input:focus { border-color: var(--vurgu); box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.12); }
+
+.ikincil {
+  width: 100%;
+  height: 29px;
+  margin-top: 9px;
+  border-radius: var(--yaricap);
+  border: 1px solid var(--kenar-guclu);
+  background: transparent;
+  color: var(--vurgu);
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.ikincil:hover:not(:disabled) { background: rgba(0, 229, 255, 0.08); }
+.ikincil:disabled { opacity: 0.5; cursor: default; }
+
+.hata { color: var(--kirmizi); font-size: 10.5px; margin-top: 6px; }
+.ipucu { color: var(--metin-soluk); font-size: 10.5px; margin: 6px 0 0; }
+.ozet { color: var(--parlak); font-size: 11px; margin: 8px 0 4px; }
+
+.liste { list-style: none; display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; }
+.liste:empty { display: none; }
+.liste li {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 10.5px;
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: rgba(0, 229, 255, 0.04);
+  border-left: 2px solid rgba(0, 229, 255, 0.22);
+}
+.liste .rol { color: var(--metin-soluk); flex: 0 0 58px; }
+.liste .ad { color: var(--metin); flex: 1 1 auto; overflow-wrap: anywhere; }
+.liste em { color: var(--amber); font-style: normal; font-size: 10px; }
+.liste .kapali { color: var(--kirmizi); font-size: 9px; text-transform: uppercase; }
+.liste .fazla { color: var(--metin-soluk); background: transparent; border-left-color: transparent; }
+
+.alt { flex: 0 0 auto; padding: 0 12px 12px; }
+.not { color: var(--metin-soluk); font-size: 9px; line-height: 1.5; }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-thumb { background: rgba(0, 229, 255, 0.15); border-radius: 3px; }

@@ -17,6 +17,7 @@ fastapi==0.117.1
 # Sunucu: Koyeb run command "uvicorn app:app" (Vercel'de platform kendisi
 # calistirdigi icin gerekli degildi; Linux/Koyeb icin ZORUNLU).
 uvicorn==0.51.0
+websockets==16.1.1
 
 # ── Masaustu arayuz ────────────────────────────────────────────────
 pywebview==6.2.1; sys_platform == "win32"
