@@ -44,6 +44,11 @@ _STATIK = {
     "/lab.js": ("lab.js", "application/javascript; charset=utf-8"),
 }
 
+# POST govdesi tavanlari. Sohbet govdesi gecmisi ve ekleri tasir; 16 KiB
+# gercek kullanimda doluyordu. Giris govdesi kucuk kalir.
+_SOHBET_GOVDE_SINIRI = 262144
+_GIRIS_GOVDE_SINIRI = 4096
+
 # Kimlik istisnaları: giris/сagri disinda /api/* kimlik ister.
 # Saglik (/api/durum) acik kalir — kopru durumu olcer.
 _KIMLIK_ISTISNA = ("/api/durum",)
@@ -327,19 +332,62 @@ class _Kopru(BaseHTTPRequestHandler):
         kullanici_kur(kid)
         return False
 
+    def _istek_govdesi(self, sinir):
+        """POST govdesini okur: `Content-Length` ya da parcali (chunked).
+
+        Neden: onizleme/vekil katmani govdeyi chunked iletiyor; yalniz
+        Content-Length'e bakan eski kod her mesaji "govde boyu" diye
+        reddediyordu (olculdu: curl normal 200, chunked 400).
+        """
+        kodlama = (self.headers.get("Transfer-Encoding") or "").lower()
+        if "chunked" in kodlama:
+            return self._parcali_govde(sinir)
+        try:
+            uzunluk = int(self.headers.get("Content-Length") or 0)
+        except (TypeError, ValueError):
+            raise ValueError("govde boyu")
+        if uzunluk < 0 or uzunluk > sinir:
+            raise ValueError("govde boyu")
+        return self.rfile.read(uzunluk) if uzunluk else b""
+
+    def _parcali_govde(self, sinir):
+        """Chunked govdeyi cozer; tavan asilirsa okumayi keser."""
+        parcalar, toplam = [], 0
+        while True:
+            satir = self.rfile.readline(1024)
+            if not satir:
+                raise ValueError("govde boyu")
+            try:
+                boy = int(satir.strip().split(b";")[0], 16)
+            except ValueError:
+                raise ValueError("govde boyu")
+            if boy == 0:
+                while True:                 # trailer satirlarini at
+                    iz = self.rfile.readline(1024)
+                    if iz in (b"\r\n", b"\n", b""):
+                        break
+                break
+            toplam += boy
+            if toplam > sinir:
+                raise ValueError("govde boyu")
+            parcalar.append(self.rfile.read(boy))
+            self.rfile.read(2)              # parca sonu CRLF
+        return b"".join(parcalar)
+
     def _giris_yap(self):
         """POST /api/giris — ad + sifre -> HttpOnly cookie."""
         import kullanici as kullanici_modulu
 
         try:
-            uzunluk = int(self.headers.get("Content-Length", "0"))
+            govde = self._istek_govdesi(_GIRIS_GOVDE_SINIRI)
         except ValueError:
-            uzunluk = 0
-        if uzunluk <= 0 or uzunluk > 4096:
+            self._gonder(400, {"error": "govde boyu"})
+            return
+        if not govde:
             self._gonder(400, {"error": "govde boyu"})
             return
         try:
-            veri = json.loads(self.rfile.read(uzunluk).decode("utf-8"))
+            veri = json.loads(govde.decode("utf-8"))
             ad = str(veri.get("ad", "")).strip()
             sifre = str(veri.get("sifre", ""))
         except (ValueError, UnicodeDecodeError):
@@ -493,14 +541,15 @@ class _Kopru(BaseHTTPRequestHandler):
             self._gonder(401, {"error": "token gecersiz"})
             return
         try:
-            uzunluk = int(self.headers.get("Content-Length", "0"))
+            govde = self._istek_govdesi(_SOHBET_GOVDE_SINIRI)
         except ValueError:
-            uzunluk = 0
-        if uzunluk <= 0 or uzunluk > 16384:
+            self._gonder(400, {"error": "govde boyu"})
+            return
+        if not govde:
             self._gonder(400, {"error": "govde boyu"})
             return
         try:
-            veri = json.loads(self.rfile.read(uzunluk).decode("utf-8"))
+            veri = json.loads(govde.decode("utf-8"))
             metin = str(veri.get("metin", "")).strip()
             # Misafir bayragi URL'den gelir (?misafir=1), metne bakilmaz.
             misafir = bool(veri.get("misafir", False))
