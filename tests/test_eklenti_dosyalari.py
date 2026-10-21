@@ -125,6 +125,49 @@ def test_panel_gecmisi_her_mesajla_gonderir():
     assert "gecmis:" in kaynak
 
 
+def test_sabit_eklenti_kimligi_kartla_ayni():
+    """Manifest'teki `key` kimliği sabitler; sohbet kartı bu kimliği arar.
+
+    Kimlik tutmazsa kart eklentiyi hiç görmez ve kullanıcı "kurulu"
+    bilgisini alamaz — sessiz kırılma olur.
+    """
+    import base64
+    import hashlib
+    import json
+
+    manifest = json.loads(_oku("manifest.json"))
+    anahtar = manifest.get("key")
+    assert anahtar, "manifest'te sabit `key` yok (kimlik her makinede değişir)"
+    ozet = hashlib.sha256(base64.b64decode(anahtar)).hexdigest()[:32]
+    eklenti_id = "".join(chr(ord("a") + int(h, 16)) for h in ozet)
+
+    kart = open(os.path.join(KOK, "web", "eklenti-kart.js"),
+                encoding="utf-8").read()
+    assert eklenti_id in kart, (eklenti_id, "karttaki kimlik manifest ile aynı değil")
+
+
+def test_sinyal_yalniz_basak_adreslerine_acik():
+    import json
+
+    manifest = json.loads(_oku("manifest.json"))
+    kaynaklar = manifest.get("web_accessible_resources") or []
+    assert kaynaklar, "sinyal kaynağı tanımlı değil"
+    dosyalar = [ad for k in kaynaklar for ad in k.get("resources", [])]
+    assert "sinyal.png" in dosyalar
+    for kayit in kaynaklar:
+        for desen in kayit.get("matches", []):
+            # Genel joker yasak: eklenti her siteye görünür olmamalı.
+            assert desen.startswith(("https://basak-vercel.vercel.app/",
+                                     "http://127.0.0.1:8787/",
+                                     "http://localhost:8787/")), desen
+
+
+def test_sinyal_dosyasi_gercek_png():
+    with open(os.path.join(EKLENTI, "sinyal.png"), "rb") as f:
+        baslik = f.read(8)
+    assert baslik == b"\x89PNG\r\n\x1a\n", baslik
+
+
 def test_onay_kapisi_panelde_ve_arka_ucta_var():
     """Tıklama/yazma kullanıcı onayı olmadan uygulanmamalı.
 

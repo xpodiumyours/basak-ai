@@ -660,3 +660,41 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   .work-redirect-input,.work-redirect-apply{height:40px}
   .answer-sources-list{display:grid;gap:8px}
 }
+
+/* ── Eklenti kartı (sohbet ekranı) ───────────────────────────────── */
+.eklenti-kart{
+  max-width:620px;margin:14px auto 0;padding:14px 16px;
+  border:1px solid rgba(210,210,216,.95);border-radius:16px;background:#fff;
+  box-shadow:var(--shadow-soft);text-align:left
+}
+.eklenti-ust{display:flex;align-items:center;gap:9px}
+.eklenti-ust strong{font-size:13.5px;letter-spacing:-.01em;color:var(--ink)}
+.eklenti-nokta{
+  width:8px;height:8px;border-radius:50%;flex:0 0 8px;background:#c3c3ca
+}
+.eklenti-nokta.kurulu{background:#22a06b;box-shadow:0 0 0 3px rgba(34,160,107,.16)}
+.eklenti-nokta.yok{background:#c3c3ca}
+.eklenti-nokta.bilinmiyor{background:#d6a545;box-shadow:0 0 0 3px rgba(214,165,69,.16)}
+.eklenti-kapat{
+  margin-left:auto;width:24px;height:24px;border:0;border-radius:8px;
+  background:transparent;color:#8a8a92;font-size:17px;line-height:1
+}
+.eklenti-kapat:hover{background:var(--soft);color:var(--ink)}
+.eklenti-durum{margin:7px 0 0;color:#5c5c64;font-size:12.5px;line-height:1.5}
+.eklenti-adimlar{margin:9px 0 0;padding-left:18px;color:#4d4d55;font-size:12.5px;line-height:1.65}
+.eklenti-adimlar li{margin:3px 0}
+.eklenti-adimlar a{text-decoration:underline;text-underline-offset:2px}
+.eklenti-adimlar code{
+  background:var(--soft);border-radius:5px;padding:1px 5px;font-size:11.5px
+}
+.eklenti-alt{
+  margin:10px 0 0;padding-top:9px;border-top:1px solid var(--line);
+  display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;
+  color:#84848c;font-size:11.5px
+}
+.eklenti-alt a{text-decoration:underline;text-underline-offset:2px}
+@media(max-width:760px), (hover:none) and (pointer:coarse) and (max-width:1100px){
+  .eklenti-kart{margin:12px 8px 0;padding:12px 13px}
+  .eklenti-durum,.eklenti-adimlar{font-size:12px}
+  .eklenti-alt{font-size:11px}
+}

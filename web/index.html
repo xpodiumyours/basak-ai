@@ -96,6 +96,23 @@
               <a href="/bilgilendirme.html">Ayrıntılar</a>
             </div>
 
+            <section id="eklentiKarti" class="eklenti-kart" aria-labelledby="eklentiBaslik" hidden>
+              <div class="eklenti-ust">
+                <span id="eklentiNokta" class="eklenti-nokta" aria-hidden="true"></span>
+                <strong id="eklentiBaslik">Başak'ı tarayıcında yanına al</strong>
+                <button id="eklentiKapat" class="eklenti-kapat" type="button" aria-label="Bu kartı kapat">×</button>
+              </div>
+              <p id="eklentiDurum" class="eklenti-durum" role="status"></p>
+              <ol id="eklentiAdimlar" class="eklenti-adimlar">
+                <li><a id="eklentiIndir" href="/eklenti/eklenti.zip" download>Eklentiyi indir (.zip)</a> ve bir klasöre çıkar.</li>
+                <li><code>chrome://extensions</code> → <b>Geliştirici modu</b>'nu aç.</li>
+                <li><b>Paketlenmemiş öğe yükle</b> → çıkardığın klasörü seç.</li>
+                <li>Başak simgesi → panel → <b>Bağlan</b>.</li>
+              </ol>
+              <p class="eklenti-alt"><span id="eklentiKimlik"></span>
+                <a href="/eklenti.html">Ayrıntılar, güvenlik ve sınırlar</a></p>
+            </section>
+
             <h2 class="quick-head">Benim için neler yapabilir?</h2>
             <div class="quick-actions" aria-label="Örnek görevler">
               <button class="quick-chip ornek" type="button">Bugün İstanbul'da hava nasıl?</button>
@@ -153,6 +170,7 @@
 
 <script src="/common.js?v=8"></script>
 <script src="/app.js?v=22"></script>
+<script src="/eklenti-kart.js?v=1"></script>
 <script src="/olcum.js?v=1" defer></script>
 </body>
 </html>

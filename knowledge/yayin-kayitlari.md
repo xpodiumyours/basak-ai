@@ -144,3 +144,17 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   sohbetine "açık sekmedeki Giriş yap düğmesine bas" yazıldı → cevap
   "eklentiyi kurup bağlanmanız gerekiyor" (kaynak: glm), uydurma yok.
   Kalıcı çözüm: bağlantı kaydını paylaşımlı depoya yazmak (sıradaki iş).
+- 2026-10-21: eklenti kurulumu **sohbet ekranına** taşındı (kişiye özel kart).
+  `web/eklenti-kart.js` + `#eklentiKarti`: kart bu tarayıcıda eklenti kurulu
+  mu diye `chrome-extension://<id>/sinyal.png` ile ölçer (1500 ms sınır;
+  cevap yoksa "bildirmedi" der, uydurmaz), "kapat" kararını Başak ID'sine
+  göre localStorage'da tutar, kimlik gelince Başak ID'sini yazar.
+  Kimlik sabitlendi: manifest'e `key` eklendi → eklenti kimliği her makinede
+  aynı (`dpldleggjfdcmddkmmfdijbbojgedmoj`). `web_accessible_resources`
+  yalnız Başak adreslerine açık (genel joker yok).
+  **Kanıt:** 1537 test / 31 atlandı; kart jsdom 7/7 (kurulu/yok/bilinmiyor/
+  kapat/kimlik); onay 6/6; eylem 13/13; ruff temiz.
+  **Sınır:** kart "kurulu mu" sorusunu yalnız sabit kimlikli kurulumda
+  bilir; eski (key'siz) kurulum farklı kimlik taşır → /eklenti.html SSS'ye
+  "kaldır + yeniden yükle" notu eklendi. Gerçek Chrome'da kartın görsel
+  doğrulaması yapılmadı.

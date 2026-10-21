@@ -123,6 +123,21 @@ def web_istemci(monkeypatch, tmp_path):
     return TestClient(app_modulu.app)
 
 
+def test_sohbet_sayfasinda_eklenti_karti_var(web_istemci):
+    """Kurulum sohbet ekranının kendisinde de olmalı (ayrı sayfaya mahkûm değil)."""
+    cevap = web_istemci.get("/")
+    assert cevap.status_code == 200, cevap.text
+    html = cevap.text
+    assert 'id="eklentiKarti"' in html
+    assert "eklenti-kart.js" in html
+    assert "/eklenti/eklenti.zip" in html
+
+    betik = web_istemci.get("/eklenti-kart.js")
+    assert betik.status_code == 200, betik.text
+    assert "chrome-extension://" in betik.text
+    assert "eklentiKarti" in betik.text
+
+
 def test_kurulum_sayfasi_yayinda(web_istemci):
     cevap = web_istemci.get("/eklenti.html")
     assert cevap.status_code == 200, cevap.text
@@ -142,7 +157,7 @@ def test_zip_paketi_calisan_dosyalari_tasir(web_istemci):
         adlar = set(paket.namelist())
 
     for gerekli in ("manifest.json", "arka.js", "icerik.js", "panel.js",
-                    "panel.html", "panel.css", "OKUBENI.md"):
+                    "panel.html", "panel.css", "OKUBENI.md", "sinyal.png"):
         assert gerekli in adlar, gerekli
     assert not any(ad.startswith("test/") for ad in adlar), adlar
     # Paket, kaynaktaki manifest ile aynı sürümü taşır.
