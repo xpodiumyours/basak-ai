@@ -602,7 +602,11 @@ def sube_bul(marka, konum, yaricap_km=None):
             denenen.append({"ayna": _PHOTON_TABANI, "durum": "hata",
                             "hata": p_hata or "beklenmeyen yanıt"})
 
-    if veri is None and not photon_ok:
+    # Bos Overpass govdesi "baktım, yok" demek DEGILDIR (osm.ch gibi bos
+    # veritabanli ayna 200 donuyor). Gercek arama sayilmasi icin ya sube
+    # ya da Photon yaniti gerekir; ikisi de yoksa acik hata doner.
+    gercek_arama = photon_ok or bool((veri or {}).get("elements"))
+    if not gercek_arama:
         ozet = "; ".join("%s: %s" % (_ayna_adi(k.get("ayna")),
                                      k.get("hata") or "basarisız")
                          for k in denenen)

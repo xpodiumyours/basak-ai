@@ -135,3 +135,17 @@ def test_yaricap_disi_kayit_girmez(monkeypatch, yaricap):
     monkeypatch.setattr("tools.harita._json_al", SahteHat())
     veri = _coz(sube_bul("Migros", MERKEZ, yaricap))
     assert all(s["mesafe_km"] <= yaricap for s in veri["subeler"])
+
+
+def test_bos_ayna_ve_photon_hatasi_hata_doner(monkeypatch):
+    """osm.ch gibi boş aynalar 200 döner; bu "baktım, yok" sayılmaz.
+
+    Ölçüldü (2026-10-21): boş gövdeli ayna + Photon hatası birleşince
+    sonuç "0 şube" görünüyordu; oysa gerçek bir arama yapılmamıştı.
+    """
+    monkeypatch.setattr("tools.harita._json_al",
+                        SahteHat(overpass=({"elements": []}, None),
+                                 photon=(None, "HTTP 429 Too Many Requests")))
+    sonuc = sube_bul("Migros", MERKEZ, 5)
+    assert "error" in sonuc, sonuc
+    assert "aynalar" in sonuc["error"]
