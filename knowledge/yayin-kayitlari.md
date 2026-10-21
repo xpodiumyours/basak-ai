@@ -52,3 +52,30 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   3 not eklendi, kilitli talimata tarihsel notlar, terk edilen plana
   başlık). Kod ve canlı işleyiş değişmedi.
   Canlı kanıt: yayın success + site 200.
+- 2026-10-21: `1d38f29` — tarayıcı gözü (59. araç) canlıya alındı.
+  Kapsam: `tools/tarayici_goz.py` (ham gözlem → numaralı, sayfalanabilir
+  öğe listesi; nesle bağlı ref, bayat ref reddi), `tools/tarayici_kopru.py`
+  (kişiye bağlı istemci defteri; sohbet sürerken sayfa isteği aynı kanaldan
+  cevaplanır), `tools/tarayici_ws.py` (yerel WS köprüsü: anahtar + uzantı
+  kaynağı denetimi), `eklenti/` (MV3; içerik betiği gizliyi atlar, şifre
+  değerini okumaz, yan panelde sohbet), `basak_web.py` (köprü açılışı;
+  panel mesajı `chat.flow.mesaj_isle`).
+  Ek düzeltme (`1d38f29` içinde): manifest'e `ws://127.0.0.1/*` izni
+  (yoksa yerel kanal sessizce kurulamaz) ve MV3 servis çalışanı için
+  20 sn ping (yoksa kanal ~30 sn'de düşer, Başak "bağlı değil" der).
+  Yerel kapı: **1439 test geçti / 31 atlandı**; `ruff` gerçek ikiliyle
+  temiz (`python -m ruff` PATH'te yoktu, venv'e kurulup koşuldu);
+  `node --check` üç betikte temiz; jsdom prova **14/14**.
+  Canlı kanıt (push'tan ~100 sn sonra): `/healthz` 200 `{"ok":true}`,
+  `/` 200 (7.331 b, başlık "Başak — Sohbet"), `/araclar` 200,
+  `/api/durum` 401 (kapı yerinde).
+  **Dürüst sınır:** yeni derlemenin içerik düzeyinde canlı olduğu
+  doğrulanamadı — `/healthz` sözleşmesi gövdeye sürüm koymayı yasaklıyor,
+  oturum açmadan `/api/durum` okunamıyor ve Vercel paneli erişimi yok.
+  Eklenti **bugün yalnız yerelde** çalışır: Vercel sunucusuz fonksiyonu
+  WebSocket tutamaz; bulut kanalı kalıcı bir alan (Koyeb/Oracle) ya da
+  Postgres tabanlı posta kutusu ister. Gerçek Chrome'da kurulum bu
+  ortamda denenemedi (tarayıcı yok).
+  **Açık bulgu:** `preview` dalı `main`den 6 commit geride/ayrık
+  (`5131b38`, 38 dosya); §10'daki "preview = main aynası" kuralı bugün
+  ihlal durumunda. Zorla eşitleme yapılmadı — içe alma kararı Casper'ın.
