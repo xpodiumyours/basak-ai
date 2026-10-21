@@ -402,7 +402,7 @@ MATRIS_DURUM = _arac(
 
 GORSEL_URET = _arac(
     "gorsel_uret",
-    "Aciklamadan gorsel uretir, dosyaya kaydeder. Doner: yol.",
+    "Aciklamadan gorsel uretir, kaydeder. Doner: /gorsel/<ad> goreli adresi.",
     {"aciklama": {"type": "string", "description": "Ne cizilsin"},
      "genislik": {"type": "integer", "description": "En (256-2048)"},
      "yukseklik": {"type": "integer", "description": "Boy (256-2048)"}},

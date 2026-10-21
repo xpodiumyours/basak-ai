@@ -1240,6 +1240,21 @@ async def healthz():
 # sağlayıcı zinciri, ayrı araç çalıştırıcı kurulmaz.
 
 
+@app.get("/gorsel/{ad}")
+async def gorsel_servis(ad: str, request: Request):
+    """Uretilen gorseli verir; yalniz giris yapmis kullanici, yalniz uretilen/ altindan."""
+    import os
+    from fastapi.responses import FileResponse
+    from tools import gorsel as gorsel_modulu
+    if _kimlik(request) is None:
+        return _giris_engeli()
+    yol = gorsel_modulu.gorsel_yolu_coz(ad)
+    if not yol or not os.path.isfile(yol):
+        return JSONResponse({"error": "Gorsel bulunamadi"}, status_code=404)
+    return FileResponse(yol, media_type="image/jpeg",
+                        headers={"Cache-Control": "private, max-age=86400"})
+
+
 @app.get("/fatura")
 async def fatura_sayfasi():
     """Fatura okuma ekranını döner (statik mount uzantısız yolu eşlemez)."""
