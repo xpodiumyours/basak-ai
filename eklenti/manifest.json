@@ -5,7 +5,12 @@
   "description": "Başak'ın açık sekmeyi görmesini sağlar. Sohbet Başak'ın kendi ekranında sürer; bu eklenti yalnız göz ve bağlantıdır.",
   "minimum_chrome_version": "116",
   "permissions": ["storage", "tabs", "scripting", "sidePanel"],
-  "host_permissions": ["http://*/*", "https://*/*"],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*",
+    "ws://127.0.0.1/*",
+    "http://127.0.0.1/*"
+  ],
   "background": { "service_worker": "arka.js" },
   "content_scripts": [
     {

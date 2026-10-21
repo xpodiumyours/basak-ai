@@ -7,8 +7,12 @@
 
 const VARSAYILAN_SUNUCU = "ws://127.0.0.1:8788";
 const EN_COK_BEKLEME = 30000;
+// Servis calisani bosta ~30 sn sonra olur; acik WebSocket'i canli tutmak
+// icin duzenli ping gonderilir. Sunucu islemsiz mesaji yanitsiz yutar.
+const PING_ARALIK = 20000;
 
 let baglanti = null;
+let pingZamani = null;
 let deneme = 0;
 let durum = "kapali";      // kapali | baglaniyor | bagli | hata
 let sonHata = "";
@@ -82,6 +86,13 @@ async function islemYap(mesaj) {
   return { id: mesaj.id, ok: false, hata: "bilinmeyen işlem: " + mesaj.islem };
 }
 
+function durdurPing() {
+  if (pingZamani !== null) {
+    clearInterval(pingZamani);
+    pingZamani = null;
+  }
+}
+
 function yenidenDene() {
   if (deneme > 0) return;
   const bekle = Math.min(EN_COK_BEKLEME, 1000 * Math.pow(2, Math.min(deneme, 5)));
@@ -109,8 +120,15 @@ async function baglan() {
   ws.onopen = () => {
     deneme = 0;
     durumuYaz("bagli");
+    durdurPing();
+    pingZamani = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        try { ws.send(JSON.stringify({ ping: Date.now() })); } catch (hata) {}
+      }
+    }, PING_ARALIK);
   };
   ws.onclose = () => {
+    durdurPing();
     if (durum !== "hata") durumuYaz("kapali", "bağlantı kapandı");
     baglanti = null;
     yenidenDene();

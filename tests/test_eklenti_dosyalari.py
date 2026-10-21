@@ -45,8 +45,11 @@ def test_izinler_beklenen_kume():
     manifest = json.loads(_oku("manifest.json"))
     assert set(manifest["permissions"]) == {
         "storage", "tabs", "scripting", "sidePanel"}
+    # ws://127.0.0.1 sart: arka plan betigi yerel Basak koprusune
+    # WebSocket acar; ana makine izni yoksa baglanti sessizce kurulamaz.
     assert set(manifest["host_permissions"]) == {
-        "http://*/*", "https://*/*"}
+        "http://*/*", "https://*/*",
+        "ws://127.0.0.1/*", "http://127.0.0.1/*"}
 
 
 def test_panelde_satir_ici_script_yok():
@@ -71,6 +74,18 @@ def test_icerik_betigi_cekirdegin_alanlarini_uretir():
         assert alan + ":" in kaynak or "'" + alan + "'" in kaynak, alan
     assert "password" in kaynak, "sifre alani ayrimi kaybolmus"
     assert "__basakGozlem" in kaynak
+
+
+def test_baglanti_canli_tutulur():
+    """MV3 servis calisani bosta olur: acik kanal ping ile ayakta kalir.
+
+    Ping olmazsa kanal ~30 saniyede duser ve Basak "tarayici bagli degil"
+    der — kullanici bunu hata sanir. Sunucu islemsiz mesaji yutar.
+    """
+    kaynak = _oku("arka.js")
+    assert "setInterval" in kaynak
+    assert "ping" in kaynak
+    assert "clearInterval" in kaynak
 
 
 def test_eklentide_ajan_dongusu_yok():
