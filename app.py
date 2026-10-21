@@ -556,6 +556,21 @@ class _OlayToplayici:
             return
 
 
+def _tekrar_tercihi(haric):
+    """Taze denemede begenilmeyen saglayiciyi en sona alir.
+
+    Yalniz kayitli saglayici adiyla calisir; bilinmeyen ad bos doner
+    (normal zincir). Sira registry teknik sirasidir; metne bakilmaz.
+    """
+    haric = str(haric or "").strip()
+    if not haric:
+        return None
+    from brain import registry as _registry
+    if haric not in _registry.SAGLAYICILAR:
+        return None
+    return [a for a in _registry.VARSAYILAN_SIRA if a != haric]
+
+
 def _gecmis(body):
     sonuc = []
     for m in body.get("gecmis") or []:
@@ -922,6 +937,13 @@ async def sohbet(request: Request):
                 # izolasyonu memory katmanında Preview'e özel /tmp SQLite ile
                 # yapılır; davranış misafir moduna zorlanmaz.
                 misafir = bool((body or {}).get("misafir", False))
+                # Taze deneme ("Daha duzgun yaz" dugmesi): kullanici bir
+                # onceki cevabi begenmedi; ayni soru onbellege bakilmadan
+                # yeniden kosar, begenilmeyen saglayici en sona alinir.
+                # Karar kullanicinindir; metne bakilmaz, ciktiya dokunulmaz.
+                tazele = bool((body or {}).get("tazele", False))
+                haric = str((body or {}).get("haric") or "").strip()
+                tercih = _tekrar_tercihi(haric)
                 kayit.olay(
                     "runContext",
                     _handoff={"metin": metin, "tool_policy": tool_policy},
@@ -937,6 +959,8 @@ async def sohbet(request: Request):
                     yonlendirme_baglami=yonlendirme_baglami,
                     tool_policy=tool_policy,
                     mola_zamani=mola_zamani,
+                    tercih=tercih,
+                    tazele=tazele,
                 )
             except _AkisIptal:
                 return

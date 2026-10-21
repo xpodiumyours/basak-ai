@@ -40,3 +40,15 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   Açık bulgular (canlı koşudan, düzeltilmedi): Base64 + Türkçe harf
   yanlış sonuç; beyaz liste reddi cümlesi ekranda yok; belirsiz yüzde
   sorusu; doğrulanmamış hatırlatıcı iddiası (plan §8.3).
+- 2026-10-17: `e787817` (merge) — yarım görev durumu + 58. araç.
+  Kapsam: görev kaydına durum alanı (pending/in_progress/paused/done),
+  not ve zaman damgaları; yeni `update_task_status` aracı dört noktaya
+  işlendi (şema, dağıtıcı, yetenek alanı, durum metni).
+  Canlı kanıt: deneme + önizleme adreslerinde uçtan uca 3/3
+  (ekle → duraklat+not → listede duraklatıldı görünüyor).
+  Yerel kapı: 1377 geçti / 31 atlandı; ruff + sır kapısı temiz.
+- 2026-10-17: `2b89658` — proje bağlam temizliği faz-b (denetim sonrası).
+  Kapsam: 4 dosya (olmayan klasör sözü mesajdan çıkarıldı, endekse
+  3 not eklendi, kilitli talimata tarihsel notlar, terk edilen plana
+  başlık). Kod ve canlı işleyiş değişmedi.
+  Canlı kanıt: yayın success + site 200.

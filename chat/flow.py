@@ -334,8 +334,15 @@ def _arac_sonrasi_hata_mesaji(hata):
 def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                misafir=False, gecmis_override=None,
                yonlendirme_baglami=None, tool_policy="auto",
-               run_state=None, mola_zamani=None):
-    """Bir mesajı baştan sona işler."""
+               run_state=None, mola_zamani=None, tercih=None,
+               tazele=False):
+    """Bir mesajı baştan sona işler.
+
+    tercih: acik saglayici sira zorlamasi (yalniz saglayici adlari).
+    tazele: kullanicinin acik taze-deneme istegi; kisa sureli duz-sohbet
+    onbellegi atlanir. Ikisi de yalniz cagiricinin verdigi degeri tasir;
+    metne bakilmaz, ciktiya dokunulmaz.
+    """
     text, konusmaci = _konusmaci_ayir((text or "").strip())
 
     js_callback("BasakUI.thinking()")
@@ -365,6 +372,32 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     # Zincirdeki bulut saglayici kendi modelini secer; disaridan
     # model adi tasiyarak karistirma.
     model = None
+
+    # Kullanici istegiyle taze deneme ("Daha duzgun yaz" dugmesi):
+    # onbellek atlanir, verilen tercih zincire aynen tasinir. Tercih
+    # yalniz saglayici adidir; metne bakilmaz, ciktiya dokunulmaz.
+    _tercih = list(tercih or []) or None
+    if tazele:
+        logger.info("TEKRAR tercih=%s", _tercih)
+
+    def _tercih_kw(yontem):
+        # Test ciftleri eski imzayi korur; tercih yalniz destekleyen
+        # yonteme verilir, desteklemeyene hic verilmez (davranis ayni).
+        if not _tercih:
+            return {}
+        fn = getattr(brain, yontem, None)
+        if fn is None:
+            return {}
+        try:
+            import inspect as _insp
+            params = _insp.signature(fn).parameters
+        except (TypeError, ValueError):
+            return {"tercih": list(_tercih)}
+        if ("tercih" in params or any(
+                x.kind == _insp.Parameter.VAR_KEYWORD
+                for x in params.values())):
+            return {"tercih": list(_tercih)}
+        return {}
 
     if gecmis_override is not None:
         gecmis = ctx.temizle_history(list(gecmis_override or []))
@@ -432,14 +465,16 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         # alinmadan final metin kabul edilmez.
         if secim == "auto":
             yanit, kaynak, _akis_acildi = akan_ajan_adimi(
-                brain, model, mesajlar, js_callback, ajan_tools
+                brain, model, mesajlar, js_callback, ajan_tools,
+                tercih=_tercih,
             )
 
         try:
             if yanit is None:
                 yanit, kaynak = brain.cevapla(
                     mesajlar, model, tools=ajan_tools, tool_choice=secim,
-                    durum=durum_gozlemcisi(js_callback))
+                    durum=durum_gozlemcisi(js_callback),
+                    **_tercih_kw("cevapla"))
         except Exception as e:
             state.fail()
             emit_run_state(js_callback, state)
@@ -536,7 +571,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             "Bu sefer araclardan sonuc alamadim, tekrar dene") + ")")
         return
 
-    if not arac_acik and _onbellekten_don():
+    if not arac_acik and not tazele and _onbellekten_don():
         return
 
     # ── Akan cevap ──────────────────────────────────────────────────
@@ -552,7 +587,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         try:
             parcalar = []
             kaynak = ""
-            for kaynak, parca in yayin(mesajlar, model, tools=(etkin_tools or None)):
+            _yayin_kw = {"tools": (etkin_tools or None)}
+            _yayin_kw.update(_tercih_kw("cevapla_yayin"))
+            for kaynak, parca in yayin(mesajlar, model, **_yayin_kw):
                 parcalar.append(parca)
                 js_callback("BasakUI.parca(" + _j(parca) + ")")
             # Bazi saglayicilar sayi/None parca dondurur — join patlamasin.
@@ -620,7 +657,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     try:
         yanit, kaynak = brain.cevapla(
             mesajlar, model, tools=(etkin_tools or None),
-            durum=durum_gozlemcisi(js_callback))
+            durum=durum_gozlemcisi(js_callback),
+            **_tercih_kw("cevapla"))
     except Exception as e:
         js_callback("BasakUI.error(" + _j(
             _beyin_hata_mesaji(e, "Beyin hatasi: ")) + ")")

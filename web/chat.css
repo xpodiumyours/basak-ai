@@ -386,6 +386,14 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   background:transparent;color:#5d5d65;font-size:12.5px;font-weight:650
 }
 .work-action:hover{background:transparent;color:#171719}
+/* Taze deneme dugmesi: cevap balonunun icinde ama cevap METNININ
+   disinda, kucuk gri metin dugme (web/app.js tekrarDugmesiEkle). */
+.tekrar-yaz{
+  display:block;margin:8px 0 0 auto;padding:7px 0;border:0;border-radius:0;
+  background:transparent;color:#5d5d65;font-size:12.5px;font-weight:650
+}
+.tekrar-yaz:hover{background:transparent;color:#171719}
+.tekrar-yaz:focus-visible{outline:2px solid #303036;outline-offset:3px;border-radius:4px}
 .work-action:focus-visible{outline:2px solid #303036;outline-offset:3px;border-radius:4px}
 .work-stop{margin-left:0;color:#8b3030}
 .work-card.done,.work-card.stopped{
