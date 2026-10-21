@@ -6,7 +6,7 @@ kanitlamaz (o kanit Duzey 1-3 canli kosularindan gelir).
 
 Uc bolum:
 1. 8/8 saglayici sabit tablolari (ajan_tool_choice, registry kartlari).
-2. 59/59/59 arac yapisal eslesmesi (sema/calistirma/ekran/katalog).
+2. 60/60/60 arac yapisal eslesmesi (sema/calistirma/ekran/katalog).
 3. Ajan dongusu + kosucu sozlesmesi (simulasyon YASAK; anahtarsiz SKIP).
 """
 
@@ -147,9 +147,9 @@ def test_ucretsiz_kartlar_zincire_girer_ucretli_girmez():
         assert k["tools"] is True, ad
 
 
-# ── BOLUM 2: 59/59/59 arac yapisal eslesmesi ────────────────────────
+# ── BOLUM 2: 60/60/60 arac yapisal eslesmesi ────────────────────────
 
-def test_59_arac_uchalida_birebir():
+def test_60_arac_uchalida_birebir():
     """sema (definitions) <-> calistirma dali <-> ekran etiketi."""
     import re
     from tools.definitions import TOOLS, TANINMIS_TOOLLAR
@@ -159,8 +159,8 @@ def test_59_arac_uchalida_birebir():
     kaynak = open("tools/__init__.py", encoding="utf-8").read()
     dallar = set(re.findall(r"tool_name == \"([a-z_]+)\"", kaynak))
 
-    assert len(sema) == 59
-    assert len(TANINMIS_TOOLLAR) == 59
+    assert len(sema) == 60
+    assert len(TANINMIS_TOOLLAR) == 60
     assert sema == dallar, ("sema/dal farki", sema ^ dallar)
     eksik_etiket = sema - set(DURUM_METNI)
     assert not eksik_etiket, ("etiketsiz arac", eksik_etiket)
@@ -173,7 +173,7 @@ def test_yetenek_katalogu_59_gercek_araci_kapsar():
     gercek = {t["function"]["name"] for t in TOOLS}
     katalog = {ad for grup in CAPABILITY_NAMESPACES.values() for ad in grup}
     assert katalog == gercek
-    assert len(katalog) == 59
+    assert len(katalog) == 60
 
 
 def test_katalog_daki_her_arac_gercekten_kosabilir():
@@ -399,7 +399,7 @@ def test_matris_kosucu_59_semaya_bagli_tek_kaynak():
     from tools import TANINMIS_TOOLLAR
 
     assert set(kosucu.SEMALAR.keys()) == set(TANINMIS_TOOLLAR)
-    assert len(kosucu.SEMALAR) == 59
+    assert len(kosucu.SEMALAR) == 60
 
 
 def test_matris_kosucu_hucre_kaydi_yapisi(tmp_path, monkeypatch):
@@ -539,7 +539,7 @@ def test_matris_kapsami_elde_anahtari_olan_yedi_saglayici():
         "groq", "gemini", "kilo", "nvidia", "glm", "openrouter",
         "mistral")
     assert len(matris_kosucu.KAPSAM) == 7
-    assert len(matris_kosucu.KAPSAM) * len(kosucu.SEMALAR) == 7 * 59    # 7x59=413 (eski 7x58=406)
+    assert len(matris_kosucu.KAPSAM) * len(kosucu.SEMALAR) == 7 * 60    # 7x60=420 (eski 7x58=406)
     assert "cloudflare" not in matris_kosucu.KAPSAM
     assert "cohere" not in matris_kosucu.KAPSAM
     beklenen = tuple(ad for ad in registry.VARSAYILAN_SIRA

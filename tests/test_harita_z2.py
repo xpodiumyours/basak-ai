@@ -266,8 +266,8 @@ class TestWebYuzey:
         assert ".map-card-open{min-height:40px" in CSS
 
     def test_surum_kilidi_yukseltildi(self):
-        assert "/chat.css?v=12" in HTML
-        assert "/app.js?v=21" in HTML
+        assert "/chat.css?v=13" in HTML
+        assert "/app.js?v=22" in HTML
 
 
 class TestD4bKaroYok:
@@ -291,7 +291,9 @@ class TestD4bKaroYok:
     def test_baglanti_navigasyon_kodu_yuklemiyor(self):
         """Dugme <a href> — kod yukleyen etiket degil (gizlilik sozunun
         kendi yorumu: gezinme baglantisi kod calistirmaz)."""
-        assert "<img" not in JS.lower()
+        # Cevap gorseli yalniz ayni kokenli /gorsel/ yolundan gelir;
+        # dis sunucudan gorsel/kod yukleyen etiket olusturulmaz.
+        assert 'src="https://' not in JS
         assert "<iframe" not in JS.lower()
         assert 'fetch("https://' not in JS
 
@@ -315,5 +317,5 @@ class TestAracKilidiDegismedi:
         from tools.capabilities import validate_registry
         s = validate_registry()
         assert s["ok"] is True
-        assert s["tool_count"] == 59
+        assert s["tool_count"] == 60
         assert s["namespace_count"] == 16
