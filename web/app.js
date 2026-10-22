@@ -509,11 +509,17 @@ function calismaKaydi(b) {
   baslik.className = "work-title";
   baslik.textContent = "Başak çalışıyor";
 
+  // Yol A-1: canlı sayaçlar. Sayılar yalnız gerçek olaylardan artar
+  // (toolDone → komut, source → gezilen sayfa); kod tahmin yürütmez.
+  const sayac = document.createElement("span");
+  sayac.className = "work-counts";
+  sayac.hidden = true;
+
   const sure = document.createElement("span");
   sure.className = "work-time";
   sure.textContent = "00:00";
 
-  ust.append(nokta, baslik, sure);
+  ust.append(nokta, baslik, sayac, sure);
 
   const planEl = document.createElement("div");
   planEl.className = "work-plan";
@@ -623,11 +629,12 @@ function calismaKaydi(b) {
     aktif: null,
     adimlar: [],
     zamanlayici: null,
-    kart, baslik, sure, mevcut, mevcutBaslik, mevcutDetay,
+    kart, baslik, sayac, sure, mevcut, mevcutBaslik, mevcutDetay,
     ozet, detaylar, yonlendir, durdur, yonForm, yonInput,
     panel, liste, canli, planEl, kaynakBolumu, kaynakListe,
     haritaBolumu,
     plan: [], kaynaklar: [], yonlendirIstegi: null,
+    komutSayisi: 0, sayfaSayisi: 0,
     handoffToken: "", toolPolicy: "auto",
     kesik: false, kesikNedeni: "",
     mola: false,
@@ -667,6 +674,18 @@ function calismaKaydi(b) {
   return kayit;
 }
 
+function sayaclariYaz(kayit) {
+  const parcalar = [];
+  if (kayit.komutSayisi) {
+    parcalar.push(kayit.komutSayisi + " komut çalıştırıldı");
+  }
+  if (kayit.sayfaSayisi) {
+    parcalar.push(kayit.sayfaSayisi + " sayfa gezildi");
+  }
+  kayit.sayac.textContent = parcalar.join(" · ");
+  kayit.sayac.hidden = parcalar.length === 0;
+}
+
 function adimlariCiz(kayit) {
   kayit.liste.textContent = "";
 
@@ -685,17 +704,20 @@ function adimlariCiz(kayit) {
     baslik.className = "work-step-title";
     baslik.textContent = adim.baslik;
 
+    const detayMetni = adim.arac
+      ? adim.arac + (adim.detay ? " · " + adim.detay : "")
+      : (adim.detay || "");
     const detay = document.createElement("span");
     detay.className = "work-step-detail";
-    detay.textContent = adim.detay || "";
-    detay.hidden = !adim.detay;
+    detay.textContent = detayMetni;
+    detay.hidden = !detayMetni;
 
     govde.append(baslik, detay);
     li.append(ikon, govde);
     kayit.liste.appendChild(li);
   }
 
-  const detayVar = kayit.adimlar.some((adim) => !!adim.detay) ||
+  const detayVar = kayit.adimlar.some((adim) => !!(adim.detay || adim.arac)) ||
     !!(kayit.aktif && kayit.aktif.detay);
   kayit.detaylar.hidden = !detayVar && kayit.adimlar.length === 0;
 
@@ -706,11 +728,12 @@ function adimlariCiz(kayit) {
   }
 }
 
-function aktifAdimiTamamla(kayit, ok = true) {
+function aktifAdimiTamamla(kayit, ok = true, arac = "") {
   if (!kayit?.aktif || kayit.aktif.tur !== "tool") return;
   kayit.adimlar.push({
     baslik: kayit.aktif.baslik,
     detay: kayit.aktif.detay || "",
+    arac: arac || "",
     ok,
   });
   kayit.aktif = null;
@@ -752,6 +775,8 @@ function kaynakEkle(b, olay) {
     url: temiz,
     baslik: String(olay?.baslik || url.hostname || temiz),
   });
+  kayit.sayfaSayisi += 1;
+  sayaclariYaz(kayit);
 
   kayit.kaynakListe.textContent = "";
   kayit.kaynaklar.forEach((k, i) => {
@@ -922,7 +947,9 @@ function subeListesi(subeler) {
 
 function araciTamamla(b, olay) {
   const kayit = calismaKaydi(b);
-  aktifAdimiTamamla(kayit, olay?.ok !== false);
+  aktifAdimiTamamla(kayit, olay?.ok !== false, olay?.arac);
+  kayit.komutSayisi += 1;
+  sayaclariYaz(kayit);
   if (!kayit.bitti) {
     kayit.aktif = { baslik: "Sonuç değerlendiriliyor", detay: "", tur: "thinking" };
     kayit.mevcutBaslik.textContent = "Sonuç değerlendiriliyor";

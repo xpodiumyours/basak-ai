@@ -1,7 +1,7 @@
 {
   "uretildi": "2026-10-22",
   "komut": "python -m pytest tests -q",
-  "test_gecen": 1615,
+  "test_gecen": 1624,
   "test_atlandi": 31,
   "arac_sayisi": 63,
   "yetenek_alani": 16,

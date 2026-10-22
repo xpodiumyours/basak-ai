@@ -327,6 +327,12 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   font-variant-numeric:tabular-nums
 }
 .work-time::before{content:"·";margin-right:8px;color:#aaaab0}
+.work-counts{
+  display:none;color:#71717a;font-size:12.5px;font-weight:550;
+  font-variant-numeric:tabular-nums
+}
+.work-counts:not([hidden]){display:inline}
+.work-counts::before{content:"·";margin-right:8px;color:#aaaab0}
 .work-details{
   position:relative;
   margin:7px 0 0 3px;padding:0 0 0 18px;

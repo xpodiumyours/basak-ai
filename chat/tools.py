@@ -588,6 +588,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             _web_olay(
                 js_callback, "toolDone",
                 id=cagri_id,
+                arac=ad,
                 baslik=DURUM_METNI.get(ad, "Çalışıyor"),
                 detay=_durum_detayi(args),
                 ok=basarili,
