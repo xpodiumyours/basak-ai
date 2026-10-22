@@ -315,7 +315,7 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   border-radius:0;
   background:transparent;
 }
-.work-head{display:flex;align-items:center;gap:8px;min-height:24px}
+.work-head{display:flex;align-items:center;gap:8px;min-height:24px;flex-wrap:wrap}
 .work-pulse{
   width:7px;height:7px;border-radius:999px;flex:0 0 auto;
   background:#34343a;box-shadow:0 0 0 0 rgba(52,52,58,.18);
@@ -324,12 +324,12 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .work-title{font-size:14px;line-height:1.4;color:#1c1c21;font-weight:650;letter-spacing:-.01em}
 .work-time{
   color:#71717a;font-size:12.5px;font-weight:550;
-  font-variant-numeric:tabular-nums
+  font-variant-numeric:tabular-nums;white-space:nowrap
 }
 .work-time::before{content:"·";margin-right:8px;color:#aaaab0}
 .work-counts{
   display:none;color:#71717a;font-size:12.5px;font-weight:550;
-  font-variant-numeric:tabular-nums
+  font-variant-numeric:tabular-nums;white-space:nowrap
 }
 .work-counts:not([hidden]){display:inline}
 .work-counts::before{content:"·";margin-right:8px;color:#aaaab0}
@@ -388,12 +388,13 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 }
 
 .work-actions{
-  display:flex;align-items:center;gap:16px;
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
   margin:4px 0 0 25px
 }
 .work-action{
   min-height:36px;padding:7px 0;border:0;border-radius:0;
-  background:transparent;color:#5d5d65;font-size:12.5px;font-weight:650
+  background:transparent;color:#5d5d65;font-size:12.5px;font-weight:650;
+  white-space:nowrap
 }
 .work-action:hover{background:transparent;color:#171719}
 /* Taze deneme dugmesi: cevap balonunun icinde ama cevap METNININ

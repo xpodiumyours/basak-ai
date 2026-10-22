@@ -162,5 +162,5 @@ class TestTarayiciGorunumu:
 
     def test_cache_surumu_artirildi(self):
         html = _web_oku("index.html")
-        assert "/app.js?v=25" in html
-        assert "/chat.css?v=16" in html
+        assert "/app.js?v=26" in html
+        assert "/chat.css?v=17" in html

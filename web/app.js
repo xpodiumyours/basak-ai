@@ -1035,9 +1035,11 @@ function calismaBitir(b) {
   adimlariCiz(kayit);
 }
 
-// Sunucu süresi dolmadan Başak mola verir; iş kendiliğinden sürmez, karar
-// kullanıcıdadır. Yapılan adımların sonuçları imzalı devam kaydında kalır.
-function calismaMolaVer(b) {
+// Sunucu süresi dolmadan Başak mola verir ya da bağlantı kopar; iş
+// kendiliğinden sürmez, karar kullanıcıdadır. Yapılan adımların sonuçları
+// imzalı devam kaydında kalır — iki durum da aynı "Devam et" akışını
+// paylaşır; yalnız başlık ve özet gerçeği söyler (sebep).
+function calismaMolaVer(b, sebep = "mola") {
   const kayit = durumSaatleri.get(b);
   if (!kayit || kayit.bitti || kayit.mola) return;
   aktifAdimiTamamla(kayit);
@@ -1047,12 +1049,15 @@ function calismaMolaVer(b) {
   kayit.kart.classList.add("paused");
   const sure = sureMetni(Date.now() - kayit.baslangic);
   const sayi = kayit.adimlar.length;
-  kayit.baslik.textContent = "Mola · " + sayi + " adım tamamlandı";
+  kayit.baslik.textContent = (sebep === "kesilme" ? "Bağlantı koptu · "
+    : "Mola · ") + sayi + " adım tamamlandı";
   kayit.sure.textContent = sure;
   kayit.mevcut.hidden = true;
   kayit.ozet.hidden = false;
-  kayit.ozet.textContent =
-    "Çalışma süresi " + sure + ". Bulunanlar saklandı; nasıl devam edelim?";
+  kayit.ozet.textContent = sebep === "kesilme"
+    ? "Bağlantı beklenmedik kapandı; çalışma süresi " + sure +
+      ". Bulunanlar saklandı; kaldığın yerden devam edelim mi?"
+    : "Çalışma süresi " + sure + ". Bulunanlar saklandı; nasıl devam edelim?";
   if (kayit.durdur?.isConnected) kayit.durdur.remove();
 
   const devam = document.createElement("button");
@@ -1644,6 +1649,15 @@ function olayiBaslangicBalonunaBagla(o, b) {
   }
 }
 
+// Yol B-1: baglanti beklenmedik kapandıysa ve elde sunucu imzalı devam
+// kaydı (handoff tokeni) varsa iş baştan başlamaz; kullanıcı kaldığı yerden
+// devam eder. Karar metne veya araç adına bakmaz (AGENTS.md §0) — yalnız
+// üç duruma bakar: kesilme işareti, bitmemiş çalışma, imzalı kayıtlı devam.
+function kesilmedeDevamVarMi(err, kayit) {
+  return !!(err && err.kesilme && kayit && !kayit.bitti &&
+    typeof kayit.handoffToken === "string" && kayit.handoffToken);
+}
+
 const KESILME_SURE_ESIGI_MS = 290 * 1000;
 
 async function canliYanitiOku(r, baslangicBalonu) {
@@ -1659,11 +1673,17 @@ async function canliYanitiOku(r, baslangicBalonu) {
 
   // Sunucu (vercel.json maxDuration: 300 sn) isi yarida durdurunca akis
   // bitir/error gelmeden kapanir. Kullaniciya gercek sebebi soyle.
-  const kesilmeHatasi = () => new Error(
-    Date.now() - baslangic >= KESILME_SURE_ESIGI_MS
-      ? "Başak 5 dakikalık çalışma süresini doldurdu; sunucu işi durdurdu, cevap tamamlanamadı."
-      : "Başak yanıtı tamamlanmadan bağlantı kapandı."
-  );
+  const kesilmeHatasi = () => {
+    const hata = new Error(
+      Date.now() - baslangic >= KESILME_SURE_ESIGI_MS
+        ? "Başak 5 dakikalık çalışma süresini doldurdu; sunucu işi durdurdu, cevap tamamlanamadı."
+        : "Başak yanıtı tamamlanmadan bağlantı kapandı."
+    );
+    // Kesilme, veri bozukluğundan ve sunucu retten ayrı işaretlenir;
+    // kurtarma kararı yalnız bu işarete bakar.
+    hata.kesilme = true;
+    return hata;
+  };
 
   const satiriIsle = async (satir) => {
     if (!satir.trim()) return;
@@ -1937,6 +1957,10 @@ async function send(secenek = {}) {
   } catch (err) {
     if (kullaniciDurdurdu && err && err.name === "AbortError") {
       if (!yonlendirmeIcinDurduruldu) calismaDurdur(bekleyenBalon);
+    } else if (kesilmedeDevamVarMi(err, calisma)) {
+      // Yol B-1: bağlantı koptu ama iş kaybolmadı — imzalı devam kaydı elde.
+      // Satır silinmez; mola ile aynı "Devam et" akışı sunulur.
+      calismaMolaVer(bekleyenBalon, "kesilme");
     } else {
       durumuKapat(bekleyenBalon);
       const row = bekleyenBalon.closest(".message-row");

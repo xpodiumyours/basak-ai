@@ -56,7 +56,9 @@ const akis = new ReadableStream({
 });
 canliYanitiOku({ body: akis }, null).then(
   s => console.log(JSON.stringify({ ok: true, sonuc: s })),
-  e => console.log(JSON.stringify({ ok: false, ad: e.name, mesaj: e.message })),
+  e => console.log(JSON.stringify({ ok: false, ad: e.name,
+                                   mesaj: e.message,
+                                   kesilme: !!e.kesilme })),
 );
 """ % {
         "kaynak": _fonksiyon_kaynagi(),
@@ -112,3 +114,24 @@ def test_mola_olayi_hata_degil_karar_bekler():
     assert s["ok"] is True
     assert s["sonuc"]["mola"] is True
     assert s["sonuc"]["ok"] is False
+
+
+def test_kesilme_hatasi_devam_isareti_tasir():
+    # Yol B-1: kesilme hatasi `kesilme` isaretiyle gelir; web tarafindaki
+    # kurtarma karari yalniz bu isarete bakar (tests/test_kesilme_devam.py).
+    s = _kos(['{"tur":"ping"}\n', '{"tur":"parca","metin":"yar'])
+    assert s["ok"] is False
+    assert s.get("kesilme") is True
+
+
+def test_sure_dolmasi_da_kesilme_isaretli():
+    s = _kos(['{"tur":"parca"'], gecen_ms=300_000)
+    assert s["ok"] is False
+    assert s.get("kesilme") is True
+
+
+def test_bozuk_satir_kesilme_isareti_tasimaz():
+    # Veri bozuklugu baglanti kopmasi degildir; kurtarma yolu acilmaz.
+    s = _kos(['bozuk\n'])
+    assert s["ok"] is False
+    assert s.get("kesilme") is not True
