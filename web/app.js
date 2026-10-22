@@ -2079,15 +2079,6 @@ if (haritaFormEl) {
   });
 }
 
-document.querySelectorAll(".ornek").forEach((d) => {
-  d.addEventListener("click", () => {
-    msgEl.value = d.textContent.trim();
-    autoResize();
-    gonderimDurumu();
-    msgEl.focus();
-  });
-});
-
 // Araç sayfalarından gelen derin bağlantı: /?soru=... yazıyı doldurur.
 const soruParam = new URLSearchParams(location.search).get("soru");
 if (soruParam && msgEl) {
