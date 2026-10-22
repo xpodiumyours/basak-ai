@@ -16,6 +16,11 @@ cevaplari sahte sunucudan gelir) ve iki ortami olcer:
             hero gorunur, yatay tasma yok, konsol hatasi yok.
   MASAUSTU: kart gorunur, "kurulu görünmüyor" + uc adim gorunur.
 
+  2026-10-22 ikinci tur (vitrin): "Benim için neler yapabilir" bolumu ve
+  cipler kaldirildi; buyuk `.ai-notice` karti kompakt tek satir nota
+  indi. Ayni provada olculur: her iki ortamda oneri/cip YOK, buyuk uyari
+  karti YOK, composer notu "Başak hata yapabilir" tasir.
+
 Olculen her iddia konsola sayi olarak yazilir; herhangi biri yanlissa
 betik 1 cikis koduyla biter. Ekran goruntuleri `_eklenti_kart_kanit/`
 altina dusar. Calistirma: `python scripts/olcum/_eklenti_kart_kanit.py`
@@ -92,6 +97,9 @@ def _ekran(sayfa):
         hero: (document.querySelector('h1')||{}).textContent || '',
         tasma: document.documentElement.scrollWidth >
                document.documentElement.clientWidth,
+        oneriVar: !!document.querySelector('.quick-chip, .quick-actions'),
+        buyukUyari: !!document.querySelector('.ai-notice'),
+        notMetni: (document.getElementById('composerNote')||{}).textContent || '',
       };
     }""")
 
@@ -138,6 +146,9 @@ with sync_playwright() as p:
     # Baslik tipografik kesme isaretiyle yazar (U+2019): "Başak’a sor."
     _olc("mobil_hero_gorunur", "Başak\u2019a sor" in m["hero"])
     _olc("mobil_yatay_tasma_yok", not m["tasma"])
+    _olc("mobil_oneri_bolumu_yok", not m["oneriVar"])
+    _olc("mobil_buyuk_uyari_karti_yok", not m["buyukUyari"])
+    _olc("mobil_notu_durust", "Başak hata yapabilir" in m["notMetni"])
     _kayit(sayfa, "mobil_ekran")
 
     hata_konsol = [k for k in KONSOL if k[0] == "error"]
@@ -161,6 +172,9 @@ with sync_playwright() as p:
     _olc("masaustu_kurulum_tarifi_var",
          "kurulu görünmüyor" in d["durum"] and d["adimlarGorunur"])
     _olc("masaustu_yatay_tasma_yok", not d["tasma"])
+    _olc("masaustu_oneri_bolumu_yok", not d["oneriVar"])
+    _olc("masaustu_buyuk_uyari_karti_yok", not d["buyukUyari"])
+    _olc("masaustu_notu_durust", "Başak hata yapabilir" in d["notMetni"])
     _kayit(sayfa, "masaustu_ekran")
     masaustu.close()
 
