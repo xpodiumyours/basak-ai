@@ -10,6 +10,8 @@
  *   - durum okunamazsa (zaman aşımı): nötr metin, adımlar görünür
  *   - "kapat" kararı KİŞİYE göre saklanır (Başak ID anahtarı)
  *   - kimlik hazır olunca kart o kimliği yazar
+ *   - telefon/tablette kart HİÇ görünmez (eklenti oraya kurulamaz;
+ *     uygulanamaz kurulum adımı göstermek yalan olur)
  *
  * Koşum: NODE_PATH=<jsdom> node eklenti/test/kart.test.mjs
  */
@@ -45,12 +47,27 @@ const HTML = `<!doctype html><html lang="tr"><body>
   </section>
 </body></html>`;
 
-/** Eklenti kurulu (onload), yok (onerror) ya da sessiz (zaman aşımı). */
-function kur(sonuc) {
+/**
+ * Eklenti kurulu (onload), yok (onerror) ya da sessiz (zaman aşımı).
+ * secenek.ua → tarayıcı kimliği (jsdom 30 constructor seçeneğini yok
+ * saydığı için navigator üzerine yazılır); secenek.mobil →
+ * userAgentData.mobile=true.
+ */
+function kur(sonuc, secenek = {}) {
   const dom = new JSDOM(HTML, {
     url: "https://basak-vercel.vercel.app/",
     runScripts: "outside-only"
   });
+  if (secenek.ua) {
+    Object.defineProperty(dom.window.navigator, "userAgent", {
+      value: secenek.ua
+    });
+  }
+  if (secenek.mobil) {
+    Object.defineProperty(dom.window.navigator, "userAgentData", {
+      value: { mobile: true }
+    });
+  }
   dom.window.Image = class {
     set src(_deger) {
       if (sonuc === "kurulu") setTimeout(() => this.onload && this.onload(), 0);
@@ -141,6 +158,36 @@ await test("kimlik sonradan gelirse kart güncellenir", async () => {
   await bekle();
   assert.match(dom.window.document.getElementById("eklentiKimlik").textContent,
                /9999 0000/);
+});
+
+await test("telefonda kart hiç görünmez — imkânsız kurulum tarif edilmez", async () => {
+  const dom = kur("yok", {
+    ua: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
+      + "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+  });
+  await bekle();
+  const doc = dom.window.document;
+  assert.equal(doc.getElementById("eklentiKarti").hidden, true);
+  assert.equal(doc.getElementById("eklentiDurum").textContent, "");
+  assert.equal(doc.getElementById("eklentiAdimlar").hidden, false, "adım yazılmadıysa görünür kalır");
+});
+
+await test("userAgentData mobil diyorsa kart gizli kalır", async () => {
+  const dom = kur("yok", { mobil: true });
+  await bekle();
+  assert.equal(dom.window.document.getElementById("eklentiKarti").hidden, true);
+});
+
+await test("masaüstünde kart yine görünür (mobil kuralı masaüstüne sızmaz)", async () => {
+  const dom = kur("yok", {
+    ua: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+      + "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  });
+  await bekle();
+  const kart = dom.window.document.getElementById("eklentiKarti");
+  assert.equal(kart.hidden, false);
+  assert.match(dom.window.document.getElementById("eklentiDurum").textContent,
+               /kurulu görünmüyor/i);
 });
 
 await test("kart sunucuya istek atmaz, model çağırmaz", () => {

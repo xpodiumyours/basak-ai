@@ -138,6 +138,22 @@ def test_sohbet_sayfasinda_eklenti_karti_var(web_istemci):
     assert "eklentiKarti" in betik.text
 
 
+def test_kart_telefonda_gizlenir_kurali_servis_edilen_bette(web_istemci):
+    """Eklenti telefona kurulamaz; kart orada hiç görünmemeli.
+
+    Davranış kilidi `eklenti/test/kart.test.mjs`'de (jsdom, 3 mobil
+    test); burada servis edilen betiğin kuralı taşıdığı ve mobilde
+    eski betiğin görünmemesi için sürüm damgası taşıdığı kilitlenir.
+    """
+    betik = web_istemci.get("/eklenti-kart.js").text
+    assert "kurulumMumkunMu" in betik
+    assert "userAgentData" in betik
+    assert "userAgent" in betik  # userAgentData olmayan mobil tarayıcı
+
+    html = web_istemci.get("/").text
+    assert "eklenti-kart.js?v=" in html  # cache kırma damgası zorunlu
+
+
 def test_kurulum_sayfasi_yayinda(web_istemci):
     cevap = web_istemci.get("/eklenti.html")
     assert cevap.status_code == 200, cevap.text

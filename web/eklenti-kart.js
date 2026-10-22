@@ -5,6 +5,10 @@
  * kurulu mu (sinyal görüntüsü yüklenebiliyor mu), kullanıcıya kimlikli
  * kurulum adımlarını göstermek ve kartı o kullanıcı için hatırlamak.
  *
+ * Telefon/tablet kuralı: eklenti oraya KURULAMAZ (chrome://extensions
+ * mobilde yok, araç çubuğu simgesi yok). Uygulanamaz kurulum adımı
+ * göstermek yalan olur; kart buralarda hiç görünmez.
+ *
  * Durum neden istemcide: eklentinin bağlantısı sunucuda tek instance'a
  * çivilenir; web isteği onu göremez. "Kurulu mu" sorusunun tek güvenilir
  * cevabı tarayıcının kendisindedir.
@@ -37,6 +41,25 @@
       id: String(k.kullanici || "").trim(),
       gorunen: String(k.basak_id || "").trim()
     };
+  }
+
+  // Kurulum adımları yalnız masaüstü tarayıcıda uygulanabilir. Chromium,
+  // "mobile" sinyalini kendisi söyler (userAgentData); söylenmiyorsa
+  // tarayıcı kimliğinden okunur. iPadOS masaüstü kimliği söyler; o yüzden
+  // dokunmatik Mac de mobil sayılır.
+  function kurulumMumkunMu() {
+    try {
+      var uad = navigator.userAgentData;
+      if (uad && typeof uad.mobile === "boolean") return !uad.mobile;
+    } catch (hata) {
+      /* sinyal yoksa tarayıcı kimliğinden devam */
+    }
+    var ua = navigator.userAgent || "";
+    if (/Mobi|Android|iPhone|iPod|iPad|Windows Phone/i.test(ua)) return false;
+    if (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1) {
+      return false;
+    }
+    return true;
   }
 
   function depoAnahtari() {
@@ -108,7 +131,7 @@
   }
 
   function tazele() {
-    if (kapaliMi()) {
+    if (!kurulumMumkunMu() || kapaliMi()) {
       kart.hidden = true;
       return;
     }
