@@ -1,9 +1,9 @@
 {
-  "uretildi": "2026-10-21",
+  "uretildi": "2026-10-22",
   "komut": "python -m pytest tests -q",
-  "test_gecen": 1544,
+  "test_gecen": 1615,
   "test_atlandi": 31,
-  "arac_sayisi": 62,
+  "arac_sayisi": 63,
   "yetenek_alani": 16,
   "not": "Bu bir KAYITLI ÖLÇÜMDÜR, canlı ölçüm değildir. Sayılar bu depodaki koddan ve test koşusundan alındı; üstteki canlı satırlar her zaman tazedir. Kaynak: tools/definitions.py (TOOLS), chat/agent_protocol.py (YETENEK_ALANLARI), pytest çıktısı.",
   "sinirlar": [

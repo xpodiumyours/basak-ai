@@ -568,6 +568,49 @@ www.startpage.com HTTP 200; search.brave.com HTTP 429)` — eskiden yalnız
 
 ---
 
+## FAZ 4.5 — ZİNCİR: `harita_dedektif` + kullanıcı istem formu (2026-10-22)
+
+> **Kapsam (Casper isteği):** "Ayrı ayrı çalışan harita dedektif parçalarını
+> kullanıcı özel bir istem ile yönlendirerek kullanabilir olsun ve zinciri
+> birbirine bağla." İki karar soruldu ve onaylandı: (a) yüzey **web'de harita
+> formu** — istek sohbet mesajı olarak gider, aracı model seçer (§0);
+> (b) kartta **adım adım bağlı akış** — bir adım bitmeden sonrakine geçilmez.
+
+- [x] **T4.5a** `harita_dedektif` zinciri: `konum_coz` → `sube_bul` →
+  `harita_goster` TEK çağrıda birbirine bağlandı. Parçalar ayrı ayrı
+  çalışmayı sürdürür; zincir yalnız sırayı koda bağlar, model parametreleri
+  doldurur (marka, konum, yarıçap, adet, mod).
+- [x] **T4.5b** **Adım raporu (`adimlar`):** her adım tamamlandıkça gerçek
+  sonucuyla yazılır (`ad`, `durum`: tamam|bos, `baslik`, `ozet`). Sıradaki
+  adım bir önceki bitmeden başlamaz — çağrı sırası kodda zorlanır. Adım
+  özetleri gerçek sayılardan kurulur ("2 şube bulundu", "5 bağlantı
+  üretildi"); hata yolunda adım raporu UYDURULMAZ.
+- [x] **T4.5c** **Kullanıcı istem formu (web/):** yazışma alanındaki harita
+  düğmesi formu açar (marka, konum, yarıçap, **özel istem**). İstek **düz
+  metin** olarak normal sohbet yolundan gider (`send`) — kod kullanıcı
+  metninden araç/alan SEÇMEZ (AGENTS.md §0); kararı model verir. Boşta
+  uyarı (`role="alert"`), Escape ile kapanır, etiketler `for=` ile bağlı.
+- [x] **T4.5d** **Kartta zincir akışı:** `zincirAkisi(adimlar)` adımları
+  sırayla, bağlı bir akış halinde gösterir; `baslik`/`ozet` yalnız sunucudan
+  gelir, JS tarafında metin uydurulmaz. `prefers-reduced-motion` ile animasyon
+  kapanır. D4b = B korunur: karo yine yok, yalnız bağlantı + koordinat +
+  şube listesi + adım akışı.
+- [x] **T4.5e** Dört yer korundu (yeni araç yok — 63). Sürüm kilidi
+  `chat.css?v=15` / `app.js?v=24`.
+- [x] **T4.5f** Testler: `tests/test_harita_dedektif.py` **56 test** (zincir,
+  bağlantılar, yönlendirme, hata yolları, dört yer, olay, web yüzeyi,
+  adım raporu, istem formu). Geniş koşu **1615 geçti / 31 atlandı**;
+  `ruff check .` yeşil.
+- [x] **T4.5g** **Canlı kanıt:** `scripts/olcum/_zincir_kanit.py` gerçek
+  dispatcher + gerçek ağ (Photon/Overpass) — `_zincir_kanit_sonuc.json`:
+  "adres merkezi (Photon) + yol modu" senaryosunda 3 şube, zincir
+  `konum_coz → sube_bul → harita_goster` yürüdü; koordinat merkezinde
+  sıfır cozgeç isteği.
+
+**Faz kapısı:** Bölüm D yeşil + canlı zincir kanıtı yazılı.
+
+---
+
 ## FAZ 5 — Z4a: `mesafe_hesapla` (anahtarsız, ağsız)
 
 - [ ] **T5.1** `tools/harita.py` → `mesafe_hesapla(enlem1, boylam1, enlem2, boylam2)` — haversine, `math` (stdlib), **ağ çağrısı yok**.

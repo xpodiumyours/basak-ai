@@ -1,0 +1,248 @@
+[
+  {
+    "senaryo": "adres merkezi (Photon) + yol modu",
+    "arac": {
+      "marka": "BİM",
+      "konum": "Kadıköy Moda, İstanbul",
+      "yaricap_km": 3,
+      "adet": 3,
+      "mod": "yol"
+    },
+    "sure_sn": 46.2,
+    "zincir": [
+      "konum_coz",
+      "sube_bul",
+      "harita_goster"
+    ],
+    "adimlar": [
+      {
+        "ad": "konum_coz",
+        "durum": "tamam",
+        "baslik": "Konum çözüldü",
+        "ozet": "merkez: Moda, Caferağa, Kadıköy, İstanbul, 34710, Türkiye"
+      },
+      {
+        "ad": "sube_bul",
+        "durum": "tamam",
+        "baslik": "Şubeler arandı",
+        "ozet": "3 şube bulundu (3.0 km)"
+      },
+      {
+        "ad": "harita_goster",
+        "durum": "tamam",
+        "baslik": "Bağlantılar üretildi",
+        "ozet": "7 bağlantı üretildi"
+      }
+    ],
+    "merkez": {
+      "enlem": 40.981169,
+      "boylam": 29.025471,
+      "gosterim_adi": "Moda, Caferağa, Kadıköy, İstanbul, 34710, Türkiye",
+      "kaynak": "photon"
+    },
+    "mod": "yol",
+    "yaricap_km": 3.0,
+    "veri_kaynagi": "photon",
+    "sube_sayisi": 3,
+    "not": "",
+    "atif": "Veri: © OpenStreetMap katkıda bulunanlar (ODbL)",
+    "denenen_hatlar": [
+      {
+        "ayna": "https://overpass-api.de/api/interpreter",
+        "durum": "hata",
+        "hata": "HTTP 406 Not Acceptable"
+      },
+      {
+        "ayna": "https://overpass.kumi.systems/api/interpreter",
+        "durum": "hata",
+        "hata": "TimeoutError: The read operation timed out"
+      },
+      {
+        "ayna": "https://overpass.osm.ch/api/interpreter",
+        "durum": "ok"
+      },
+      {
+        "ayna": "https://photon.komoot.io/api/?",
+        "durum": "ok"
+      }
+    ],
+    "subeler": [
+      {
+        "ad": "BİM",
+        "mesafe_km": 0.69,
+        "adres": "Sivastopol Sokağı, 5, Caferağa, Kadıköy, 34710",
+        "telefon": "",
+        "baglanti": "https://www.google.com/maps/dir/?api=1&destination=40.987358%2C%2029.024542&origin=40.981169%2C%2029.025471"
+      },
+      {
+        "ad": "BİM",
+        "mesafe_km": 1.44,
+        "adres": "Karakolhane Caddesi, Rasimpaşa, Kadıköy, 34716",
+        "telefon": "",
+        "baglanti": "https://www.google.com/maps/dir/?api=1&destination=40.993571%2C%2029.030362&origin=40.981169%2C%2029.025471"
+      },
+      {
+        "ad": "BİM",
+        "mesafe_km": 1.8,
+        "adres": "Fahrettin Kerim Gökay Caddesi, Eğitim, Kadıköy, 34724",
+        "telefon": "",
+        "baglanti": "https://www.google.com/maps/dir/?api=1&destination=40.987059%2C%2029.045489&origin=40.981169%2C%2029.025471"
+      }
+    ],
+    "merkez_baglanti": "https://www.google.com/maps/search/?api=1&query=40.981169%2C%2029.025471"
+  },
+  {
+    "senaryo": "koordinat merkezi + arama modu",
+    "arac": {
+      "marka": "Migros",
+      "konum": "41.0111, 29.0254",
+      "yaricap_km": 2,
+      "adet": 2,
+      "mod": "ara"
+    },
+    "sure_sn": 27.7,
+    "zincir": [
+      "konum_coz",
+      "sube_bul",
+      "harita_goster"
+    ],
+    "adimlar": [
+      {
+        "ad": "konum_coz",
+        "durum": "tamam",
+        "baslik": "Konum çözüldü",
+        "ozet": "merkez: 41.0111, 29.0254"
+      },
+      {
+        "ad": "sube_bul",
+        "durum": "tamam",
+        "baslik": "Şubeler arandı",
+        "ozet": "2 şube bulundu (2.0 km)"
+      },
+      {
+        "ad": "harita_goster",
+        "durum": "tamam",
+        "baslik": "Bağlantılar üretildi",
+        "ozet": "5 bağlantı üretildi"
+      }
+    ],
+    "merkez": {
+      "enlem": 41.0111,
+      "boylam": 29.0254,
+      "gosterim_adi": "41.0111, 29.0254",
+      "kaynak": "koordinat"
+    },
+    "mod": "ara",
+    "yaricap_km": 2.0,
+    "veri_kaynagi": "photon",
+    "sube_sayisi": 2,
+    "not": "",
+    "atif": "Veri: © OpenStreetMap katkıda bulunanlar (ODbL)",
+    "denenen_hatlar": [
+      {
+        "ayna": "https://overpass-api.de/api/interpreter",
+        "durum": "hata",
+        "hata": "HTTP 406 Not Acceptable"
+      },
+      {
+        "ayna": "https://overpass.kumi.systems/api/interpreter",
+        "durum": "hata",
+        "hata": "TimeoutError: The read operation timed out"
+      },
+      {
+        "ayna": "https://overpass.osm.ch/api/interpreter",
+        "durum": "ok"
+      },
+      {
+        "ayna": "https://photon.komoot.io/api/?",
+        "durum": "ok"
+      }
+    ],
+    "subeler": [
+      {
+        "ad": "Migros",
+        "mesafe_km": 0.99,
+        "adres": "Tunus Bağı Caddesi, 42, Ahmediye, İstanbul, 34672",
+        "telefon": "",
+        "baglanti": "https://www.google.com/maps/search/?api=1&query=41.015876%2C%2029.015463"
+      },
+      {
+        "ad": "Migros",
+        "mesafe_km": 1.49,
+        "adres": "Lise Yolu Sokağı, Acıbadem, İstanbul, 34718",
+        "telefon": "",
+        "baglanti": "https://www.google.com/maps/search/?api=1&query=41.001037%2C%2029.037177"
+      }
+    ],
+    "merkez_baglanti": "https://www.google.com/maps/search/?api=1&query=41.011100%2C%2029.025400"
+  },
+  {
+    "senaryo": "uydurma marka (sonuç 0 — hata DEĞİLDİR)",
+    "arac": {
+      "marka": "zzz bilinmeyen marka zzz",
+      "konum": "41.0111, 29.0254",
+      "yaricap_km": 1,
+      "adet": 3
+    },
+    "sure_sn": 24.5,
+    "zincir": [
+      "konum_coz",
+      "sube_bul",
+      "harita_goster"
+    ],
+    "adimlar": [
+      {
+        "ad": "konum_coz",
+        "durum": "tamam",
+        "baslik": "Konum çözüldü",
+        "ozet": "merkez: 41.0111, 29.0254"
+      },
+      {
+        "ad": "sube_bul",
+        "durum": "bos",
+        "baslik": "Şubeler arandı",
+        "ozet": "0 şube bulundu (1.0 km)"
+      },
+      {
+        "ad": "harita_goster",
+        "durum": "tamam",
+        "baslik": "Bağlantılar üretildi",
+        "ozet": "1 bağlantı üretildi"
+      }
+    ],
+    "merkez": {
+      "enlem": 41.0111,
+      "boylam": 29.0254,
+      "gosterim_adi": "41.0111, 29.0254",
+      "kaynak": "koordinat"
+    },
+    "mod": "yol",
+    "yaricap_km": 1.0,
+    "veri_kaynagi": "",
+    "sube_sayisi": 0,
+    "not": "Arama yapıldı; OpenStreetMap'te bu markanın bu bölgede etiketli şubesi görünmüyor. Şubesi olabilir — OSM kaydı eksik olabilir; harita_goster ile bölgede arama yapılabilir.",
+    "atif": "Veri: © OpenStreetMap katkıda bulunanlar (ODbL)",
+    "denenen_hatlar": [
+      {
+        "ayna": "https://overpass-api.de/api/interpreter",
+        "durum": "hata",
+        "hata": "HTTP 406 Not Acceptable"
+      },
+      {
+        "ayna": "https://overpass.kumi.systems/api/interpreter",
+        "durum": "hata",
+        "hata": "TimeoutError: The read operation timed out"
+      },
+      {
+        "ayna": "https://overpass.osm.ch/api/interpreter",
+        "durum": "ok"
+      },
+      {
+        "ayna": "https://photon.komoot.io/api/?",
+        "durum": "bos"
+      }
+    ],
+    "subeler": [],
+    "merkez_baglanti": "https://www.google.com/maps/search/?api=1&query=41.011100%2C%2029.025400"
+  }
+]
