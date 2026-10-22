@@ -57,6 +57,11 @@ def test_her_web_betiği_sözdizimi_gecerli():
         sonuc = subprocess.run(
             [NODE, "--check", os.path.join(KOK, yol)],
             capture_output=True, text=True, timeout=30,
+            # KODLAMASI AÇIK: Windows CI'da varsayılan kodlama cp1252'dir;
+            # metin=True oldugunda çıktı yerel kodlamayla çözülür ve Türkçe
+            # karakterler bozuk metne dönüşür (ya da hata verir). Node UTF-8
+            # yazar; biz de UTF-8 okuruz — platform ne olursa olsun aynı sonuç.
+            encoding="utf-8", errors="replace",
         )
         if sonuc.returncode != 0:
             hatalar.append("%s: %s" % (yol, (sonuc.stderr or "").strip()[:300]))
@@ -254,6 +259,11 @@ def _sayfayi_calistir():
         sonuc = subprocess.run(
             [NODE, betik, KOK],
             capture_output=True, text=True, timeout=60,
+            # Windows CI'da varsayılan kodlama cp1252'dir; harness UTF-8 yazar
+            # ve çıktıda Türkçe karakterler vardır. Yerel kodlamayla çözmek
+            # metni bozar (test "Canlıya çıkan işler" aramasını bulamaz).
+            # Kodlama AÇIK: her platformda aynı metin.
+            encoding="utf-8", errors="replace",
         )
     finally:
         if os.path.exists(betik):
