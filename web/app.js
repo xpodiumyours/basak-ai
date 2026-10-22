@@ -777,7 +777,8 @@ function haritaEkle(b, olay) {
   const boylam = olay?.boylam;
   const koordinatVar = enlem !== null && enlem !== undefined &&
     boylam !== null && boylam !== undefined;
-  if (!baglanti && !koordinatVar) return;
+  const subeler = Array.isArray(olay?.subeler) ? olay.subeler : [];
+  if (!baglanti && !koordinatVar && !subeler.length) return;
 
   let liste = bolum.querySelector(".map-card-list");
   if (!liste) {
@@ -821,6 +822,11 @@ function haritaEkle(b, olay) {
     kart.appendChild(koordinat);
   }
 
+  const adimlar = Array.isArray(olay?.adimlar) ? olay.adimlar : [];
+  if (adimlar.length) {
+    kart.appendChild(zincirAkisi(adimlar));
+  }
+
   const atf = String(olay?.atf || "").trim();
   if (atf) {
     const not = document.createElement("span");
@@ -829,8 +835,89 @@ function haritaEkle(b, olay) {
     kart.appendChild(not);
   }
 
+  if (subeler.length) {
+    kart.appendChild(subeListesi(subeler));
+  }
+
   liste.appendChild(kart);
   bolum.hidden = false;
+}
+
+// Z5 zincir akisi: adimlar sunucunun (chat/tools.py:_harita_adimlar)
+// gonderdigi GERCEK rapordur; baslik/ozet burada uydurulmaz. Adimlar
+// sirayla gorunur: her adim bir oncekinin ustune baglanir ve CSS
+// gecikmesiyle tek tek acilir (gercek calisma sirasi sunucuda zorlanir:
+// bir adim bitmeden sonrakine gecilmez).
+function zincirAkisi(adimlar) {
+  const akis = document.createElement("ol");
+  akis.className = "map-card-chain";
+  for (const adim of adimlar) {
+    const satir = document.createElement("li");
+    const durum = String(adim?.durum || "").trim();
+    satir.className = "map-card-chain-step" +
+      (durum === "tamam" ? " ok" : durum === "bos" ? " bos" : "");
+    const baslik = document.createElement("strong");
+    baslik.className = "map-card-chain-title";
+    baslik.textContent = String(adim?.baslik || "").trim();
+    satir.appendChild(baslik);
+    const ozet = String(adim?.ozet || "").trim();
+    if (ozet) {
+      const ozetEl = document.createElement("span");
+      ozetEl.className = "map-card-chain-detail";
+      ozetEl.textContent = ozet;
+      satir.appendChild(ozetEl);
+    }
+    akis.appendChild(satir);
+  }
+  return akis;
+}
+
+// Zincir sonucundaki sube listesi: ad, mesafe ve baglantilar sunucunun
+// gonderdigi veriden alinir; burada hicbir adres/metin uydurulmaz.
+function subeListesi(subeler) {
+  const liste = document.createElement("ul");
+  liste.className = "map-card-branches";
+  for (const sube of subeler) {
+    const satir = document.createElement("li");
+    const ad = String(sube?.ad || "").trim();
+    const araBaglanti = String(sube?.ara_baglanti || "").trim();
+    const yolBaglanti = String(sube?.baglanti || "").trim();
+    const mesafe = Number(sube?.mesafe_km);
+
+    const adEl = document.createElement("span");
+    adEl.className = "map-card-branch-name";
+    if (araBaglanti) {
+      const a = document.createElement("a");
+      a.href = araBaglanti;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = ad || "Şube";
+      adEl.appendChild(a);
+    } else {
+      adEl.textContent = ad || "Şube";
+    }
+    satir.appendChild(adEl);
+
+    if (Number.isFinite(mesafe)) {
+      const mesafeEl = document.createElement("span");
+      mesafeEl.className = "map-card-branch-distance";
+      mesafeEl.textContent = mesafe.toFixed(1) + " km";
+      satir.appendChild(mesafeEl);
+    }
+
+    if (yolBaglanti) {
+      const yol = document.createElement("a");
+      yol.className = "map-card-branch-link";
+      yol.href = yolBaglanti;
+      yol.target = "_blank";
+      yol.rel = "noopener noreferrer";
+      yol.textContent = "Yol tarifi";
+      satir.appendChild(yol);
+    }
+
+    liste.appendChild(satir);
+  }
+  return liste;
 }
 
 function araciTamamla(b, olay) {
@@ -1862,6 +1949,84 @@ async function send(secenek = {}) {
 
 
 sendEl.addEventListener("click", () => send());
+
+// ── Harita formu: kullanici parcalari kendi ozel istemiyle yonlendirir.
+// Form yalniz istegi duzenler; hangi aracin calisacagina kod KARAR VERMEZ
+// (AGENTS.md §0) — metin normal sohbet mesaji olarak gider, karari model verir.
+const haritaButton = document.getElementById("haritaButton");
+const haritaFormEl = document.getElementById("haritaForm");
+const haritaKapatEl = document.getElementById("haritaKapat");
+const haritaGonderEl = document.getElementById("haritaGonder");
+const haritaMarkaEl = document.getElementById("haritaMarka");
+const haritaKonumEl = document.getElementById("haritaKonum");
+const haritaYaricapEl = document.getElementById("haritaYaricap");
+const haritaIstekEl = document.getElementById("haritaIstek");
+const haritaUyariEl = document.getElementById("haritaUyari");
+
+function haritaUyari(metin) {
+  if (!haritaUyariEl) return;
+  haritaUyariEl.textContent = metin || "";
+  haritaUyariEl.hidden = !metin;
+}
+
+function haritaFormunuAc(acik) {
+  if (!haritaFormEl || !haritaButton) return;
+  haritaFormEl.hidden = !acik;
+  haritaButton.setAttribute("aria-expanded", acik ? "true" : "false");
+  haritaUyari("");
+  if (acik && haritaMarkaEl) haritaMarkaEl.focus();
+}
+
+if (haritaButton && haritaFormEl) {
+  haritaButton.addEventListener("click", () => {
+    haritaFormunuAc(haritaFormEl.hidden);
+  });
+}
+if (haritaKapatEl) {
+  haritaKapatEl.addEventListener("click", () => {
+    haritaFormunuAc(false);
+    if (msgEl) msgEl.focus();
+  });
+}
+
+// Istek metni: alanlar duz metin olarak birlesir. Burada arac adi,
+// parametre eslestirmesi veya yonlendirme cumlesi YOK — istek kullanici
+// cumlesidir, model yorumlar.
+function haritaIstegiOlustur() {
+  const marka = (haritaMarkaEl?.value || "").trim();
+  const konum = (haritaKonumEl?.value || "").trim();
+  const yaricap = (haritaYaricapEl?.value || "").trim();
+  const istek = (haritaIstekEl?.value || "").trim();
+  if (!marka && !konum && !istek) return "";
+  const parcalar = [];
+  if (marka) parcalar.push("marka: " + marka);
+  if (konum) parcalar.push("konum: " + konum);
+  if (yaricap) parcalar.push("yarıçap: " + yaricap + " km");
+  let metin = "Harita isteği — " + parcalar.join(", ") + ".";
+  if (istek) metin += " Özel istem: " + istek;
+  return metin;
+}
+
+if (haritaGonderEl) {
+  haritaGonderEl.addEventListener("click", () => {
+    const metin = haritaIstegiOlustur();
+    if (!metin) {
+      haritaUyari("En az marka, konum veya özel istem alanından birini doldurun.");
+      return;
+    }
+    haritaFormunuAc(false);
+    send({ text: metin });
+  });
+}
+if (haritaFormEl) {
+  haritaFormEl.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      haritaFormunuAc(false);
+      if (msgEl) msgEl.focus();
+    }
+  });
+}
 
 document.querySelectorAll(".ornek").forEach((d) => {
   d.addEventListener("click", () => {

@@ -1,4 +1,5 @@
-"""tools/harita.py — Harita: baglanti (Z0), konum (Z1), sube bulma (Z3).
+"""tools/harita.py — Harita: baglanti (Z0), konum (Z1), sube bulma (Z3),
+zincir (Z4).
 
 Z0 (`harita_goster`): ag cagrisi YOK, anahtar YOK, kota YOK. Yalniz Google
 Maps URL semasi uretilir; kullanici tiklayinca harita kendi tarayicisinda
@@ -15,6 +16,13 @@ Z3 (`sube_bul`): marka + merkez + yaricap -> OpenStreetMap Overpass uzerinden
 markanin kayitli subeleri. Anahtar YOK, kota YOK (makul kullanim); OSM acik
 verisi ODbL'dir, sonuc kaydinda `atif` alani tasir. Sonuc 0 ise sube YOK
 degil, OSM'de KAYITLI DEGIL demektir; bu ayrim sonucta acikca yazilir.
+
+Z4 (`harita_dedektif`): Z0/Z1/Z3 parcalarini TEK cagrida zincirler —
+once merkez cozulur (konum_coz), sonra markanin kayitli subeleri aranir
+(Overpass, olmazsa Photon), sonra her sube icin harita baglantisi
+uretilir (harita_goster; yol modunda merkezden sube). Zincir kod icinde
+deterministiktir: model yalniz marka/merkez/yaricap/adet/mod
+parametrelerini doldurur, hangi adimin ne donecegine kod karar vermez.
 
 Her cagri `denenen_hatlar` alanini doner: hangi hat denendi, kac aday verdi
 ya da NEDEN basarisiz oldu. Bu alan 2026-10-01'de yasanan sessiz bozulmaya
@@ -53,13 +61,16 @@ def _konum_temizle(konum):
     return " ".join(str(konum or "").split())
 
 
-def harita_goster(konum, mod=MOD_YOL):
+def harita_goster(konum, mod=MOD_YOL, baslangic=""):
     """Konum için Google Maps bağlantısı üretir.
 
     konum: adres, yer adı veya "enlem,boylam" metni.
     mod:   "yol" (yol tarifi) veya "ara" (haritada ara).
+    baslangic: yol modunda başlangıç noktası (adres ya da "enlem,boylam");
+        boş bırakılırsa yol kullanıcının konumundan başlar. "ara" modunda
+        kullanılmaz.
 
-    Dönüş: {"result": JSON} — konum, mod, baglanti, kaynak.
+    Dönüş: {"result": JSON} — konum, mod, baslangic, baglanti, kaynak.
     Boş konum, aşırı uzun konum veya bilinmeyen mod → {"error": ...}.
     Bağlantı üretilemezse uydurma bağlantı YAZILMAZ.
     """
@@ -79,9 +90,18 @@ def harita_goster(konum, mod=MOD_YOL):
     # quote(safe="") — konum metni URL parametresinden kaçamaz.
     baglanti = taban + urllib.parse.quote(temiz, safe="")
 
+    bas = _konum_temizle(baslangic)
+    if bas:
+        if len(bas) > KONUM_TAVANI:
+            return {"error": "Başlangıç çok uzun (en fazla %d karakter)."
+                             % KONUM_TAVANI}
+        if secilen == MOD_YOL:
+            baglanti += "&origin=" + urllib.parse.quote(bas, safe="")
+
     return {"result": _j({
         "konum": temiz,
         "mod": secilen,
+        "baslangic": bas,
         "baglanti": baglanti,
         "kaynak": "Google Maps",
     })}
@@ -515,41 +535,41 @@ def _sube_kaydi(eleman, enlem, boylam):
     }
 
 
-def sube_bul(marka, konum, yaricap_km=None):
-    """Markanin bir bolgedeki kayitli subelerini OpenStreetMap'te bulur.
-
-    marka:     aranacak marka adi (regex olarak kacirilir).
-    konum:     merkez — 'enlem,boylam' ya da adres/yer adi (konum_coz).
-    yaricap_km: arama yaricapi (varsayilan 5, en fazla 25).
-
-    Donus: {"result": JSON} — marka, merkez, yaricap_km, sube_sayisi,
-    subeler (ad, enlem, boylam, adres, tip, telefon, website, mesafe_km,
-    osm_id, osm_tip; en yakin ilk), atif, denenen_hatlar. Sonuc 0 ise hata
-    DEGILDIR — OSM'de kayitli oldugu anlamina gelmez:
-    OSM'de kayitli olmadigi `not` alaninda belirtilir. Ag/servis hatasi
-    ya da bulunamayan merkez {"error": ...} doner; sube UYDURULMAZ.
-    """
-    temiz_marka = _konum_temizle(marka)
-    if not temiz_marka:
-        return {"error": "Marka boş olamaz."}
-    if len(temiz_marka) > 120:
-        return {"error": "Marka çok uzun (en fazla 120 karakter)."}
-
+def _yaricap_coz(yaricap_km):
+    """Yaricapi sayiya cevirir ve sinirlar. Donus: (km, hata_mesaji)."""
     try:
         yaricap = float(yaricap_km) if yaricap_km not in (None, "") \
             else _YARICAP_VARSAYILAN
     except (TypeError, ValueError):
-        return {"error": "yaricap_km sayı olmalı (km)."}
+        return None, "yaricap_km sayı olmalı (km)."
     if yaricap <= 0:
-        return {"error": "yaricap_km sıfırdan büyük olmalı."}
-    yaricap = min(yaricap, _YARICAP_TAVANI)
+        return None, "yaricap_km sıfırdan büyük olmalı."
+    return min(yaricap, _YARICAP_TAVANI), None
 
-    enlem, boylam, gosterim_adi, merkez_kaynak = _merkez_coz(konum)
-    if enlem is None:
-        return {"error": "Merkez bulunamadı: %s" % merkez_kaynak}
 
+def _adet_coz(adet):
+    """Adet sinirini cozer. Donus: (limit, hata_mesaji); 0 = sinirsiz."""
+    if adet in (None, "", 0):
+        return 0, None
+    try:
+        sayi = int(adet)
+    except (TypeError, ValueError):
+        return None, "adet sayı olmalı."
+    if sayi < 0:
+        return None, "adet sıfırdan küçük olamaz."
+    if sayi > _ADET_TAVANI:
+        return None, "adet en fazla %d olabilir." % _ADET_TAVANI
+    return sayi, None
+
+
+def _sube_ara(marka, enlem, boylam, yaricap):
+    """Zincirin ikinci adimi: markanin yaricap ici kayitli subeleri.
+
+    Once Overpass aynalari, sonu bos kalirsa Photon POI aramasi denenir.
+    Donus: {"subeler", "veri_kaynagi", "denenen_hatlar", "hata"}.
+    """
     # Overpass regex RE2'dir; kullanici girdisi desen olamaz — kacirilir.
-    marka_deseni = re.escape(temiz_marka)
+    marka_deseni = re.escape(marka)
     sorgu = _overpass_sorgusu(enlem, boylam, int(yaricap * 1000),
                               marka_deseni)
     sorgu_metni = urllib.parse.urlencode({"data": sorgu})
@@ -588,11 +608,11 @@ def sube_bul(marka, konum, yaricap_km=None):
     # (ayni OpenStreetMap kayitlari, farkli servis). Sonuc yine OSM.
     photon_ok = False
     if not subeler:
-        p_veri, p_hata = _json_al(_photon_adresi(temiz_marka, enlem, boylam),
+        p_veri, p_hata = _json_al(_photon_adresi(marka, enlem, boylam),
                                   sure=_SUBE_ZAMAN_ASIMI)
         photon_ok = isinstance(p_veri, dict)
         if photon_ok:
-            subeler = _photon_subeleri(p_veri, temiz_marka, enlem, boylam,
+            subeler = _photon_subeleri(p_veri, marka, enlem, boylam,
                                        yaricap)
             denenen.append({"ayna": _PHOTON_TABANI, "durum": "ok"
                             if subeler else "bos"})
@@ -610,9 +630,47 @@ def sube_bul(marka, konum, yaricap_km=None):
         ozet = "; ".join("%s: %s" % (_ayna_adi(k.get("ayna")),
                                      k.get("hata") or "basarisız")
                          for k in denenen)
-        return {"error": "OpenStreetMap servisine ulaşılamadı. Denenen "
-                         "aynalar: %s" % ozet}
+        return {"subeler": [], "veri_kaynagi": "", "denenen_hatlar": denenen,
+                "hata": "OpenStreetMap servisine ulaşılamadı. Denenen "
+                        "aynalar: %s" % ozet}
 
+    return {"subeler": subeler, "veri_kaynagi": kaynak_veri,
+            "denenen_hatlar": denenen, "hata": None}
+
+
+def sube_bul(marka, konum, yaricap_km=None):
+    """Markanin bir bolgedeki kayitli subelerini OpenStreetMap'te bulur.
+
+    marka:     aranacak marka adi (regex olarak kacirilir).
+    konum:     merkez — 'enlem,boylam' ya da adres/yer adi (konum_coz).
+    yaricap_km: arama yaricapi (varsayilan 5, en fazla 25).
+
+    Donus: {"result": JSON} — marka, merkez, yaricap_km, sube_sayisi,
+    subeler (ad, enlem, boylam, adres, tip, telefon, website, mesafe_km,
+    osm_id, osm_tip; en yakin ilk), atif, denenen_hatlar. Sonuc 0 ise hata
+    DEGILDIR — OSM'de kayitli oldugu anlamina gelmez:
+    OSM'de kayitli olmadigi `not` alaninda belirtilir. Ag/servis hatasi
+    ya da bulunamayan merkez {"error": ...} doner; sube UYDURULMAZ.
+    """
+    temiz_marka = _konum_temizle(marka)
+    if not temiz_marka:
+        return {"error": "Marka boş olamaz."}
+    if len(temiz_marka) > 120:
+        return {"error": "Marka çok uzun (en fazla 120 karakter)."}
+
+    yaricap, hata = _yaricap_coz(yaricap_km)
+    if hata:
+        return {"error": hata}
+
+    enlem, boylam, gosterim_adi, merkez_kaynak = _merkez_coz(konum)
+    if enlem is None:
+        return {"error": "Merkez bulunamadı: %s" % merkez_kaynak}
+
+    arama = _sube_ara(temiz_marka, enlem, boylam, yaricap)
+    if arama["hata"]:
+        return {"error": arama["hata"]}
+
+    subeler = arama["subeler"]
     not_metni = ""
     if not subeler:
         not_metni = ("Arama yapıldı; OpenStreetMap'te bu markanın bu "
@@ -628,8 +686,144 @@ def sube_bul(marka, konum, yaricap_km=None):
         "yaricap_km": yaricap,
         "sube_sayisi": len(subeler),
         "subeler": subeler,
-        "veri_kaynagi": kaynak_veri,
+        "veri_kaynagi": arama["veri_kaynagi"],
         "atif": _ATFI,
         "not": not_metni,
-        "denenen_hatlar": denenen,
+        "denenen_hatlar": arama["denenen_hatlar"],
+    })}
+
+
+# ── Z4: zincir (konum_coz → sube_bul → harita_goster) ───────────────
+#
+# Parcalar zaten ayri ayri calisiyor; burada TEK cagriya baglaniyor:
+# merkez cozulur, markanin subeleri aranir, her sube icin harita
+# baglantisi uretilir. Model yalniz parametreleri doldurur; zincirin
+# sirasi kod icinde sabittir.
+
+_ADET_TAVANI = 20
+
+
+def _baglanti_al(konum, mod=MOD_YOL, baslangic=""):
+    """harita_goster'dan baglanti metnini alir; hata olursa bos string."""
+    sonuc = harita_goster(konum, mod, baslangic)
+    if "result" not in sonuc:
+        return ""
+    try:
+        veri = json.loads(sonuc["result"])
+    except (TypeError, ValueError):
+        return ""
+    return str(veri.get("baglanti") or "")
+
+
+def harita_dedektif(marka, konum, yaricap_km=None, adet=0, mod=MOD_YOL):
+    """Harita zincirini tek cagrida calistirir: merkez → sube → baglanti.
+
+    marka:      aranacak marka adi (regex olarak kacirilir).
+    konum:      merkez — 'enlem,boylam' ya da adres/yer adi (konum_coz).
+    yaricap_km: arama yaricapi (varsayilan 5, en fazla 25).
+    adet:       en fazla kac sube donulsun (0 = hepsi, en fazla 20).
+    mod:        sube baglantisi — "yol" (merkezden yol tarifi) veya "ara".
+
+    Donus: {"result": JSON} — marka, merkez, yaricap_km, sube_sayisi,
+    subeler (ad, enlem, boylam, adres, tip, telefon, website, mesafe_km,
+    baglanti, ara_baglanti; en yakin ilk), baglantilar (merkez), mod,
+    veri_kaynagi, atif, not, denenen_hatlar, zincir (ad listesi), adimlar
+    (her adimda ad, durum, ozet — tamamlandikca yazilir). Sonuc 0 ise hata
+    DEGILDIR (OSM'de kayitli olmayabilir; `not` alaninda yazilir).
+    Merkez bulunamazsa ya da OpenStreetMap servisine ulasilamazsa
+    {"error": ...} doner; sube ve baglanti UYDURULMAZ.
+    """
+    temiz_marka = _konum_temizle(marka)
+    if not temiz_marka:
+        return {"error": "Marka boş olamaz."}
+    if len(temiz_marka) > 120:
+        return {"error": "Marka çok uzun (en fazla 120 karakter)."}
+
+    yaricap, hata = _yaricap_coz(yaricap_km)
+    if hata:
+        return {"error": hata}
+
+    limit, hata = _adet_coz(adet)
+    if hata:
+        return {"error": hata}
+
+    secilen = str(mod or "").strip().lower() or MOD_YOL
+    if secilen not in GECERLI_MODLAR:
+        return {"error": "Bilinmeyen mod: '%s'. Geçerli modlar: %s"
+                         % (mod, ", ".join(GECERLI_MODLAR))}
+
+    enlem, boylam, gosterim_adi, merkez_kaynak = _merkez_coz(konum)
+    if enlem is None:
+        return {"error": "Merkez bulunamadı: %s" % merkez_kaynak}
+
+    arama = _sube_ara(temiz_marka, enlem, boylam, yaricap)
+    if arama["hata"]:
+        return {"error": arama["hata"]}
+
+    subeler = arama["subeler"]
+    if limit:
+        subeler = subeler[:limit]
+
+    merkez_metin = "%.6f, %.6f" % (enlem, boylam)
+    # Z5: zincirin adım raporu. Her adım GERÇEK sonucuyla ve tamamlandıkça
+    # yazılır; sıradaki adım bir önceki bitmeden başlamaz (yukarıdaki çağrı
+    # sırası bunu zorlar). Ad alanları araç adıdır; özet sayısal gerçeklerden
+    # kurulur — uydurma metin yok.
+    adimlar = [{
+        "ad": "konum_coz", "durum": "tamam",
+        "baslik": "Konum çözüldü",
+        "ozet": "merkez: %s" % (gosterim_adi or merkez_metin),
+    }]
+    zincir_subeler = []
+    for sube in subeler:
+        konum_metin = "%.6f, %.6f" % (sube["enlem"], sube["boylam"])
+        kayit = dict(sube)
+        # YOL modunda baslangic merkezdir: "buradan oraya nasil giderim".
+        kayit["baglanti"] = _baglanti_al(konum_metin, secilen,
+                                         baslangic=merkez_metin)
+        kayit["ara_baglanti"] = _baglanti_al(konum_metin, MOD_ARAMA)
+        zincir_subeler.append(kayit)
+
+    adimlar.append({
+        "ad": "sube_bul",
+        "durum": "tamam" if zincir_subeler else "bos",
+        "baslik": "Şubeler arandı",
+        "ozet": "%d şube bulundu (%s km)"
+                % (len(zincir_subeler), str(yaricap)),
+    })
+
+    merkez_baglanti = _baglanti_al(merkez_metin, MOD_ARAMA)
+    baglanti_sayisi = (1 if merkez_baglanti else 0) + sum(
+        (1 if s["baglanti"] else 0) + (1 if s["ara_baglanti"] else 0)
+        for s in zincir_subeler)
+    adimlar.append({
+        "ad": "harita_goster",
+        "durum": "tamam" if baglanti_sayisi else "bos",
+        "baslik": "Bağlantılar üretildi",
+        "ozet": "%d bağlantı üretildi" % baglanti_sayisi,
+    })
+
+    not_metni = ""
+    if not zincir_subeler:
+        not_metni = ("Arama yapıldı; OpenStreetMap'te bu markanın bu "
+                     "bölgede etiketli şubesi görünmüyor. Şubesi olabilir — "
+                     "OSM kaydı eksik olabilir; harita_goster ile bölgede "
+                     "arama yapılabilir.")
+
+    return {"result": _j({
+        "marka": temiz_marka,
+        "merkez": {"enlem": round(enlem, 6), "boylam": round(boylam, 6),
+                   "gosterim_adi": gosterim_adi,
+                   "kaynak": merkez_kaynak},
+        "yaricap_km": yaricap,
+        "mod": secilen,
+        "sube_sayisi": len(zincir_subeler),
+        "subeler": zincir_subeler,
+        "baglantilar": {"merkez": merkez_baglanti},
+        "veri_kaynagi": arama["veri_kaynagi"],
+        "atif": _ATFI,
+        "not": not_metni,
+        "denenen_hatlar": arama["denenen_hatlar"],
+        "zincir": [a["ad"] for a in adimlar],
+        "adimlar": adimlar,
     })}

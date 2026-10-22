@@ -20,7 +20,7 @@
 <meta name="twitter:image" content="https://basak-vercel.vercel.app/og-basak.png">
 <meta name="twitter:title" content="Başak — Türkçe Kişisel Yapay Zekâ Asistanı">
 <meta name="twitter:description" content="Kayıtsız web sohbeti, görsel ve ses desteği, 162 ücretsiz çevrimiçi araç.">
-<link rel="stylesheet" href="/chat.css?v=13">
+<link rel="stylesheet" href="/chat.css?v=15">
 </head>
 <body>
 <div class="app-shell">
@@ -139,6 +139,33 @@
             <button id="removeImage" class="remove-attachment" type="button" aria-label="Fotoğrafı kaldır">×</button>
           </div>
 
+          <div id="haritaForm" class="harita-form" hidden>
+            <div class="harita-form-ust">
+              <strong>Harita isteği</strong>
+              <button id="haritaKapat" class="harita-kapat" type="button" aria-label="Harita formunu kapat">×</button>
+            </div>
+            <div class="harita-alanlar">
+              <label class="harita-alan" for="haritaMarka">
+                <span>Marka</span>
+                <input id="haritaMarka" type="text" maxlength="120" placeholder="örn. BİM" autocomplete="off">
+              </label>
+              <label class="harita-alan" for="haritaKonum">
+                <span>Konum</span>
+                <input id="haritaKonum" type="text" maxlength="240" placeholder="örn. Kadıköy Moda, İstanbul" autocomplete="off">
+              </label>
+              <label class="harita-alan harita-alan-kisa" for="haritaYaricap">
+                <span>Yarıçap (km)</span>
+                <input id="haritaYaricap" type="number" min="1" max="25" step="1" placeholder="5" inputmode="numeric">
+              </label>
+              <label class="harita-alan harita-alan-genis" for="haritaIstek">
+                <span>Özel istem</span>
+                <textarea id="haritaIstek" rows="2" maxlength="600" placeholder="örn. en yakın 3 şubeyi yol tarifiyle listele"></textarea>
+              </label>
+            </div>
+            <p id="haritaUyari" class="harita-uyari" role="alert" hidden></p>
+            <button id="haritaGonder" class="harita-gonder" type="button">İsteği gönder</button>
+          </div>
+
           <div class="composer">
             <label id="imagePick" class="icon-button attach-button" hidden title="Fotoğraf ekle" aria-label="Fotoğraf ekle">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -148,6 +175,10 @@
             <textarea id="message" maxlength="4000" rows="1" placeholder="Başak’a yaz..." aria-label="Başak'a mesaj yaz"></textarea>
 
             <div class="composer-actions">
+              <button id="haritaButton" class="icon-button" type="button" title="Harita isteği" aria-label="Harita isteği" aria-expanded="false" aria-controls="haritaForm">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10Z"/><circle cx="12" cy="11" r="2.2"/></svg>
+              </button>
+
               <button id="micButton" class="icon-button" type="button" title="Sesle yaz" aria-label="Sesle yaz">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <rect x="9" y="3" width="6" height="11" rx="3"/>
@@ -169,7 +200,7 @@
 </div>
 
 <script src="/common.js?v=8"></script>
-<script src="/app.js?v=22"></script>
+<script src="/app.js?v=24"></script>
 <script src="/eklenti-kart.js?v=1"></script>
 <script src="/olcum.js?v=1" defer></script>
 </body>

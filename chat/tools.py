@@ -86,6 +86,7 @@ DURUM_METNI = {
     "harita_goster": "Harita bağlantısı hazırlanıyor",
     "konum_coz": "Konum koordinatı çözülüyor",
     "sube_bul": "Bölgedeki şubeler taranıyor",
+    "harita_dedektif": "Harita zinciri çalışıyor",
     "freetools_ara": "freetools kataloğu aranıyor",
     "freetools_calistir": "freetools aracı çalıştırılıyor",
     "yetenek_ac": "Araçlar açılıyor",
@@ -177,7 +178,8 @@ def _kaynaklari_cikar(tool_name, args, net):
 
 
 # ── Z2 harita olayı (D4b = B onaylı) ─────────────────────────────────
-_HARITA_ARACLARI = ("harita_goster", "konum_coz")
+_HARITA_ARACLARI = ("harita_goster", "konum_coz", "sube_bul",
+                    "harita_dedektif")
 # Atif metni ODbL uyumlulugu icin ingilizce resmi bicim.
 _HARITA_ATFI = "© OpenStreetMap contributors"
 # Bu kaynaklar OSM turevi coğrafi kodlama verisidir (Nominatim/Photon).
@@ -202,19 +204,74 @@ def _harita_sonuc(ham):
     return veri if isinstance(veri, dict) else {}
 
 
-def _harita_olayi(tool_name, ham):
-    """Z0/Z1 arac sonucundan harita olayi uretir; gosterilecek veri yoksa None.
+def _harita_subeler(ham):
+    """Sube listesini gosterim icin sadelestirir; bozuk girdi bos liste.
 
-    D4b = B: gomulu karo YOK. web/ yalniz Z0'in baglantisini ve Z1'in
-    koordinatini gosterir; "Haritada ac" dugmesi kullaniciyi Google
-    Maps'e goturur. Karo yuklenmedigi icin web/ gizlilik sozu ve KVKK
-    envanteri DEGISMEZ (tests/test_web_gizlilik_beyani.py).
+    Yalniz sunucunun dondurdugu alanlar tasinir; JS tarafinda yeni metin
+    uydurulmaz. Olay boyutu sinirli tutulur (en fazla 10 sube).
+    """
+    if not isinstance(ham, list):
+        return []
+    liste = []
+    for kayit in ham[:10]:
+        if not isinstance(kayit, dict):
+            continue
+        mesafe = kayit.get("mesafe_km")
+        try:
+            mesafe = round(float(mesafe), 2) if mesafe is not None else None
+        except (TypeError, ValueError):
+            mesafe = None
+        giris = {
+            "ad": str(kayit.get("ad") or "").strip(),
+            "adres": str(kayit.get("adres") or "").strip(),
+            "mesafe_km": mesafe,
+            "baglanti": str(kayit.get("baglanti") or "").strip(),
+            "ara_baglanti": str(kayit.get("ara_baglanti") or "").strip(),
+        }
+        if giris["ad"] or giris["baglanti"]:
+            liste.append(giris)
+    return liste
+
+
+def _harita_adimlar(ham):
+    """Zincirin adım raporunu gosterim icin sadelestirir; bozuk girdi bos liste.
+
+    Yalniz sunucunun yazdigi ad/durum/baslik/ozet alanlari tasinir; JS
+    tarafinda yeni metin uydurulmaz. Siralama sunucudaki zincir sirasidir.
+    """
+    if not isinstance(ham, list):
+        return []
+    liste = []
+    for kayit in ham[:6]:
+        if not isinstance(kayit, dict):
+            continue
+        giris = {
+            "ad": str(kayit.get("ad") or "").strip(),
+            "durum": str(kayit.get("durum") or "").strip(),
+            "baslik": str(kayit.get("baslik") or "").strip(),
+            "ozet": str(kayit.get("ozet") or "").strip(),
+        }
+        if giris["baslik"] or giris["ozet"]:
+            liste.append(giris)
+    return liste
+
+
+def _harita_olayi(tool_name, ham):
+    """Harita araclarinin sonucundan harita olayi uretir; veri yoksa None.
+
+    D4b = B: gomulu karo YOK. web/ yalniz Z0'in baglantisini, Z1'in
+    koordinatini ve Z3/Z4'un sube listesini gosterir; "Haritada ac"
+    dugmesi kullaniciyi Google Maps'e goturur. Karo yuklenmedigi icin
+    web/ gizlilik sozu ve KVKK envanteri DEGISMEZ
+    (tests/test_web_gizlilik_beyani.py).
 
     Koordinattan baglanti gerekiyorsa ayni testli URL kurucusu
     (harita_goster) kullanilir; JS tarafinda ikinci bir URL bilgisi
     olmaz. Atif yalniz OSM turevi kaynaktan gelen koordinatta gider:
     gosterilen verinin gercek kaynagini yazmak, olmayan atif ya da
-    olmayan kaynagin atfini eklemekten dogru.
+    olmayan kaynagin atfini eklemekten dogru. Sube listesi OSM verisidir;
+    orada atif her zaman yazar. Z4 zincirinin adim raporu (adimlar) aynen
+    olaya tasir; kartta sirayla gosterilir.
     """
     if tool_name not in _HARITA_ARACLARI or not isinstance(ham, dict):
         return None
@@ -222,10 +279,14 @@ def _harita_olayi(tool_name, ham):
     if not veri:
         return None
 
+    merkez = veri.get("merkez")
+    if not isinstance(merkez, dict):
+        merkez = {}
+    enlem = merkez.get("enlem", veri.get("enlem"))
+    boylam = merkez.get("boylam", veri.get("boylam"))
     baglanti = str(veri.get("baglanti") or "").strip()
-    enlem = veri.get("enlem")
-    boylam = veri.get("boylam")
-    if not baglanti and enlem is None and boylam is None:
+    subeler = _harita_subeler(veri.get("subeler"))
+    if not baglanti and enlem is None and boylam is None and not subeler:
         return None
     if not baglanti and enlem is not None and boylam is not None:
         # Z1 yalniz koordinat dondurur; baglanti ayni kurucudan turetilir.
@@ -236,16 +297,29 @@ def _harita_olayi(tool_name, ham):
                               mod=MOD_ARAMA)
             ).get("baglanti") or ""
         ).strip()
-    kaynak = str(veri.get("kaynak") or "").strip().lower()
-    return {
+    kaynak = str(veri.get("kaynak") or merkez.get("kaynak") or "").strip()
+    kaynak = kaynak.lower()
+    gosterim_adi = str(
+        merkez.get("gosterim_adi") or veri.get("gosterim_adi")
+        or veri.get("konum") or "").strip()
+    if not gosterim_adi and subeler:
+        gosterim_adi = str(subeler[0].get("ad") or "").strip()
+    atf = _HARITA_ATFI if (subeler or (enlem is not None
+                                       and kaynak in _OSM_TUREV_KAYNAKLAR)) \
+        else ""
+    adimlar = _harita_adimlar(veri.get("adimlar"))
+    olay = {
         "baglanti": baglanti,
         "enlem": enlem,
         "boylam": boylam,
-        "gosterim_adi": str(
-            veri.get("gosterim_adi") or veri.get("konum") or "").strip(),
-        "atf": _HARITA_ATFI if (enlem is not None
-                                and kaynak in _OSM_TUREV_KAYNAKLAR) else "",
+        "gosterim_adi": gosterim_adi,
+        "atf": atf,
     }
+    if subeler:
+        olay["subeler"] = subeler
+    if adimlar:
+        olay["adimlar"] = adimlar
+    return olay
 
 
 def sonucu_donustur(sonuc):

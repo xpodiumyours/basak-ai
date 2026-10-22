@@ -10,9 +10,7 @@ yapabilir?" bölümünün geri gelmezliği burada kilitlenir:
   gonder tusunu acar). Sinif eksilirse cip olur kalir, ziyaretci
   gorevi geciremez.
 - cipler sahte/hazir cevap DEGILDIR: iclerinde donmus yanit yoktur,
-  metin kullanici mesaji olarak chat.flow.mesaj_isle'den gecer.
-
-Cache surumu kilidi (chat.css?v=13 / app.js?v=22) tests/test_vercel_stream.py'dedir.
+  metin kullanici mesaji olarak chat.flow.mesaj_isle'den gecer.    Cache surumu kilidi (chat.css?v=15 / app.js?v=24) tests/test_vercel_stream.py'dedir.
 """
 
 import os

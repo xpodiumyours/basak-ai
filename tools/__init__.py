@@ -392,6 +392,15 @@ def calistir(tool_name, args):
                                    str(args.get("konum", "")),
                                    args.get("yaricap_km"))
 
+        if tool_name == "harita_dedektif":
+            from tools import harita
+            return harita.harita_dedektif(
+                str(args.get("marka", "")),
+                str(args.get("konum", "")),
+                args.get("yaricap_km"),
+                args.get("adet", 0),
+                str(args.get("mod", "") or "yol"))
+
         if tool_name == "sayfa_bakis":
             from tools import tarayici_kopru
             return tarayici_kopru.sayfa_bakis(

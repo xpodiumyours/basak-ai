@@ -266,8 +266,8 @@ class TestWebYuzey:
         assert ".map-card-open{min-height:40px" in CSS
 
     def test_surum_kilidi_yukseltildi(self):
-        assert "/chat.css?v=13" in HTML
-        assert "/app.js?v=22" in HTML
+        assert "/chat.css?v=15" in HTML
+        assert "/app.js?v=24" in HTML
 
 
 class TestD4bKaroYok:
@@ -313,9 +313,9 @@ class TestD4bKaroYok:
 
 class TestAracKilidiDegismedi:
     def test_arac_sayisi_ve_alan_ayni_kaldi(self):
-        """Z2 yeni arac EKLEMEZ; gosterim yuzeyidir."""
+        """Z2 gosterim yuzeyidir; arac sayisi Z4 zinciriyle 63'e cikti."""
         from tools.capabilities import validate_registry
         s = validate_registry()
         assert s["ok"] is True
-        assert s["tool_count"] == 62
+        assert s["tool_count"] == 63
         assert s["namespace_count"] == 16

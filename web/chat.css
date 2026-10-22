@@ -652,9 +652,87 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace
 }
 .map-card-attribution{color:var(--muted);font-size:11px;opacity:.85}
+.map-card-branches{
+  display:grid;gap:6px;width:100%;margin:4px 0 0;padding:0;list-style:none
+}
+.map-card-branches li{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  color:var(--ink);font-size:12px
+}
+.map-card-branch-name{font-weight:600}
+.map-card-branch-distance{color:var(--muted);font-size:11.5px}
+.map-card-branch-link{color:var(--ink);text-decoration:underline;text-underline-offset:2px}
+
+/* Z5 zincir akisi: adimlar sirayla, bagli bir akis halinde. */
+.map-card-chain{
+  display:grid;gap:0;width:100%;margin:6px 0 0;padding:0;list-style:none
+}
+.map-card-chain-step{
+  position:relative;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;
+  padding:3px 0 3px 20px;color:var(--ink);font-size:12px;
+  opacity:0;animation:zincir-adim .32s ease forwards
+}
+.map-card-chain-step:nth-child(1){animation-delay:.05s}
+.map-card-chain-step:nth-child(2){animation-delay:.45s}
+.map-card-chain-step:nth-child(3){animation-delay:.85s}
+.map-card-chain-step:nth-child(4){animation-delay:1.25s}
+.map-card-chain-step:nth-child(5){animation-delay:1.65s}
+.map-card-chain-step:nth-child(6){animation-delay:2.05s}
+@keyframes zincir-adim{to{opacity:1}}
+@media (prefers-reduced-motion: reduce){
+  .map-card-chain-step{opacity:1;animation:none}
+}
+.map-card-chain-step::before{
+  content:"";position:absolute;left:4px;top:11px;width:7px;height:7px;
+  border-radius:50%;background:var(--line);border:1px solid var(--muted)
+}
+.map-card-chain-step.ok::before{background:var(--ink);border-color:var(--ink)}
+.map-card-chain-step.bos::before{background:var(--bg)}
+.map-card-chain-step:not(:last-child)::after{
+  content:"";position:absolute;left:7px;top:19px;width:1px;height:calc(100% - 16px);
+  background:var(--line)
+}
+.map-card-chain-title{font-weight:600}
+.map-card-chain-detail{color:var(--muted);font-size:11.5px}
+
+/* ── Harita formu (kullanıcı isteği yönlendirmesi) ──────────────── */
+.harita-form{
+  border:1px solid var(--line);border-radius:14px;background:var(--soft);
+  padding:12px 14px;margin:0 0 10px;display:grid;gap:10px
+}
+.harita-form-ust{display:flex;align-items:center;gap:9px}
+.harita-form-ust strong{font-size:13px;letter-spacing:-.01em;color:var(--ink)}
+.harita-kapat{
+  margin-left:auto;width:26px;height:26px;border:0;border-radius:8px;
+  background:transparent;color:var(--muted);font-size:17px;line-height:1
+}
+.harita-kapat:hover{background:var(--line);color:var(--ink)}
+.harita-alanlar{display:grid;grid-template-columns:1fr 1fr auto;gap:8px 10px}
+.harita-alan{display:grid;gap:4px;min-width:0}
+.harita-alan span{color:var(--muted);font-size:11.5px}
+.harita-alan-genis{grid-column:1 / -1}
+.harita-alan input,.harita-alan textarea{
+  width:100%;border:1px solid var(--line);border-radius:10px;background:var(--bg);
+  color:var(--ink);padding:8px 10px;font-size:13px;resize:vertical
+}
+.harita-alan input:focus-visible,.harita-alan textarea:focus-visible{
+  outline:2px solid var(--ink);outline-offset:1px
+}
+.harita-uyari{margin:0;color:#a13c2f;font-size:12px}
+.harita-gonder{
+  justify-self:start;border:1px solid var(--line);background:var(--bg);
+  color:var(--ink);border-radius:999px;padding:8px 16px;font-size:12.5px;font-weight:600
+}
+.harita-gonder:hover{border-color:#c9c9cf}
+.harita-gonder:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 @media(max-width:760px), (hover:none) and (pointer:coarse) and (max-width:1100px){
   .map-card-open{min-height:40px;padding:9px 14px}
+  .map-card-branches li{min-height:40px}
+  .map-card-chain-step{min-height:40px;align-items:center}
+  .harita-alanlar{grid-template-columns:1fr}
+  .harita-alan input,.harita-alan textarea{min-height:40px}
+  .harita-gonder{min-height:40px;width:100%;justify-self:stretch}
   .work-plan{margin-left:14px;font-size:12.5px}
   .work-redirect-form{margin-left:25px}
   .work-redirect-input,.work-redirect-apply{height:40px}
