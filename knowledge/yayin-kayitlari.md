@@ -245,3 +245,17 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   `chromium_headless_shell` parçasının eksik kalması; `playwright install
   chromium` ile düzeldi (1658/26 tabanına döndü). Kurulum kaydı
   `~/pw-deps/KURULUM.md`'ye işlendi.
+
+- 2026-10-22: `13af05e` + `6a3142c` (dal `feat/harita-zinciri`) — **vitrin
+  profesyonelleşti** (Casper kararı). Kapsam: "Benim için neler yapabilir?"
+  bölümü + 6 örnek görev cipi kaldırıldı; hero'daki büyük yapay zekâ uyarı
+  kartı (.ai-notice) silinip yerine composer altında **tek satır** uyarı
+  konuldu (metin birebir korundu, sorumluluk + bilgi linkleri eklendi).
+  Uyarı kaybolmadı — sadeleşti; karsılama ekranı artık sohbeti öne alıyor.
+  **Kilitler:** `tests/test_vitrin.py` yeniden yazıldı (bölüm/cip/kart geri
+  gelmez); cache damgaları `chat.css?v=18` / `app.js?v=27` + 5 test
+  dosyasındaki damga kilitleri güncellendi. Kırmızı→yeşil: 8 kilit önce
+  kırmızı, uygulama sonrası alt küme 167/167.
+  **Kapılar:** pytest **1659 geçti / 26 atlandı**; ruff / node --check temiz;
+  gerçek tarayıcı provası **15/15 tutarlı** (mobil + masaüstü: oneri/cip yok,
+  büyük kart yok, not satırı dürüst, eklenti kartı kuralı korunuyor).
