@@ -259,3 +259,20 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   **Kapılar:** pytest **1659 geçti / 26 atlandı**; ruff / node --check temiz;
   gerçek tarayıcı provası **15/15 tutarlı** (mobil + masaüstü: oneri/cip yok,
   büyük kart yok, not satırı dürüst, eklenti kartı kuralı korunuyor).
+
+- 2026-10-22: `44b09e3` — **faz sonu: `main`'e ve `preview`'a birleşti,
+  üretim yayında** (Casper onayı). Dürüst süreç notu: `cloud_git` bu itmede
+  dal parametresi verilmediği için varsayılan dala, yani doğrudan `main`'e
+  gitti (§10 sırası preview-first olacaktı); içerik aynı fast-forward'dı ve
+  `preview` hemen ardından `f45dfc5..44b09e3` ile eşitlendi — iki dal şu an
+  aynı commit'te, hiçbir commit/referans kaybı yok.
+  **Üretim doğrulaması (`basak-vercel.vercel.app`):** `chat.css?v=18` +
+  `app.js?v=27` canlıda; `quick-chip` 0, `.ai-notice` 0, Sorumluluk linki
+  yerinde; `/api/durum` = 401 (kimlik kapısı sağlam). Preview dal adresi
+  de yeni sürümde (200 · v=27 · cip/kart 0).
+  **Canlı kabul üretim adresine karşı (`tests/live --live`): 2/2 geçti** —
+  gerçek kimlik ucu (200), gerçek NDJSON konuşma + gerçek araç koşumu
+  (SHA-256), ve doğru hesap hücresi: sha256 beklenenle eşleşti; base64
+  hücresi bu koşuda da beklenen dizeyi üretti (daha önce kırmızıydı — tek
+  koşu `§8.3` açık işini kapatmaz, kaydı duruyor). Raporlar
+  `data/canli-rapor/20261022-19*.json` (gitignore'da).
