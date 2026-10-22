@@ -202,3 +202,25 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   --check temiz. Canlı ölçüm (yerel sunucu): beyin turu `kilo` 2,1 sn; 62 araç;
   kanal "Kanal açık"; akış "harf harf akıyor"; checkpoint "yok"; çalışma özeti
   6 yayın kaydı + 11 not okundu.
+
+- 2026-10-22: `0f105e7` + `2d25b09` + `0be45fd` (dal `feat/harita-zinciri`,
+  henüz main değil) — **Yol A-1 canlı sayaçlar + Yol B-1 kopma kurtarma**.
+  Kapsam: çalışma kartında "N komut çalıştırıldı · N sayfa gezildi" sayacı
+  (gerçek olaylardan; `toolDone` artık `arac` alanı taşır) + beklenmedik
+  akış kesilmesinde iş kaybının kapanması: kesilme işareti + imzalı devam
+  kaydı varsa çalışma satırı silinmez, mola ile aynı "Devam et" sunulur;
+  kayıt yoksa eski dürüst hata yolu aynen. Mobilde sayaç/düğme kelime
+  ortasından kırılması CSS ile düzeltildi (gerçek ekran görüntüsüyle
+  yakalandı). Sürüm kilidi app.js?v=26 / chat.css?v=17.
+  **Kapılar:** pytest 1658 geçti / 26 atlandı (13 gerçek tarayıcı testi
+  bu VM'de ilk kez koştu — Chromium yerel kurulumu `~/pw-deps/KURULUM.md`);
+  ruff/py_compile/node --check temiz. Gerçek tarayıcı provası
+  (`scripts/olcum/_devam_kanit.py`) 20/20 tutarlı: kopma→"Devam et"→token
+  birebir geri gitti, kayıtsız kopmada eski davranış, konsol hatası/
+  başarısız istek/taşma yok; görseller `_devam_kanit/`.
+  **Canlı ölçüm (Vercel preview, dal adresi):** sürüm damgaları v=26/v=17
+  canlıda; uçtan uca canlı kabul (`test_canli_site_konusma.py --live`)
+  1 geçti (gerçek konuşma + gerçek araç koşumu) / 1 kırmızı = **bilinen
+  açık ürün bulgusu** Base64 yeteneği (§8.3 işi; bu tur dokunmadı, iddia
+  da gevşetilmedi); canlı akışta `toolDone.arac` = `list_tasks` /
+  `get_reminders` görüldü.
