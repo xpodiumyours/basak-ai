@@ -224,3 +224,24 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   açık ürün bulgusu** Base64 yeteneği (§8.3 işi; bu tur dokunmadı, iddia
   da gevşetilmedi); canlı akışta `toolDone.arac` = `list_tasks` /
   `get_reminders` görüldü.
+
+- 2026-10-22: `c7c550e` + `357e862` (dal `feat/harita-zinciri`, henüz main
+  değil) — **eklenti kartı telefonda hiç görünmesin** (Casper'ın canlı
+  önizleme ekranından gelen şikâyet). Kapsam: "Başak'ı tarayıcında yanına al"
+  kurulum kartı telefon/tablette ilk ekranı kaplıyor ve **uygulanamaz**
+  adımlar tarif ediyordu (chrome://extensions ve araç çubuğu simgesi mobilde
+  yok). Kart artık yalnız kurulum mümkün olan masaüstü tarayıcıda açılır;
+  mobilde satır bile yazmaz. Masaüstü davranışı aynen.
+  **Kilitler:** jsdom kart testi 3 yeni test (`kart.test.mjs` 7→10;
+  sabotajla ayrımcılık kanıtı: koruma sökülünce tam 2 mobil test kırmızı,
+  masaüstü testleri yeşil kaldı); pytest'te servis edilen betik + cache kırma
+  sürüm damgası kilidi (`eklenti-kart.js?v=2`).
+  **Kapılar:** pytest **1659 geçti / 26 atlandı**; ruff / py_compile /
+  node --check temiz; jsdom kart **10/10**. Gerçek tarayıcı provası
+  (`scripts/olcum/_eklenti_kart_kanit.py`) **9/9 tutarlı** (mobil
+  Pixel-boyutu + masaüstü); görseller `_eklenti_kart_kanit/`.
+  **Yan bulgu (ölçüldü):** 18 tarayıcı testi sessizce yeniden atlanmaya
+  başlamıştı (1640/44) — neden Playwright cache'inde
+  `chromium_headless_shell` parçasının eksik kalması; `playwright install
+  chromium` ile düzeldi (1658/26 tabanına döndü). Kurulum kaydı
+  `~/pw-deps/KURULUM.md`'ye işlendi.
