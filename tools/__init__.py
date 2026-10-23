@@ -1,4 +1,4 @@
-"""tools — Başak'ın araçları. Elli dokuz tane.
+"""tools — Başak'ın araçları. Yetmiş dört tane.
 
 2026-09-13: 21 araçlık katman söküldü; Casper'in seçtikleri geri geldi.
 Okuyanlar serbesttir. Etkisi olanlar dardir: dosya yazma yalniz
@@ -401,6 +401,54 @@ def calistir(tool_name, args):
                 args.get("adet", 0),
                 str(args.get("mod", "") or "yol"))
 
+        if tool_name == "poi_ara":
+            from tools import harita
+            return harita.poi_ara(str(args.get("etiket", "")),
+                                  args.get("yer", ""),
+                                  args.get("enlem"),
+                                  args.get("boylam"),
+                                  args.get("yaricap_m"))
+
+        if tool_name == "mesafe_hesapla":
+            from tools import harita
+            return harita.mesafe_hesapla(args.get("enlem1"),
+                                         args.get("boylam1"),
+                                         args.get("enlem2"),
+                                         args.get("boylam2"))
+
+        if tool_name == "rota_hesapla":
+            from tools import harita
+            return harita.rota_hesapla(str(args.get("baslangic", "")),
+                                       str(args.get("bitis", "")))
+
+        if tool_name == "bolge_kaydet":
+            from tools import harita
+            return harita.bolge_kaydet(str(args.get("marka", "")),
+                                       str(args.get("konum", "")),
+                                       args.get("yaricap_km"))
+
+        if tool_name == "gorev_devret":
+            from tools import tarayici_kopru
+            return tarayici_kopru.gorev_devret(str(args.get("gorev", "")),
+                                               str(args.get("adres", "") or ""))
+
+        if tool_name == "takip_baslat":
+            from tools import takip
+            return takip.takip_baslat(str(args.get("marka", "")),
+                                      str(args.get("adres", "") or ""))
+
+        if tool_name == "takip_listele":
+            from tools import takip
+            return takip.takip_listele()
+
+        if tool_name == "takip_durdur":
+            from tools import takip
+            return takip.takip_durdur(str(args.get("marka", "")))
+
+        if tool_name == "takip_kontrol":
+            from tools import takip
+            return takip.takip_kontrol(str(args.get("marka", "")))
+
         if tool_name == "sayfa_bakis":
             from tools import tarayici_kopru
             return tarayici_kopru.sayfa_bakis(
@@ -414,6 +462,16 @@ def calistir(tool_name, args):
             from tools import tarayici_kopru
             return tarayici_kopru.sayfa_yaz(str(args.get("ref", "")),
                                             args.get("metin", ""))
+
+        if tool_name == "sayfa_tus":
+            from tools import tarayici_kopru
+            return tarayici_kopru.sayfa_tus(str(args.get("ref", "")),
+                                            str(args.get("tus", "")))
+
+        if tool_name == "sayfa_kaydir":
+            from tools import tarayici_kopru
+            return tarayici_kopru.sayfa_kaydir(args.get("ref") or None,
+                                               args.get("miktar"))
 
         if tool_name == "freetools_ara":
             from tools import freetools_katalog

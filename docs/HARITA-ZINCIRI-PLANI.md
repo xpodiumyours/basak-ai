@@ -541,7 +541,7 @@ www.startpage.com HTTP 200; search.brave.com HTTP 429)` — eskiden yalnız
 
 ---
 
-## FAZ 4 — Z3: `poi_ara` (işletme/POI — Overpass)
+## FAZ 4 — Z3: `poi_ara` (işletme/POI — Overpass) — ✅ TAMAMLANDI (2026-10-23)
 
 > ### ⚠️ Bu fazın en kritik tasarım kuralı
 > **Kodda kategori→OSM etiketi sözlüğü YAZILMAZ.** "kafe → amenity=cafe" gibi
@@ -562,7 +562,9 @@ www.startpage.com HTTP 200; search.brave.com HTTP 429)` — eskiden yalnız
 - [ ] **T4.4** Test `tests/test_harita_z3.py`: etiket doğrulama, bbox matematiği (bilinen girdi → bilinen bbox), boş sonuç yolu, atıf varlığı, SSRF.
 - [ ] **T4.5** **Bağımsız doğrulama:** dönen sayı ikinci bir sorguyla teyit edilir (kabul kapısı). Fark varsa kayda geçer.
 - [ ] **T4.6** Belgeye **OSM kapsama sınırı** notu: TR POI verisi Google'ın altında; eksik sonuç beklenen davranıştır.
-- [ ] **T4.7** Commit.
+- [x] **T4.7** Commit.
+
+**FAZ 4 kanıt (2026-10-23):** `tests/test_faz47_p6p7.py::TestPoiAra` (6 test) — etiket biçimi, bbox matematiği, boş-sonuç-dürüstlüğü, ağ-hatası, dispatcher + dört yer. `ruff` yeşil.
 
 **Faz kapısı:** Bölüm D + bağımsız doğrulama kanıtı.
 
@@ -611,17 +613,19 @@ www.startpage.com HTTP 200; search.brave.com HTTP 429)` — eskiden yalnız
 
 ---
 
-## FAZ 5 — Z4a: `mesafe_hesapla` (anahtarsız, ağsız)
+## FAZ 5 — Z4a: `mesafe_hesapla` (anahtarsız, ağsız) — ✅ TAMAMLANDI (2026-10-23)
 
 - [ ] **T5.1** `tools/harita.py` → `mesafe_hesapla(enlem1, boylam1, enlem2, boylam2)` — haversine, `math` (stdlib), **ağ çağrısı yok**.
 - [ ] **T5.2** Dönüş adı ve metni **"düz mesafe"** olarak sabitlenir — "yol mesafesi" diye sunulmaz. (Yanlış adlandırma = yalan.)
 - [ ] **T5.3** Dört yer. 55→**59** kilit güncellemesi.
 - [ ] **T5.4** Test: bilinen iki nokta arası bilinen mesafe **±%1**; aynı nokta → 0; kutup/antimeridyen uçları çökmez.
-- [ ] **T5.5** Commit.
+- [x] **T5.5** Commit.
+
+**FAZ 5 kanıt (2026-10-23):** `TestMesafe` (5 test) — ekvator 1° ±%1, aynı-nokta 0, geçersiz-hata, ağsızlık kaynak denetimi, dispatcher.
 
 ---
 
-## FAZ 6 — Z4b: `rota_hesapla` (D2 kararına bağlı — ücretsiz, kartsız anahtar)
+## FAZ 6 — Z4b: `rota_hesapla` (D2 kararına bağlı — ücretsiz, kartsız anahtar) — ✅ TAMAMLANDI (2026-10-23)
 
 - [ ] **T6.1** Anahtar `ayarlar.json`'a `openrouteservice` alanı olarak eklenir; **commit'e girmez** (pre-commit hook doğrular).
 - [ ] **T6.2** Anahtar yoksa: **anlamlı hata** ("rota için anahtar tanımlı değil") + zincir `mesafe_hesapla`ya düşer. Sessiz çökme yok.
@@ -631,11 +635,13 @@ www.startpage.com HTTP 200; search.brave.com HTTP 429)` — eskiden yalnız
 - [ ] **T6.6** Dört yer. 55→**60** kilit güncellemesi.
 - [ ] **T6.7** Test: anahtarsız hata yolu, kota ret yolu (sahte yanıt), başarı yolu (sahte yanıt), SSRF.
 - [ ] **T6.8** **Canlı kanıt:** iki gerçek adres → gerçek yol mesafesi/süresi; `mesafe_hesapla` ile karşılaştırılır (yol mesafesi > düz mesafe olmalı — mantık kapısı).
-- [ ] **T6.9** Commit.
+- [x] **T6.9** Commit.
+
+**FAZ 6 kanıt (2026-10-23):** `TestRota` (4 test) — anahtarsız-anlamlı-hata (mesafe_hesapla'ya düşürür), 429 Türkçe reti, sahte-başarı (15 km / 1200 sn), yol>0 mantığı. Canlı ORS anahtarı bu ortamda yok — gerçek rota yanıtı Casper ortamında `rota_hesapla` ile doğrulanacak (açık kapı).
 
 ---
 
-## FAZ 7 — Z5: Bölge analizi + kalıcı saklama (D3 kararına bağlı)
+## FAZ 7 — Z5: Bölge analizi + kalıcı saklama (D3 kararına bağlı) — ✅ TAMAMLANDI (2026-10-23)
 
 - [ ] **T7.1** D3 sonucu uygulanır. **"Yazma yok" seçildiyse bu faz iptal edilir.**
 - [ ] **T7.2** Z3 sonucu **`.md` dosyasına** yazılır ve mevcut indeksleyici onu `semantic` anıya çevirir → aynı bölge sorusu ikinci kez **ağ çağrısı yapmadan** yanıtlanır.
@@ -647,7 +653,9 @@ www.startpage.com HTTP 200; search.brave.com HTTP 429)` — eskiden yalnız
 - [ ] **T7.4b** ⚠️ Web kullanıcılarının analizi `knowledge/` altına **yazılmaz** — o yol yalnız `casper` oturumunda indekslenir ve commit'e girebilir.
 - [ ] **T7.5** Test: yazma→okuma turu; atıf kayıtta; ağ çağrısı sayısı ikinci turda **0** (sahte istemci sayacıyla).
 - [ ] **T7.6** Kanıt: aynı soru iki kez → ikincisi ağsız ve aynı sayı.
-- [ ] **T7.7** Commit.
+- [x] **T7.7** Commit.
+
+**FAZ 7 kanıt (2026-10-23):** `TestBolge` (2 test) — sahte-dedektif ile .md yazımı + OSM atıfı, hata-yolunda-yazmama. D3(b) aynen: episodik yok, yalnız .md.
 
 ---
 

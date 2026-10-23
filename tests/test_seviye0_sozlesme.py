@@ -6,7 +6,7 @@ kanitlamaz (o kanit Duzey 1-3 canli kosularindan gelir).
 
 Uc bolum:
 1. 8/8 saglayici sabit tablolari (ajan_tool_choice, registry kartlari).
-2. 63/63/63 arac yapisal eslesmesi (sema/calistirma/ekran/katalog).
+2. 74/74/74 arac yapisal eslesmesi (sema/calistirma/ekran/katalog).
 3. Ajan dongusu + kosucu sozlesmesi (simulasyon YASAK; anahtarsiz SKIP).
 """
 
@@ -159,8 +159,8 @@ def test_62_arac_uchalida_birebir():
     kaynak = open("tools/__init__.py", encoding="utf-8").read()
     dallar = set(re.findall(r"tool_name == \"([a-z_]+)\"", kaynak))
 
-    assert len(sema) == 63
-    assert len(TANINMIS_TOOLLAR) == 63
+    assert len(sema) == 74
+    assert len(TANINMIS_TOOLLAR) == 74
     assert sema == dallar, ("sema/dal farki", sema ^ dallar)
     eksik_etiket = sema - set(DURUM_METNI)
     assert not eksik_etiket, ("etiketsiz arac", eksik_etiket)
@@ -173,7 +173,7 @@ def test_yetenek_katalogu_62_gercek_araci_kapsar():
     gercek = {t["function"]["name"] for t in TOOLS}
     katalog = {ad for grup in CAPABILITY_NAMESPACES.values() for ad in grup}
     assert katalog == gercek
-    assert len(katalog) == 63
+    assert len(katalog) == 74
 
 
 def test_katalog_daki_her_arac_gercekten_kosabilir():
@@ -399,7 +399,7 @@ def test_matris_kosucu_62_semaya_bagli_tek_kaynak():
     from tools import TANINMIS_TOOLLAR
 
     assert set(kosucu.SEMALAR.keys()) == set(TANINMIS_TOOLLAR)
-    assert len(kosucu.SEMALAR) == 63
+    assert len(kosucu.SEMALAR) == 74
 
 
 def test_matris_kosucu_hucre_kaydi_yapisi(tmp_path, monkeypatch):
@@ -539,7 +539,7 @@ def test_matris_kapsami_elde_anahtari_olan_yedi_saglayici():
         "groq", "gemini", "kilo", "nvidia", "glm", "openrouter",
         "mistral")
     assert len(matris_kosucu.KAPSAM) == 7
-    assert len(matris_kosucu.KAPSAM) * len(kosucu.SEMALAR) == 7 * 63    # 7x63=441 (eski 7x62=434)
+    assert len(matris_kosucu.KAPSAM) * len(kosucu.SEMALAR) == 7 * 74    # 7x74=518 (eski 7x62=434)
     assert "cloudflare" not in matris_kosucu.KAPSAM
     assert "cohere" not in matris_kosucu.KAPSAM
     beklenen = tuple(ad for ad in registry.VARSAYILAN_SIRA

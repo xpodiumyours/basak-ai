@@ -298,5 +298,5 @@ class TestDortYer:
         from tools.capabilities import validate_registry
         sonuc = validate_registry()
         assert sonuc["ok"] is True
-        assert sonuc["tool_count"] == 63
-        assert sonuc["namespace_count"] == 16
+        assert sonuc["tool_count"] == 74
+        assert sonuc["namespace_count"] == 17

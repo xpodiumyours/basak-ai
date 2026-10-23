@@ -19,7 +19,7 @@ from chat.agent_runtime import AGENT_CONTRACT as AJAN_SOZLESMESI  # noqa: F401
 
 YETENEK_AC_ADI = "yetenek_ac"
 
-# 63 gercek arac tek ve benzersiz bir yetenek alaninda yer alir. Bu tablo
+# 74 gercek arac tek ve benzersiz bir yetenek alaninda yer alir. Bu tablo
 # kullanici metnini yorumlamaz; yalniz modelin sectigi alan adini gercek
 # arac semalarina ceviren katalogdur.
 YETENEK_ALANLARI = {
@@ -28,7 +28,10 @@ YETENEK_ALANLARI = {
         "gorsel_ara", "kitap_ara", "sirket_ara", "hava_durumu",
     ),
     "internet_oku": ("derin_oku", "sayfa_oku", "adres_kontrol"),
-    "harita": ("harita_goster", "konum_coz", "sube_bul", "harita_dedektif"),
+    "harita": ("harita_goster", "konum_coz", "sube_bul", "harita_dedektif",
+               "poi_ara", "mesafe_hesapla", "rota_hesapla", "bolge_kaydet"),
+    "takip": ("takip_baslat", "takip_listele", "takip_durdur",
+              "takip_kontrol", "gorev_devret"),
     "dosyalar": (
         "read_file", "list_files", "belge_ara", "dosya_bilgi",
         "icerik_ara", "write_file_tool",
@@ -56,7 +59,8 @@ YETENEK_ALANLARI = {
     ),
     "masaustu": ("ac_uygulama",),
     "hesap": ("hesapla",),
-    "tarayici": ("sayfa_bakis", "sayfa_tikla", "sayfa_yaz"),
+    "tarayici": ("sayfa_bakis", "sayfa_tikla", "sayfa_yaz", "sayfa_tus",
+                 "sayfa_kaydir"),
     "freetools": ("freetools_ara", "freetools_calistir"),
 }
 
@@ -86,7 +90,10 @@ ALAN_ACIKLAMALARI = {
     "freetools": "freetools.org katalogunda arama ve oradaki bir araci "
                  "tarayicida calistirip sonucunu okuma",
     "tarayici": "kullanicinin acik sekmesindeki sayfayi okuma, ogeye "
-                "tikla ve alana yazma (eklenti kurulu ve bagli olmali)",
+                "tikla, alana yazma, klavye tusu gonderme ve sayfayi kaydirma "
+                "(eklenti kurulu ve bagli olmali)",
+    "takip": "firma takibi baslatma/listeleme/durdurma/kontrol ve web "
+             "gorevini panele devretme",
 }
 
 _ALAN_METNI = "; ".join(

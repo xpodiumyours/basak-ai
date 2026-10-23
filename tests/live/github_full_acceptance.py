@@ -47,6 +47,9 @@ ALAN_SORULARI = {
     "harita": "Bir adresin haritada gosterilmesi veya konumunun cozulmesi gerekiyor; uygun aracı seç.",
     # 2026-10-21: tarayici alani eklendi (sayfa_bakis). Kapsam 15 -> 16.
     "tarayici": "Kullanicinin acik sekmesindeki sayfayi okumam gerekiyor; uygun aracı seç.",
+    # 2026-10-23: takip alani eklendi (takip_baslat/listele/durdur/kontrol,
+    # gorev_devret). Kapsam 16 -> 17.
+    "takip": "Bir firmayi takibe almam veya takiptekileri listelemem gerekiyor; uygun aracı seç.",
 }
 
 

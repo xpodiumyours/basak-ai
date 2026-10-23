@@ -313,9 +313,9 @@ class TestD4bKaroYok:
 
 class TestAracKilidiDegismedi:
     def test_arac_sayisi_ve_alan_ayni_kaldi(self):
-        """Z2 gosterim yuzeyidir; arac sayisi Z4 zinciriyle 63'e cikti."""
+        """Z2 gosterim yuzeyidir; arac sayisi Z4 zinciriyle 65'e cikti."""
         from tools.capabilities import validate_registry
         s = validate_registry()
         assert s["ok"] is True
-        assert s["tool_count"] == 63
-        assert s["namespace_count"] == 16
+        assert s["tool_count"] == 74
+        assert s["namespace_count"] == 17

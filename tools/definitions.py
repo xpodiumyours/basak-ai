@@ -13,7 +13,7 @@ yazma, sabit komut, beyaz liste).
 56; ayni gun konum_coz eklendi — 57; 2026-10-17: update_task_status
 eklendi — 58; 2026-10-20: sube_bul eklendi; 2026-10-21: sayfa_bakis
 eklendi — 60; ayni gun sayfa_tikla + sayfa_yaz eklendi — 62; 2026-10-22:
-harita_dedektif eklendi (zincir) — guncel toplam 63; sayi testlerle
+harita_dedektif eklendi (zincir) — guncel toplam 74 (2026-10-23: poi_ara + mesafe_hesapla + rota_hesapla + bolge_kaydet + gorev_devret + 4 takip); sayi testlerle
 kilitli,
 bak: tests/test_seviye0_sozlesme.py + tests/test_agent_protocol.py.)
 """
@@ -619,6 +619,104 @@ HARITA_DEDEKTIF = _arac(
     ["marka", "konum"],
 )
 
+POI_ARA = _arac(
+    "poi_ara",
+    "Etiket + bolge ile OpenStreetMap'te kayitli noktalari bulur. Doner: "
+    "etiket, merkez, yaricap_m, sonuc_sayisi, sonuclar (ad, enlem, boylam, "
+    "mesafe_km, osm_id), atif, not. Anahtar gerekmez. Sonuc 0 hata degildir.",
+    {"etiket": {"type": "string",
+               "description": "anahtar=deger (orn. amenity=cafe)"},
+     "yer": {"type": "string",
+             "description": "Merkez adres/yer adi (bossa enlem+boylam)"},
+     "enlem": {"type": "number", "description": "Merkez enlemi"},
+     "boylam": {"type": "number", "description": "Merkez boylami"},
+     "yaricap_m": {"type": "number",
+                   "description": "Yaricap metre (bossa 1500, en fazla 10000)"}},
+    ["etiket"],
+)
+
+MESAFE_HESAPLA = _arac(
+    "mesafe_hesapla",
+    "Iki koordinat arasi duz mesafeyi hesaplar (kus ucusu). Doner: "
+    "duz_mesafe_km, duz_mesafe_m, not. Ag cagrisi yok, anahtar gerekmez. "
+    "Yol mesafesi degil.",
+    {"enlem1": {"type": "number", "description": "Birinci nokta enlem"},
+     "boylam1": {"type": "number", "description": "Birinci nokta boylam"},
+     "enlem2": {"type": "number", "description": "Ikinci nokta enlem"},
+     "boylam2": {"type": "number", "description": "Ikinci nokta boylam"}},
+    ["enlem1", "boylam1", "enlem2", "boylam2"],
+)
+
+ROTA_HESAPLA = _arac(
+    "rota_hesapla",
+    "Iki nokta arasi yol mesafesi ve suresi hesaplar (OpenRouteService). "
+    "Doner: yol_mesafe_km/m, sure_sn/metni, kaynak. Anahtar yoksa hata "
+    "doner; kota/ret gelirse Turkce ret doner.",
+    {"baslangic": {"type": "string",
+                   "description": "Baslangic: 'enlem,boylam' ya da adres"},
+     "bitis": {"type": "string",
+               "description": "Bitis: 'enlem,boylam' ya da adres"}},
+    ["baslangic", "bitis"],
+)
+
+BOLGE_KAYDET = _arac(
+    "bolge_kaydet",
+    "Bolge analizini .md dosyaya yazar (mevcut semantic indeks okur). "
+    "Doner: yol, marka, sube_sayisi, atif. Uzanti .md; episodik kayit "
+    "kullanilmaz.",
+    {"marka": {"type": "string", "description": "Marka adi"},
+     "konum": {"type": "string",
+               "description": "Merkez: 'enlem,boylam' ya da adres"},
+     "yaricap_km": {"type": "number",
+                    "description": "Yaricap km (bossa 5, en fazla 25)"}},
+    ["marka", "konum"],
+)
+
+GOREV_DEVRET = _arac(
+    "gorev_devret",
+    "Web sohbetindeki tarayici gorevini panele devir paketi uretir. Doner: "
+    "gorev, adres, adimlar, not. Disk yazimi yok; paket panel tarafindan "
+    "okunur.",
+    {"gorev": {"type": "string",
+              "description": "Panelde surdurulecek gorev metni"},
+     "adres": {"type": "string",
+               "description": "Hedef sayfa adresi (bossa acik sekme)"}},
+    ["gorev"],
+)
+
+TAKIP_BASLAT = _arac(
+    "takip_baslat",
+    "Firmayi takibe alir (marka + adres). Doner: marka, site, durum. "
+    "Ayni marka ikinci kez eklenmez.",
+    {"marka": {"type": "string", "description": "Marka adi"},
+     "adres": {"type": "string",
+               "description": "Izlenen sayfa adresi (bossa sirket_ara bulur)"}},
+    ["marka"],
+)
+
+TAKIP_LISTELE = _arac(
+    "takip_listele",
+    "Takiplistekileri sayar. Doner: adet, takipler (marka, site, baslangic). "
+    "Ag cagrisi yok.",
+    {},
+    [],
+)
+
+TAKIP_DURDUR = _arac(
+    "takip_durdur",
+    "Takibi durdurur ve kaydi siler. Doner: marka, durum. Bulunamazsa hata.",
+    {"marka": {"type": "string", "description": "Marka adi"}},
+    ["marka"],
+)
+
+TAKIP_KONTROL = _arac(
+    "takip_kontrol",
+    "Takipteki firmanin kartini yeniden uretir ve alan bazinda degisimi "
+    "yazar. Doner: marka, degisen, degismeyen, kart. Kaynak siniri acik veri.",
+    {"marka": {"type": "string", "description": "Marka adi"}},
+    ["marka"],
+)
+
 SIRKET_ARA = _arac(
     "sirket_ara",
     "Markanın resmi sitesini ve iletişim/vergi bilgilerini arar; "
@@ -671,11 +769,15 @@ FREETOOLS_CALISTIR = _arac(
 SAYFA_BAKIS = _arac(
     "sayfa_bakis",
     "Kullanicinin acik sekmesindeki sayfayi okur. Doner: sayfa (url, "
-    "baslik, nesil), ogeler (ref, rol, ad, deger, kapali) ve sayfalama "
+    "baslik, nesil), ogeler (ref, rol, ad, deger, kapali, secenekler) ve sayfalama "
     "(toplam, baslangic, donen, sonraki_baslangic). sayfalama."
     "sonraki_baslangic varsa ayni arac o degerle surdurulur; oge sayisinda "
     "tavan yoktur. Bagli tarayici istemcisi yoksa hata doner ve hata "
-    "eklentinin kurulum adresini tasir. Sayfada tiklama ve yazma yapmaz.",
+    "eklentinin kurulum adresini tasir. secenekler yalniz acilir listede "
+    "bulunur: {deger, etiket, kapali} listesi, en cok 20 secenek. "
+    "ogeler cerceve kimligi de tasir (0 = ana sayfa, digerleri iframe): "
+    "ref cerceveyi tasidigi icin eylem dogru cerceveye gider. "
+    "Sayfada tiklama ve yazma yapmaz.",
     {"baslangic": {"type": "integer",
                     "description": "Oge sirasi (bossa 0)"},
      "adet": {"type": "integer",
@@ -690,7 +792,9 @@ SAYFA_TIKLA = _arac(
     " artik yoksa hata doner. Gorunmeyen ve kapali (disabled) ogeye "
     "tiklanmaz. Eylem kullanicinin onayindan gecer: eklenti panelde "
     "sorar, onay gelmezse uygulanmaz. Doner: yapildi, sira, rol, ad, url, "
-    "baslik. Tiklamadan sonra sayfayi kendisi yeniden okumaz.",
+    "baslik, degisti (tiklamadan sonra sayfa degisti mi), bekleme_nedeni "
+    "(adres | dom | bekleme), hazir (document.readyState). Tiklamadan "
+    "sonra en cok 1,2 sn bekler; sayfayi yeniden okumaz.",
     {"ref": {"type": "string",
              "description": "sayfa_bakis'in verdigi oge referansi"}},
     ["ref"],
@@ -703,13 +807,46 @@ SAYFA_YAZ = _arac(
     "input/change olaylari tetiklenir; cerev dokusu (React/Vue) degeri "
     "gorur. Eylem kullanicinin onayindan gecer: eklenti panelde sorar, "
     "onay gelmezse uygulanmaz. Sifre ve dosya secimi alanina YAZMAZ. "
-    "Doner: yapildi, sira, rol, ad, uzunluk, url. Yazdiktan sonra sayfayi "
-    "kendisi yeniden okumaz.",
+    "select alaninda metin once secenek DEGERI, sonra secenek ETIKETI ile "
+    "birebir aranir (harf duyarli); eslesme yoksa hata doner ve mevcut "
+    "secenekler hata metninde listelenir. Yazma sonrasi alanin okudugu "
+    "DEGER karsilastirilir; sayfa degeri tutmadiysa basari donmez. Doner: "
+    "yapildi, sira, rol, ad, uzunluk, dogrulandi, secili (select ise secilen "
+    "etiket), url. Yazdiktan sonra sayfayi kendisi yeniden okumaz.",
     {"ref": {"type": "string",
              "description": "sayfa_bakis'in verdigi alan referansi"},
      "metin": {"type": "string",
                "description": "Alana yazilacak metin"}},
     ["ref", "metin"],
+)
+
+SAYFA_TUS = _arac(
+    "sayfa_tus",
+    "Acik sekmede klavye tusu gonderir. Enter: ogenin formu GERCEKTEN "
+    "gonderilir (eylem kullanicinin onayindan gecer). Tab: odak bir sonraki "
+    "odaklanabilir ogeye tasinir. Escape, oklar ve bosluk yalniz keydown+keyup "
+    "olayi olarak gonderilir; sayfanin kendi dinleyicisi ne yaparsa o olur. "
+    "Doner: yapildi, tus, sira, rol, ad, gonderildi (form gonderildi mi), "
+    "odak (Tab sonrasi odaklanan ogenin adi), engellendi (sayfa keydown'u "
+    "durdurdu mu), url.",
+    {"ref": {"type": "string",
+             "description": "sayfa_bakis'in verdigi oge referansi"},
+     "tus": {"type": "string",
+             "description": "enter, tab, escape, bosluk, yukari, asagi, sola, saga"}},
+    ["ref", "tus"],
+)
+
+SAYFA_KAYDIR = _arac(
+    "sayfa_kaydir",
+    "Acik sekmede sayfayi kaydirir. ref verilirse oge gorunur alana "
+    "getirilir; ref verilmezse sayfa miktar kadar kaydirilir (bossa 600 px). "
+    "Sayfa verisini degistirmez ve onay istemez. Doner: yapildi, sira, ad, "
+    "konum (scrollY), yukseklik (scrollHeight), son (sayfa sonunda mi), url.",
+    {"ref": {"type": "string",
+             "description": "sayfa_bakis'in verdigi oge referansi (istege bagli)"},
+     "miktar": {"type": "integer",
+                "description": "Kaydirma miktari (px; bossa 600)"}},
+    [],
 )
 
 TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
@@ -722,12 +859,14 @@ TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
          SATIR_KAPAT, SATIR_AC, SATIR_SIL, SATIR_TASI,
          MATRIS_DURUM, GORSEL_URET, SAGLIK_RAPORU, SATIR_DUZENLE,
           SIMDI, HESAPLA, HAFIZA_ARA, SIRKET_ARA, HAVA_DURUMU, HARITA_GOSTER,
-         KONUM_COZ, SUBE_BUL, HARITA_DEDEKTIF,
+         KONUM_COZ, SUBE_BUL, HARITA_DEDEKTIF, POI_ARA, MESAFE_HESAPLA,
+         ROTA_HESAPLA, BOLGE_KAYDET, GOREV_DEVRET, TAKIP_BASLAT,
+         TAKIP_LISTELE, TAKIP_DURDUR, TAKIP_KONTROL,
          FATURA_OKU, KATALOG_KUR, KATALOG_GETIR, KATALOG_LISTELE,
          KATALOG_FIYAT, KATALOG_ONAYLA, YETKI_BELGESI, URUN_ESLESTIR,
          YAYIN_PAKETI, CIKTI_OKU,
          FREETOOLS_ARA, FREETOOLS_CALISTIR,
-         SAYFA_BAKIS, SAYFA_TIKLA, SAYFA_YAZ]
+         SAYFA_BAKIS, SAYFA_TIKLA, SAYFA_YAZ, SAYFA_TUS, SAYFA_KAYDIR]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

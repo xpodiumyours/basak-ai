@@ -1,5 +1,5 @@
 """tools/harita.py — Harita: baglanti (Z0), konum (Z1), sube bulma (Z3),
-zincir (Z4).
+zincir (Z4), POI (FAZ4), duz mesafe (FAZ5), rota (FAZ6), bolge kaydi (FAZ7).
 
 Z0 (`harita_goster`): ag cagrisi YOK, anahtar YOK, kota YOK. Yalniz Google
 Maps URL semasi uretilir; kullanici tiklayinca harita kendi tarayicisinda
@@ -826,4 +826,339 @@ def harita_dedektif(marka, konum, yaricap_km=None, adet=0, mod=MOD_YOL):
         "denenen_hatlar": arama["denenen_hatlar"],
         "zincir": [a["ad"] for a in adimlar],
         "adimlar": adimlar,
+    })}
+
+
+# ── FAZ 4: poi_ara (etiket + bolge -> kayitli noktalar) ───────────────
+#
+# Kodda kategori->etiket sozlugu YAZILMAZ (AGENTS.md S0): etiketi model
+# verir (orn. amenity=cafe). Kod yalniz bicimi dogrular ve matematigi
+# yapar (yaricap -> bbox). Sonuc 0 hata degildir; OSM'de kayitli
+# degildir, `not` alaninda yazilir.
+
+_ETIKET_RE = re.compile(r"^[a-z_]+=[a-z_]+$")
+_POI_TAVAN = 50
+_YARICAP_M_VARSAYILAN = 1500
+_YARICAP_M_TAVANI = 10000
+
+
+def _yaricap_m_coz(yaricap_m):
+    try:
+        deger = float(yaricap_m) if yaricap_m not in (None, "") \
+            else _YARICAP_M_VARSAYILAN
+    except (TypeError, ValueError):
+        return None, "yaricap_m sayi olmali (metre)."
+    if deger <= 0:
+        return None, "yaricap_m sifirdan buyuk olmali."
+    return min(deger, _YARICAP_M_TAVANI), None
+
+
+def _bbox(enlem, boylam, yaricap_m):
+    import math as _m
+    d_en = yaricap_m / 111320.0
+    cos_e = _m.cos(_m.radians(enlem)) or 1.0
+    if abs(cos_e) < 0.2:
+        cos_e = 0.2 if cos_e > 0 else -0.2
+    d_boy = yaricap_m / (111320.0 * abs(cos_e))
+    return (enlem - d_en, boylam - d_boy, enlem + d_en, boylam + d_boy)
+
+
+def _poi_kaydi(eleman, enlem, boylam):
+    if not isinstance(eleman, dict):
+        return None
+    if eleman.get("type") == "node":
+        en = _sayi(eleman.get("lat"))
+        boy = _sayi(eleman.get("lon"))
+    else:
+        merkez = eleman.get("center") or {}
+        en = _sayi(merkez.get("lat"))
+        boy = _sayi(merkez.get("lon"))
+    if not _gecerli_koordinat(en, boy):
+        return None
+    etiket = eleman.get("tags") or {}
+    if not isinstance(etiket, dict):
+        etiket = {}
+    return {
+        "ad": str(etiket.get("name") or "").strip(),
+        "enlem": round(en, 6),
+        "boylam": round(boy, 6),
+        "mesafe_km": round(_mesafe_km(enlem, boylam, en, boy), 3),
+        "osm_id": eleman.get("id"),
+        "osm_tip": eleman.get("type"),
+        "etiketler": {k: str(v)[:120] for k, v in list(etiket.items())[:12]},
+    }
+
+
+def poi_ara(etiket, yer=None, enlem=None, boylam=None, yaricap_m=None):
+    """Etiket + bolge -> OpenStreetMap'te kayitli noktalar.
+
+    etiket: 'anahtar=deger' biciminde (orn. amenity=cafe).
+    Merkez: yer verilirse konum_coz ile cozulur; yoksa enlem/boylam alinir.
+    Donus: {"result": JSON} — etiket, merkez, yaricap_m, sonuc_sayisi,
+    sonuclar (ad, enlem, boylam, mesafe_km, osm_id, osm_tip; en yakin ilk),
+    atif, denenen_hatlar, not. Sonuc 0 hata degildir.
+    """
+    temiz = _konum_temizle(etiket).lower()
+    if not _ETIKET_RE.match(temiz or ""):
+        return {"error": "Etiket 'anahtar=deger' biciminde olmali "
+                         "(orn. amenity=cafe)."}
+    yaricap, hata = _yaricap_m_coz(yaricap_m)
+    if hata:
+        return {"error": hata}
+    if str(yer or "").strip():
+        m_en, m_boy, m_ad, m_kaynak = _merkez_coz(yer)
+        if m_en is None:
+            return {"error": "Merkez bulunamadi: %s" % m_kaynak}
+    else:
+        m_en = _sayi(enlem)
+        m_boy = _sayi(boylam)
+        if not _gecerli_koordinat(m_en, m_boy):
+            return {"error": "Merkez icin yer ya da gecerli "
+                             "enlem/boylam gerekli."}
+        m_ad, m_kaynak = ("%.6f, %.6f" % (m_en, m_boy), "koordinat")
+    anahtar, deger = temiz.split("=", 1)
+    guney, bati, kuzey, dogu = _bbox(m_en, m_boy, yaricap)
+    kutu = "%.6f,%.6f,%.6f,%.6f" % (guney, bati, kuzey, dogu)
+    sorgu = ('[out:json][timeout:%d];(node["%s"="%s"](%s);' % (
+        _SUBE_ZAMAN_ASIMI, anahtar, deger, kutu)
+        + 'way["%s"="%s"](%s););out center %d;' % (
+        anahtar, deger, kutu, _POI_TAVAN))
+    govde = urllib.parse.urlencode({"data": sorgu})
+    veri = None
+    denenen = []
+    for ayna in OVERPASS_AYNALAR:
+        aday, hata = _json_al(ayna + "?" + govde,
+                              sure=_SUBE_ZAMAN_ASIMI)
+        if isinstance(aday, dict):
+            veri = aday
+            denenen.append({"ayna": ayna, "durum": "ok"})
+            break
+        denenen.append({"ayna": ayna, "durum": "hata",
+                        "hata": hata or "beklenmeyen yanit"})
+    if not isinstance(veri, dict):
+        ozet = "; ".join("%s: %s" % (_ayna_adi(k.get("ayna")),
+                                     k.get("hata") or "basarisiz")
+                         for k in denenen)
+        return {"error": "OpenStreetMap servisine ulasilamadi. Denenen "
+                         "aynalar: %s" % ozet}
+    sonuclar = []
+    gorulen = set()
+    for eleman in (veri.get("elements") or []):
+        kayit = _poi_kaydi(eleman, m_en, m_boy)
+        if not kayit:
+            continue
+        ana = (kayit["osm_tip"], kayit["osm_id"])
+        if ana in gorulen:
+            continue
+        gorulen.add(ana)
+        sonuclar.append(kayit)
+    sonuclar.sort(key=lambda k: k["mesafe_km"])
+    sonuclar = sonuclar[:_POI_TAVAN]
+    not_metni = ""
+    if not sonuclar:
+        not_metni = ("Arama yapildi; bu bolgede '%s' etiketli kayit " % temiz
+                     + "OpenStreetMap'te gorunmuyor. Kayit eksik olabilir; "
+                     "etiket model tarafindan verildi, kod kategori eslemesi "
+                     "yapmaz.")
+    return {"result": _j({
+        "etiket": temiz,
+        "merkez": {"enlem": round(m_en, 6), "boylam": round(m_boy, 6),
+                   "gosterim_adi": m_ad, "kaynak": m_kaynak},
+        "yaricap_m": yaricap,
+        "sonuc_sayisi": len(sonuclar),
+        "sonuclar": sonuclar,
+        "atif": _ATFI,
+        "not": not_metni,
+        "denenen_hatlar": denenen,
+    })}
+
+
+# ── FAZ 5: mesafe_hesapla (anahtarsiz, agsiz) ───────────────────────
+
+def mesafe_hesapla(enlem1, boylam1, enlem2, boylam2):
+    """Iki koordinat arasi DUZ mesafe (kus ucusu; yol mesafesi DEGIL).
+
+    Donus: {"result": JSON} — duz_mesafe_km, duz_mesafe_m, not ("duz "
+    "mesafe; yol mesafesi degil"). Ayni nokta -> 0. Gecersiz koordinat
+    hata doner; ag cagrisi YOK.
+    """
+    e1 = _sayi(enlem1)
+    b1 = _sayi(boylam1)
+    e2 = _sayi(enlem2)
+    b2 = _sayi(boylam2)
+    if not _gecerli_koordinat(e1, b1) or not _gecerli_koordinat(e2, b2):
+        return {"error": "Gecerli iki koordinat gerekli "
+                         "(enlem -90..90, boylam -180..180)."}
+    km = _mesafe_km(e1, b1, e2, b2)
+    return {"result": _j({
+        "duz_mesafe_km": round(km, 3),
+        "duz_mesafe_m": round(km * 1000.0, 1),
+        "nokta1": {"enlem": e1, "boylam": b1},
+        "nokta2": {"enlem": e2, "boylam": b2},
+        "not": "Duz mesafe (kus ucusu); yol mesafesi degil.",
+    })}
+
+
+# ── FAZ 6: rota_hesapla (ucretsiz, kartsiz anahtar) ─────────────────
+
+_ORS_TABAN = "https://api.openrouteservice.org/v2/directions/driving-car"
+
+
+def _ors_anahtar_al():
+    import os as _os
+    token = (_os.environ.get("ORS_API_KEY", "") or "").strip()
+    if token:
+        return token
+    try:
+        import json as _json
+        kok = __file__.rsplit("/", 1)[0].rsplit("/", 1)[0]
+        with open(kok + "/ayarlar.json", "r",
+                  encoding="utf-8-sig") as f:
+            veri = _json.load(f)
+        return str((veri or {}).get("openrouteservice", "")).strip()
+    except (OSError, ValueError):
+        return ""
+
+
+def rota_hesapla(baslangic, bitis):
+    """Iki nokta arasi yol mesafesi + sure (OpenRouteService).
+
+    baslangic/bitis: 'enlem,boylam' ya da adres (konum_coz ile cozulur).
+    Anahtar yoksa anlamli hata doner ve zincir mesafe_hesapla'ya duser;
+    sessiz cokme yok. 429/403 gelirse Turkce ret doner, sohbet bozulmaz.
+    Donus: {"result": JSON} — yol_mesafe_m/km, sure_sn/sure_metni, adim
+    ozeti, kaynak. Uydurma YOK.
+    """
+    b_en, b_boy, b_ad, b_kay = _merkez_coz(baslangic)
+    if b_en is None:
+        return {"error": "Baslangic bulunamadi: %s" % b_kay}
+    t_en, t_boy, t_ad, t_kay = _merkez_coz(bitis)
+    if t_en is None:
+        return {"error": "Bitis bulunamadi: %s" % t_kay}
+    anahtar = _ors_anahtar_al()
+    if not anahtar:
+        return {"error": "Rota anahtari tanimli degil "
+                         "(ayarlar.json -> openrouteservice). Duz mesafe "
+                         "icin mesafe_hesapla kullanilabilir."}
+    from tools.web_search import _guvenli_adres, _GuvenliYonlendirme
+    govde = _j({"coordinates": [[b_boy, b_en], [t_boy, t_en]]})
+    engel = _guvenli_adres(_ORS_TABAN)
+    if engel:
+        return {"error": engel}
+    try:
+        opener = urllib.request.build_opener(_GuvenliYonlendirme())
+        istek = urllib.request.Request(
+            _ORS_TABAN, data=govde.encode("utf-8"),
+            headers={"Authorization": anahtar,
+                     "Content-Type": "application/json",
+                     "User-Agent": _USER_AGENT,
+                     "Accept": "application/geo+json"},
+            method="POST")
+        with opener.open(istek, timeout=_SUBE_ZAMAN_ASIMI) as yanit:
+            veri = json.loads(yanit.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 402, 403, 429):
+            return {"error": "Rota servisi kota/anahtar nedeniyle "
+                             "yanit vermedi (HTTP %s). Duz mesafe icin "
+                             "mesafe_hesapla kullanilabilir." % e.code}
+        return {"error": "Rota servisi HTTP %s" % e.code}
+    except Exception as e:
+        logger.info("Rota okunamadi: %s", e)
+        return {"error": "%s: %s" % (type(e).__name__, str(e)[:120])}
+    try:
+        ozet = (veri.get("features") or [{}])[0].get(
+            "properties", {}).get("summary", {}) or {}
+        mesafe = float(ozet.get("distance", 0))
+        sure = float(ozet.get("duration", 0))
+    except (TypeError, ValueError):
+        return {"error": "Rota yaniti anlasilmadi."}
+    if mesafe <= 0:
+        return {"error": "Rota bulunamadi."}
+    dakika = int(round(sure / 60.0))
+    return {"result": _j({
+        "yol_mesafe_m": round(mesafe, 1),
+        "yol_mesafe_km": round(mesafe / 1000.0, 2),
+        "sure_sn": int(sure),
+        "sure_metni": "%d dk" % dakika,
+        "baslangic": {"enlem": b_en, "boylam": b_boy,
+                       "gosterim_adi": b_ad, "kaynak": b_kay},
+        "bitis": {"enlem": t_en, "boylam": t_boy,
+                   "gosterim_adi": t_ad, "kaynak": t_kay},
+        "kaynak": "openrouteservice",
+    })}
+
+
+# ── FAZ 7: bolge_kaydet (.md + mevcut semantic indeks) ─────────────
+
+_BOLGE_KLASOR = "harita"
+
+
+def _bolge_yolu(baslik, kullanici):
+    import os as _os
+    tablo = str.maketrans({"c": "c", "C": "c", "g": "g", "G": "g",
+                           "i": "i", "I": "i", "o": "o", "O": "o",
+                           "s": "s", "S": "s", "u": "u", "U": "u"})
+    slug = "".join(c if (c.isalnum()) else "-"
+                   for c in str(baslik or "").translate(tablo).lower())
+    slug = "-".join(p for p in slug.split("-") if p)[:60] or "bolge"
+    if str(kullanici or "").strip().lower() == "casper":
+        kok = __file__.rsplit("/", 1)[0].rsplit("/", 1)[0]
+        klasor = kok + "/knowledge/" + _BOLGE_KLASOR
+    else:
+        kok = __file__.rsplit("/", 1)[0].rsplit("/", 1)[0]
+        klasor = kok + "/data/%s/knowledge/" % str(
+            kullanici or "misafir").strip() + _BOLGE_KLASOR
+    return klasor + "/" + slug + ".md"
+
+
+def bolge_kaydet(marka, konum, yaricap_km=None):
+    """Bolge analizini .md dosyaya yazar (mevcut indeks otomatik okur).
+
+    Analiz harita_dedektif ile uretilir; dosya basliginda zorunlu OSM
+    atfi vardir. Uzanti .md olmali (indeksleyici yalniz .md okur).
+    episodik_kaydet KULLANILMAZ (budama analizi sessizce siler).
+    Donus: {"result": JSON} — yol, marka, sube_sayisi, atif.
+    """
+    try:
+        from chat.kimlik import aktif_kullanici
+        kisi = str(aktif_kullanici() or "casper").strip() or "casper"
+    except Exception:
+        kisi = "casper"
+    analiz = harita_dedektif(marka, konum, yaricap_km)
+    if "error" in analiz:
+        return analiz
+    try:
+        veri = json.loads(analiz["result"])
+    except (TypeError, ValueError):
+        return {"error": "Analiz anlasilmadi."}
+    baslik = "%s %s" % (str(veri.get("marka") or marka or "").strip(),
+                         str((veri.get("merkez") or {}).get(
+                             "gosterim_adi") or konum or "").strip())
+    yol = _bolge_yolu(baslik, kisi)
+    satirlar = ["# %s" % baslik.strip(), "",
+                "Veri: (c) OpenStreetMap katkilari (ODbL)", "",
+                "- Marka: %s" % veri.get("marka", ""),
+                "- Merkez: %s" % (veri.get("merkez") or {}).get(
+                    "gosterim_adi", ""),
+                "- Yaricap: %s km" % veri.get("yaricap_km", ""),
+                "- Sube sayisi: %s" % veri.get("sube_sayisi", 0), "",
+                "## Subeler", ""]
+    for s in (veri.get("subeler") or []):
+        satirlar.append("- %s | %.6f, %.6f | %s | %s km" % (
+            s.get("ad", ""), s.get("enlem", 0), s.get("boylam", 0),
+            s.get("adres", ""), s.get("mesafe_km", "")))
+    satirlar += ["", "Ham analiz asagidadir.", "", "```json",
+                 analiz["result"], "```", ""]
+    import os as _os
+    try:
+        _os.makedirs(yol.rsplit("/", 1)[0], exist_ok=True)
+        with open(yol, "w", encoding="utf-8") as f:
+            f.write("\n".join(satirlar))
+    except OSError as e:
+        return {"error": "Bolge dosyasi yazilamadi: %s" % str(e)[:120]}
+    return {"result": _j({
+        "yol": yol,
+        "marka": veri.get("marka", ""),
+        "sube_sayisi": veri.get("sube_sayisi", 0),
+        "atif": _ATFI,
     })}

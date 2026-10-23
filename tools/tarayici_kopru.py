@@ -195,8 +195,12 @@ def sayfa_bakis(baslangic=0, adet=tarayici_goz.VARSAYILAN_ADET, kullanici=None):
     return gorunum
 
 
-def _eylem(islem, ref, kullanici=None, metin=None):
-    """Ref'i dogrular, eklentiye iletir; her hata acik sozluk doner."""
+def _eylem(islem, ref, kullanici=None, metin=None, ek=None):
+    """Ref'i dogrular, eklentiye iletir; her hata acik sozluk doner.
+
+    `ek`: isleme ozgu ek alanlar (tus, miktar). `ref` bos olabilir — yalniz
+    sayfa_kaydir refsiz calisir; diger eylemler ref ister.
+    """
     from tools import tarayici_kanal
 
     kullanici = _kimlik(kullanici)
@@ -205,14 +209,21 @@ def _eylem(islem, ref, kullanici=None, metin=None):
     if not son:
         return {"error": "Once sayfa_bakis ile sayfa okunmali; ref o "
                          "gozlemden gelir."}
-    try:
-        sira = tarayici_goz.ref_coz(ref, son.get("nesil"))
-    except ValueError as hata:
-        return {"error": str(hata)}
+    sira = None
+    cerceve = None
+    if str(ref or "").strip():
+        try:
+            cerceve, sira = tarayici_goz.ref_coz(ref, son.get("nesil"))
+        except ValueError as hata:
+            return {"error": str(hata)}
+    elif islem != "sayfa_kaydir":
+            return {"error": "Gecersiz oge referansi: ref gerekli."}
 
-    veri = {"sira": sira}
+    veri = {"sira": sira, "cerceve": cerceve}
     if islem == "sayfa_yaz":
         veri["metin"] = "" if metin is None else str(metin)
+    for anahtar, deger in (ek or {}).items():
+        veri[anahtar] = deger
 
     # Onay kararı eklentide verilir (panel sorar); burada yalnız beklenir.
     kanal = tarayici_kanal.aktif_kanal()
@@ -233,10 +244,58 @@ def _eylem(islem, ref, kullanici=None, metin=None):
 
 
 def sayfa_tikla(ref, kullanici=None):
-    """Gozlemde gorunen ogeye tiklar (ref: <nesil>-<kimlik>)."""
+    """Gozlemde gorunen ogeye tiklar (ref: <cerceve>-<nesil>-<kimlik>)."""
     return _eylem("sayfa_tikla", ref, kullanici=kullanici)
 
 
 def sayfa_yaz(ref, metin, kullanici=None):
     """Gozlemde gorunen yazilabilir alana metin yazar."""
     return _eylem("sayfa_yaz", ref, kullanici=kullanici, metin=metin)
+
+
+def sayfa_tus(ref, tus, kullanici=None):
+    """Gozlemde gorunen ogeye klavye tusu gonderir (Enter formu gonderir)."""
+    return _eylem("sayfa_tus", ref, kullanici=kullanici,
+                  ek={"tus": str(tus or "")})
+
+
+def sayfa_kaydir(ref=None, miktar=None, kullanici=None):
+    """Sayfayi kaydirir ya da ref'teki ogeyi gorunur alana getirir."""
+    return _eylem("sayfa_kaydir", ref, kullanici=kullanici,
+                  ek={"miktar": miktar})
+
+
+def gorev_devret(gorev, adres="", kullanici=None):
+    """Web sohbetindeki tarayici gorevi icin panel devir paketi uretir.
+
+    Disk yazimi YOK; paket panel tarafindan okunur. Tek beyin korunur:
+    karari cekirdek verir, eklenti tasir. Donus: {"result": JSON} —
+    gorev, adres, adimlar, not. Adres bossa acik sekme kullanilir.
+    """
+    import json as _json
+    metin = " ".join(str(gorev or "").split())
+    if not metin:
+        return {"error": "Gorev metni bos olamaz."}
+    hedef = str(adres or "").strip()
+    if hedef:
+        from urllib.parse import urlsplit as _bol
+        _p = _bol(hedef)
+        if _p.scheme not in ("http", "https") or not _p.hostname:
+            return {"error": "Adres http(s) ile baslamali."}
+    with _SON_KILIT:
+        son = dict(_SON.get(_kimlik(kullanici)) or {})
+    acik = str((son.get("url") or "")).strip()
+    adimlar = [
+        {"ad": "paneli_ac", "ozet": "Basak panelini ac"},
+        {"ad": "gorevi_yukle",
+         "ozet": "Bekleyen gorev panele kendiliginden yuklenir"},
+        {"ad": "sayfa_bakis",
+         "ozet": "Hedef sayfa okunur: %s" % (hedef or acik or "acik sekme")},
+        {"ad": "eylem", "ozet": "Model eylemi secer, panel onaylar"},
+    ]
+    return {"result": _json.dumps({
+        "gorev": metin,
+        "adres": hedef or acik,
+        "adimlar": adimlar,
+        "not": "Panelde surdur: eklenti panelini ac, gorev otomatik yuklenir.",
+    }, ensure_ascii=False)}
