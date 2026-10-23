@@ -356,10 +356,14 @@ OVERPASS_TABANI = "https://overpass-api.de/api/interpreter"
 # engelleyebilir (2026-10-20: bulut IP'sinden nginx 406 olculdu). Sira
 # onemli: ana sunucu once, topluluk aynalari sonra denenir; her deneme
 # `denenen_hatlar` kaydina hata sebebiyle yazilir (Z1'deki desen).
+# 2026-10-23 canli olcum: overpass.osm.ch LISTEDEN CIKARILDI — ayna
+# yalniz Isvicre verisini sunuyor (Isvicre kutusunda 10 eczane, Istanbul
+# kutusunda 0, ayni sorgu); global mirror gibi durdugu icin "kayit yok"
+# yanlis "kayitli degil" cikarsama yaptiriyordu. Bazi aynalar tamamen
+# duserse poi_ara'nin Photon osm_tag yedegi devralir (poi_ara FAZ4+).
 OVERPASS_AYNALAR = (
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass.osm.ch/api/interpreter",
 )
 _SUBE_ZAMAN_ASIMI = 20
 _SUBE_SONUC_TAVANI = 50
@@ -880,6 +884,11 @@ def _poi_kaydi(eleman, enlem, boylam):
         etiket = {}
     return {
         "ad": str(etiket.get("name") or "").strip(),
+        # Aciklik/telefon ilk-12 etiket dilimine emanet edilemez; ozel alan
+        # olarak tasinir — "o saatte acik mi" sorusunun ham verisi budur.
+        "acik_saatler": str(etiket.get("opening_hours") or "").strip(),
+        "telefon": str(etiket.get("phone")
+                       or etiket.get("contact:phone") or "").strip(),
         "enlem": round(en, 6),
         "boylam": round(boy, 6),
         "mesafe_km": round(_mesafe_km(enlem, boylam, en, boy), 3),
@@ -895,8 +904,10 @@ def poi_ara(etiket, yer=None, enlem=None, boylam=None, yaricap_m=None):
     etiket: 'anahtar=deger' biciminde (orn. amenity=cafe).
     Merkez: yer verilirse konum_coz ile cozulur; yoksa enlem/boylam alinir.
     Donus: {"result": JSON} — etiket, merkez, yaricap_m, sonuc_sayisi,
-    sonuclar (ad, enlem, boylam, mesafe_km, osm_id, osm_tip; en yakin ilk),
-    atif, denenen_hatlar, not. Sonuc 0 hata degildir.
+    sonuclar (ad, enlem, boylam, mesafe_km, osm_id, osm_tip, acik_saatler,
+    telefon; en yakin ilk), atif, denenen_hatlar, not. Sonuc 0 hata degildir.
+    Overpass aynalari yanit vermezse Photon osm_tag yedegi devralir
+    (yedekte acik_saatler/telefon bos kalir).
     """
     temiz = _konum_temizle(etiket).lower()
     if not _ETIKET_RE.match(temiz or ""):
@@ -936,6 +947,30 @@ def poi_ara(etiket, yer=None, enlem=None, boylam=None, yaricap_m=None):
         denenen.append({"ayna": ayna, "durum": "hata",
                         "hata": hata or "beklenmeyen yanit"})
     if not isinstance(veri, dict):
+        # Overpass aynalarinin hepsi duserse Photon osm_tag yedegi devralir
+        # (2026-10-23 canli olcum: overpass-api.de kapasite dolu 502/406,
+        # kumi zaman asimi; photon ayni bolgede kayit dondu).
+        p_veri, p_hata = _photon_poi_yedegi(anahtar, deger,
+                                            m_en, m_boy, yaricap)
+        denenen.append({"ayna": _PHOTON_POI_TABANI, "durum":
+                        "ok" if isinstance(p_veri, dict) else "hata"})
+        if isinstance(p_veri, dict):
+            sonuclar = _photon_sonucu(p_veri, m_en, m_boy, yaricap)
+            not_metni = ("Overpass aynalari yanit vermedi; Photon yedegi "
+                         "devraldi. Yedekte acik_saatler/telefon ve tam "
+                         "etiket listesi tasinarak gelmez; Konum verir.")
+            return {"result": _j({
+                "etiket": temiz,
+                "merkez": {"enlem": round(m_en, 6),
+                           "boylam": round(m_boy, 6),
+                           "gosterim_adi": m_ad, "kaynak": m_kaynak},
+                "yaricap_m": yaricap,
+                "sonuc_sayisi": len(sonuclar),
+                "sonuclar": sonuclar,
+                "atif": _ATFI,
+                "not": not_metni,
+                "denenen_hatlar": denenen,
+            })}
         ozet = "; ".join("%s: %s" % (_ayna_adi(k.get("ayna")),
                                      k.get("hata") or "basarisiz")
                          for k in denenen)
@@ -971,6 +1006,80 @@ def poi_ara(etiket, yer=None, enlem=None, boylam=None, yaricap_m=None):
         "not": not_metni,
         "denenen_hatlar": denenen,
     })}
+
+
+# ── poi_ara yedegi (Photon osm_tag; 2026-10-23 canli olcumle devreye alindi) ──
+
+_PHOTON_POI_TABANI = "https://photon.komoot.io/api/"
+_PHOTON_POI_LIMIT = 50
+
+# Tek-harf li veri kodlari -> tur adi. Kullanicilir kelimesi DEGIL; OSM
+# veri katmaninin eleman turu etiketidir (node/way/relation).
+_OSM_TIP_IZALARI = {"N": "node", "W": "way", "R": "relation"}
+
+
+def _photon_poi_yedegi(anahtar, deger, enlem, boylam, yaricap):
+    """Overpass dustugunde POI yedegi — Photon osm_tag filtre (anahtarsiz).
+
+    q, etiketin DEGERINDEN gelir (model verdi; kod kelime listesi tutmaz).
+    Donus: (FeatureCollection, None) ya da (None, hata).
+    """
+    guney, bati, kuzey, dogu = _bbox(enlem, boylam, yaricap)
+    kutu = "%.4f,%.4f,%.4f,%.4f" % (bati, guney, dogu, kuzey)
+    url = ("%s?q=%s&limit=%d&osm_tag=%s:%s&bbox=%s" % (
+        _PHOTON_POI_TABANI, urllib.parse.quote(deger),
+        _PHOTON_POI_LIMIT, urllib.parse.quote(anahtar, safe=""),
+        urllib.parse.quote(deger, safe=""), kutu))
+    return _json_al(url, sure=_SUBE_ZAMAN_ASIMI)
+
+
+def _photon_poi_kaydi(ozellik, m_en, m_boy):
+    """Photon GeoJSON ozelligini poi kaydina cevirir; bos/bozuk -> None."""
+    if not isinstance(ozellik, dict):
+        return None
+    koordinat = ((ozellik.get("geometry") or {}).get("coordinates") or [])
+    if len(koordinat) < 2:
+        return None
+    boy = _sayi(koordinat[0])
+    en = _sayi(koordinat[1])
+    if not _gecerli_koordinat(en, boy):
+        return None
+    oz = ozellik.get("properties") or {}
+    if not isinstance(oz, dict):
+        oz = {}
+    return {
+        "ad": str(oz.get("name") or "").strip(),
+        # Photon ozellikleri sacak etiketlerini tasimaz; Overpass hatti
+        # dondugunde acik saat/telefon dolu verir, yedekte bos kalir.
+        "acik_saatler": "",
+        "telefon": "",
+        "enlem": round(en, 6),
+        "boylam": round(boy, 6),
+        "mesafe_km": round(_mesafe_km(m_en, m_boy, en, boy), 3),
+        "osm_id": oz.get("osm_id"),
+        "osm_tip": _OSM_TIP_IZALARI.get(str(oz.get("osm_type") or "N"),
+                                        "node"),
+        "etiketler": {"osm_value": str(oz.get("osm_value") or "")},
+    }
+
+
+def _photon_sonucu(veri, m_en, m_boy, yaricap):
+    """Photon FeatureCollection -> mesafeye gore sirali POI kayit listesi."""
+    sonuclar = []
+    gorulen = set()
+    for ozellik in (veri.get("features") or []):
+        kayit = _photon_poi_kaydi(ozellik, m_en, m_boy)
+        if not kayit:
+            continue
+        if kayit["mesafe_km"] * 1000.0 > yaricap:
+            continue
+        ana = (kayit["osm_tip"], kayit["osm_id"])
+        if ana in gorulen:
+            continue
+        gorulen.add(ana)
+        sonuclar.append(kayit)
+    sonuclar.sort(key=lambda k: k["mesafe_km"])
+    return sonuclar[:_POI_TAVAN]
 
 
 # ── FAZ 5: mesafe_hesapla (anahtarsiz, agsiz) ───────────────────────

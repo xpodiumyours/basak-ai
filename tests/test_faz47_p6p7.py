@@ -56,6 +56,59 @@ class TestPoiAra:
         r = harita.poi_ara('amenity=cafe', yer='41.0082, 28.9784')
         assert 'error' in r
 
+    def test_acik_saat_ve_telefon_ozel_alan(self):
+        # opening_hours/telefon ilk-12 dilimine sarkmayan etiket olsa bile
+        # ozel alan olarak tasinar; "o saatte acik mi" sorusunun verisi.
+        etiketler = {"name": "Eczane", "amenity": "pharmacy"}
+        for i in range(12):
+            etiketler.setdefault("addr:extra%d" % i, "x")
+        etiketler["opening_hours"] = "Mo-Fr 08:30-19:30"
+        etiketler["phone"] = "+90 216 000 0000"
+        eleman = {"type": "node", "id": 5, "lat": 41.0, "lon": 29.0,
+                  "tags": etiketler}
+        kayit = harita._poi_kaydi(eleman, 41.0, 29.0)
+        assert kayit["acik_saatler"] == "Mo-Fr 08:30-19:30"
+        assert kayit["telefon"] == "+90 216 000 0000"
+
+    def test_overpass_duserse_photon_yedegi(self, monkeypatch):
+        photon = {"features": [
+            {"geometry": {"coordinates": [29.004, 41.008]},
+             "properties": {"osm_id": 7, "osm_type": "N",
+                            "osm_key": "amenity", "osm_value": "pharmacy",
+                            "name": "Eczane Ayse"}},
+            # yaricap disi kayit: sune ile gecmemeli
+            {"geometry": {"coordinates": [29.0, 41.9]},
+             "properties": {"osm_id": 99, "osm_type": "N",
+                            "osm_value": "pharmacy", "name": "Uzak Eczane"}},
+        ]}
+
+        def sahte(url, sure=None):
+            if "interpreter" in url:
+                return None, "HTTP 502 kapasite"
+            return photon, None
+
+        monkeypatch.setattr(harita, '_json_al', sahte)
+        r = harita.poi_ara("amenity=pharmacy", yer="41.0, 29.0",
+                           yaricap_m=3000)
+        veri = _coz(r)
+        assert veri["sonuc_sayisi"] == 1        # uzak kayit sunulmus
+        k = veri["sonuclar"][0]
+        assert k["ad"] == "Eczane Ayse"
+        assert k["osm_tip"] == "node" and k["osm_id"] == 7
+        assert k["acik_saatler"] == "" and k["telefon"] == ""
+        yedek = [d for d in veri["denenen_hatlar"]
+                 if d.get("ayna") == harita._PHOTON_POI_TABANI]
+        assert yedek and yedek[0]["durum"] == "ok"
+        assert "Photon" in veri["not"]
+
+    def test_photon_da_duserse_acik_hata(self, monkeypatch):
+        monkeypatch.setattr(harita, '_json_al',
+                            lambda *a, **k: (None, "HTTP 502"))
+        r = harita.poi_ara('amenity=cafe', yer='41.0082, 28.9784')
+        assert 'error' in r
+        yedek = None  # hata yolu denenen listesini acikca yazmayabilir
+        assert "OpenStreetMap" in r["error"]
+
     def test_dispatcher_ve_dort_yer(self):
         r = calistir('poi_ara', {'etiket': 'kotu'})
         assert 'error' in r

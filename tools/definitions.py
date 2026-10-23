@@ -624,7 +624,9 @@ POI_ARA = _arac(
     "poi_ara",
     "Etiket + bolge ile OpenStreetMap'te kayitli noktalari bulur. Doner: "
     "etiket, merkez, yaricap_m, sonuc_sayisi, sonuclar (ad, enlem, boylam, "
-    "mesafe_km, osm_id), atif, not. Anahtar gerekmez. Sonuc 0 hata degildir.",
+    "mesafe_km, osm_id, acik_saatler, telefon), atif, not. Anahtar "
+    "gerekmez; Overpass yanit vermezse Photon yedegi devralir. Sonuc 0 "
+    "hata degildir.",
     {"etiket": {"type": "string",
                "description": "anahtar=deger (orn. amenity=cafe)"},
      "yer": {"type": "string",
