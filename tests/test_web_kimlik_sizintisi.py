@@ -32,9 +32,14 @@ class _BasitIstek:
 
 
 @pytest.fixture(autouse=True)
-def _giris_zorunlu_degil(monkeypatch):
+def _giris_zorunlu_degil(monkeypatch, tmp_path):
     import kullanici as kullanici_modulu
     monkeypatch.setattr(kullanici_modulu, "giris_zorunlu_mu", lambda: False)
+    # Test gercek ayarlar.json'dan bagimsiz kosar: gelistirici makinesinde
+    # "web_dis_erisim": true ise /api/sohbet token ister ve test 401'e
+    # iner — o, bu testin olctugu davranis degildir (Ayarsiz = yerel mod).
+    monkeypatch.setattr(basak_web, "AYARLAR", tmp_path / "ayarlar.json")
+    monkeypatch.delenv("BASAK_WEB_DIS", raising=False)
 
 
 def test_yerel_sunucuda_tek_kisi_modu_korunur():

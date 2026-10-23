@@ -213,16 +213,18 @@ def _eylem(islem, ref, kullanici=None, metin=None, ek=None):
         return {"error": "Once sayfa_bakis ile sayfa okunmali; ref o "
                          "gozlemden gelir."}
     sira = None
-    cerceve = None
     if str(ref or "").strip():
         try:
-            cerceve, sira = tarayici_goz.ref_coz(ref, son.get("nesil"))
+            # ref "<nesil>-<sira>" bicimindedir (tarayici_goz.modelle);
+            # ref_coz int sira doner, nesil eslesmiyorsa ValueError yukaridan
+            # yukari dogru acik hata olarak döner (bayat ref ile eylem yok).
+            sira = tarayici_goz.ref_coz(ref, son.get("nesil"))
         except ValueError as hata:
             return {"error": str(hata)}
     elif islem != "sayfa_kaydir":
-            return {"error": "Gecersiz oge referansi: ref gerekli."}
+        return {"error": "Gecersiz oge referansi: ref gerekli."}
 
-    veri = {"sira": sira, "cerceve": cerceve}
+    veri = {"sira": sira}
     if islem == "sayfa_yaz":
         veri["metin"] = "" if metin is None else str(metin)
     for anahtar, deger in (ek or {}).items():
