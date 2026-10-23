@@ -564,7 +564,7 @@ www.startpage.com HTTP 200; search.brave.com HTTP 429)` — eskiden yalnız
 - [ ] **T4.6** Belgeye **OSM kapsama sınırı** notu: TR POI verisi Google'ın altında; eksik sonuç beklenen davranıştır.
 - [x] **T4.7** Commit.
 
-**FAZ 4 kanıt (2026-10-23):** `tests/test_faz47_p6p7.py::TestPoiAra` (6 test) — etiket biçimi, bbox matematiği, boş-sonuç-dürüstlüğü, ağ-hatası, dispatcher + dört yer. `ruff` yeşil.
+**FAZ 4 kanıt (2026-10-23):** `tests/test_faz47_p6p7.py::TestPoiAra` (6 test) — etiket biçimi, bbox matematiği, boş-sonuç-dürüstlüğü, ağ-hatası, dispatcher + dört yer. `ruff` yeşil. **Canlı P7 demosu (2026-10-23, gerçek ağ):** `takip_baslat(Tutku)` → site `tutkuelit.com.tr/iletisim`; `takip_kontrol` 1. koşu `ilk_kayit: true` + tam kart (unvan, 3 telefon, e-posta, adres, vergi_no); 2. koşu `degisen: []`, `ilk_kayit: false`. Taban `data/casper/takip.json`'da (gitignore, commit'e girmez) — 2 günlük koşunun karşılaştırma noktası.
 
 **Faz kapısı:** Bölüm D + bağımsız doğrulama kanıtı.
 
@@ -637,7 +637,7 @@ www.startpage.com HTTP 200; search.brave.com HTTP 429)` — eskiden yalnız
 - [ ] **T6.8** **Canlı kanıt:** iki gerçek adres → gerçek yol mesafesi/süresi; `mesafe_hesapla` ile karşılaştırılır (yol mesafesi > düz mesafe olmalı — mantık kapısı).
 - [x] **T6.9** Commit.
 
-**FAZ 6 kanıt (2026-10-23):** `TestRota` (4 test) — anahtarsız-anlamlı-hata (mesafe_hesapla'ya düşürür), 429 Türkçe reti, sahte-başarı (15 km / 1200 sn), yol>0 mantığı. Canlı ORS anahtarı bu ortamda yok — gerçek rota yanıtı Casper ortamında `rota_hesapla` ile doğrulanacak (açık kapı).
+**FAZ 6 kanıt (2026-10-23):** `TestRota` (4 test) — anahtarsız-anlamlı-hata (mesafe_hesapla'ya düşürür), 429 Türkçe reti, sahte-başarı (15 km / 1200 sn), yol>0 mantığı. Canlı ORS anahtarı bu ortamda yok — anahtar kaydı Casper'da (openrouteservice.org → ücretsiz kayıt → Dashboard → token → `ayarlar.json`a `openrouteservice`; kart istenmez, doğrulandı 2026-10-23). Anahtar girilince gerçek rota yanıtı `rota_hesapla` ile doğrulanacak (açık kapı).
 
 ---
 
