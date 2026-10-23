@@ -13,7 +13,8 @@ yazma, sabit komut, beyaz liste).
 56; ayni gun konum_coz eklendi — 57; 2026-10-17: update_task_status
 eklendi — 58; 2026-10-20: sube_bul eklendi; 2026-10-21: sayfa_bakis
 eklendi — 60; ayni gun sayfa_tikla + sayfa_yaz eklendi — 62; 2026-10-22:
-harita_dedektif eklendi (zincir) — guncel toplam 74 (2026-10-23: poi_ara + mesafe_hesapla + rota_hesapla + bolge_kaydet + gorev_devret + 4 takip); sayi testlerle
+harita_dedektif eklendi (zincir) — guncel toplam 74; 2026-10-23: mesafe_sure
+eklendi (anahtarsiz OSRM) — guncel toplam 75; sayi testlerle
 kilitli,
 bak: tests/test_seviye0_sozlesme.py + tests/test_agent_protocol.py.)
 """
@@ -659,6 +660,21 @@ ROTA_HESAPLA = _arac(
     ["baslangic", "bitis"],
 )
 
+MESAFE_SURE = _arac(
+    "mesafe_sure",
+    "Iki konum arasi KARAYOLU mesafe ve sureyi anahtarsiz OSRM'den "
+    "hesaplar. Doner: mesafe_km, sure_dk, baglanti, atif, "
+    "denenen_hatlar. Kus ucusu mesafe DEGILDIR; anahtar gerekmez.",
+    {"nereden": {"type": "string",
+                 "description": "Nereden: 'enlem,boylam' ya da adres"},
+     "nereye": {"type": "string",
+                "description": "Nereye: 'enlem,boylam' ya da adres"},
+     "seyahat": {"type": "string",
+                 "enum": ["araba", "bisiklet", "piyade"],
+                 "description": "Seyahat sekli (bossa araba)"}},
+    ["nereden", "nereye"],
+)
+
 BOLGE_KAYDET = _arac(
     "bolge_kaydet",
     "Bolge analizini .md dosyaya yazar (mevcut semantic indeks okur). "
@@ -860,7 +876,7 @@ TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
          MATRIS_DURUM, GORSEL_URET, SAGLIK_RAPORU, SATIR_DUZENLE,
           SIMDI, HESAPLA, HAFIZA_ARA, SIRKET_ARA, HAVA_DURUMU, HARITA_GOSTER,
          KONUM_COZ, SUBE_BUL, HARITA_DEDEKTIF, POI_ARA, MESAFE_HESAPLA,
-         ROTA_HESAPLA, BOLGE_KAYDET, GOREV_DEVRET, TAKIP_BASLAT,
+         ROTA_HESAPLA, MESAFE_SURE, BOLGE_KAYDET, GOREV_DEVRET, TAKIP_BASLAT,
          TAKIP_LISTELE, TAKIP_DURDUR, TAKIP_KONTROL,
          FATURA_OKU, KATALOG_KUR, KATALOG_GETIR, KATALOG_LISTELE,
          KATALOG_FIYAT, KATALOG_ONAYLA, YETKI_BELGESI, URUN_ESLESTIR,

@@ -421,6 +421,12 @@ def calistir(tool_name, args):
             return harita.rota_hesapla(str(args.get("baslangic", "")),
                                        str(args.get("bitis", "")))
 
+        if tool_name == "mesafe_sure":
+            from tools import harita
+            return harita.mesafe_sure(str(args.get("nereden", "")),
+                                      str(args.get("nereye", "")),
+                                      str(args.get("seyahat", "") or "araba"))
+
         if tool_name == "bolge_kaydet":
             from tools import harita
             return harita.bolge_kaydet(str(args.get("marka", "")),

@@ -1151,7 +1151,12 @@ def bolge_kaydet(marka, konum, yaricap_km=None):
                  analiz["result"], "```", ""]
     import os as _os
     try:
-        _os.makedirs(yol.rsplit("/", 1)[0], exist_ok=True)
+        # rsplit("/", 1) TERS-BOLULU Windows yolunda bozulur: son parcayi
+        # klasor sanir ve dosyanin yerine KLASOR kurmaya calisir
+        # (Permission denied). os.path.dirname cplatform dogru annevl verir.
+        _annev = _os.path.dirname(yol)
+        if _annev:
+            _os.makedirs(_annev, exist_ok=True)
         with open(yol, "w", encoding="utf-8") as f:
             f.write("\n".join(satirlar))
     except OSError as e:
@@ -1161,4 +1166,139 @@ def bolge_kaydet(marka, konum, yaricap_km=None):
         "marka": veri.get("marka", ""),
         "sube_sayisi": veri.get("sube_sayisi", 0),
         "atif": _ATFI,
+    })}
+
+
+# ── FAZ 8: mesafe_sure (anahtarsiz OSRM) ────────────────────────────────
+#
+# Para kapisi olcumu resmi kaynaklardan (2026-10-18):
+# - OSRM demo (project-osrm.org): anahtarsiz, kartsiz; kullanim politikasi
+#   "yalnizca hafif kullanim" (OSM forum, resmi aciklama).
+#   Yedek hat: FOSSGIS routing.openstreetmap.de (routed-car, anahtarsiz).
+# - Bisiklet/piyade profilleri resmi olarak yalniz FOSSGIS hattiyla
+#   yayinlidir; denenen_hatlar bunu acik yazar.
+# - Google Routes/Directions KURULMADI: bedava katman kart ister
+#   (para kapisi). Buyutme ihtiyaci olursa Casper karari gerekir.
+# S0: seyahat sekli MODEL PARAMETRESIDIR; kod kelime listesi tutmaz.
+
+_OSRM_HAT_ADI = "osrm"
+_OSRM_ZAMAN_ASIMI = 20
+
+_OSRM_HATLARI = {
+    "araba": (
+        "https://router.project-osrm.org/route/v1/driving",
+        "https://routing.openstreetmap.de/routed-car/route/v1/driving",
+    ),
+    "bisiklet": (
+        "https://routing.openstreetmap.de/routed-bike/route/v1/driving",
+    ),
+    "piyade": (
+        "https://routing.openstreetmap.de/routed-foot/route/v1/driving",
+    ),
+}
+
+
+def mesafe_sure(nereden, nereye, seyahat="araba"):
+    """Iki konum arasi KARAYOLU mesafe + sureyi OSRM'den hesaplar.
+
+    nereden/nereye: adres, yer adi ya da 'enlem,boylam' (_merkez_coz
+    koordinati dogrudan okur; degilse konum_coz'e devreder).
+    seyahat: modelin verdigi profil — "araba" (bos/varsayilan),
+    "bisiklet", "piyade". Baska deger hata doner.
+
+    Sonuc OSM turevi rota verisidir; ODbL atfi tasir. OSRM API nokta
+    sirasi BOYLAM,ENLEM'dir (lon,lat) — kus ucusu mesafe DEGILDIR.
+
+    Donus: {"result": JSON} — nereden/nereye (gosterim_adi + koordinat),
+    seyahat, mesafe_km, sure_dk, kaynak, hat, baglanti (A->B yol tarifi),
+    atif, denenen_hatlar. Baglanti Google Maps URL semasindan uretilir
+    (anahtar YOK — Z0 kanunu). Hat yanit vermezse {"error": ...} doner;
+    sayi UYDURULMAZ.
+    """
+    temiz_nereden = _konum_temizle(nereden)
+    temiz_nereye = _konum_temizle(nereye)
+    if not temiz_nereden or not temiz_nereye:
+        return {"error": "nereden ve nereye bos olamaz."}
+    if len(temiz_nereden) > KONUM_TAVANI:
+        return {"error": "nereden cok uzun (en fazla %d karakter)."
+                         % KONUM_TAVANI}
+    if len(temiz_nereye) > KONUM_TAVANI:
+        return {"error": "nereye cok uzun (en fazla %d karakter)."
+                         % KONUM_TAVANI}
+    profil = str(seyahat or "araba").strip().lower() or "araba"
+    if profil not in _OSRM_HATLARI:
+        return {"error": "Bilinmeyen seyahat sekli: '%s'. Desteklenenler: "
+                         "%s" % (seyahat, ", ".join(sorted(_OSRM_HATLARI)))}
+
+    b_en, b_boy, b_ad, b_kay = _merkez_coz(temiz_nereden)
+    if b_en is None:
+        return {"error": "nereden cozulemedi: %s" % b_kay}
+    t_en, t_boy, t_ad, t_kay = _merkez_coz(temiz_nereye)
+    if t_en is None:
+        return {"error": "nereye cozulemedi: %s" % t_kay}
+
+    # OSRM API sirasi lon,lat — yani boylam,enlem. KARISTIRMA.
+    noktalar = "%s,%s;%s,%s" % (b_boy, b_en, t_boy, t_en)
+    hatlar = []
+    rota = None
+    hat_host = ""
+    for taban in _OSRM_HATLARI[profil]:
+        url = "%s/%s?overview=false&alternatives=false" % (taban, noktalar)
+        veri, hata = _json_al(url, sure=_OSRM_ZAMAN_ASIMI)
+        if hata or not isinstance(veri, dict):
+            hatlar.append(_hat_kaydi(_OSRM_HAT_ADI,
+                                     hata=hata or "beklenmeyen yanit"))
+            continue
+        if str(veri.get("code") or "") != "Ok" or not veri.get("routes"):
+            hatlar.append(_hat_kaydi(
+                _OSRM_HAT_ADI, hata="OSRM code=%s" % veri.get("code")))
+            continue
+        rota = (veri.get("routes") or [])[0] or {}
+        hatlar.append(_hat_kaydi(_OSRM_HAT_ADI, adaylar=[rota]))
+        hat_host = str(taban).split("/")[2]
+        break
+
+    if rota is None:
+        return {"error": "Mesafe hesaplanamadi — denenen hatlar: %s"
+                         % (_deneme_ozeti(hatlar) or "yanit yok")}
+
+    mesafe_m = _sayi(rota.get("distance"))
+    sure_s = _sayi(rota.get("duration"))
+    if mesafe_m is None or sure_s is None:
+        return {"error": "OSRM yanitinda mesafe/sure alanlari yok: %s"
+                         % _deneme_ozeti(hatlar)}
+
+    baglanti_sonuc = harita_goster(konum=temiz_nereye, mod=MOD_YOL,
+                                   baslangic=temiz_nereden)
+    veri_baglanti = ""
+    if "result" in baglanti_sonuc:
+        try:
+            veri_baglanti = str(json.loads(baglanti_sonuc["result"])
+                                .get("baglanti") or "")
+        except (TypeError, ValueError):
+            veri_baglanti = ""
+
+    return {"result": _j({
+        "gosterim_adi": "%s → %s" % (b_ad or temiz_nereden,
+                                     t_ad or temiz_nereye),
+        "nereden": {
+            "gosterim_adi": b_ad,
+            "enlem": b_en,
+            "boylam": b_boy,
+            "kaynak": b_kay,
+        },
+        "nereye": {
+            "gosterim_adi": t_ad,
+            "enlem": t_en,
+            "boylam": t_boy,
+            "kaynak": t_kay,
+        },
+        "seyahat": profil,
+        "mesafe_km": round(mesafe_m / 1000.0, 1),
+        "sure_dk": round(sure_s / 60.0, 1),
+        "kaynak": _OSRM_HAT_ADI,
+        "hat": hat_host,
+        "baglanti": veri_baglanti,
+        "atif": _ATFI,
+        "denenen_hatlar": hatlar,
     })}

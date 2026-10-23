@@ -29,7 +29,8 @@ YETENEK_ALANLARI = {
     ),
     "internet_oku": ("derin_oku", "sayfa_oku", "adres_kontrol"),
     "harita": ("harita_goster", "konum_coz", "sube_bul", "harita_dedektif",
-               "poi_ara", "mesafe_hesapla", "rota_hesapla", "bolge_kaydet"),
+               "poi_ara", "mesafe_hesapla", "rota_hesapla", "mesafe_sure",
+               "bolge_kaydet"),
     "takip": ("takip_baslat", "takip_listele", "takip_durdur",
               "takip_kontrol", "gorev_devret"),
     "dosyalar": (
@@ -70,8 +71,9 @@ ALAN_ACIKLAMALARI = {
     "internet_oku": "bilinen bir URL'nin sayfasini okuma veya adresin canli "
                     "olup olmadigini kontrol",
     "harita": "adres/yer icin harita baglantisi, yol tarifi, enlem/boylam "
-              "koordinati, markanin bolgede kayitli subeleri ve bu "
-              "parcalarin tek cagrida baglandigi harita zinciri",
+              "koordinati, markanin bolgede kayitli subeleri, iki konum "
+              "arasi karayolu mesafesi/sure ve bu parcalarin tek cagrida "
+              "baglandigi harita zinciri",
     "dosyalar": "bilgisayardaki dosya/klasor ve proje icerigi; knowledge yazma",
     "projeler": "Git, GitHub, CI, test ve proje hat sagligi",
     "gorevler": "yerel gorevler, hatirlatmalar ve cihazdan dogrulanan su "

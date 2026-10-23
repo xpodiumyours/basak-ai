@@ -92,6 +92,7 @@ DURUM_METNI = {
     "poi_ara": "Kayıtlı noktalar taranıyor",
     "mesafe_hesapla": "Düz mesafe hesaplanıyor",
     "rota_hesapla": "Yol mesafesi hesaplanıyor",
+    "mesafe_sure": "Yol mesafesi ve süresi ölçülüyor",
     "bolge_kaydet": "Bölge analizi kaydediliyor",
     "gorev_devret": "Görev panele devrediliyor",
     "takip_baslat": "Firma takibe alınıyor",
@@ -192,7 +193,7 @@ def _kaynaklari_cikar(tool_name, args, net):
 # ── Z2 harita olayı (D4b = B onaylı) ─────────────────────────────────
 _HARITA_ARACLARI = ("harita_goster", "konum_coz", "sube_bul",
                     "harita_dedektif", "poi_ara", "mesafe_hesapla",
-                    "rota_hesapla", "bolge_kaydet")
+                    "rota_hesapla", "mesafe_sure", "bolge_kaydet")
 # Atif metni ODbL uyumlulugu icin ingilizce resmi bicim.
 _HARITA_ATFI = "© OpenStreetMap contributors"
 # Bu kaynaklar OSM turevi coğrafi kodlama verisidir (Nominatim/Photon).
