@@ -68,7 +68,7 @@ noktaları + eylem doğruluğu**, **web↔eklenti**, **firma takibi**.
 | # | Soru | Öneri | Maliyet |
 |---|---|---|---|
 | **K1 — KARAR (2026-10-22): Edge önce, ücret yok** | Chrome 5 $'ı beklemeden Edge Add-ons. Teknik paket + başvuru kılavuzu hazır (`docs/EDGE-MAGAZA.md`); başvuru Casper'ın 15 dakikası, inceleme 1–3 iş günü | 0 $ |
-| **K2** | Web sohbetinden tarayıcı eylemi şart mı? | **Önce görev devri** (P6, hizmet yok). Doğrudan sürüş istenirse paylaşılan kutu (ücretsiz Redis katmanı) ayrı faz | 0 $ / 1 faz |
+| **K2 — ONAYLANDI (2026-10-23, Casper: doğrudan sürüş)** | Web sohbetinden tarayıcı eylemi şart. Yol: **paylaşılan kutu, mevcut Postgres** (yeni servis yok — Redis katmanı gerekmedi, DATABASE_URL zaten üretimde var). Onay kapısı cihazda kalır. | 0 $ |
 | **K3** | Firma takibi nerede yaşasın? | **Eklenti tarafı** (`chrome.alarms` + `chrome.storage.local`) + masaüstünde `zamanlayici`. Yeni servis yok, kalıcı disk yok | 0 $ |
 | **K4** | İzinler daraltılsın mı? | Mağaza incelemesi için `activeTab` + isteğe bağlı izin düşünülebilir; ama "her sayfada çalış" iddiası zayıflar | P5 içinde tartışılır |
 
@@ -147,6 +147,23 @@ Dört yer kuralı (`AGENTS.md` §0): `tools/definitions.py`, `tools/__init__.py`
 
 **Kabul:** mağaza onayı + "Ekle" ile kurulum + sürüm güncellemesinin otomatik gelmesi.
 **Risk:** `http://*/*` + `https://*/*` incelemede sorgulanır; gerekçesiz reddedilir.
+
+### P6b — Web'den doğrudan sürüş (paylaşılan kutu) — E8 — ✅ TAMAMLANDI (2026-10-23, K2)
+
+Tasarım (yeni servis yok): `tools/kutu.py` Postgres `basak_kutu` tablosu —
+web turu işi bırakır, eklenti WS üzerinden 3 sn'de bir yoklar (`kutu_al`),
+işi mevcut `islemYap` yolundan koşar (onay kapısı aynen fail-closed),
+sonucu yazar (`kutu_yaz`), web turu okur. DSN yoksa açık hata (sessiz
+bellek düşüşü yok — bellek instance'lar arası paylaşılmaz). Web tarafı
+önce alınmayı bekler (10 sn; alınmayan iş = eklenti bağlı değil → açık
+hata), sonra sonucu bekler.
+
+**Dokunulan:** `tools/kutu.py` (yeni), `tools/tarayici_kopru.py` (yerel
+yoksa kutuya düşüş), `chat/eklenti_ws.py` (`kutu_al`/`kutu_yaz` elçileri),
+`eklenti/arka.js` (yoklama döngüsü), `eklenti/test/kutu.test.mjs`.
+**Kabul:** 12 Python + 3 JS test; onay gerektirmeyen gözlemde panele soru
+gitmez; onaylı eylemde kapı aynen sorar (mevcut `eylem.test.mjs` kilidi).
+**Risk:** Vercel 300 sn sınırı — kutu eylem bekleyişi 150 sn tavanlı.
 
 ### P6 — Web ↔ eklenti el sıkışması (1 gün) — E8 — ✅ TAMAMLANDI (2026-10-23)
 
@@ -231,5 +248,6 @@ adresinde denenir, testler yeşil + Casper "tamam" dedikten sonra `preview`, faz
 | P4 | **tamam (2026-10-22)** | 16/32/48/128 ikon (`ui/style.css` paleti), `ayarlar.html` + `ayarlar.js`, panelde ⚙; manifest 0.3.0 |
 | P5 | **teknik hazır; başvuru Casper'da** | magaza zip (`manifest` kökte, `key` yok) + kart çok-kimlikli yoklama + §2a gizlilik + Edge adımları; testler yeşil; kılavuz `docs/EDGE-MAGAZA.md` |
 | P6 | **tamam (2026-10-23)** | `gorev_devret` (4 adımlı panel devir paketi, disk yazımı yok); 4 Python test |
+| P6b | **tamam (2026-10-23, K2)** | Paylaşılan kutu (Postgres, yeni servis yok) + eklenti yoklaması; 12 Python + 3 JS test |
 | P7 | **tamam (2026-10-23)** | `takip_baslat/listele/durdur/kontrol` (kisi basi JSON, alan bazinda degisim, MERSIS yok); K3 = oneri (eklenti + zamanlayici, yeni servis yok); 4 Python test |
 | P8 | başka planda (harita) | `docs/HARITA-ZINCIRI-PLANI.md` FAZ 4–7 |

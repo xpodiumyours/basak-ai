@@ -180,6 +180,9 @@ def sayfa_bakis(baslangic=0, adet=tarayici_goz.VARSAYILAN_ADET, kullanici=None):
         ham = kanal.istek("sayfa_gozlem", istek)
     else:
         ham = KOPRU.iste("sayfa_gozlem", istek, kullanici=kullanici)
+        if _kutu_dusmeli_mi(ham):
+            ham = _kutu_yoluyla("sayfa_gozlem", istek, kullanici,
+                                ham.get("error") or "", sure=60.0)
     sonuc = cevabi_coz(ham)
     if "error" in sonuc:
         return sonuc
@@ -231,6 +234,10 @@ def _eylem(islem, ref, kullanici=None, metin=None, ek=None):
         ham = kanal.istek(islem, veri, sure=EYLEM_SURESI)
     else:
         ham = KOPRU.iste(islem, veri, sure=EYLEM_SURESI, kullanici=kullanici)
+        if _kutu_dusmeli_mi(ham):
+            ham = _kutu_yoluyla(islem, veri, kullanici,
+                                ham.get("error") or "",
+                                sure=EYLEM_SURESI + 60.0)
     sonuc = cevabi_coz(ham)
     if "error" in sonuc:
         return sonuc
@@ -263,6 +270,32 @@ def sayfa_kaydir(ref=None, miktar=None, kullanici=None):
     """Sayfayi kaydirir ya da ref'teki ogeyi gorunur alana getirir."""
     return _eylem("sayfa_kaydir", ref, kullanici=kullanici,
                   ek={"miktar": miktar})
+
+
+def _kutu_dusmeli_mi(ham):
+    """Yalniz 'ulasilamayan istemci' hatasinda kutuya dusulur.
+
+    Bagli istemcinin kendi hatasi (patlama, bozuk cevap) aynen gecer:
+    kutu onu gizleyemez, eski bekci testleri bunu kilitler.
+    """
+    hata = str((ham or {}).get("error") or "")
+    return "erisilemedi" in hata or "Bu kullanici icin" in hata
+
+
+def _kutu_yoluyla(islem, veri, kullanici, yerel_hata, sure=60.0):
+    """Yerel baglanti yoksa isi paylasimli kutuya birakip sonucu bekler.
+
+    Kutu baska instance'a bagli eklentiye ulasir; onay kapisi cihazda
+    aynen calisir. Kutu kapaliysa yerel hata aynen doner (sebep gizlenmez).
+    """
+    from tools import kutu as _kutu
+    birakilan = _kutu.birak(kullanici, islem, veri or {})
+    if "error" in birakilan and "Paylasilan kutu kapali" in str(
+            birakilan.get("error") or ""):
+        return {"error": yerel_hata}
+    if "error" in birakilan:
+        return birakilan
+    return _kutu.sonucu_bekle(birakilan["id"], sonuc=sure)
 
 
 def gorev_devret(gorev, adres="", kullanici=None):

@@ -99,6 +99,25 @@ def _gecmis_coz(ham):
     return temiz or None
 
 
+def _kutu_al(kullanici):
+    """Bagli eklentinin yoklamasi: bekleyen kutu isini ustlenir."""
+    from tools import kutu as kutu_modulu
+    return kutu_modulu.al(kullanici or "misafir")
+
+
+def _kutu_yaz(kullanici, veri):
+    """Eklenti is sonucunu kutuya yazar (is baskasinin olamaz: kimlik
+    kanalindir, gorev kimligi kutudadir)."""
+    from tools import kutu as kutu_modulu
+    if not isinstance(veri, dict):
+        return {"error": "kutu yazma govdesi bos"}
+    try:
+        kimlik = int(veri.get("job"))
+    except (TypeError, ValueError):
+        return {"error": "is kimligi gerekli"}
+    return kutu_modulu.yaz(kimlik, veri.get("cevap") or {})
+
+
 def _cevapla(metin, kid, kanal, gecmis=None):
     """Çekirdeği çalıştırır (iş parçacığında); panel cevabını döndürür."""
     from chat.flow import mesaj_isle
@@ -166,6 +185,14 @@ async def eklenti_kanali(websocket: WebSocket):
                 continue
             if mesaj.get("islem") == "sohbet":
                 asyncio.create_task(_sohbet(mesaj))
+            elif mesaj.get("islem") == "kutu_al":
+                await websocket.send_json({
+                    "id": mesaj.get("id"), "ok": True,
+                    "sonuc": _kutu_al(kullanici)})
+            elif mesaj.get("islem") == "kutu_yaz":
+                await websocket.send_json({
+                    "id": mesaj.get("id"), "ok": True,
+                    "sonuc": _kutu_yaz(kullanici, mesaj.get("veri"))})
             elif mesaj.get("islem"):
                 await websocket.send_json({
                     "id": mesaj.get("id"), "ok": False,

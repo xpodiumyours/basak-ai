@@ -22,6 +22,14 @@ let sonHata = "";
 let sayac = 0;
 let cagriSayaci = 0;
 const bekleyenSohbet = new Map();   // panel mesaji -> cozucu
+const bekleyenKutu = new Map();     // kutu yoklamasi -> cozucu
+/* Paylasimli kutu yoklamasi (P6b): web sohbeti baska instance'ta kalsa
+ * bile kutuya biraktigi isi bu baglanti alir. Is mevcut islemYap yolundan
+ * kosar: onay kapisi aynen gecerli, karar verilmez. */
+const KUTU_ARALIK = 3000;
+const KUTU_SURE = 15000;
+let kutuZaman = null;
+let kutuMesgul = false;
 
 async function ayarlariAl() {
   const veri = await chrome.storage.local.get(["sunucu", "anahtar"]);
@@ -45,23 +53,68 @@ async function sekmeAl() {
   return sekme;
 }
 
-async function sekmeyeSor(istek, sekme) {
+async function sekmeyeSor(istek, sekme, cerceveId) {
   const hedef = sekme || (await sekmeAl());
+  const secenek = (cerceveId === undefined || cerceveId === null)
+    ? undefined : { frameId: Number(cerceveId) };
   try {
-    return await chrome.tabs.sendMessage(hedef.id, istek);
+    return await chrome.tabs.sendMessage(hedef.id, istek, secenek);
   } catch (hata) {
     // Eklenti kurulmadan önce açılmış sekmede içerik betiği yoktur.
     try {
-      await chrome.scripting.executeScript({ target: { tabId: hedef.id }, files: ["icerik.js"] });
-      return await chrome.tabs.sendMessage(hedef.id, istek);
+      await chrome.scripting.executeScript({
+        target: { tabId: hedef.id, allFrames: true }, files: ["icerik.js"] });
+      return await chrome.tabs.sendMessage(hedef.id, istek, secenek);
     } catch (hata2) {
       throw new Error("bu sekme okunamıyor (chrome:// veya mağaza sayfası olabilir)");
     }
   }
 }
 
+/* Çerçeveler: sayfanın gömülü çerçeveleri (iframe) AYNI gözlemde
+ * birleşir. Her çerçeve kendi kimliğini taşır ("0" = ana çerçeve);
+ * eylem ref'teki çerçeveye yönlenir. Yürütme ana dünyadan değil,
+ * betiğin İZOLE dünyasından okunur: __basakGozlem orada yaşar.
+ */
+function gozlemleriBirlestir(sonuclar) {
+  const ogeler = [];
+  let url = "";
+  let baslik = "";
+  let anaVar = false;
+  for (const kayit of sonuclar || []) {
+    const gozlem = kayit && kayit.result;
+    if (!gozlem || gozlem.hata || !Array.isArray(gozlem.ogeler)) continue;
+    const cerceve = String(kayit.frameId);
+    if (cerceve === "0" && !anaVar) {
+      url = gozlem.url || url;
+      baslik = gozlem.baslik || baslik;
+      anaVar = true;
+    }
+    for (const oge of gozlem.ogeler) {
+      const kopya = {};
+      for (const anahtar in oge) kopya[anahtar] = oge[anahtar];
+      kopya.cerceve = cerceve;
+      ogeler.push(kopya);
+    }
+  }
+  if (!anaVar && ogeler.length) {
+    url = url || "";
+  }
+  return { url, baslik, ogeler };
+}
+
 async function gozlemAl() {
-  return sekmeyeSor({ tip: "gozlem" });
+  const sekme = await sekmeAl();
+  let sonuclar;
+  try {
+    sonuclar = await chrome.scripting.executeScript({
+      target: { tabId: sekme.id, allFrames: true },
+      func: () => (typeof __basakGozlem === "function" ? __basakGozlem() : null)
+    });
+  } catch (hata) {
+    return { hata: "bu sekme okunamıyor (chrome:// veya mağaza sayfası olabilir)" };
+  }
+  return gozlemleriBirlestir(sonuclar);
 }
 
 function sohbetGonder(metin, gecmis) {
@@ -84,6 +137,60 @@ function sohbetGonder(metin, gecmis) {
       veri: { metin: yazi, gecmis: Array.isArray(gecmis) ? gecmis : [] }
     }));
   });
+}
+
+/* ── Paylasimli kutu (web sohbetinden dogrudan surus) ─────────────── */
+function kutuIste(islem, veri, sure) {
+  return new Promise((coz) => {
+    if (!baglanti || baglanti.readyState !== WebSocket.OPEN) {
+      coz({ ok: false, hata: "Bağlantı yok." });
+      return;
+    }
+    cagriSayaci += 1;
+    const id = "k" + cagriSayaci;
+    const zaman = setTimeout(() => {
+      bekleyenKutu.delete(id);
+      coz({ ok: false, hata: "kutu cevabi gelmedi" });
+    }, sure || KUTU_SURE);
+    bekleyenKutu.set(id, { coz, zaman });
+    try {
+      baglanti.send(JSON.stringify({ id, islem, veri: veri || {} }));
+    } catch (hata) {
+      bekleyenKutu.delete(id);
+      clearTimeout(zaman);
+      coz({ ok: false, hata: "gonderilemedi" });
+    }
+  });
+}
+
+async function kutuYokla() {
+  if (kutuMesgul) return;
+  if (!baglanti || baglanti.readyState !== WebSocket.OPEN) return;
+  kutuMesgul = true;
+  try {
+    const cevap = await kutuIste("kutu_al", {});
+    const is = cevap && cevap.ok && cevap.sonuc;
+    if (!is || is.bos || !is.id || !is.islem) return;
+    let uyg;
+    try {
+      uyg = await islemYap({ id: is.id, islem: is.islem, veri: is.veri || {} });
+    } catch (hata) {
+      uyg = { id: is.id, ok: false, hata: String(hata && hata.message || hata) };
+    }
+    await kutuIste("kutu_yaz", { job: is.id, cevap: uyg });
+  } finally {
+    kutuMesgul = false;
+  }
+}
+
+function kutuBaslat() {
+  kutuDurdur();
+  kutuZaman = setInterval(() => { kutuYokla(); }, KUTU_ARALIK);
+}
+
+function kutuDurdur() {
+  if (kutuZaman !== null) { clearInterval(kutuZaman); kutuZaman = null; }
+  kutuMesgul = false;
 }
 
 /* ── Onay kapısı ────────────────────────────────────────────────────
@@ -155,10 +262,12 @@ async function onayIste(sekme, islem, ayrinti) {
   return cevap;
 }
 
-async function eylemAyrinti(sekme, sira, metin) {
+async function eylemAyrinti(sekme, sira, metin, cerceveId) {
   const ayrinti = { ad: "", rol: "", url: "", metin: metin || "" };
   try {
-    const gozlem = await sekmeyeSor({ tip: "gozlem" }, sekme);
+    // Ayrıntı HEDEF çerçeveden okunur: sıra numaraları çerçeve başına
+    // olduğu için birleşik listede arama yanlış öğeyi bulabilirdi.
+    const gozlem = await sekmeyeSor({ tip: "gozlem" }, sekme, cerceveId);
     if (gozlem && !gozlem.hata) {
       ayrinti.url = gozlem.url || "";
       const oge = (gozlem.ogeler || []).find((o) => o.sira === sira);
@@ -173,12 +282,14 @@ async function eylemAyrinti(sekme, sira, metin) {
 
 async function eylemiUygula(mesaj, istek, sekme, metin) {
   const veri = mesaj.veri || {};
-  const ayrinti = await eylemAyrinti(sekme, veri.sira, metin);
+  const cerceveId = (veri.cerceve === undefined || veri.cerceve === null)
+    ? undefined : String(veri.cerceve);
+  const ayrinti = await eylemAyrinti(sekme, veri.sira, metin, cerceveId);
   const onay = await onayIste(sekme, mesaj.islem, ayrinti);
   if (!onay.onay) {
     return { id: mesaj.id, ok: false, hata: onay.hata || "Kullanıcı onay vermedi." };
   }
-  const cevap = await sekmeyeSor(istek, sekme);
+  const cevap = await sekmeyeSor(istek, sekme, cerceveId);
   if (!cevap) throw new Error("sayfa cevap vermedi (sekme yenilenmeli)");
   if (cevap.hata) return { id: mesaj.id, ok: false, hata: cevap.hata };
   return { id: mesaj.id, ok: true, sonuc: cevap.sonuc };
@@ -193,14 +304,36 @@ async function islemYap(mesaj) {
       if (gozlem.hata) return { id: mesaj.id, ok: false, hata: gozlem.hata };
       return { id: mesaj.id, ok: true, sonuc: gozlem };
     }
+    // Çerçeve kimliği ref'ten gelir (veri.cerceve); içerik betiği fazla
+    // alanı görmezden gelir, arka plan hedef çerçeveye yönlendirir.
     if (mesaj.islem === "sayfa_tikla") {
       const sekme = await sekmeAl();
-      return await eylemiUygula(mesaj, { tip: "tikla", sira: veri.sira }, sekme, "");
+      return await eylemiUygula(
+        mesaj, { tip: "tikla", sira: veri.sira, cerceve: veri.cerceve }, sekme, "");
     }
     if (mesaj.islem === "sayfa_yaz") {
       const sekme = await sekmeAl();
       return await eylemiUygula(
-        mesaj, { tip: "yaz", sira: veri.sira, metin: veri.metin }, sekme, veri.metin);
+        mesaj, { tip: "yaz", sira: veri.sira, metin: veri.metin,
+                 cerceve: veri.cerceve }, sekme, veri.metin);
+    }
+    // Tus form gönderebilir: tıklama/yazma ile aynı onay kapısından geçer.
+    if (mesaj.islem === "sayfa_tus") {
+      const sekme = await sekmeAl();
+      return await eylemiUygula(
+        mesaj, { tip: "tus", sira: veri.sira, tus: veri.tus,
+                 cerceve: veri.cerceve }, sekme, "");
+    }
+    // Kaydırma veri değiştirmez: onay istenmez (salt-okunur eylem).
+    if (mesaj.islem === "sayfa_kaydir") {
+      const sekme = await sekmeAl();
+      const cerceveId = (veri.cerceve === undefined || veri.cerceve === null)
+        ? undefined : String(veri.cerceve);
+      const cevap = await sekmeyeSor(
+        { tip: "kaydir", sira: veri.sira, miktar: veri.miktar }, sekme, cerceveId);
+      if (!cevap) throw new Error("sayfa cevap vermedi (sekme yenilenmeli)");
+      if (cevap.hata) return { id: mesaj.id, ok: false, hata: cevap.hata };
+      return { id: mesaj.id, ok: true, sonuc: cevap.sonuc };
     }
   } catch (hata) {
     return { id: mesaj.id, ok: false, hata: String(hata.message || hata) };
@@ -234,6 +367,11 @@ function bekleyenleriBosaltt(sebep) {
     kayit.coz({ ok: false, hata: sebep });
     bekleyenSohbet.delete(id);
   }
+  for (const [id, kayit] of bekleyenKutu) {
+    clearTimeout(kayit.zaman);
+    kayit.coz({ ok: false, hata: sebep });
+    bekleyenKutu.delete(id);
+  }
 }
 
 async function baglan() {
@@ -258,6 +396,7 @@ async function baglan() {
     if (yenidenZaman !== null) { clearTimeout(yenidenZaman); yenidenZaman = null; }
     durumuYaz("bagli");
     durdurPing();
+    kutuBaslat();
     pingZamani = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
         try { ws.send(JSON.stringify({ ping: Date.now() })); } catch (hata) {}
@@ -266,6 +405,7 @@ async function baglan() {
   };
   ws.onclose = () => {
     durdurPing();
+    kutuDurdur();
     if (durum !== "hata") durumuYaz("kapali", "bağlantı kapandı, yeniden bağlanılıyor…");
     baglanti = null;
     bekleyenleriBosaltt("Bağlantı yenilendi; mesaj yanıtsız kaldı — tekrar gönder.");
@@ -287,6 +427,15 @@ async function baglan() {
     if (!mesaj.islem && mesaj.id && bekleyenSohbet.has(mesaj.id)) {
       const kayit = bekleyenSohbet.get(mesaj.id);
       bekleyenSohbet.delete(mesaj.id);
+      clearTimeout(kayit.zaman);
+      kayit.coz(mesaj);
+      return;
+    }
+
+    // Paylasimli kutu yoklamasinin cevabi mi?
+    if (!mesaj.islem && mesaj.id && bekleyenKutu.has(mesaj.id)) {
+      const kayit = bekleyenKutu.get(mesaj.id);
+      bekleyenKutu.delete(mesaj.id);
       clearTimeout(kayit.zaman);
       kayit.coz(mesaj);
       return;
@@ -324,6 +473,42 @@ chrome.runtime.onMessage.addListener((mesaj, _gonderen, yanitla) => {
       if (yenidenZaman !== null) { clearTimeout(yenidenZaman); yenidenZaman = null; }
       await baglan();
       yanitla({ durum, sonHata });
+    })();
+    return true;
+  }
+  // Ayarlar sayfasındaki "Bağlantıyı sına": KAYDETMEDEN dener.
+  if (mesaj.tip === "sina") {
+    (async () => {
+      const bas = Date.now();
+      const sunucu = String(mesaj.sunucu || "").trim() || VARSAYILAN_SUNUCU;
+      const anahtar = String(mesaj.anahtar || "").trim();
+      const adres = anahtar
+        ? sunucu + (sunucu.includes("?") ? "&" : "?") +
+          "token=" + encodeURIComponent(anahtar)
+        : sunucu;
+      let ws;
+      try {
+        ws = new WebSocket(adres);
+      } catch (hata) {
+        yanitla({ ok: false, hata: "adres geçersiz: " + sunucu });
+        return;
+      }
+      const sonuc = await new Promise((coz) => {
+        const zaman = setTimeout(() => {
+          try { ws.close(); } catch (hata) {}
+          coz({ ok: false, hata: "zaman aşımı (8 sn)" });
+        }, 8000);
+        ws.onopen = () => {
+          clearTimeout(zaman);
+          try { ws.close(); } catch (hata) {}
+          coz({ ok: true, ms: Date.now() - bas, durum: "bagli" });
+        };
+        ws.onerror = () => {
+          clearTimeout(zaman);
+          coz({ ok: false, hata: "adrese ulaşılamadı: " + sunucu });
+        };
+      });
+      yanitla(sonuc);
     })();
     return true;
   }
