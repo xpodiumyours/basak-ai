@@ -11,6 +11,11 @@ openai==2.20.0
 requests==2.32.5
 cohere==7.0.9
 
+# ── Belge okuma (PDF metin katmanı) ────────────────────────────────
+# `/api/belge` PDF metnini çıkarır. DOCX/TXT/CSV yalnız stdlib ile okunur.
+# Sürüm 2026-10-24'te kuruldu ve olculdu (pypdf 6.1.1, Python 3.12).
+pypdf==6.1.1
+
 # ── Web arama ve sayfa okuma ───────────────────────────────────────
 ddgs==9.14.4
 fastapi==0.117.1

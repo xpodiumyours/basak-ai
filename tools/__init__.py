@@ -166,6 +166,31 @@ def calistir(tool_name, args):
                 str(args.get("text", "")), gorevler_dosyasi(),
                 date=args.get("date"))
 
+        if tool_name == "hatirlatma_kur":
+            from chat import hatirlatma
+            from chat.kimlik import aktif_kullanici
+            try:
+                return {"result": hatirlatma.ekle(
+                    aktif_kullanici(), args.get("metin"),
+                    args.get("zaman"))}
+            except ValueError as e:
+                return {"error": str(e)}
+
+        if tool_name == "hatirlatma_listele":
+            from chat import hatirlatma
+            from chat.kimlik import aktif_kullanici
+            liste = hatirlatma.listele(aktif_kullanici())
+            kayitlar = liste["bekleyen"] + liste["gelen"]
+            return {"result": kayitlar or "Kurulmus zamana bagli hatirlatma yok."}
+
+        if tool_name == "hatirlatma_sil":
+            from chat import hatirlatma
+            from chat.kimlik import aktif_kullanici
+            silindi = hatirlatma.sil(aktif_kullanici(),
+                                     str(args.get("id", "") or ""))
+            return {"result": {"silindi": silindi,
+                               "id": args.get("id")}}
+
         if tool_name == "list_tasks":
             from tools import tasks
             return tasks.list_tasks(gorevler_dosyasi())

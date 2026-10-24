@@ -259,6 +259,44 @@ class HafizaMotoru:
         logger.info("Episodik hafiza temizlendi: %d kayit", len(ids))
         return len(ids)
 
+    def son_anilar(self, limit=50, kind="episodic"):
+        """En yeni anıları döndürür (hafıza ekranı için).
+
+        Okuma yalnız gerçek satırları döner; arama/skor uydurulmaz.
+        """
+        limit = max(1, min(int(limit or 50), 200))
+        satirlar = self.conn.execute(
+            "SELECT id, kind, text, source, created_at, onem"
+            " FROM memories WHERE kind=? ORDER BY id DESC LIMIT ?",
+            (kind, limit)).fetchall()
+        sonuc = []
+        for satir in satirlar:
+            sonuc.append({
+                "id": satir[0],
+                "tur": satir[1],
+                "metin": satir[2],
+                "kaynak": satir[3] or "",
+                "zaman": satir[4] or "",
+                "onem": satir[5],
+            })
+        return sonuc
+
+    def ani_sil(self, ani_id):
+        """Tek anıyı siler (FTS + vektör dahil).
+
+        Kayıt yoksa False döner; uydurma başarı yok.
+        """
+        try:
+            ani_id = int(ani_id)
+        except (TypeError, ValueError):
+            return False
+        var_mi = self.conn.execute(
+            "SELECT 1 FROM memories WHERE id=? LIMIT 1", (ani_id,)).fetchone()
+        if not var_mi:
+            return False
+        self._satirlari_sil([ani_id])
+        return True
+
     def _budu(self, kind="episodic", limit=EPISODIK_LIMIT):
         """Turden en degersiz kayitlari kisar.
 

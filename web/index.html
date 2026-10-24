@@ -20,7 +20,7 @@
 <meta name="twitter:image" content="https://basak-vercel.vercel.app/og-basak.png">
 <meta name="twitter:title" content="Başak — Türkçe Kişisel Yapay Zekâ Asistanı">
 <meta name="twitter:description" content="Kayıtsız web sohbeti, görsel ve ses desteği, 162 ücretsiz çevrimiçi araç.">
-<link rel="stylesheet" href="/chat.css?v=18">
+<link rel="stylesheet" href="/chat.css?v=19">
 </head>
 <body>
 <div class="app-shell">
@@ -79,7 +79,11 @@
       <div class="topbar-title">
         <strong>Başak</strong>
         <span id="healthStatus" class="ready-inline health-problem" role="status" hidden><span id="healthDot" class="status-dot"></span><span id="healthText"></span></span>
+        <span id="kotaDurum" class="kota-durum" role="status" hidden></span>
       </div>
+      <button id="panelButton" class="icon-button topbar-ayar" type="button" title="Ayarlar, hafıza, hatırlatmalar" aria-label="Ayarlar, hafıza ve hatırlatmalar" aria-expanded="false" aria-controls="panel">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.7 8a1.7 1.7 0 0 0-.4-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V2a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1.1Z"/></svg>
+      </button>
     </header>
 
     <main class="chat-main">
@@ -112,6 +116,14 @@
 
       <section class="composer-dock" aria-label="Mesaj gönderme alanı">
         <div class="composer-wrap">
+          <div id="belgeChip" class="attachment-preview belge-chip" hidden>
+            <div class="attachment-copy">
+              <strong id="belgeTur">Belge</strong>
+              <span id="belgeAd"></span>
+            </div>
+            <button id="belgeKaldir" class="remove-attachment" type="button" aria-label="Belgeyi kaldır">×</button>
+          </div>
+
           <div id="attachmentPreview" class="attachment-preview" hidden>
             <img id="attachmentThumb" alt="">
             <div class="attachment-copy">
@@ -149,6 +161,11 @@
           </div>
 
           <div class="composer">
+            <label id="belgePick" class="icon-button attach-button" title="Belge ekle (PDF, Word, metin, CSV)" aria-label="Belge ekle">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>
+              <input id="belge" type="file" accept=".pdf,.docx,.txt,.md,.csv,application/pdf,text/plain,text/csv" hidden>
+            </label>
+
             <label id="imagePick" class="icon-button attach-button" hidden title="Fotoğraf ekle" aria-label="Fotoğraf ekle">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
               <input id="image" type="file" accept="image/*" hidden>
@@ -178,11 +195,74 @@
         </div>
       </section>
     </main>
+
+    <aside id="panel" class="panel" aria-label="Ayarlar, hafıza ve hatırlatmalar" hidden>
+      <div class="panel-ust">
+        <strong>Ayarlar</strong>
+        <button id="panelKapat" class="panel-kapat" type="button" aria-label="Paneli kapat">×</button>
+      </div>
+      <div class="panel-govde">
+        <section class="panel-bolum" aria-labelledby="ayarBaslik">
+          <h2 id="ayarBaslik">Kişisel talimat</h2>
+          <label class="panel-alan" for="kisiselTalimat">
+            <span>Başak’a kendi talimatın</span>
+            <textarea id="kisiselTalimat" rows="4" maxlength="2000" placeholder="örn. Kısa cevap ver, teknik terimleri açıkla."></textarea>
+          </label>
+          <div class="panel-ikili">
+            <label class="panel-alan" for="hitap">
+              <span>Hitap</span>
+              <input id="hitap" type="text" maxlength="80" placeholder="örn. Casper">
+            </label>
+            <label class="panel-alan" for="dil">
+              <span>Dil</span>
+              <input id="dil" type="text" maxlength="40" placeholder="örn. Türkçe">
+            </label>
+          </div>
+          <button id="ayarKaydet" class="panel-dugme" type="button">Talimatı kaydet</button>
+          <p id="ayarDurum" class="panel-durum" role="status"></p>
+        </section>
+
+        <section class="panel-bolum" aria-labelledby="hatirlatmaBaslik">
+          <h2 id="hatirlatmaBaslik">Hatırlatmalar</h2>
+          <label class="panel-alan" for="hatirlatmaMetin">
+            <span>Ne hatırlatılsın</span>
+            <input id="hatirlatmaMetin" type="text" maxlength="500" placeholder="örn. faturayı öde">
+          </label>
+          <div class="panel-ikili">
+            <label class="panel-alan" for="hatirlatmaZaman">
+              <span>Zaman</span>
+              <input id="hatirlatmaZaman" type="datetime-local">
+            </label>
+            <button id="hatirlatmaEkle" class="panel-dugme panel-dugme-alt" type="button">Ekle</button>
+          </div>
+          <ul id="hatirlatmaListe" class="panel-liste"></ul>
+          <p class="panel-not">Bildirim uygulama içinde görünür; zamanı gelen hatırlatma sunucudaki zamanlanmış kontrolde işaretlenir.</p>
+        </section>
+
+        <section class="panel-bolum" aria-labelledby="hafizaBaslik">
+          <h2 id="hafizaBaslik">Hafıza</h2>
+          <p class="panel-not">Sohbetten öğrenilenler. Notlar ve dosyalar buradan silinmez.</p>
+          <ul id="hafizaListe" class="panel-liste"></ul>
+          <div class="panel-satir">
+            <button id="hafizaYenile" class="panel-dugme panel-dugme-alt" type="button">Yenile</button>
+            <button id="hafizaTemizle" class="panel-dugme panel-dugme-tehlike" type="button">Hepsini unut</button>
+          </div>
+          <p id="hafizaDurum" class="panel-durum" role="status"></p>
+        </section>
+
+        <section class="panel-bolum" aria-labelledby="kotaBaslik">
+          <h2 id="kotaBaslik">Kullanım</h2>
+          <ul id="kotaListe" class="panel-liste panel-liste-kota"></ul>
+        </section>
+      </div>
+    </aside>
+    <div id="panelBackdrop" class="sidebar-backdrop" hidden></div>
   </div>
 </div>
 
 <script src="/common.js?v=8"></script>
-<script src="/app.js?v=27"></script>
+<script src="/app.js?v=28"></script>
+<script src="/panel.js?v=1" defer></script>
 <script src="/eklenti-kart.js?v=2"></script>
 <script src="/olcum.js?v=1" defer></script>
 </body>

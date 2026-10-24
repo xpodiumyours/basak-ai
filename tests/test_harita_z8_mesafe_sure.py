@@ -150,7 +150,7 @@ def test_dordun_dordu_dolu(monkeypatch):
     # kayit tutarliligi: her semanin bir alani var, kopuk/eksik yok
     kayit = validate_registry()
     assert kayit["ok"], kayit
-    assert kayit["tool_count"] == 75
+    assert kayit["tool_count"] == 78
 
 
 def test_harita_olayi_baglanti_karti(monkeypatch):

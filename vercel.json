@@ -5,5 +5,11 @@
       "maxDuration": 300,
       "excludeFiles": "{tests/**,ui/**,voice/**,_arsiv/**,data/**,**/*.onnx,**/*.wav}"
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/hatirlatmalar",
+      "schedule": "0 6 * * *"
+    }
+  ]
 }

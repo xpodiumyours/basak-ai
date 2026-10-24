@@ -20,6 +20,11 @@ const sidebarToggleEl = document.getElementById("sidebarToggle");
 const sidebarBackdropEl = document.getElementById("sidebarBackdrop");
 const kimlikSatirEl = document.getElementById("kimlikSatir");
 const kullaniciAdEl = document.getElementById("kullaniciAd");
+const belgeEl = document.getElementById("belge");
+const belgeChipEl = document.getElementById("belgeChip");
+const belgeAdEl = document.getElementById("belgeAd");
+const belgeTurEl = document.getElementById("belgeTur");
+const belgeKaldirEl = document.getElementById("belgeKaldir");
 
 const CHATS_BASE = "basak_cloud_chats_v2";
 const ACTIVE_BASE = "basak_cloud_active_chat_v2";
@@ -37,6 +42,9 @@ function depoAnahtari(taban) {
 }
 
 let seciliGorsel = null;
+// Belge eki: metin SUNUCUDA bir kez çıkarılır, burada tutulur ve mesajla
+// birlikte geri gönderilir. Sunucu belge saklamaz.
+let seciliBelge = null;
 let onizlemeUrl = "";
 let gonderiliyor = false;
 let chats = [];
@@ -386,6 +394,7 @@ function bubble(role, text) {
   }
 
   icerikYaz(b, text);
+  if (role === "assistant") cevapEylemleri(b);
   row.appendChild(b);
   chatEl.appendChild(row);
   sohbetAlta();
@@ -1155,7 +1164,7 @@ function autoResize() {
 }
 
 function gonderimDurumu() {
-  const dolu = !!msgEl.value.trim() || !!seciliGorsel;
+  const dolu = !!msgEl.value.trim() || !!seciliGorsel || !!seciliBelge;
   sendEl.disabled = gonderiliyor || !dolu;
 }
 
@@ -1219,6 +1228,159 @@ if (imageEl) {
 }
 
 if (removeImageEl) removeImageEl.addEventListener("click", onizlemeTemizle);
+
+// ── belge eki ─────────────────────────────────────────────────────
+function belgeChipGuncelle(deger) {
+  seciliBelge = deger || null;
+  if (belgeAdEl) belgeAdEl.textContent = seciliBelge ? seciliBelge.ad : "";
+  if (belgeTurEl) {
+    const adlar = {pdf: "PDF", docx: "Word", txt: "Metin", md: "Markdown",
+      csv: "CSV"};
+    belgeTurEl.textContent = seciliBelge
+      ? (adlar[seciliBelge.tur] || "Belge") : "Belge";
+  }
+  if (belgeChipEl) belgeChipEl.hidden = !seciliBelge;
+  gonderimDurumu();
+}
+
+function dosyayiDataUrl(file) {
+  return new Promise((coz, red) => {
+    const okuyucu = new FileReader();
+    okuyucu.onload = () => coz(String(okuyucu.result || ""));
+    okuyucu.onerror = () => red(new Error("Dosya okunamadı."));
+    okuyucu.readAsDataURL(file);
+  });
+}
+
+if (belgeEl) {
+  belgeEl.addEventListener("change", async () => {
+    const file = belgeEl.files && belgeEl.files[0] ? belgeEl.files[0] : null;
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      notYaz("Belge sınırı 10 MB.");
+      belgeEl.value = "";
+      return;
+    }
+    notYaz("Belge okunuyor…");
+    try {
+      const data_url = await dosyayiDataUrl(file);
+      const r = await window.basakFetch("/api/belge", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ad: file.name, data_url }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.ok) throw new Error(d.error || "Belge okunamadı.");
+      belgeChipGuncelle(d);
+      notYaz("Belge eklendi: " + d.ad + " (" + d.karakter + " karakter).");
+    } catch (e) {
+      belgeChipGuncelle(null);
+      notYaz(e.message || "Belge okunamadı.");
+    } finally {
+      belgeEl.value = "";
+    }
+  });
+}
+
+if (belgeKaldirEl) {
+  belgeKaldirEl.addEventListener("click", () => {
+    belgeChipGuncelle(null);
+    notYaz(UYARI_NOTU);
+  });
+}
+
+// ── cevap eylemleri: kopyala · Markdown · sesli oku ────────────────
+let konusanDugme = null;
+
+function cevapEylemleri(b) {
+  const satir = document.createElement("div");
+  satir.className = "cevap-eylem";
+  satir.dataset.arac = "1";
+
+  const kopyala = document.createElement("button");
+  kopyala.type = "button";
+  kopyala.className = "eylem-dugme";
+  kopyala.textContent = "Kopyala";
+  kopyala.addEventListener("click", async () => {
+    const metin = String(b.dataset.ham || "");
+    if (!metin) return;
+    let oldu = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(metin);
+        oldu = true;
+      }
+    } catch {}
+    if (!oldu) {
+      // http:// adreslerinde clipboard kapalıdır; seçim yolu kullanılır.
+      const alan = document.createElement("textarea");
+      alan.value = metin;
+      alan.setAttribute("readonly", "");
+      alan.style.position = "fixed";
+      alan.style.opacity = "0";
+      document.body.appendChild(alan);
+      alan.select();
+      try { oldu = document.execCommand("copy"); } catch { oldu = false; }
+      alan.remove();
+    }
+    kopyala.textContent = oldu ? "Kopyalandı" : "Kopyalanamadı";
+    setTimeout(() => { kopyala.textContent = "Kopyala"; }, 1800);
+  });
+
+  const indir = document.createElement("button");
+  indir.type = "button";
+  indir.className = "eylem-dugme";
+  indir.textContent = "Markdown";
+  indir.addEventListener("click", () => {
+    const metin = String(b.dataset.ham || "");
+    if (!metin) return;
+    const damga = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const blob = new Blob([metin], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "basak-cevap-" + damga + ".md";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  });
+
+  const oku = document.createElement("button");
+  oku.type = "button";
+  oku.className = "eylem-dugme";
+  oku.textContent = "Sesli oku";
+  oku.addEventListener("click", () => {
+    if (!("speechSynthesis" in window)) {
+      oku.textContent = "Tarayıcı desteklemiyor";
+      return;
+    }
+    if (konusanDugme === oku && window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+      oku.textContent = "Sesli oku";
+      konusanDugme = null;
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const soylev = new SpeechSynthesisUtterance(
+      String(b.dataset.ham || "").slice(0, 4000)
+    );
+    soylev.lang = "tr-TR";
+    soylev.onend = () => {
+      oku.textContent = "Sesli oku";
+      if (konusanDugme === oku) konusanDugme = null;
+    };
+    if (konusanDugme && konusanDugme !== oku) konusanDugme.textContent = "Sesli oku";
+    konusanDugme = oku;
+    oku.textContent = "Durdur";
+    window.speechSynthesis.speak(soylev);
+  });
+
+  satir.appendChild(kopyala);
+  satir.appendChild(indir);
+  satir.appendChild(oku);
+  b.appendChild(satir);
+}
 
 msgEl.addEventListener("input", () => {
   autoResize();
@@ -1827,13 +1989,16 @@ async function send(secenek = {}) {
     ? secenek.text.trim()
     : msgEl.value.trim();
   const gorsel = secenek.gorsel || seciliGorsel;
+  const belge = secenek.belge || seciliBelge;
   const toolPolicy = ["auto", "required", "none"].includes(secenek.toolPolicy)
     ? secenek.toolPolicy
     : "auto";
-  if ((!text && !gorsel) || gonderiliyor) return;
+  if ((!text && !gorsel && !belge) || gonderiliyor) return;
 
-  const gonderilecekMetin = text || "Bu görüntüyü açıkla.";
-  const gorunenMetin = secenek.gorunenMetin || text || "Fotoğraf gönderildi";
+  const gonderilecekMetin = text ||
+    (belge ? "Ekli belgeyi incele." : "Bu görüntüyü açıkla.");
+  const gorunenMetin = secenek.gorunenMetin || text ||
+    (belge ? "Belge gönderildi: " + belge.ad : "Fotoğraf gönderildi");
   const userBubble = bubble("user", gorunenMetin);
   if (gorsel) gorselBalonaEkle(userBubble, gorsel);
 
@@ -1867,6 +2032,7 @@ async function send(secenek = {}) {
 
   try {
     let ek = null;
+    if (belge && belge === seciliBelge) belgeChipGuncelle(null);
     if (gorsel && window.basakRuntime === "vercel") {
       ek = {ad:gorsel.name,tur:"image",data_url:await gorseliDataUrl(gorsel)};
     }
@@ -1882,6 +2048,10 @@ async function send(secenek = {}) {
         misafir:MISAFIR,
         gecmis:bulutGecmisi,
         ek,
+        belge: belge
+          ? {ad: belge.ad, sayfalar: belge.sayfalar,
+             kirpildi: !!belge.kirpildi}
+          : null,
         tool_policy:toolPolicy,
         yonlendirme_baglami:secenek.yonlendirmeBaglami || null,
         tazele:!!secenek.tazele,

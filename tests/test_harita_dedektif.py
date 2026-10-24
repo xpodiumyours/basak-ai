@@ -295,7 +295,7 @@ class TestDortYer:
         from tools.capabilities import validate_registry
         sonuc = validate_registry()
         assert sonuc["ok"] is True
-        assert sonuc["tool_count"] == 75
+        assert sonuc["tool_count"] == 78
         assert sonuc["namespace_count"] == 17
 
 
@@ -373,8 +373,8 @@ class TestWebYuzey:
             assert degisken in CSS
 
     def test_surum_kilidi_yukseltildi(self):
-        assert "/chat.css?v=18" in HTML
-        assert "/app.js?v=27" in HTML
+        assert "/chat.css?v=19" in HTML
+        assert "/app.js?v=28" in HTML
 
     def test_harici_karo_yok(self):
         """D4b = B: zincir de karo yuklemez."""

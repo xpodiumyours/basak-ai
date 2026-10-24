@@ -42,7 +42,9 @@ YETENEK_ALANLARI = {
         "testleri_kos", "saglik_raporu",
     ),
     "gorevler": (
-        "get_reminders", "add_task", "list_tasks", "complete_task", "update_task_status", "simdi",
+        "get_reminders", "add_task", "list_tasks", "complete_task",
+        "update_task_status", "simdi", "hatirlatma_kur",
+        "hatirlatma_listele", "hatirlatma_sil",
     ),
     "hafiza": ("hafiza_ara",),
     "gorsel": ("image_analyze", "gorsel_uret"),
@@ -76,8 +78,8 @@ ALAN_ACIKLAMALARI = {
               "baglandigi harita zinciri",
     "dosyalar": "bilgisayardaki dosya/klasor ve proje icerigi; knowledge yazma",
     "projeler": "Git, GitHub, CI, test ve proje hat sagligi",
-    "gorevler": "yerel gorevler, hatirlatmalar ve cihazdan dogrulanan su "
-                "anki tarih/saat",
+    "gorevler": "yerel gorevler, zamanli hatirlatmalar ve cihazdan "
+                "dogrulanan su anki tarih/saat",
     "hafiza": "Basak'in kalici hafizasinda arama",
     "gorsel": "yerel goruntu analizi veya yeni gorsel uretimi",
     "katalog": "fatura okuma, urun karti kurma/okuma, fiyat ve tedarikci "

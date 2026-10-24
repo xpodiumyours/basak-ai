@@ -191,6 +191,31 @@ HATIRLATMA_OZET = _arac(
     [],
 )
 
+HATIRLATMA_KUR = _arac(
+    "hatirlatma_kur",
+    "Zamani gelince uygulama icinde gosterilecek hatirlatma kurar. Zaman "
+    "yerel saatle 'YYYY-MM-DD HH:MM' biciminde verilir. Doner: id, metin, "
+    "zaman (epoch), gonderildi.",
+    {"metin": {"type": "string", "description": "Hatirlanacak is"},
+     "zaman": {"type": "string",
+               "description": "Tarih ve saat (YYYY-MM-DD HH:MM)"}},
+    ["metin", "zaman"],
+)
+
+HATIRLATMA_LISTELE = _arac(
+    "hatirlatma_listele",
+    "Kurulmus zamana bagli hatirlatmalar: id, metin, zaman, gonderildi.",
+    {},
+    [],
+)
+
+HATIRLATMA_SIL = _arac(
+    "hatirlatma_sil",
+    "Zamana bagli hatirlatmayi siler. Doner: silindi (true/false), id.",
+    {"id": {"type": "string", "description": "hatirlatma_listele'nin verdigi id"}},
+    ["id"],
+)
+
 GOREV_EKLE = _arac(
     "add_task",
     "Listeye gorev ekler; no+metin doner. Tarih gerekiyorsa YYYY-MM-DD "
@@ -871,6 +896,7 @@ TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
           KITAP_ARA, DERIN_OKU, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
          HATIRLATMA_OZET, GOREV_EKLE, GOREV_LISTELE, GOREV_BITIR, GOREV_GUNCELLE,
+         HATIRLATMA_KUR, HATIRLATMA_LISTELE, HATIRLATMA_SIL,
          UYGULAMA_AC, ICERIK_ARA, GITHUB_DURUM,
          GIT_GECMIS, GIT_DEGISENLER, ADRES_KONTROL, TEST_KOS,
          MATRIS_AC, MATRIS_LISTE, SATIR_EKLE, KANIT_EKLE,

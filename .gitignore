@@ -123,3 +123,4 @@ data/fatura-ornekleri/
 data/_*.json
 tunnel-log.txt
 GOREV-*.md
+.pydeps/

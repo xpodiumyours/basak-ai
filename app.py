@@ -917,6 +917,15 @@ async def sohbet(request: Request):
                     ensure_ascii=False,
                 )
             )
+        # Belge eki: metin istemcide bir kez çıkarıldı, burada yalnız
+        # sayfa etiketli kanıt bloğuna çevrilir. Sunucu belge saklamaz.
+        if (body or {}).get("belge"):
+            from chat import belge as belge_modulu
+            try:
+                metin = (metin + "\n\n" + belge_modulu.istemciden_blogu(
+                    (body or {}).get("belge"))).strip()
+            except belge_modulu.BelgeHatasi as e:
+                return JSONResponse({"error": str(e)}, status_code=400)
         if not metin:
             return JSONResponse({"error": "Bos mesaj"}, status_code=400)
 
@@ -961,7 +970,7 @@ async def sohbet(request: Request):
             try:
                 from chat.flow import mesaj_isle
                 from chat.kimlik import kullanici_kur
-                from chat.prompts import kisilik_blogu
+                from chat.ayar import sistem_blogu
                 kullanici_kur(kid)  # thread contextvar'i — kisi izolasyonu
                 # Preview normal Başak davranışını çalıştırır. Veri/hafıza
                 # izolasyonu memory katmanında Preview'e özel /tmp SQLite ile
@@ -981,7 +990,7 @@ async def sohbet(request: Request):
                 mesaj_isle(
                     metin,
                     beyin,
-                    kisilik_blogu(kid, misafir=misafir),
+                    sistem_blogu(kid, misafir=misafir),
                     kayit,
                     tools,
                     misafir=misafir,
@@ -1151,6 +1160,222 @@ async def cikis():
 
 
 # ── Faz 3: arac sayfalari + site haritasi + robots ──────────────────────
+
+
+# ── Belge eki · kota · ayar · hafıza · hatırlatma ──────────────────
+
+# data_url base64 ~%33 şişer: 10 MB dosya ~13.3 MB gövde eder.
+_BELGE_GOVDE_SINIR = 14 * 1024 * 1024
+
+
+def _json_nostore(veri, durum=200):
+    return JSONResponse(veri, status_code=durum,
+                        headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/belge")
+async def belge_oku(request: Request):
+    """Belgeyi çözer ve metnini döndürür. Sunucu belgeyi SAKLAMAZ."""
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
+    try:
+        uzunluk = int(request.headers.get("content-length") or 0)
+    except ValueError:
+        uzunluk = 0
+    if uzunluk > _BELGE_GOVDE_SINIR:
+        return _json_nostore({
+            "ok": False,
+            "error": "Dosya çok büyük (sınır 10 MB).",
+        }, 413)
+    try:
+        body = await request.json()
+    except Exception:
+        return _json_nostore({"ok": False, "error": "Gecersiz JSON"}, 400)
+    from chat import belge as belge_modulu
+    try:
+        ham = belge_modulu.coz_data_url((body or {}).get("data_url"))
+        cikarim = belge_modulu.metin_cikar((body or {}).get("ad"), ham)
+    except belge_modulu.BelgeHatasi as e:
+        return _json_nostore({"ok": False, "error": str(e)}, 400)
+    toplam = sum(len(p["metin"]) for p in cikarim["sayfalar"])
+    return _json_nostore({
+        "ok": True,
+        "ad": str((body or {}).get("ad") or "belge")[:120],
+        "tur": cikarim["tur"],
+        "sayfalar": cikarim["sayfalar"],
+        "kirpildi": cikarim["kirpildi"],
+        "karakter": toplam,
+    })
+
+
+@app.get("/api/kota")
+async def kota_gorunumu(request: Request):
+    """Ölçülmüş kota/kullanım özeti. Ölçüm yoksa alan null döner."""
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
+    from chat.kullanim import kota_ozeti
+    return _json_nostore({"ok": True, "kota": kota_ozeti(kid)})
+
+
+@app.get("/api/ayarlar")
+async def ayarlar_al(request: Request):
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
+    from chat import ayar as ayar_modulu
+    return _json_nostore({"ok": True,
+                          "ayarlar": ayar_modulu.ayarlari_al(kid)})
+
+
+@app.post("/api/ayarlar")
+async def ayarlar_yaz(request: Request):
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
+    try:
+        body = await request.json()
+    except Exception:
+        return _json_nostore({"ok": False, "error": "Gecersiz JSON"}, 400)
+    from chat import ayar as ayar_modulu
+    alanlar = {}
+    for alan in ("kisisel_talimat", "hitap", "dil", "uzunluk"):
+        if alan in (body or {}):
+            alanlar[alan] = str((body or {}).get(alan) or "")
+    try:
+        yeni = ayar_modulu.ayarlari_yaz(kid, **alanlar)
+    except OSError as e:
+        logger.warning("Ayar yazilamadi: %s", e)
+        return _json_nostore({
+            "ok": False,
+            "error": "Ayar kaydedilemedi: disk yazılamıyor.",
+        }, 503)
+    return _json_nostore({"ok": True, "ayarlar": yeni})
+
+
+@app.get("/api/hafiza")
+async def hafiza_liste(request: Request):
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
+    from chat import ayar as ayar_modulu
+    return _json_nostore({"ok": True,
+                          "anilar": ayar_modulu.son_anilar(kid)})
+
+
+@app.get("/api/hafiza/disa-aktar")
+async def hafiza_disa_aktar(request: Request):
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
+    from chat import ayar as ayar_modulu
+    return _json_nostore(ayar_modulu.disa_aktar(kid))
+
+
+@app.delete("/api/hafiza/{ani_id}")
+async def hafiza_sil(ani_id: str, request: Request):
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
+    from chat import ayar as ayar_modulu
+    if not ayar_modulu.ani_sil(kid, ani_id):
+        return _json_nostore({"ok": False, "error": "Anı bulunamadı"}, 404)
+    return _json_nostore({"ok": True})
+
+
+@app.post("/api/hafiza/temizle")
+async def hafiza_temizle(request: Request):
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
+    from chat import ayar as ayar_modulu
+    return _json_nostore({"ok": True,
+                          "silinen": ayar_modulu.hepsini_unut(kid)})
+
+
+@app.get("/api/hatirlatmalar")
+async def hatirlatma_liste(request: Request):
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
+    from chat import hatirlatma as hatirlatma_modulu
+    return _json_nostore({"ok": True,
+                          **hatirlatma_modulu.listele(kid)})
+
+
+@app.post("/api/hatirlatmalar")
+async def hatirlatma_ekle(request: Request):
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
+    try:
+        body = await request.json()
+    except Exception:
+        return _json_nostore({"ok": False, "error": "Gecersiz JSON"}, 400)
+    from chat import hatirlatma as hatirlatma_modulu
+    try:
+        kayit = hatirlatma_modulu.ekle(
+            kid, (body or {}).get("metin"), (body or {}).get("zaman"))
+    except ValueError as e:
+        return _json_nostore({"ok": False, "error": str(e)}, 400)
+    except OSError:
+        logger.warning("Hatirlatma yazilamadi", exc_info=True)
+        return _json_nostore({
+            "ok": False,
+            "error": "Hatırlatma kaydedilemedi: disk yazılamıyor.",
+        }, 503)
+    return _json_nostore({"ok": True, "hatirlatma": kayit})
+
+
+@app.delete("/api/hatirlatmalar/{hatirlatma_id}")
+async def hatirlatma_sil(hatirlatma_id: str, request: Request):
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
+    from chat import hatirlatma as hatirlatma_modulu
+    if not hatirlatma_modulu.sil(kid, hatirlatma_id):
+        return _json_nostore({"ok": False, "error": "Bulunamadı"}, 404)
+    return _json_nostore({"ok": True})
+
+
+@app.post("/api/hatirlatmalar/{hatirlatma_id}/goruldu")
+async def hatirlatma_goruldu(hatirlatma_id: str, request: Request):
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
+    from chat import hatirlatma as hatirlatma_modulu
+    if not hatirlatma_modulu.goruldu(kid, hatirlatma_id):
+        return _json_nostore({"ok": False, "error": "Bulunamadı"}, 404)
+    return _json_nostore({"ok": True})
+
+
+def _cron_izni(request: Request):
+    """Cron çağrısı sırsız kabul edilmez (fail-closed).
+
+    Vercel cron `CRON_SECRET` tanımlıysa `Authorization: Bearer ...`
+    gönderir. Sır yoksa uç kapalıdır; sır yokken "herkes tetiklesin"
+    davranışı yok.
+    """
+    sir = (os.environ.get("CRON_SECRET")
+           or os.environ.get("BASAK_CRON_SECRET") or "").strip()
+    if not sir:
+        return False
+    gelen = (request.headers.get("authorization") or "").strip()
+    if not gelen.startswith("Bearer "):
+        return False
+    return hmac.compare_digest(gelen[7:].strip(), sir)
+
+
+@app.api_route("/api/cron/hatirlatmalar", methods=["GET", "POST"])
+async def cron_hatirlatmalar(request: Request):
+    """Zamanı gelenleri işaretler. Yanıt kullanıcı metni taşımaz."""
+    if not _cron_izni(request):
+        return _json_nostore({"ok": False, "error": "yetkisiz"}, 401)
+    from chat import hatirlatma as hatirlatma_modulu
+    isaretlenen = await asyncio.to_thread(hatirlatma_modulu.tetikle)
+    return _json_nostore({"ok": True, "adet": len(isaretlenen),
+                          "kayitlar": isaretlenen})
 
 
 def _kok(request: Request) -> str:
