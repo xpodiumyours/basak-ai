@@ -123,35 +123,27 @@ def web_istemci(monkeypatch, tmp_path):
     return TestClient(app_modulu.app)
 
 
-def test_sohbet_sayfasinda_eklenti_karti_var(web_istemci):
-    """Kurulum sohbet ekranının kendisinde de olmalı (ayrı sayfaya mahkûm değil)."""
+def test_sohbet_ekraninda_eklenti_karti_yok(web_istemci):
+    """Kurulum kartı sohbet ekranından KALDIRILDI (2026-10-24, Casper kararı).
+
+    Kurulum akışı /eklenti.html ve zip olarak duruyor; ana ekran temiz kalır.
+    """
     cevap = web_istemci.get("/")
     assert cevap.status_code == 200, cevap.text
     html = cevap.text
-    assert 'id="eklentiKarti"' in html
-    assert "eklenti-kart.js" in html
-    assert "/eklenti/eklenti.zip" in html
-
-    betik = web_istemci.get("/eklenti-kart.js")
-    assert betik.status_code == 200, betik.text
-    assert "chrome-extension://" in betik.text
-    assert "eklentiKarti" in betik.text
+    assert 'id="eklentiKarti"' not in html
+    assert "eklenti-kart.js" not in html
+    assert "/eklenti/eklenti.zip" not in html
 
 
-def test_kart_telefonda_gizlenir_kurali_servis_edilen_bette(web_istemci):
-    """Eklenti telefona kurulamaz; kart orada hiç görünmemeli.
+def test_kurulum_sayfasi_ve_zip_hala_yayinda(web_istemci):
+    """Kart kalktı ama eklentinin kendisi kaldırılmadı."""
+    sayfa = web_istemci.get("/eklenti.html")
+    assert sayfa.status_code == 200, sayfa.text
+    assert "/eklenti/eklenti.zip" in sayfa.text
 
-    Davranış kilidi `eklenti/test/kart.test.mjs`'de (jsdom, 3 mobil
-    test); burada servis edilen betiğin kuralı taşıdığı ve mobilde
-    eski betiğin görünmemesi için sürüm damgası taşıdığı kilitlenir.
-    """
-    betik = web_istemci.get("/eklenti-kart.js").text
-    assert "kurulumMumkunMu" in betik
-    assert "userAgentData" in betik
-    assert "userAgent" in betik  # userAgentData olmayan mobil tarayıcı
-
-    html = web_istemci.get("/").text
-    assert "eklenti-kart.js?v=" in html  # cache kırma damgası zorunlu
+    zip_yaniti = web_istemci.get("/eklenti/eklenti.zip")
+    assert zip_yaniti.status_code == 200, zip_yaniti.text
 
 
 def test_kurulum_sayfasi_yayinda(web_istemci):

@@ -77,19 +77,17 @@ def test_eski_lab_sayfasi_duruma_gider(web_istemci):
 
 
 def test_kurulum_uc_adim():
-    """Kart, kurulum sayfası ve zip aynı adım sayısını söyler."""
-    kart = _oku_yol("web/index.html")
-    blok = re.search(r'<ol id="eklentiAdimlar".*?</ol>', kart, re.S)
-    assert blok, "eklenti adımları bulunamadı"
-    assert len(re.findall(r"<li>", blok.group(0))) == 3, blok.group(0)
+    """Kurulum sayfası ve zip aynı adım sayısını söyler.
 
-    betik = _oku_yol("web/eklenti-kart.js")
-    assert "üç adım" in betik
-    assert "dört adım" not in betik
-
+    Sohbet ekranındaki kart 2026-10-24'te kaldırıldı; adım kilidi artık
+    yalnız kurulum sayfasında.
+    """
     sayfa = _oku_yol("web/eklenti.html")
     assert "kurulum 3 adım" in sayfa
     assert "4. Panelden bağlan" not in sayfa
+
+    ana = _oku_yol("web/index.html")
+    assert "eklentiAdimlar" not in ana
 
 
 def test_zip_tek_klasor_taşır(web_istemci):

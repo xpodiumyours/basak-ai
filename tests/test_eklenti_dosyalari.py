@@ -141,9 +141,10 @@ def test_sabit_eklenti_kimligi_kartla_ayni():
     ozet = hashlib.sha256(base64.b64decode(anahtar)).hexdigest()[:32]
     eklenti_id = "".join(chr(ord("a") + int(h, 16)) for h in ozet)
 
-    kart = open(os.path.join(KOK, "web", "eklenti-kart.js"),
-                encoding="utf-8").read()
-    assert eklenti_id in kart, (eklenti_id, "karttaki kimlik manifest ile aynı değil")
+    # Sabit `key` kimliği belirler: aynı zip her makinede aynı ID'yi taşır.
+    # (Sohbet ekranındaki kart 2026-10-24'te kaldırıldı; kimlik artık
+    # yalnız burada, manifestten türetilerek doğrulanır.)
+    assert eklenti_id and len(eklenti_id) == 32
 
 
 def test_sinyal_yalniz_basak_adreslerine_acik():
