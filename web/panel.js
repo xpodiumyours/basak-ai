@@ -293,6 +293,19 @@
     }
   }
 
+  // Dışarıdan açma: karşılama kartları bu köprüyü kullanır. Hedef id
+  // verilirse panel açıldıktan sonra o alana kaydırılır.
+  window.basakPanelAc = (hedefId) => {
+    ac(true);
+    if (!hedefId) return;
+    setTimeout(() => {
+      const hedef = el(hedefId);
+      if (!hedef) return;
+      hedef.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (typeof hedef.focus === "function") hedef.focus({ preventScroll: true });
+    }, 120);
+  };
+
   window.basakPanelKotaYenile = kotaSeridi;
   setTimeout(kotaSeridi, 1200);
 })();

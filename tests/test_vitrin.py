@@ -10,7 +10,7 @@ Yeni kilid:
 - hero'daki buyuk `.ai-notice` karti YOKTUR,
 - uyari kaybolmadi: composer altinda TEK satirdir (metin birebir
   app.js UYARI_NOTU ile aynidir) + sorumluluk/bilgi linkleri tasir,
-- cache surumu yeni: chat.css?v=19 / app.js?v=28 (ayni damga
+- cache surumu yeni: chat.css?v=20 / app.js?v=29 (ayni damga
   test_vercel_stream.py, test_gorsel.py, test_kesilme_devam.py,
   test_harita_z2.py, test_harita_dedektif.py'de de kilitlidir).
 """
@@ -60,5 +60,24 @@ def test_uyari_tek_satirda_durust_ve_linkli():
 
 
 def test_surum_kilidi_yukseltildi():
-    assert "/chat.css?v=19" in INDEX
-    assert "/app.js?v=28" in INDEX
+    assert "/chat.css?v=20" in INDEX
+    assert "/app.js?v=29" in INDEX
+
+
+def test_karsilama_ekrani_hizli_kartlarla_gelir():
+    """Karşılama: başlık + hızlı başlangıç kartları (2026-10-24).
+
+    Eski tek satır "Başak'a sor." kaldırıldı; ekran boş durmaz, dört
+    kısayol sunar. Kartlar araç seçmez: belge seçicisini/paneli açar ya da
+    kullanıcının kendi sorusunu gönderir.
+    """
+    assert "Başak’a sor" not in INDEX
+    assert "Başak'a sor" not in INDEX
+    assert "Merhaba, ben Başak." in INDEX
+    for kod in ("hizliBelge", "hizliHatirlatma", "hizliBugun", "hizliKullanim"):
+        assert 'id="%s"' % kod in INDEX, kod
+    # Kartların davranışı arayüz betiğinde bağlanır.
+    assert 'hizliKart("hizliBelge"' in JS
+    assert "basakPanelAc" in open(
+        os.path.join(str(WEB), "panel.js"), encoding="utf-8"
+    ).read()

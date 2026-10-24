@@ -2340,3 +2340,25 @@ async function baslat() {
   }
 }
 baslat();
+
+// ── karşılama kartları: boş ekran yerine doğrudan iş ────────────────
+// Kartlar yalnız arayüz kısayoludur: hiçbiri araç seçmez, mesaj metnini
+// kullanıcı adına uydurmaz (Bugün kartı kullanıcının kendi sorusunu
+// gönderir; diğerleri mevcut belge seçiciyi/paneli açar).
+function hizliKart(id, islev) {
+  const k = document.getElementById(id);
+  if (k) k.addEventListener("click", islev);
+}
+
+hizliKart("hizliBelge", () => {
+  if (belgeEl) belgeEl.click();
+});
+hizliKart("hizliHatirlatma", () => {
+  if (window.basakPanelAc) window.basakPanelAc("hatirlatmaZaman");
+});
+hizliKart("hizliBugun", () => {
+  send({ text: "Bugün ne var?" });
+});
+hizliKart("hizliKullanim", () => {
+  if (window.basakPanelAc) window.basakPanelAc("kotaBaslik");
+});

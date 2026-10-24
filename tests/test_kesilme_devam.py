@@ -138,4 +138,4 @@ class TestWebSozlesmesi:
         assert "Bağlantı beklenmedik kapandı;" in JAVASCRIPT
 
     def test_surum_kilidi_yukseltildi(self):
-        assert "/app.js?v=28" in HTML
+        assert "/app.js?v=29" in HTML

@@ -266,8 +266,8 @@ class TestWebYuzey:
         assert ".map-card-open{min-height:40px" in CSS
 
     def test_surum_kilidi_yukseltildi(self):
-        assert "/chat.css?v=19" in HTML
-        assert "/app.js?v=28" in HTML
+        assert "/chat.css?v=20" in HTML
+        assert "/app.js?v=29" in HTML
 
 
 class TestD4bKaroYok:

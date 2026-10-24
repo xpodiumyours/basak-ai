@@ -197,19 +197,55 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   padding:42px 0 30px;
 }
 .hero{
-  max-width:650px;
-  margin:10vh auto 44px;
+  max-width:660px;
+  margin:7vh auto 34px;
   text-align:center;
 }
 .hero[hidden]{display:none}
-.hero h1{
-  margin:0 0 11px;
-  font-size:clamp(31px,4vw,45px);
-  line-height:1.06;
-  letter-spacing:-.045em;
-  font-weight:760;
+.hero-mark{
+  width:44px;height:44px;margin:0 auto 16px;border-radius:14px;
+  display:grid;place-items:center;
+  background:linear-gradient(145deg,#161618,#2b2b30);color:#fff;
+  font-size:17px;font-weight:750;letter-spacing:-.02em;
+  box-shadow:var(--shadow-soft);
 }
-.hero p{margin:0;color:var(--muted);font-size:15px;letter-spacing:-.01em}
+.hero h1{
+  margin:0 0 10px;
+  font-size:clamp(25px,3.1vw,33px);
+  line-height:1.12;
+  letter-spacing:-.035em;
+  font-weight:700;
+}
+.hero p{margin:0;color:var(--muted);font-size:14.5px;letter-spacing:-.01em}
+
+/* Hızlı başlangıç kartları: boş karşılama yerine doğrudan iş. */
+.hizli-izgara{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
+  margin-top:26px;text-align:left;
+}
+.hizli-kart{
+  display:flex;align-items:flex-start;gap:11px;
+  padding:13px 14px;border:1px solid var(--line);border-radius:14px;
+  background:#fff;box-shadow:var(--shadow-soft);color:var(--ink);
+  transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;
+}
+.hizli-kart:hover{
+  transform:translateY(-1px);border-color:#d6d6dc;
+  box-shadow:0 10px 26px rgba(20,20,24,.07);
+}
+.hizli-kart:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.hizli-ikon{
+  flex:0 0 30px;width:30px;height:30px;border-radius:9px;
+  display:grid;place-items:center;background:var(--soft);color:#3a3a40;
+}
+.hizli-ikon svg{width:16px;height:16px}
+.hizli-metin{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hizli-metin strong{font-size:13.5px;font-weight:620;letter-spacing:-.01em}
+.hizli-metin span{font-size:12px;color:var(--muted);line-height:1.35}
+@media (max-width:620px){
+  .hizli-izgara{grid-template-columns:1fr;gap:8px;margin-top:20px}
+  .hizli-kart{padding:12px 13px}
+}
 
 .messages{display:flex;flex-direction:column;gap:18px;padding-bottom:12px}
 .message-row{display:flex;width:100%}

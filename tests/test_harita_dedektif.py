@@ -373,8 +373,8 @@ class TestWebYuzey:
             assert degisken in CSS
 
     def test_surum_kilidi_yukseltildi(self):
-        assert "/chat.css?v=19" in HTML
-        assert "/app.js?v=28" in HTML
+        assert "/chat.css?v=20" in HTML
+        assert "/app.js?v=29" in HTML
 
     def test_harici_karo_yok(self):
         """D4b = B: zincir de karo yuklemez."""
