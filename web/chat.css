@@ -116,9 +116,10 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .history-empty{padding:8px;color:#aaaab0;font-size:11px}
 .sidebar-foot{
   margin-top:auto;
-  padding:8px;
+  padding:6px 8px 4px;
   color:#aaaab0;
   font-size:10.5px;
+  max-height:46vh;overflow:auto;
 }
 .sidebar-backdrop{display:none}
 
@@ -588,10 +589,33 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 
 
 /* Başak anonim ID + yapay zekâ bilgilendirme katmanı */
-.identity-row{margin-bottom:7px;color:#66666d;font-size:10.5px;font-weight:650;letter-spacing:.01em}
-.sidebar-links{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin:0 0 10px}
-.sidebar-links a{font-size:12px;line-height:1.35;color:#77777f;padding:2px 0}
-.sidebar-links a:hover{color:#171719;text-decoration:underline;text-underline-offset:2px}
+/* Alt blok: kimlik çipi + katlanır bilgi menüsü (10 bağlantı yerine). */
+.kimlik-cip{
+  width:100%;display:flex;align-items:center;gap:7px;
+  margin:0 0 6px;padding:6px 8px;
+  border:1px solid rgba(226,226,230,.95);border-radius:9px;
+  background:rgba(255,255,255,.7);color:#66666d;
+  font-size:10.5px;font-weight:600;letter-spacing:.01em;text-align:left;
+}
+.kimlik-cip:hover{background:#fff;color:#171719}
+.kimlik-cip svg{width:13px;height:13px;margin-left:auto;opacity:.65}
+.yardim-menu{border-top:1px solid rgba(226,226,230,.9);padding-top:4px}
+.yardim-menu summary{
+  display:flex;align-items:center;justify-content:space-between;gap:6px;
+  padding:5px 2px;cursor:pointer;color:#77777f;font-size:11.5px;
+  list-style:none;
+}
+.yardim-menu summary::-webkit-details-marker{display:none}
+.yardim-menu summary svg{width:13px;height:13px;transition:transform .15s ease}
+.yardim-menu[open] summary svg{transform:rotate(180deg)}
+.yardim-menu summary:hover{color:#171719}
+.yardim-grup{display:flex;flex-direction:column;gap:1px;padding:2px 0 8px 2px}
+.yardim-baslik{
+  font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:#a6a6ad;padding:5px 0 2px;
+}
+.yardim-grup a{font-size:12px;line-height:1.5;color:#77777f;padding:1px 0}
+.yardim-grup a:hover{color:#171719;text-decoration:underline;text-underline-offset:2px}
 .composer-note a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .composer-note{line-height:1.35}
 

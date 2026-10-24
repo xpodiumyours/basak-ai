@@ -20,7 +20,7 @@
 <meta name="twitter:image" content="https://basak-vercel.vercel.app/og-basak.png">
 <meta name="twitter:title" content="Başak — Türkçe Kişisel Yapay Zekâ Asistanı">
 <meta name="twitter:description" content="Kayıtsız web sohbeti, görsel ve ses desteği, 162 ücretsiz çevrimiçi araç.">
-<link rel="stylesheet" href="/chat.css?v=20">
+<link rel="stylesheet" href="/chat.css?v=21">
 </head>
 <body>
 <div class="app-shell">
@@ -47,22 +47,37 @@
     <div id="historyEmpty" class="history-empty">Henüz kayıtlı sohbet yok.</div>
 
     <div class="sidebar-foot">
-      <div id="kimlikSatir" class="identity-row" hidden>
+      <button id="kimlikSatir" class="kimlik-cip" type="button" hidden
+              title="Bu tarayıcıdaki sohbetler bu kimlikle gösterilir. Kopyalamak için bas.">
         <span id="kullaniciAd"></span>
-      </div>
-      <div class="sidebar-links">
-        <a href="/eklenti.html">Tarayıcı eklentisi</a>
-        <a href="/durum.html">Durum</a>
-        <a href="/araclar">Ücretsiz araçlar</a>
-        <a href="/bilgilendirme.html">Kullanım ve veri bilgisi</a>
-        <a href="/destek.html">Destek ol</a>
-        <a href="/reklam-ver.html">Reklam ver</a>
-        <a href="/gizlilik.html">Gizlilik</a>
-        <a href="/cerez.html">Çerez</a>
-        <a href="/sartlar.html">Şartlar</a>
-        <a href="/sorumluluk.html">Sorumluluk</a>
-      </div>
-      <div>Bu tarayıcıdaki sohbetler yalnız bu Başak ID ile gösterilir.</div>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
+      </button>
+
+      <details id="yardimMenu" class="yardim-menu">
+        <summary>
+          <span>Bilgi ve yardım</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="yardim-grup">
+          <span class="yardim-baslik">Ürün</span>
+          <a href="/eklenti.html">Tarayıcı eklentisi</a>
+          <a href="/araclar">Ücretsiz araçlar</a>
+          <a href="/durum.html">Durum</a>
+        </div>
+        <div class="yardim-grup">
+          <span class="yardim-baslik">Bilgi</span>
+          <a href="/bilgilendirme.html">Kullanım ve veri bilgisi</a>
+          <a href="/destek.html">Destek ol</a>
+          <a href="/reklam-ver.html">Reklam ver</a>
+        </div>
+        <div class="yardim-grup">
+          <span class="yardim-baslik">Yasal</span>
+          <a href="/gizlilik.html">Gizlilik</a>
+          <a href="/cerez.html">Çerez</a>
+          <a href="/sartlar.html">Şartlar</a>
+          <a href="/sorumluluk.html">Sorumluluk</a>
+        </div>
+      </details>
     </div>
   </aside>
 
@@ -276,7 +291,7 @@
 </div>
 
 <script src="/common.js?v=8"></script>
-<script src="/app.js?v=29"></script>
+<script src="/app.js?v=30"></script>
 <script src="/panel.js?v=2" defer></script>
 <script src="/olcum.js?v=1" defer></script>
 </body>

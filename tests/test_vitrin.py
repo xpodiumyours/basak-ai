@@ -10,7 +10,7 @@ Yeni kilid:
 - hero'daki buyuk `.ai-notice` karti YOKTUR,
 - uyari kaybolmadi: composer altinda TEK satirdir (metin birebir
   app.js UYARI_NOTU ile aynidir) + sorumluluk/bilgi linkleri tasir,
-- cache surumu yeni: chat.css?v=20 / app.js?v=29 (ayni damga
+- cache surumu yeni: chat.css?v=21 / app.js?v=30 (ayni damga
   test_vercel_stream.py, test_gorsel.py, test_kesilme_devam.py,
   test_harita_z2.py, test_harita_dedektif.py'de de kilitlidir).
 """
@@ -60,8 +60,8 @@ def test_uyari_tek_satirda_durust_ve_linkli():
 
 
 def test_surum_kilidi_yukseltildi():
-    assert "/chat.css?v=20" in INDEX
-    assert "/app.js?v=29" in INDEX
+    assert "/chat.css?v=21" in INDEX
+    assert "/app.js?v=30" in INDEX
 
 
 def test_karsilama_ekrani_hizli_kartlarla_gelir():
@@ -81,3 +81,23 @@ def test_karsilama_ekrani_hizli_kartlarla_gelir():
     assert "basakPanelAc" in open(
         os.path.join(str(WEB), "panel.js"), encoding="utf-8"
     ).read()
+
+
+def test_alt_blok_katlanir_ve_yasal_baglantilar_korunur():
+    """Sidebar altı: ID çipi + tek katlanır menü (10 bağlantı yerine).
+
+    Bağlantıların hepsi duruyor; yalnız varsayılan olarak kapalı ki ekran
+    kalabalık durmasın. Sohbet ID'sinin ne işe yaradığı ipucunda yazılı.
+    """
+    assert 'id="yardimMenu"' in INDEX
+    assert "<details id=\"yardimMenu\" class=\"yardim-menu\">" in INDEX
+    assert "<details id=\"yardimMenu\" class=\"yardim-menu\" open" not in INDEX
+    for yol in ("/eklenti.html", "/araclar", "/durum.html",
+                "/bilgilendirme.html", "/destek.html", "/reklam-ver.html",
+                "/gizlilik.html", "/cerez.html", "/sartlar.html",
+                "/sorumluluk.html"):
+        assert 'href="%s"' % yol in INDEX, yol
+    # ID artık düz metin değil, kopyalanabilir çip.
+    assert 'id="kimlikSatir" class="kimlik-cip"' in INDEX
+    assert "sohbetler bu kimlikle gösterilir" in INDEX
+    assert "panoyaKopyala" in JS

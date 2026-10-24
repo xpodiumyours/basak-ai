@@ -1289,6 +1289,29 @@ if (belgeKaldirEl) {
   });
 }
 
+// ── pano: tek yol (http'de clipboard kapalıysa seçim yedeği) ───────
+async function panoyaKopyala(metin) {
+  const deger = String(metin || "");
+  if (!deger) return false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(deger);
+      return true;
+    }
+  } catch {}
+  const alan = document.createElement("textarea");
+  alan.value = deger;
+  alan.setAttribute("readonly", "");
+  alan.style.position = "fixed";
+  alan.style.opacity = "0";
+  document.body.appendChild(alan);
+  alan.select();
+  let oldu = false;
+  try { oldu = document.execCommand("copy"); } catch { oldu = false; }
+  alan.remove();
+  return oldu;
+}
+
 // ── cevap eylemleri: kopyala · Markdown · sesli oku ────────────────
 let konusanDugme = null;
 
@@ -1302,27 +1325,7 @@ function cevapEylemleri(b) {
   kopyala.className = "eylem-dugme";
   kopyala.textContent = "Kopyala";
   kopyala.addEventListener("click", async () => {
-    const metin = String(b.dataset.ham || "");
-    if (!metin) return;
-    let oldu = false;
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(metin);
-        oldu = true;
-      }
-    } catch {}
-    if (!oldu) {
-      // http:// adreslerinde clipboard kapalıdır; seçim yolu kullanılır.
-      const alan = document.createElement("textarea");
-      alan.value = metin;
-      alan.setAttribute("readonly", "");
-      alan.style.position = "fixed";
-      alan.style.opacity = "0";
-      document.body.appendChild(alan);
-      alan.select();
-      try { oldu = document.execCommand("copy"); } catch { oldu = false; }
-      alan.remove();
-    }
+    const oldu = await panoyaKopyala(String(b.dataset.ham || ""));
     kopyala.textContent = oldu ? "Kopyalandı" : "Kopyalanamadı";
     setTimeout(() => { kopyala.textContent = "Kopyala"; }, 1800);
   });
@@ -2321,6 +2324,19 @@ function kimligiCiz() {
   if (!d || !kimlikSatirEl || !kullaniciAdEl) return;
   kullaniciAdEl.textContent = "Başak ID · " + (d.basak_id || d.kullanici);
   kimlikSatirEl.hidden = false;
+}
+
+// Kimlik çipi: tek dokunuşta kopyalar (destek/destek yazışması için).
+if (kimlikSatirEl) {
+  kimlikSatirEl.addEventListener("click", async () => {
+    const ham = String((kullaniciAdEl && kullaniciAdEl.textContent) || "");
+    const kimlik = ham.replace(/^Başak ID\s*·\s*/, "").trim();
+    const oldu = await panoyaKopyala(kimlik);
+    if (!kullaniciAdEl) return;
+    const eski = "Başak ID · " + kimlik;
+    kullaniciAdEl.textContent = oldu ? "Kopyalandı · " + kimlik : eski;
+    setTimeout(() => { kullaniciAdEl.textContent = eski; }, 1600);
+  });
 }
 
 async function baslat() {
