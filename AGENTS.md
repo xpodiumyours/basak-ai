@@ -212,6 +212,15 @@ BOM'lu `.py` yoktur (ölçüldü: 0). Düzeltme: BOM'suz yaz (Edit aracı) ya da
 `git commit --no-verify` ile **yerel** kapıyı atlamak hatayı görünmez
 kılar — ama GitHub kapısı yine de yakalar.
 
+## 6.1 Kanıt ve belge kuralı (2026-10-26, Casper onaylı — bağlayıcı)
+
+Kapsam: ölçüm, durum, kabul veya "çalışıyor" iddiası taşıyan her belge. Belge iş değildir; "rapor/belge yazıldı" bir görevi bitirmez. Kabul için çalışan kod, test veya canlı ölçüm gerekir.
+
+1. **Üretilmeyen belge eklenmez.** Ölçüm/rapor bir script veya test tarafından üretilir; içinde `uretildi`, `commit`, `komut`, `ttl_saat` (veya `son_gecerlilik`) ve `sonuc` bulunur. İnsan özeti bu çıktıdan üretilir, elle yazılmaz. `durum-kabul.json` gibi elle tutulan sayılar bu alanları taşımıyorsa "tarihsel" damgası alır.
+2. **Bağsız belge kanıt değildir.** Onu üreten komut/test/canlı uç yoksa belge ya "tarihsel" damgası alır ya da depoya girmez. Süresi geçen belge bayat sayılır, kanıt olarak kullanılamaz.
+3. **Başka belge doğrulamadan kabul edilmez.** README, rapor veya başka bir ajanın (ya da kendisinin) belgesi iddiadır; diff + test + canlı davranışla doğrulanır. Bu kurala uymayan belge kanıt da iş emri de değildir.
+4. **Aynı bilgi için yeni dosya açılmaz.** Tek kaynak güncellenir veya üretilir. "Belge ekledim" teslim sayılmaz.
+
 ## 7. Bu dosya
 
 Casper ile konuşulmadan kapsamı büyütülmez (örn. "Docker'a taşıyayım"
