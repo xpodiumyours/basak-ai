@@ -795,6 +795,19 @@ async def durum(request: Request):
     }
 
 
+@app.get("/api/kosu/{kosu_id}")
+async def kosu_durumu(kosu_id: str, request: Request):
+    """Kalici kosunun okunur ozeti (yalniz kosunun sahibi)."""
+    kid = _kimlik(request)
+    if kid is None:
+        return _giris_engeli()
+    from chat import kosu_deposu
+    kosu = kosu_deposu.yukle(kosu_id, kullanici=kid)
+    if kosu is None:
+        return JSONResponse({"error": "Kosu bulunamadi"}, status_code=404)
+    return _json_nostore(kosu.ozet())
+
+
 @app.get("/api/calisma")
 async def calisma(request: Request):
     """Yapilan isin ozeti: notlar, yayin kaydi, fikir tablolari, gorevler.
@@ -983,6 +996,11 @@ async def sohbet(request: Request):
                 tazele = bool((body or {}).get("tazele", False))
                 haric = str((body or {}).get("haric") or "").strip()
                 tercih = _tekrar_tercihi(haric)
+                # Kosu kimligi yalnizca verildiginde gecilir; kosu yoksa
+                # cagri imzasi onceki ile aynidir.
+                _kosu_id = str(
+                    (body or {}).get("kosu_id") or "").strip()
+                _kosu_kw = {"kosu_id": _kosu_id} if _kosu_id else {}
                 kayit.olay(
                     "runContext",
                     _handoff={"metin": metin, "tool_policy": tool_policy},
@@ -1000,6 +1018,7 @@ async def sohbet(request: Request):
                     mola_zamani=mola_zamani,
                     tercih=tercih,
                     tazele=tazele,
+                    **_kosu_kw,
                 )
             except _AkisIptal:
                 return

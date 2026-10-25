@@ -100,9 +100,39 @@ def _gecmis_coz(ham):
 
 
 def _kutu_al(kullanici):
-    """Bagli eklentinin yoklamasi: bekleyen kutu isini ustlenir."""
+    """Bagli eklentinin yoklamasi: bekleyen isi ustlenir.
+
+    Iki is turu vardir:
+    - Sayfa isleri (mevcut P6b yolu): eklenti `islemYap` ile uygular.
+    - `kosu_devam`: yarim kalan kalici kosuyu surdurme tetigi. Eklenti
+      sayfaya dokunmaz; ayni kanaldan `kosu_id` ile sohbet baslatir.
+
+    Kosu tetigi burada, YOKLAMA aninda uretilir: kosu molaya girdiginde
+    ayri bir zamanlayici gerekmez, Chrome acilinca yoklama kendisi devam
+    ettirir. Isin surdurulup surdurulmeyecegine karar veren yer modelin
+    kendisidir; burada yalniz "bu kosu yarim kaldi" bilgisi tasinir.
+    """
     from tools import kutu as kutu_modulu
-    return kutu_modulu.al(kullanici or "misafir")
+
+    kullanici = kullanici or "misafir"
+    is_ = kutu_modulu.al(kullanici)
+    if is_ and is_.get("id"):
+        return is_
+    if is_ and is_.get("error"):
+        return is_          # kutu kapali: sebep gizlenmez
+    if kullanici == "misafir":
+        return is_ or {"bos": True}
+
+    from chat import kosu_deposu
+    kosu = kosu_deposu.bekleyen(kullanici)
+    if kosu is None:
+        return is_ or {"bos": True}
+    # Kosuyu "running"a cek: ayni kosu icin ikinci tetik uretilmesin.
+    kosu.devam_et()
+    birakilan = kutu_modulu.birak(kullanici, "kosu_devam", {"kosu_id": kosu.id})
+    if birakilan.get("error"):
+        return birakilan
+    return kutu_modulu.al(kullanici)
 
 
 def _kutu_yaz(kullanici, veri):
@@ -118,7 +148,7 @@ def _kutu_yaz(kullanici, veri):
     return kutu_modulu.yaz(kimlik, veri.get("cevap") or {})
 
 
-def _cevapla(metin, kid, kanal, gecmis=None):
+def _cevapla(metin, kid, kanal, gecmis=None, kosu_id=None):
     """Çekirdeği çalıştırır (iş parçacığında); panel cevabını döndürür."""
     from chat.flow import mesaj_isle
     from chat.kimlik import kullanici_kur
@@ -133,7 +163,8 @@ def _cevapla(metin, kid, kanal, gecmis=None):
     try:
         mesaj_isle(metin, beyin, kisilik_blogu(kid, misafir=not kid),
                    ayikla, toollar, misafir=not kid,
-                   gecmis_override=_gecmis_coz(gecmis))
+                   gecmis_override=_gecmis_coz(gecmis),
+                   **({"kosu_id": kosu_id} if kosu_id else {}))
     finally:
         tarayici_kanal.kanal_temizle()
     if ayikla.hata and not ayikla.cevap:
@@ -166,8 +197,9 @@ async def eklenti_kanali(websocket: WebSocket):
                 {"id": kimlik, "ok": False, "hata": "mesaj boş"})
             return
         try:
+            _kosu_id = str(veri.get("kosu_id") or "").strip() or None
             sonuc = await asyncio.to_thread(
-                _cevapla, metin, kid, kanal, veri.get("gecmis"))
+                _cevapla, metin, kid, kanal, veri.get("gecmis"), _kosu_id)
         except Exception as hata:            # noqa: BLE001 - kanal kesilmesin
             logger.warning("kanal sohbet hatasi: %s", hata)
             sonuc = {"hata": "Başak çalıştırılamadı: %s" % str(hata)[:200]}
