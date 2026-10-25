@@ -820,9 +820,13 @@ açılınca kaldığı yerden devam eder. Ne hesap ne anahtar gerekir.
 
 **Dürüst sınırlar (bu turda kanıtlanmayanlar):**
 
-- **Postgres dalı koşulmadı** — bu ortamda `DATABASE_URL` yok. Ölçülen
-  yol SQLite; Postgres SQL'i aynı gövdeden üretiliyor ama canlı Neon'da
-  denenmedi. Üretimde ilk koşu bunu doğrulamalı.
+- **Postgres dalı: bağlantı + şema doğrulandı, tam koşu değil.**
+  Preview deployment'ı (`commit 7ced14b`, 2026-10-25) `BASAK_PREVIEW_DATABASE_URL`
+  ile ayrı Postgres'e bağlanıyor: `/api/durum` → `checkpoint_resume: true`,
+  yani defter açıldı ve `basak_kosu`/`basak_kosu_adim` tablolarını o veritabanında
+  kurdu. Gerçek bir uzun koşunun Postgres üzerinde molaya girip devam etmesi
+  hâlâ ölçülmedi (preview'da mola üretecek uzun iş koşturulmadı). SQLite yolu
+  yerelde uçtan uca ölçüldü.
 - **Tik, Chrome'a bağlı:** devam tetiği eklentinin yoklamasından gelir.
   Chrome kapalıyken/servis çalışmıyorken koşu beklemede kalır (uydurma
   "sürüyor" yok). Eklenti güncellemesi için `chrome://extensions` →
