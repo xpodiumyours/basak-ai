@@ -126,6 +126,29 @@ await test("kutu işi islemYap yolundan koşar, sonuç kutuya yazılır", async 
   assert.equal(yaz.veri.cevap.sonuc.url, GOZLEM.url);
 });
 
+await test("kosu_devam işi sayfaya dokunmadan kosu_id ile sürdürür", async () => {
+  ws.gonderilen.length = 0;
+  const p = pencere.eval("kutuYokla()");
+  const istek = ws.gonderilen.find((m) => m.islem === "kutu_al");
+  assert.ok(istek);
+  const is = { id: 42, islem: "kosu_devam", veri: { kosu_id: "abc123" } };
+  ws.onmessage({ data: JSON.stringify({ id: istek.id, ok: true, sonuc: is }) });
+  // kutu_al cevabı bir microtask sonra işlenir; sohbet ondan sonra gider.
+  await new Promise((coz) => setTimeout(coz, 0));
+  const sohbet = ws.gonderilen.find((m) => m.islem === "sohbet");
+  assert.ok(sohbet, "sohbet isteği gönderilmedi: " + JSON.stringify(ws.gonderilen));
+  assert.equal(sohbet.veri.kosu_id, "abc123");
+  assert.equal(sohbet.veri.metin, "Kaldığın yerden devam et.");
+  // Onay kapısı sorulmaz: sayfa eylemi yok.
+  assert.equal(gonderilenOnay.length, 0);
+  ws.onmessage({ data: JSON.stringify({ id: sohbet.id, ok: true, sonuc: { cevap: "sürdü" } }) });
+  await p;
+  const yaz = ws.gonderilen.find((m) => m.islem === "kutu_yaz");
+  assert.ok(yaz, "kutu_yaz gönderilmedi");
+  assert.equal(yaz.veri.job, 42);
+  assert.equal(yaz.veri.cevap.ok, true);
+});
+
 await test("bağlantı kapanınca yoklama durur", async () => {
   ws.onclose();
   ws.gonderilen.length = 0;

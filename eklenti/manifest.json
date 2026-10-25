@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Başak — sayfa gözü",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Başak'ın açık sekmeyi görmesini sağlar. Sohbet Başak'ın kendi ekranında sürer; bu eklenti yalnız göz ve bağlantıdır.",
   "minimum_chrome_version": "116",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2dUeMOVYqbSJVUPdUZHPRtl4BqTDeT+IN1HobtG3Jcjo0IUvTPrawWhQEzOs4Jk/KGAv+kcF+x3WiHe0G3aTgvP93FitKRSKFvLIbV8gpVfqW7V0xb0LtnSjfuv4E1lhXBeEuHGV7d807OOvqcd8jR4lRDW2tr9ednuRmI3ASWHPOWAvgAcfPIyV87ktvR0irGS37OB25mPjIoXv21kCqgLmNzZTkSEL7NRtMwAuYxj2NJqDdeoNY6vr40/smuOf+VytJRdqWAZkQEN+Jm0vKOWNfMWpkQP1VUfJ00NFJVvpgMVkrzVFBdeaKKAYzGEUYj2I4jIVVICUTeSl16eSFQIDAQAB",

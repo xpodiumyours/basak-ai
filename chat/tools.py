@@ -382,7 +382,7 @@ def sonucu_donustur(sonuc):
 def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                  calistir, tools=None, yanit=None,
                  tool_choice=None, tercih=None, run_state=None,
-                 katalog=None, mola_zamani=None):
+                 katalog=None, mola_zamani=None, kosu=None):
     """Arac sonuclarini modele geri vererek ajan turunu surdurur.
 
     Gercek arac secimini MODEL yapar. `yetenek_ac` modelin sectigi
@@ -393,6 +393,10 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     turu bittikten sonra run duraklatilir ("checkpoint" olayi, run_state
     paused). Is kesilmez: sonuclar imzali handoff'ta kalir, kullanici devam
     eder, cevap ister veya yon verir. Masaustunde verilmez.
+
+    kosu: kalici kosu defteri (chat.kosu_deposu.Kosu). Verilirse her arac
+    cagrisi ve sonucu deftere yazilir; ayni cagri kimligi defterde zaten
+    kapaliysa arac YENIDEN CALISTIRILMAZ (devamda cift tiklama olmaz).
     """
     import time as _zaman
     from chat.gate import temizle
@@ -581,27 +585,66 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             _tekrar_anahtar = ad + "|" + _arg_anahtar
             _once = _tekrar.get(_tekrar_anahtar)
             ham = None
-            if _once and int(_once.get("adet") or 0) >= 2:
-                net = (
-                    "Hata: ayni arac, ayni arguman ve ayni sonuc tekrar "
-                    "dongusune girdi; ayni cagri tekrar calistirilmadi."
-                )
-                basarili = False
-                _web_olay(
-                    js_callback, "loopGuard", tool=ad,
-                    tekrar=int(_once.get("adet") or 0) + 1,
-                )
+            # Defterde kapanmis ayni cagri kimligi yeniden CALISTIRILMAZ:
+            # kopan kosunun devaminda tiklama/yazma iki kez gitmesin.
+            _defterden = None
+            if kosu is not None:
+                try:
+                    _defterden = kosu.adim_onceki(cagri_id)
+                except Exception:
+                    logger.warning("kosu defteri okunamadi", exc_info=True)
+            if _defterden is not None:
+                net = str(_defterden.get("sonuc") or "")
+                basarili = bool(_defterden.get("ok"))
+                _web_olay(js_callback, "toolReplay", id=cagri_id, arac=ad)
             else:
-                ham = calistir(ad, args)
-                net = sonucu_donustur(ham)
-                basarili = not net.startswith("Hata:")
-                if _once and _once.get("sonuc") == net:
-                    _tekrar[_tekrar_anahtar] = {
-                        "sonuc": net,
-                        "adet": int(_once.get("adet") or 0) + 1,
-                    }
+                if _once and int(_once.get("adet") or 0) >= 2:
+                    net = (
+                        "Hata: ayni arac, ayni arguman ve ayni sonuc tekrar "
+                        "dongusune girdi; ayni cagri tekrar calistirilmadi."
+                    )
+                    basarili = False
+                    _web_olay(
+                        js_callback, "loopGuard", tool=ad,
+                        tekrar=int(_once.get("adet") or 0) + 1,
+                    )
                 else:
-                    _tekrar[_tekrar_anahtar] = {"sonuc": net, "adet": 1}
+                    if kosu is not None:
+                        try:
+                            kosu.adim_basla(
+                                ad, cagri_id, args=args, tur=tur_no)
+                        except Exception:
+                            logger.warning(
+                                "arac adimi deftere yazilamadi",
+                                exc_info=True)
+                    try:
+                        ham = calistir(ad, args)
+                    except Exception as hata:
+                        if kosu is not None:
+                            try:
+                                kosu.adim_bitti(
+                                    ad, cagri_id, "Hata: %s" % hata, False,
+                                    hata=str(hata))
+                            except Exception:
+                                logger.warning(
+                                    "arac hatasi deftere yazilamadi",
+                                    exc_info=True)
+                        raise
+                    net = sonucu_donustur(ham)
+                    basarili = not net.startswith("Hata:")
+                    if _once and _once.get("sonuc") == net:
+                        _tekrar[_tekrar_anahtar] = {
+                            "sonuc": net,
+                            "adet": int(_once.get("adet") or 0) + 1,
+                        }
+                    else:
+                        _tekrar[_tekrar_anahtar] = {"sonuc": net, "adet": 1}
+                if kosu is not None:
+                    try:
+                        kosu.adim_bitti(ad, cagri_id, net, basarili)
+                    except Exception:
+                        logger.warning("arac sonucu deftere yazilamadi",
+                                       exc_info=True)
             _web_olay(
                 js_callback, "toolDone",
                 id=cagri_id,

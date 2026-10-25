@@ -117,7 +117,7 @@ async function gozlemAl() {
   return gozlemleriBirlestir(sonuclar);
 }
 
-function sohbetGonder(metin, gecmis) {
+function sohbetGonder(metin, gecmis, kosuId, sureMs) {
   return new Promise((coz) => {
     const yazi = metin.trim();
     if (!yazi) { coz({ ok: false, hata: "mesaj boş" }); return; }
@@ -127,15 +127,19 @@ function sohbetGonder(metin, gecmis) {
     }
     cagriSayaci += 1;
     const id = "p" + cagriSayaci;
+    const bekle = Math.max(1000, Number(sureMs) || 90000);
     const zaman = setTimeout(() => {
       bekleyenSohbet.delete(id);
-      coz({ ok: false, hata: "Başak 90 saniye içinde yanıt vermedi." });
-    }, 90000);
+      coz({
+        ok: false,
+        hata: "Başak " + Math.round(bekle / 1000) + " saniye içinde yanıt vermedi."
+      });
+    }, bekle);
     bekleyenSohbet.set(id, { coz, zaman });
-    baglanti.send(JSON.stringify({
-      id, islem: "sohbet",
-      veri: { metin: yazi, gecmis: Array.isArray(gecmis) ? gecmis : [] }
-    }));
+    const veri = { metin: yazi, gecmis: Array.isArray(gecmis) ? gecmis : [] };
+    // kosu_id: yarim kalan kalici kosuyu defterden surdurur (P7).
+    if (kosuId) veri.kosu_id = String(kosuId);
+    baglanti.send(JSON.stringify({ id, islem: "sohbet", veri }));
   });
 }
 
@@ -173,7 +177,20 @@ async function kutuYokla() {
     if (!is || is.bos || !is.id || !is.islem) return;
     let uyg;
     try {
-      uyg = await islemYap({ id: is.id, islem: is.islem, veri: is.veri || {} });
+      if (is.islem === "kosu_devam") {
+        // Yarim kalan kalici kosunun devami: sayfaya DOKUNULMAZ (onay
+        // kapisi gerekmez), ayni kanaldan kosu_id ile surdurulur. Tek tur
+        // 300 sn'ye kadar surebilir; bu yuzden bekleme uzun tutulur.
+        const devam = await sohbetGonder(
+          "Kaldığın yerden devam et.", [], is.veri && is.veri.kosu_id, 280000);
+        uyg = {
+          id: is.id,
+          ok: !!(devam && devam.ok),
+          hata: (devam && devam.hata) || ""
+        };
+      } else {
+        uyg = await islemYap({ id: is.id, islem: is.islem, veri: is.veri || {} });
+      }
     } catch (hata) {
       uyg = { id: is.id, ok: false, hata: String(hata && hata.message || hata) };
     }

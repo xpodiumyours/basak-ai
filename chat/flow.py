@@ -304,6 +304,17 @@ def _yonlendirme_mesajlari(baglam, mevcut_mesajlar):
     return ek
 
 
+def _kosu_kapat(kosu, durum, cevap=None, hata="", saglayici=""):
+    """Kalici kosuyu kapatir; defter hatasi sohbeti kesmez."""
+    if kosu is None:
+        return
+    try:
+        kosu.saglayici(saglayici)
+        kosu.bitir(durum, cevap=cevap, hata=hata)
+    except Exception:
+        logger.warning("kosu defteri kapatilamadi", exc_info=True)
+
+
 def _beyin_hata_mesaji(hata, onek):
     """Zincir hatasini kullaniciya saglayicinin resmi hata turuyle anlatir.
 
@@ -335,13 +346,17 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                misafir=False, gecmis_override=None,
                yonlendirme_baglami=None, tool_policy="auto",
                run_state=None, mola_zamani=None, tercih=None,
-               tazele=False):
+               tazele=False, kosu=None, kosu_id=None):
     """Bir mesajı baştan sona işler.
 
     tercih: acik saglayici sira zorlamasi (yalniz saglayici adlari).
     tazele: kullanicinin acik taze-deneme istegi; kisa sureli duz-sohbet
     onbellegi atlanir. Ikisi de yalniz cagiricinin verdigi degeri tasir;
     metne bakilmaz, ciktiya dokunulmaz.
+
+    kosu / kosu_id: kalici kosu defteri (chat.kosu_deposu). `kosu_id`
+    verilirse kosu defterden yuklenir, onceki adimlar modele yeniden
+    kurulur ve is ayni kimlikle surer; istek kesilse bile kaybolmaz.
     """
     text, konusmaci = _konusmaci_ayir((text or "").strip())
 
@@ -349,6 +364,20 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     if not text:
         js_callback("BasakUI.error(" + _j("Bos mesaj") + ")")
         return
+
+    # Kalici kosu: ayni kimlikle gelen istek defterden devam eder. Devam
+    # paketi, istemcinin tasidigi imzali handoff ile ayni bicimdedir; yani
+    # devam yolu tek kalir (chat/kosu_deposu.devam_paketi).
+    from chat import kosu_deposu
+    if kosu is None and kosu_id:
+        kosu = kosu_deposu.yukle(kosu_id, kullanici=aktif_kullanici())
+        if kosu is None:
+            js_callback("BasakUI.error(" + _j(
+                "Bu kosu bulunamadi ya da bu hesaba ait degil.") + ")")
+            return
+        if yonlendirme_baglami is None:
+            yonlendirme_baglami = kosu.kayitli_devam() or kosu.devam_paketi()
+        kosu.devam_et()
 
     # Ozgu-ajan (Faz 2): SADECE bulut zinciri. Yerel model yok.
     # Bulut musait degilse dur; baska on kosul yok.
@@ -366,6 +395,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             _mesaj = ("Hicbir beyin yok: saglayici zinciri kurulamadi "
                       "(anahtar, baglanti veya kota). Kontrol: python "
                       "doktor.py")
+        _kosu_kapat(kosu, "error", hata="beyin yok")
         js_callback("BasakUI.error(" + _j(_mesaj) + ")")
         return
 
@@ -429,10 +459,35 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     arac_acik = bool(katalog)
     etkin_tools = baslangic_araclari() if arac_acik else []
     state = run_state or AgentRunState(
-        run_id=str(getattr(js_callback, "istek", "") or ctx.OTURUM_ID),
+        run_id=(kosu.id if kosu is not None else str(
+            getattr(js_callback, "istek", "") or ctx.OTURUM_ID)),
         tool_policy=tool_policy,
     )
     emit_run_state(js_callback, state)
+
+    def _kosu_ac():
+        """Ilk arac turunda kalici kosuyu acar; defter kapaliysa None."""
+        nonlocal kosu
+        if kosu is None and not misafir:
+            try:
+                kosu = kosu_deposu.ac(
+                    aktif_kullanici(), text, run_id=state.run_id,
+                    tool_policy=tool_policy)
+            except Exception:
+                logger.warning("kosu defteri acilamadi", exc_info=True)
+        return kosu
+
+    def _kosu_bitir(durum, cevap=None, hata=""):
+        _kosu_kapat(kosu, durum, cevap=cevap, hata=hata,
+                    saglayici=state.provider)
+
+    def _kosu_duraklat():
+        if kosu is None:
+            return
+        try:
+            kosu.duraklat()
+        except Exception:
+            logger.warning("kosu defterine mola yazilamadi", exc_info=True)
     mesajlar = _baglam_kur(
         text, system_prompt, konusmaci,
         AGENT_CONTRACT if arac_acik else "", misafir=misafir)
@@ -524,6 +579,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                     konusmaci, misafir=misafir, onbellekle=False,
                     arac_kullanildi=False, tamamlanmis=tamam,
                 )
+                _kosu_bitir("completed", cevap=_temizle(cevap))
                 return
             state.fail()
             emit_run_state(js_callback, state)
@@ -542,15 +598,18 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 tool_calls, mesajlar, brain, model, js_callback, calistir,
                 tools=ajan_tools, yanit=yanit, tool_choice="auto",
                 tercih=[kaynak] if kaynak else None, run_state=state,
-                katalog=katalog, mola_zamani=mola_zamani)
+                katalog=katalog, mola_zamani=mola_zamani,
+                kosu=_kosu_ac())
         except AracSonrasiHatasi as e:
             state.fail()
             emit_run_state(js_callback, state)
+            _kosu_bitir("error", hata=str(e))
             js_callback("BasakUI.error(" + _j(
                 _arac_sonrasi_hata_mesaji(e)) + ")")
             return
         if state.status == "paused":
             # Karar kullanicida: devam / cevap / yon. Hata degil.
+            _kosu_duraklat()
             return
         cevap = _temizle(cevap)
         if cevap:
@@ -562,10 +621,12 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 konusmaci, misafir=misafir, arac_kullanildi=kosan > 0,
                 tamamlanmis=tamam,
             )
+            _kosu_bitir("completed", cevap=cevap)
             return
 
         state.fail()
         emit_run_state(js_callback, state)
+        _kosu_bitir("error", hata="final cevap yok")
         logger.info("Ajan turu final cevap vermedi (%d arac kostu)", kosan)
         js_callback("BasakUI.error(" + _j(
             "Bu sefer araclardan sonuc alamadim, tekrar dene") + ")")
@@ -601,6 +662,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 # AracIstegi yukarida yakalanirdi). Onbelleklenebilir.
                 _kaydet(text, tam, kaynak or "bulut", gecmis, js_callback,
                         konusmaci, misafir=misafir, onbellekle=True)
+                _kosu_bitir("completed", cevap=tam)
                 return
             logger.info("Akis bos dondu, tek seferlik yola dusuluyor")
             _durum = durum_gozlemcisi(js_callback)
@@ -622,8 +684,9 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                         calistir, tools=etkin_tools,
                         yanit={"tool_calls": _tc, **_muh},
                         run_state=state, katalog=katalog,
-                        mola_zamani=mola_zamani)
+                        mola_zamani=mola_zamani, kosu=_kosu_ac())
                 except AracSonrasiHatasi as e:
+                    _kosu_bitir("error", hata=str(e))
                     js_callback("BasakUI.error(" + _j(
                         _arac_sonrasi_hata_mesaji(e)) + ")")
                     return
@@ -631,11 +694,13 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                     logger.warning("Akis-arac turu basarisiz: %s", e)
                     cevap, kosan = "", 0
                 if state.status == "paused":
+                    _kosu_duraklat()
                     return
                 cevap = _temizle(cevap)
                 if cevap:
                     _kaydet(text, cevap, kaynak or "bulut", gecmis,
                             js_callback, konusmaci, misafir=misafir)
+                    _kosu_bitir("completed", cevap=cevap)
                     return
                 logger.info("Akis-arac turu bos dondu (%d arac kostu)",
                             kosan)
@@ -675,18 +740,22 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             cevap, kosan = arac_dongusu(
                 tool_calls, mesajlar, brain, model, js_callback, calistir,
                 tools=etkin_tools, yanit=yanit, run_state=state,
-                katalog=katalog, mola_zamani=mola_zamani)
+                katalog=katalog, mola_zamani=mola_zamani,
+                kosu=_kosu_ac())
         except AracSonrasiHatasi as e:
+            _kosu_bitir("error", hata=str(e))
             js_callback("BasakUI.error(" + _j(
                 _arac_sonrasi_hata_mesaji(e)) + ")")
             return
         if state.status == "paused":
             # Tek-seferlik fallback da checkpoint'i hata saymaz.
+            _kosu_duraklat()
             return
         cevap = _temizle(cevap)
         if cevap:
             _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
                      misafir=misafir)
+            _kosu_bitir("completed", cevap=cevap)
             return
         logger.info("Arac turu bos dondu (%d arac kostu)", kosan)
 
@@ -700,3 +769,4 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     # yalniz duz sohbet cevabi onbelleklenir.
     _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
             misafir=misafir, onbellekle=not (tool_calls and tools))
+    _kosu_bitir("completed", cevap=cevap)

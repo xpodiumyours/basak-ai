@@ -764,3 +764,79 @@ Sözleşme tarafı temiz: **6/6 tur `bitir` ile kapandı**, `error` olayı
 - **P2.1/P2.2/P4.1** (production geri alma provası, Postgres yedek/geri
   yükleme): Vercel paneli + veritabanı erişimi ister, ikisi de bu
   ortamda yok. Kararda uydurma yapılmadı, madde açık bırakıldı.
+
+---
+
+## 9. 2026-10-25 — P6 UZUN KOŞU: kalıcı koşu defteri (ölçüldü)
+
+**Neden:** Tur Vercel'de 300 saniyede kesiliyordu; `AgentRunState.pause()`
+yalnız belleği işaretliyor, koşunun kaydı istemcinin taşıdığı imzalı
+handoff'ta duruyordu. İstemci kapanınca iş kayboluyordu. Bu, "uzun süreli
+iş" iddiasının önündeki tek gerçek engeldi.
+
+**Ne yapıldı:** `chat/kosu_deposu.py` — koşu ve her araç adımı kalıcı
+deftere yazılıyor.
+
+| Kalem | Ayrıntı |
+|---|---|
+| Depolama | `DATABASE_URL` varsa **Postgres (Neon)**; yoksa yerelde SQLite (`<state>/kosular.db`). Üretimde DSN yoksa defter **kapalı** — geçici diske "kalıcı" denmez. |
+| Kayıt | `basak_kosu` (durum, istek, sağlayıcı, adım sayısı, devam paketi) + `basak_kosu_adim` (araç, argüman, sonuç, tur, hata). |
+| Tekrar koruması | `(kosu_id, cagri_id)` tekil; kapanmış adım **ezilmez**. Devamda aynı çağrı kimliği yeniden **çalıştırılmaz** (çift tıklama olmaz). |
+| Devam | Mola anında `p2-handoff-v1` paketi deftere yazılır (`devam_paketi`). `mesaj_isle(..., kosu_id=...)` bu paketi yükleyip önceki araç sonuçlarını modele geri verir — istemci kapalı olsa da iş sürer. |
+| Kiracı ayrımı | `yukle(kosu_id, kullanici)` başka kullanıcının koşusunu **döndürmez**; aynı `run_id` başka kullanıcıya denk gelirse satır devralınmaz. |
+| Arayüz | `GET /api/kosu/{kosu_id}` — kimlikli, `no-store`, yalnız özet (durum, adımlar, araçlar). |
+
+**Ölçülen kapılar (2026-10-25, Linux, Python 3.12):**
+
+| Kapı | Sonuç |
+|---|---|
+| `pytest tests -q --ignore=tests/live` | **1745 geçti, 10 atlandı, 0 kırmızı** (55,1 sn) |
+| Yeni testler | **24** (`test_kosu_deposu.py` 11, `test_kosu_devam.py` 6, `test_kosu_tiki.py` 7) |
+| Eklenti JS (`kutu.test.mjs`) | **4/4** (yeni: `kosu_devam` sayfaya dokunmadan `kosu_id` ile sürdürür) |
+| `py_compile` + `ruff check` | geçti |
+
+### 9.1 Anahtarsız devam tetiği (P7, 2026-10-25)
+
+**Neden:** Uzun işi bulutta sürdürmek için zamanlayıcı gerekiyordu; her
+seçenek (Cloudflare hesabı, Vercel Pro cron, GitHub Actions sırrı)
+Casper'dan bir **anahtar/hesap** istiyordu. Casper bunu yönetemiyor.
+Çözüm: tetiği **zaten kurulu ve bağlı olan eklentinin yoklamasına** verdik.
+
+- `chat/kosu_deposu.bekleyen()` — yalnız `paused` koşuyu bulur.
+  `running` koşuya dokunulmaz: "running" hem gerçekten çalışan isteği
+  hem de kullanıcının **Durdur** ile kestiği koşuyu anlatır; ikincisini
+  kendiliğinden sürdürmek kullanıcının iradesine aykırı olurdu.
+- `chat/eklenti_ws._kutu_al()` — eklentinin 3 saniyelik yoklaması boş
+  döndüğünde koşuyu `kosu_devam` işi olarak kutuya bırakır ve koşuyu
+  `running`a çeker (aynı koşu için ikinci tetik üretilmez).
+- `eklenti/arka.js` — `kosu_devam` işinde sayfaya **dokunmaz** (onay
+  kapısı gerekmez); aynı kanaldan `kosu_id` ile sohbeti sürdürür.
+- `chat/eklenti_ws._cevapla(..., kosu_id)` → çekirdek koşuyu defterden
+  devam ettirir.
+
+**Sonuç:** Koşu molaya girdiğinde, Chrome açıkken ~3 saniye içinde
+kendiliğinden sürer; Chrome kapalıysa iş beklemede kalır ve Chrome
+açılınca kaldığı yerden devam eder. Ne hesap ne anahtar gerekir.
+
+**Dürüst sınırlar (bu turda kanıtlanmayanlar):**
+
+- **Postgres dalı koşulmadı** — bu ortamda `DATABASE_URL` yok. Ölçülen
+  yol SQLite; Postgres SQL'i aynı gövdeden üretiliyor ama canlı Neon'da
+  denenmedi. Üretimde ilk koşu bunu doğrulamalı.
+- **Tik, Chrome'a bağlı:** devam tetiği eklentinin yoklamasından gelir.
+  Chrome kapalıyken/servis çalışmıyorken koşu beklemede kalır (uydurma
+  "sürüyor" yok). Eklenti güncellemesi için `chrome://extensions` →
+  "Yenile" gerekir (yeni sürüm 0.2.1).
+- **Kesilen istek kendiliğinden sürmez:** ağ koptuğunda koşu `running`
+  kalır ve tik üretilmez; kullanıcı arayüzdeki "Devam et" ile sürdürür.
+  Tik üretildikten sonra eklenti hiç cevap vermezse koşu yine `running`
+  kalır — aynı elle devam yolu geçerlidir.
+- **Eklenti JS testi CI'da değil:** `kutu.test.mjs` (ve diğer üç dosya)
+  bu makinede jsdom ile koşturuldu; `test.yml`'de `eklenti-js` işi
+  **yok** — planın P0 maddesi kodda değil, yalnız belgede duruyor.
+- **Arayüz göndermiyor:** web/eklenti sohbeti `kosu_id` alanını henüz
+  kullanmıyor; alan API'de hazır.
+- **Artifact yok:** yalnız adım günlüğü var; dosya/rapor çalışma alanı
+  sonraki dilim.
+- **Saklama/silme yok:** koşu satırları süresiz durur (KVKK maddesi
+  P4.2 ile birlikte ele alınmalı).
