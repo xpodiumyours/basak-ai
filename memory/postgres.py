@@ -324,6 +324,45 @@ class PostgresHafizaMotoru:
             conn.commit()
         return sayi
 
+    def son_anilar(self, limit=50, kind="episodic"):
+        """En yeni anıları döndürür; yalnız bu kullanıcının satırları."""
+        limit = max(1, min(int(limit or 50), 200))
+        with self._baglan() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id, kind, text, source, created_at, onem "
+                    "FROM basak_memories "
+                    "WHERE user_id=%s AND kind=%s "
+                    "ORDER BY id DESC LIMIT %s",
+                    (self.kullanici_id, kind, limit),
+                )
+                satirlar = cur.fetchall()
+        return [{
+            "id": satir[0],
+            "tur": satir[1],
+            "metin": satir[2],
+            "kaynak": satir[3] or "",
+            "zaman": satir[4] or "",
+            "onem": satir[5],
+        } for satir in satirlar]
+
+    def ani_sil(self, ani_id):
+        """Tek anıyı siler; başka kullanıcının satırına dokunmaz."""
+        try:
+            ani_id = int(ani_id)
+        except (TypeError, ValueError):
+            return False
+        with self._baglan() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM basak_memories "
+                    "WHERE id=%s AND user_id=%s RETURNING id",
+                    (ani_id, self.kullanici_id),
+                )
+                silinen = cur.fetchone() is not None
+            conn.commit()
+        return silinen
+
     def _budu(self, kind="episodic", limit=EPISODIK_LIMIT):
         with self._baglan() as conn:
             with conn.cursor() as cur:

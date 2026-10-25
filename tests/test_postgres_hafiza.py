@@ -11,11 +11,11 @@ from memory.postgres import PostgresHafizaMotoru, _arama_kelimeleri, _vektor_met
 YUZ = (
     "ekle", "episodik_temizle", "episodik_kaydet", "kaynak_sil",
     "kaynak_satir", "meta_al", "meta_koy", "say", "ara",
-    "vektorleri_temizle", "kapat",
+    "vektorleri_temizle", "kapat", "son_anilar", "ani_sil",
 )
 
 
-def test_postgres_dis_yuzu_sqlite_ile_ayni_11_metodu_tasir():
+def test_postgres_dis_yuzu_sqlite_ile_ayni_metotlari_tasir():
     for ad in YUZ:
         assert callable(getattr(SQLiteHafizaMotoru, ad, None)), ad
         assert callable(getattr(PostgresHafizaMotoru, ad, None)), ad
@@ -188,3 +188,67 @@ def test_tasima_kaynagi_basak_anilar_oncelikli(monkeypatch):
     assert gorulen["insert"], "tasima INSERT'i calismadi"
     assert '"basak"."anilar"' in gorulen["insert"][0]
     assert motor is not None
+
+
+def test_anilar_kullaniciya_baglanir_ve_silinir(monkeypatch):
+    import sys
+    import types
+
+    durum = {"calls": []}
+
+    class Cursor:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def execute(self, sql, params=None):
+            q = " ".join(sql.split())
+            durum["calls"].append((q, params))
+            if q.startswith(
+                    "SELECT id, kind, text, source, created_at, onem"):
+                self.rows = [(7, "episodic", "kahve", "sohbet", 123.5, 2)]
+            elif q.startswith("DELETE FROM basak_memories"):
+                self.rows = [(7,)]
+            else:
+                self.rows = []
+        def fetchone(self):
+            return self.rows[0] if self.rows else None
+        def fetchall(self):
+            return list(self.rows)
+
+    class Conn:
+        prepare_threshold = 5
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def cursor(self):
+            return Cursor()
+        def commit(self):
+            pass
+        def rollback(self):
+            pass
+
+    sahte = types.ModuleType("psycopg")
+    sahte.connect = lambda *a, **k: Conn()
+    monkeypatch.setitem(sys.modules, "psycopg", sahte)
+
+    motor = PostgresHafizaMotoru("postgresql://fake", "ayse", embed_fn=None)
+    assert motor.son_anilar(limit=5) == [{
+        "id": 7, "tur": "episodic", "metin": "kahve",
+        "kaynak": "sohbet", "zaman": 123.5, "onem": 2,
+    }]
+    assert motor.ani_sil("7") is True
+    assert motor.ani_sil("abc") is False
+
+    liste = [c for c in durum["calls"] if c[0].startswith(
+        "SELECT id, kind, text, source, created_at, onem")]
+    assert len(liste) == 1
+    assert "user_id=%s" in liste[0][0]
+    assert liste[0][1] == ("ayse", "episodic", 5)
+
+    silme = [c for c in durum["calls"] if c[0].startswith(
+        "DELETE FROM basak_memories")]
+    assert len(silme) == 1
+    assert "user_id=%s" in silme[0][0]
+    assert silme[0][1] == (7, "ayse")
