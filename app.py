@@ -776,6 +776,15 @@ async def durum(request: Request):
     except Exception:
         hafiza_modu = "dogrulanamadi"
 
+    # Yarim kalan kosu gercekten surdurulebiliyor mu: tek kaynak defterin
+    # kendisi. Sabit `False` yazmak, ozellik geldikten sonra ekranda
+    # "surdurulemiyor" demek olurdu (2026-10-25 olcumu).
+    try:
+        from chat import kosu_deposu
+        kosu_defteri = kosu_deposu.hazir()
+    except Exception:
+        kosu_defteri = False
+
     return {
         "ok": bool(zincir),
         "runtime": "vercel",
@@ -791,7 +800,7 @@ async def durum(request: Request):
         "tool_policy_default": "auto",
         "tool_discovery": "eager-full-registry",
         "agent_runtime": "p2-provider-neutral-v3",
-        "checkpoint_resume": False,
+        "checkpoint_resume": bool(kosu_defteri),
     }
 
 

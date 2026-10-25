@@ -126,6 +126,27 @@ def test_bitir_durumu_ve_cevabi_yazar():
     assert tekrar.ozet()["devam_var"] is False
 
 
+def test_durum_ucu_defteri_gercegi_soyler(monkeypatch, tmp_path):
+    """`/api/durum` sabit `false` yazmaz; defterin kendisini okur."""
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("VERCEL_ENV", "preview")
+    monkeypatch.setenv("BASAK_STATE_DIR", str(tmp_path / "durum"))
+    for ad in ("BASAK_URETIM", "BASAK_OTURUM_ANAHTARI", "BASAK_WEB_TOKEN"):
+        monkeypatch.delenv(ad, raising=False)
+    import app as app_modulu
+    monkeypatch.setattr(app_modulu, "_cekirdek", lambda: (object(), []))
+
+    for beklenen in (True, False):
+        monkeypatch.setattr(kd, "hazir", lambda deger=beklenen: deger)
+        with TestClient(app_modulu.app,
+                        base_url="https://preview.test") as istemci:
+            istemci.post("/api/kimlik", json={})
+            veri = istemci.get("/api/durum").json()
+        assert veri["checkpoint_resume"] is beklenen, veri
+
+
 def test_kosu_ucu_kimliksiz_acilmaz(monkeypatch, tmp_path):
     """`/api/kosu/{id}` kimlik ister; kimliksiz 401."""
     from fastapi.testclient import TestClient
