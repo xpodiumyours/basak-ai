@@ -7,8 +7,12 @@ dort yer, SSRF, atif). Ag cagrisi sahte istemciyle kapatilir.
 
 import json
 
+import pytest
+
 import tools.harita as harita
 from tools import calistir
+
+pytestmark = pytest.mark.usefixtures("sabit_genel_dns")
 
 
 def _coz(sonuc):

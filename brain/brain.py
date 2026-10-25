@@ -6,9 +6,11 @@ hata verirse siradaki bulut devralir, hepsi duserse acik hata doner.
 
 import json
 import logging
+import math
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 from brain.groq import MODELLER, GroqClient  # MODELLER sabiti + anahtar yenileme
 from brain.stats import model_stats_al
@@ -98,7 +100,21 @@ def _cooldown_kaldi(ad):
     return max(0, kalan)
 
 def _cooldown_ekle(ad, sure=None):
-    _COOLDOWN[ad] = _time_mod.time() + (sure or _COOLDOWN_SURE)
+    bitis = _time_mod.time() + (sure or _COOLDOWN_SURE)
+    _COOLDOWN[ad] = max(_COOLDOWN.get(ad, 0), bitis)
+
+
+def _hata_sonrasi_beklet(ad, hata):
+    """Gecici API arizasini bekletir; mevcut istek siradakine gecer.
+
+    Bekleme bu surece aittir; Vercel instance'lari arasinda paylasilmaz.
+    RFC 9110 Retry-After, 429 ve 5xx yanitlarinda okunur.
+    """
+    kod = _durum_kodu(hata)
+    if _rate_limit_mi(hata) or (kod is not None and 500 <= kod <= 599):
+        _cooldown_ekle(ad, sure=_bekleme_suresi(hata))
+    elif _zaman_asimi_mi(hata):
+        _cooldown_ekle(ad, sure=_ZAMAN_ASIMI_COOLDOWN)
 
 # Saglayici hatasinin turu hata METNINDEN okunmaz; resmi HTTP durum kodu ve
 # gövdedeki resmi hata kodu okunur. Eski metin taramasi Groq'un 413 "Request
@@ -227,10 +243,14 @@ def _bekleme_suresi(hata):
             return None
         s = str(v).strip().lower()
         try:
-            return max(1.0, min(86400.0, float(s)))
+            sayi = float(s)
+            return max(1.0, min(86400.0, sayi)) if math.isfinite(sayi) else None
         except ValueError:
             # Salt saniye degil; asagida "5m/2h" bicimi denenir.
             logger.debug("Retry-After salt sayi degil: %r", v)
+        parcalar = _re.fullmatch(r"(?:\s*\d+(?:\.\d+)?\s*(?:ms|s|m|h)\s*)+", s)
+        if not parcalar:
+            return None
         toplam = 0.0
         for sayi, birim in _re.findall(r"([\d.]+)\s*(ms|s|m|h)", s):
             n = float(sayi)
@@ -238,14 +258,24 @@ def _bekleme_suresi(hata):
         return max(1.0, min(86400.0, toplam)) if toplam else None
 
     try:
-        resp = getattr(hata, "response", None)
-        baslik = getattr(resp, "headers", None) or {}
-        for ad in ("retry-after", "x-ratelimit-reset-tokens",
-                   "x-ratelimit-reset-requests"):
-            deger = baslik.get(ad) or baslik.get(ad.title())
-            sure = _sure(deger)
-            if sure:
-                return sure
+        for asil in _hata_zinciri(hata):
+            resp = getattr(asil, "response", None)
+            baslik = {str(k).lower(): v for k, v in
+                      (getattr(resp, "headers", None) or {}).items()}
+            for ad in ("retry-after", "x-ratelimit-reset-tokens",
+                       "x-ratelimit-reset-requests"):
+                deger = baslik.get(ad)
+                sure = _sure(deger)
+                if sure is None and ad == "retry-after" and deger:
+                    try:
+                        tarih = parsedate_to_datetime(str(deger))
+                        if tarih.tzinfo is None:
+                            tarih = tarih.replace(tzinfo=timezone.utc)
+                        sure = max(1.0, min(86400.0, tarih.timestamp() - time.time()))
+                    except (ValueError, TypeError, OverflowError):
+                        logger.debug("Retry-After tarihi gecersiz")
+                if sure is not None:
+                    return sure
     except Exception:
         # Yanit nesnesi beklenmedik sekilde; asagida metin deseni denenir.
         logger.debug(" yanit basligi okunamadi", exc_info=True)
@@ -416,6 +446,10 @@ class Brain:
         # 2026-09-10: kullanicinin ozel (ucretli) saglayicisi. Anahtar
         # yoksa None'dir — bedava kurulum etkilenmez.
         self._genel = self._providers.get("genel")
+        self._freellmapi = self._providers.get("freellmapi")
+        self._freellmapi_isteniyor = bool(
+            os.environ.get("FREELLMAPI_URL") or os.environ.get("FREELLMAPI_API_KEY")
+            or ayar.get("freellmapi_url") or ayar.get("freellmapi_key"))
 
     def _bulut_zinciri(self, tools: bool = False,
                        tool_required: bool = False) -> list:
@@ -460,6 +494,17 @@ class Brain:
                                  exc_info=True)
             return True
         zincir = []
+        # Acikca yapilandirilan ortak baglanti butun sohbet cagrilarini
+        # gateway'e verir. Saglayici/model yedeklemesini gateway yurutur;
+        # ayni kotayi ikinci kez dogrudan denemeyiz. Anahtar/adres yoksa
+        # mevcut kurulumun davranisi korunur.
+        gateway = getattr(self, "_freellmapi", None)
+        if _uygun("freellmapi", gateway):
+            return [("freellmapi", gateway)]
+        if getattr(self, "_freellmapi_isteniyor", False):
+            # Eksik/yanlis ortak baglanti ayarinda saglayicilara sessizce
+            # dogrudan cikma; mevcut acik hata yolu kullanilir.
+            return []
         if _uygun("groq", self._groq):
             zincir.append(("groq", self._groq))
         if _uygun("glm", self._glm):
@@ -710,17 +755,7 @@ class Brain:
                 logger.warning("%s hatasi, siradaki deneniyor: %s", ad, e)
                 hatalar.append("%s: %s" % (ad, str(e)))
                 turler[ad] = hata_turu(e)
-                if _rate_limit_mi(e):
-                    bekle = _bekleme_suresi(e)
-                    _cooldown_ekle(ad, sure=bekle)
-                    logger.info("%s rate-limit, %.0f sn cooldown",
-                                ad, bekle or _COOLDOWN_SURE)
-                elif _zaman_asimi_mi(e):
-                    # 2026-09-11: zaman asimi da kisa cooldown alsin —
-                    # GLM her istekte ayni duvara carpip patlamasin.
-                    _cooldown_ekle(ad, sure=_ZAMAN_ASIMI_COOLDOWN)
-                    logger.info("%s zaman asimi, %d sn cooldown", ad,
-                                _ZAMAN_ASIMI_COOLDOWN)
+                _hata_sonrasi_beklet(ad, e)
                 _audit("HATA kaynak=%s (%.1f sn): %s" %
                        (ad, sure, str(e)))
                 istat.kaydet(ad, sure, basarili=False, hata=str(e), tools=bool(tools))
@@ -830,6 +865,7 @@ class Brain:
                 raise
             except Exception as e:
                 hata = str(e)
+                _hata_sonrasi_beklet(ad, e)
                 # Akis ORTASINDA kopma: UI'da yari metin var, baska
                 # saglayiciyla devam ETME (metin ikilenir). Dogrudan hata.
                 if gorunen:
@@ -841,11 +877,6 @@ class Brain:
                              tools=bool(tools))
                 _durum_ver(durum, "%s cevap veremedi — siradaki beyin "
                            "deneniyor" % ad)
-                if _rate_limit_mi(e):
-                    _cooldown_ekle(ad, sure=_bekleme_suresi(e))
-                elif _zaman_asimi_mi(e):
-                    # 2026-09-11: zaman asimi da kisa cooldown alsin.
-                    _cooldown_ekle(ad, sure=_ZAMAN_ASIMI_COOLDOWN)
                 continue
 
         detay = "; ".join(hatalar) if hatalar else "bilinmeyen hata"

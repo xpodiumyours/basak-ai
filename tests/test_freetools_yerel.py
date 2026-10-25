@@ -13,12 +13,16 @@ import hashlib
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from chat.tools import sonucu_donustur
 from tools import calistir
 from tools import freetools_kopru as kopru
 from tools import freetools_yerel as yerel
+
+pytestmark = pytest.mark.usefixtures("sabit_genel_dns")
 
 SHA = "https://www.freetools.org/security-tools/sha-hash-generator"
 B64 = "https://www.freetools.org/encode-tools/base64-encode-decode"

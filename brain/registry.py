@@ -34,6 +34,19 @@ VERI_SAKLAMA_DEGERLER = (
 _VERI_SAKLAMA_BILINMEYEN = "dogrulanmadi"
 
 SAGLAYICILAR = {
+    "freellmapi": {
+        "ad": "FreeLLMAPI",
+        "ucretsiz": True,
+        "tools": True,
+        "ajan_tool_mode": "auto_enforced",
+        "gucleri": [],
+        "gunluk_istek": None,
+        "veri_saklama": "dogrulanmadi",
+        "veri_karti": "Kendi FreeLLMAPI gateway'i; veri sonraki saglayiciya iletilir. "
+                      "Saklama sartlari secilen saglayiciya baglidir.",
+        "not": "Yalniz ucretsiz katalog/zincir icin kullanilir. Ortak adres ve "
+               "anahtar tanimlaninca sohbet tek gateway'den gider; kota eklemez.",
+    },
     "groq": {
         "ad": "Groq",
         "ucretsiz": True,
