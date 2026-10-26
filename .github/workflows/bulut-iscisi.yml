@@ -1,0 +1,56 @@
+name: bulut-iscisi
+
+# Neden ayri is akisi: gercek Chromium indirmesi agir. Ana `testler`
+# matrisi her push/PR'da kosmaya devam eder; orada tarayici testi
+# Playwright yoksa atlanir, guvenlik testleri kosar. Burada ikisi de
+# gercek tarayiciyla kosar.
+#
+# Kapsam bilerek dar: yalniz worker ve testleri degistiginde tetiklenir.
+
+on:
+  push:
+    paths:
+      - "worker/**"
+      - "tests/test_bulut_iscisi_*.py"
+      - ".github/workflows/bulut-iscisi.yml"
+  pull_request:
+    paths:
+      - "worker/**"
+      - "tests/test_bulut_iscisi_*.py"
+      - ".github/workflows/bulut-iscisi.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: bulut-iscisi-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gercek-chromium:
+    name: gercek-chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python 3.12 kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: worker/requirements-worker.txt
+
+      - name: Isci bagimliliklarini kur
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r worker/requirements-worker.txt
+
+      - name: Chromium kur
+        run: python -m playwright install --with-deps chromium
+
+      - name: Isci testlerini kos
+        env:
+          PYTHONWARNINGS: ignore
+        run: >-
+          python -m pytest tests/test_bulut_iscisi_guvenlik.py
+          tests/test_bulut_iscisi_tarayici.py -q
