@@ -771,3 +771,126 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   .work-redirect-input,.work-redirect-apply{height:40px}
   .answer-sources-list{display:grid;gap:8px}
 }
+
+/* ═══ Ayarlar paneli · kota seridi · cevap eylemleri ═══════════════
+   Bu bileşenler (panel-*, kota-durum, cevap-eylem) hiç stillenmemişti:
+   ayarlar çekmecesi ham form öğeleri, "Kopyala / Markdown / Sesli oku"
+   satırı varsayılan gri düğmeler olarak görünüyordu. Mevcut --bg/--line/
+   --muted/--soft/--ink belirteçleri kullanıldı; yeni palet icat edilmedi. */
+
+/* ── Ayarlar paneli: sağdan açılan çekmece ───────────────────────── */
+.panel{
+  position:fixed;top:0;right:0;bottom:0;
+  width:min(430px,100vw);
+  display:flex;flex-direction:column;
+  background:#fff;
+  border-left:1px solid var(--line);
+  box-shadow:-28px 0 64px rgba(20,20,24,.16);
+  z-index:60;
+}
+/* Karartma her ekranda görünür (yalnız mobilde değil); dışarı tıklayınca kapanır. */
+#panelBackdrop:not([hidden]){
+  display:block;position:fixed;inset:0;
+  background:rgba(20,20,24,.28);z-index:55
+}
+.panel-ust{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:18px 22px 15px;border-bottom:1px solid var(--line);
+}
+.panel-ust strong{font-size:15px;font-weight:700;letter-spacing:-.015em;color:var(--ink)}
+.panel-kapat{
+  width:32px;height:32px;border:0;border-radius:10px;
+  background:transparent;color:var(--muted);font-size:21px;line-height:1;
+}
+.panel-kapat:hover{background:var(--soft);color:var(--ink)}
+.panel-govde{
+  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  padding:4px 22px 30px;display:flex;flex-direction:column;gap:24px;
+}
+.panel-bolum{display:grid;gap:11px;padding-top:20px;border-top:1px solid var(--line)}
+.panel-bolum:first-child{border-top:0;padding-top:16px}
+.panel-bolum h2{
+  margin:0;font-size:11px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted);
+}
+.panel-alan{display:grid;gap:6px;min-width:0}
+.panel-alan>span{font-size:12px;font-weight:600;color:#52525a}
+.panel-alan input,.panel-alan textarea{
+  width:100%;border:1px solid var(--line);border-radius:11px;background:var(--bg);
+  color:var(--ink);padding:9px 11px;font-size:13.5px;line-height:1.45;resize:vertical;
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+.panel-alan textarea{min-height:88px}
+.panel-alan input::placeholder,.panel-alan textarea::placeholder{color:#a0a0a8}
+.panel-alan input:focus-visible,.panel-alan textarea:focus-visible{
+  outline:0;border-color:#c2c2ca;box-shadow:0 0 0 3px rgba(23,23,25,.08);
+}
+.panel-ikili{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
+.panel-dugme{
+  justify-self:start;min-height:38px;padding:0 16px;border:0;border-radius:11px;
+  background:var(--ink);color:#fff;font-size:13px;font-weight:650;
+  transition:.15s ease;
+}
+.panel-dugme:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(20,20,24,.18)}
+.panel-dugme:active{transform:none}
+.panel-dugme-alt{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none}
+.panel-dugme-alt:hover{background:var(--soft);transform:none;box-shadow:none}
+.panel-dugme-tehlike{
+  background:#fff;color:#a23b3b;border:1px solid rgba(162,59,59,.32);box-shadow:none;
+}
+.panel-dugme-tehlike:hover{background:rgba(162,59,59,.08);transform:none;box-shadow:none}
+.panel-dugme:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.panel-satir{display:flex;flex-wrap:wrap;gap:9px}
+.panel-liste{margin:0;padding:0;list-style:none;display:grid;gap:7px}
+.panel-bos{padding:6px 2px;color:#9a9aa1;font-size:12.5px}
+.panel-ogee{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 8px 9px 12px;border:1px solid var(--line);border-radius:11px;background:var(--bg);
+}
+.panel-oge-metin{
+  flex:1;min-width:0;font-size:12.5px;line-height:1.5;color:#3f3f46;overflow-wrap:anywhere;
+}
+.panel-sil{
+  flex:none;width:28px;height:28px;border:0;border-radius:8px;
+  background:transparent;color:#9a9aa1;font-size:17px;line-height:1;
+}
+.panel-sil:hover{background:rgba(162,59,59,.10);color:#a23b3b}
+.panel-sil:disabled{opacity:.45;cursor:default}
+.panel-oge-kota{
+  background:transparent;border-color:transparent;border-radius:0;
+  padding:7px 2px;border-bottom:1px solid var(--line);
+}
+.panel-liste-kota .panel-ogee:last-child{border-bottom:0}
+.panel-not{margin:0;color:var(--muted);font-size:11.5px;line-height:1.55}
+.panel-durum{min-height:15px;margin:0;font-size:12px;font-weight:600;color:#2f7a4f}
+.panel-durum:empty{display:none}
+.panel-durum-hata{color:#a23b3b}
+
+/* ── Kota seridi (üst çubuk): yalnız ölçülmüş sayı ───────────────── */
+.kota-durum{
+  display:inline-flex;align-items:center;height:24px;padding:0 10px;
+  border:1px solid var(--line);border-radius:999px;background:#fff;
+  color:var(--muted);font-size:11px;font-weight:600;
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+
+/* ── Cevap eylemleri: Kopyala · Markdown · Sesli oku ─────────────── */
+.cevap-eylem{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 2px}
+.eylem-dugme{
+  min-height:32px;padding:6px 13px;border:1px solid var(--line);border-radius:999px;
+  background:#fff;color:#52525a;font-size:12px;font-weight:650;
+  transition:.14s ease;
+}
+.eylem-dugme:hover{border-color:#c9c9cf;color:var(--ink);transform:translateY(-1px)}
+.eylem-dugme:active{transform:none}
+.eylem-dugme:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+@media(max-width:760px), (hover:none) and (pointer:coarse) and (max-width:1100px){
+  .panel{width:100vw;border-left:0}
+  .panel-ust{padding:16px 16px 13px}
+  .panel-govde{padding:2px 16px 26px}
+  .panel-alan input,.panel-alan textarea{min-height:42px}
+  .panel-dugme{min-height:42px}
+  .panel-sil{width:36px;height:36px}
+  .eylem-dugme{min-height:40px;padding:9px 15px}
+}

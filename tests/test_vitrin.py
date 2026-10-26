@@ -10,7 +10,7 @@ Yeni kilid:
 - hero'daki buyuk `.ai-notice` karti YOKTUR,
 - uyari kaybolmadi: composer altinda TEK satirdir (metin birebir
   app.js UYARI_NOTU ile aynidir) + sorumluluk/bilgi linkleri tasir,
-- cache surumu yeni: chat.css?v=21 / app.js?v=30 (ayni damga
+- cache surumu yeni: chat.css?v=22 / app.js?v=30 (ayni damga
   test_vercel_stream.py, test_gorsel.py, test_kesilme_devam.py,
   test_harita_z2.py, test_harita_dedektif.py'de de kilitlidir).
 """
@@ -60,7 +60,7 @@ def test_uyari_tek_satirda_durust_ve_linkli():
 
 
 def test_surum_kilidi_yukseltildi():
-    assert "/chat.css?v=21" in INDEX
+    assert "/chat.css?v=22" in INDEX
     assert "/app.js?v=30" in INDEX
 
 
