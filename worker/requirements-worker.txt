@@ -1,0 +1,8 @@
+# Bulut iscisinin GERCEK calisma bagimliliklari.
+#
+# Ana requirements.txt'e KONMAZ: Vercel'deki beyin Playwright ve
+# Chromium indirmez. Isci imaji / CI bu listeyi kurar.
+#
+# Surumler sabit: testler ve uretim ayni Playwright'i kullanmali.
+playwright==1.63.0
+pytest==9.1.1
