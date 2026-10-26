@@ -42,6 +42,9 @@ htmlcov/
 
 # Gecikme olcumu ciktisi (2026-10-01): her kosuda yeniden uretilir.
 data/gecikme-raporu.json
+# Model yetenek olcumu ham kaydi (2026-10-26): rapor uretilir, ham veri
+# kisisel hesap kimligi tasiyabilir; repoya girmez.
+data/model-yetenek-olcumu.json
 data/sirket-ara-kirilim.json
 data/sirket-ara-erken-cikis.json
 data/erken-cikis-dondurulmus.json
