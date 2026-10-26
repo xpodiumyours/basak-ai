@@ -1,0 +1,25 @@
+# FreeLLMAPI kalici BULUT sunucusunda calisir; kullanici bilgisayarinda degil.
+# Basak'in mevcut Vercel projesine dokunmaz. HTTPS/private ingress gereklidir.
+services:
+  freellmapi:
+    image: ghcr.io/tashfeenahmed/freellmapi:latest
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Sunucu icin kalici sifreleme anahtari gerekli}
+      FREEAPI_CONFIG_PATH: /run/secrets/basak-config.json
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - freellmapi-data:/app/server/data
+    secrets:
+      - source: basak-config
+        target: /run/secrets/basak-config.json
+
+secrets:
+  basak-config:
+    file: ${BASAK_FREELLMAPI_CONFIG:?Toplu bilet dosyasinin mutlak yolu gerekli}
+
+volumes:
+  freellmapi-data:

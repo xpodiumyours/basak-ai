@@ -24,6 +24,8 @@ import pytest
 from tools import calistir
 from tools.harita import KONUM_TAVANI, _json_al, konum_coz
 
+pytestmark = pytest.mark.usefixtures("sabit_genel_dns")
+
 # Gercekci Photon govdesi: GeoJSON coordinates = [boylam, enlem].
 PHOTON_GOVDE = {
     "features": [

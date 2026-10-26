@@ -38,6 +38,29 @@ ve fatura fotoğrafından satış kataloğu üreten bir hat içerir.
 
 ## 3. Hızlı başlangıç
 
+### Web kullanımı — Vercel
+
+Web sürümünü kullanan kişinin bilgisayarına Python, Docker veya model
+kurulmaz. Aşağıdaki masaüstü kurulum adımları web kullanımı için gerekmez.
+Sağlayıcı anahtarları Vercel projesinin sunucu ortam değişkenlerinde tutulur;
+tarayıcıya aktarılmaz. Yeni anahtarlar önce geliştirme dalının Preview
+ortamında denenir; canlı yayın ayrı onayla yapılır.
+
+Başak'ın Python çekirdeği mevcut ücretsiz sağlayıcılar arasında otomatik
+yedekleme yapar. `429`, zaman aşımı veya `5xx` hatasında sıradaki uygun
+sağlayıcı denenir. `Retry-After` saniye veya HTTP tarihi olarak okunur;
+başlık yoksa `429`/`5xx` için 20 saniye, bağlantı/zaman aşımı için 300
+saniye bekleme uygulanır. Mevcut süre ayrıştırıcısının sınırı 1–86.400
+saniyedir. Bekleme sırasında istek uyutulmaz; yedek sağlayıcı devralır.
+Metin akışı başladıktan sonra kesilirse iki farklı modelin yanıtı
+birleştirilmez; kesinti bildirilir.
+
+Bekleme kaydı yalnız ilgili sunucu sürecindedir; farklı Vercel
+instance'ları ve soğuk başlangıçlar arasında ortak kota sayacı değildir.
+Sağlayıcının kendi kotası geçerlidir. FreeLLMAPI servisi veya 34 sağlayıcının
+tamamı kurulmuş değildir; yalnız mevcut adaptörler ve tanımlı anahtarlar
+kullanılır.
+
 ### 3.1 Gereksinimler
 
 - Windows 10/11, Python **3.12**

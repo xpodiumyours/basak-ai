@@ -18,6 +18,8 @@ from tools import calistir
 from tools import katalog
 from tools import web_search as ws
 
+pytestmark = pytest.mark.usefixtures("sabit_genel_dns")
+
 
 class TestJargon:
     def test_kisaltmalar_acilir(self):

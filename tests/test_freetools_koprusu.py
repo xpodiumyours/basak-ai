@@ -8,11 +8,15 @@ olculur; tarayici adimi yalnizca monkeypatch ile sahtelenir.
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools import calistir
 from tools.freetools_katalog import ARACLAR, KATEGORI_ADI, adres as kat_adres
 from tools import freetools_kopru as kopru
+
+pytestmark = pytest.mark.usefixtures("sabit_genel_dns")
 
 
 class TestBeyazListe:

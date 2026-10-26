@@ -16,12 +16,16 @@ import hashlib
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools import calistir
 from tools import freetools_kopru as kopru
 from tools import freetools_yerel as yerel
 from tools.definitions import FREETOOLS_CALISTIR
+
+pytestmark = pytest.mark.usefixtures("sabit_genel_dns")
 
 SHA = "https://www.freetools.org/security-tools/sha-hash-generator"
 BOS_HASH = hashlib.sha256(b"").hexdigest()

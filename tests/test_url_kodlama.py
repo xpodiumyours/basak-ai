@@ -31,6 +31,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools import web_search as ws
 
+pytestmark = pytest.mark.usefixtures("sabit_genel_dns")
+
 
 @pytest.fixture
 def yakalanan(monkeypatch):
@@ -175,10 +177,10 @@ _KURUM_UL = ("https://www.accio.com/supplier/tr/"
 
 
 @pytest.fixture
-def dns_kapali(monkeypatch):
+def dns_kapali(sabit_genel_dns):
     """Ağ/DNS bağımlılığını keser; IP denetimi `_guvenli_adres` içinde
     yine de çalışır, yalnız çözümleme sabitlenir."""
-    monkeypatch.setattr(ws, "_engelli_ip_nedeni", lambda host: None)
+    return sabit_genel_dns
 
 
 def _kurum_yolundan_cikan_url():
