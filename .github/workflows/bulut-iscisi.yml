@@ -11,12 +11,16 @@ on:
   push:
     paths:
       - "worker/**"
+      - "deploy/worker/**"
       - "tests/test_bulut_iscisi_*.py"
+      - "tests/test_isci_*.py"
       - ".github/workflows/bulut-iscisi.yml"
   pull_request:
     paths:
       - "worker/**"
+      - "deploy/worker/**"
       - "tests/test_bulut_iscisi_*.py"
+      - "tests/test_isci_*.py"
       - ".github/workflows/bulut-iscisi.yml"
   workflow_dispatch:
 
@@ -28,7 +32,22 @@ jobs:
   gercek-chromium:
     name: gercek-chromium
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: basak
+          POSTGRES_PASSWORD: basak
+          POSTGRES_DB: basak_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U basak -d basak_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
 
     steps:
       - uses: actions/checkout@v4
@@ -51,10 +70,18 @@ jobs:
       - name: Isci testlerini kos
         env:
           PYTHONWARNINGS: ignore
+          # CI servisi tek kullanimlik: test kendi kuyruk tablolarini
+          # kurar/siler, baska tabloya dokunmaz.
+          BASAK_TEST_DATABASE_URL: postgresql://basak:basak@127.0.0.1:5432/basak_test
         # `--noconftest`: depo kokundeki conftest beyin testleri icin
         # `brain.stats` kurar; isci imajinda beyin bagimliliklari yok.
         # Isci testleri kendi fixture'larini tasir, bu yuzden kok
         # conftest'i bilerek yuklenmez.
         run: >-
           python -m pytest tests/test_bulut_iscisi_guvenlik.py
-          tests/test_bulut_iscisi_tarayici.py -q --noconftest
+          tests/test_bulut_iscisi_tarayici.py
+          tests/test_isci_kuyrugu.py
+          tests/test_isci_kuyrugu_postgres.py
+          tests/test_isci_calistirici.py
+          tests/test_isci_ayar.py
+          -q --noconftest

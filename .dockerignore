@@ -1,0 +1,8 @@
+# İşçi imajı yalnız `worker/` içeriğini taşır. Beyin, web ve testler
+# imaja girmez; böylece sır yüzeyi ve imaj boyu küçük kalır.
+*
+!worker/
+!worker/**
+worker/__pycache__
+worker/**/__pycache__
+worker/**/*.pyc

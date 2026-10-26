@@ -776,14 +776,21 @@ async def durum(request: Request):
     except Exception:
         hafiza_modu = "dogrulanamadi"
 
-    # Yarim kalan kosu gercekten surdurulebiliyor mu: tek kaynak defterin
-    # kendisi. Sabit `False` yazmak, ozellik geldikten sonra ekranda
-    # "surdurulemiyor" demek olurdu (2026-10-25 olcumu).
+    # Yarim kalan kosu gercekten surdurulebiliyor mu: iki sart birlikte.
+    # (1) kalici kosu defteri acik, (2) heartbeat'i taze bir isci var.
+    # Yalniz deftere bakmak "surdurulebilir" diyordu ama isi alacak kimse
+    # yoktu; yalniz isciye bakmak da kosu kaydi olmadan yalan olurdu.
     try:
         from chat import kosu_deposu
-        kosu_defteri = kosu_deposu.hazir()
+        kosu_defteri = bool(kosu_deposu.hazir())
+        isci_durumu = kosu_deposu.isci_durumu()
     except Exception:
+        logger.debug("isci durumu okunamadi", exc_info=True)
         kosu_defteri = False
+        isci_durumu = {
+            "hazir": False, "canli": 0, "isciler": [],
+            "kuyruk": {}, "neden": "okunamadi",
+        }
 
     return {
         "ok": bool(zincir),
@@ -800,7 +807,10 @@ async def durum(request: Request):
         "tool_policy_default": "auto",
         "tool_discovery": "eager-full-registry",
         "agent_runtime": "p2-provider-neutral-v3",
-        "checkpoint_resume": bool(kosu_defteri),
+        "kosu_defteri": bool(kosu_defteri),
+        "isciler": isci_durumu,
+        "checkpoint_resume": bool(
+            kosu_defteri and int(isci_durumu.get("canli") or 0) > 0),
     }
 
 

@@ -32,7 +32,17 @@ import os
 import sqlite3
 import tempfile
 import threading
+import time
 import uuid
+
+try:
+    from worker.kuyruk import (
+        IS_TABLO as ISCI_IS_TABLO,
+        KALP_TABLO as ISCI_KALP_TABLO,
+    )
+except Exception:  # pragma: no cover — worker paketi yoksa adlar sabit
+    ISCI_IS_TABLO = "basak_isci_is"
+    ISCI_KALP_TABLO = "basak_isci_kalp"
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +84,16 @@ def _dizin():
 
 def _simdi():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def _iso_z(an):
+    """Epoch saniyeyi okunur UTC damgasına çevirir; bozuksa boş döner."""
+    try:
+        return datetime.datetime.fromtimestamp(
+            float(an), datetime.timezone.utc).isoformat().replace(
+                "+00:00", "Z")
+    except (TypeError, ValueError, OverflowError, OSError):
+        return ""
 
 
 def _json_yaz(deger):
@@ -209,6 +229,21 @@ class _Depo:
             "ORDER BY guncelleme DESC LIMIT %d" % (KOSU_TABLO, adet),
             (kullanici,),
         )
+
+    def isci_ozeti(self, an, esik):
+        """İşçi kuyruğunun salt-okunur özeti.
+
+        Tablolar işçi ilk kez başladığında oluşur; yoksa çağıran taraf
+        hatayı yakalar ve "kuyruk kapalı" der. Burada yazma YOKTUR.
+        """
+        sayilar = self._sorgu(
+            "SELECT durum, COUNT(*) AS adet FROM %s GROUP BY durum"
+            % ISCI_IS_TABLO)
+        isciler = self._sorgu(
+            "SELECT isci, basladi, son, durum, surum, is_id FROM %s "
+            "WHERE son >= %%s ORDER BY isci" % ISCI_KALP_TABLO,
+            (float(an) - float(esik),))
+        return {"sayilar": sayilar, "isciler": isciler}
 
 
 class _SqliteDepo(_Depo):
@@ -369,6 +404,87 @@ def sifirla():
     with _DEPO_KILIT:
         _DEPO = None
         _UYARI_VERILDI = False
+
+
+def isci_durumu(esik=90.0, simdi=None):
+    """Canlı bulut işçisi var mı? (salt-okunur)
+
+    `checkpoint_resume` için tek kanıt budur: koşu defteri tek başına
+    "yarım iş sürdürülebilir" demek yetmez. İşçi heartbeat'i yoksa iş
+    kuyrukta bekler, ama kimse çalıştırmaz. Ekran bu ayrımı yazar.
+
+    Kuyruk tabloları işçi hiç çalışmadıysa yoktur; bu durum hata değil,
+    "işçi kuyruğu kapalı" bilgisidir.
+    """
+    an = float(time.time() if simdi is None else simdi)
+    try:
+        esik = max(1.0, float(esik))
+    except (TypeError, ValueError):
+        esik = 90.0
+    bos = {
+        "hazir": False,
+        "canli": 0,
+        "isciler": [],
+        "kuyruk": {
+            "bekliyor": 0, "calisiyor": 0, "bitti": 0,
+            "hata": 0, "supheli": 0,
+        },
+        "son_kalp": "",
+        "son_kalp_yas_sn": None,
+        "esik_sn": esik,
+        "neden": "",
+    }
+    depo = _depo()
+    if depo is None:
+        bos["neden"] = "koşu defteri kapalı (DSN yok)"
+        return bos
+    try:
+        veri = depo.isci_ozeti(an, esik)
+    except Exception:
+        logger.debug("işçi kuyruğu okunamadı", exc_info=True)
+        bos["neden"] = "işçi kuyruğu tablosu yok"
+        return bos
+
+    sayilar = dict(bos["kuyruk"])
+    for satir in veri.get("sayilar") or []:
+        ad = str(satir.get("durum") or "")
+        if ad in sayilar:
+            try:
+                sayilar[ad] = int(satir.get("adet") or 0)
+            except (TypeError, ValueError):
+                sayilar[ad] = 0
+
+    isciler = []
+    son_kalp = None
+    for satir in veri.get("isciler") or []:
+        son = satir.get("son")
+        isciler.append({
+            "isci": str(satir.get("isci") or ""),
+            "durum": str(satir.get("durum") or ""),
+            "surum": str(satir.get("surum") or ""),
+            "is": str(satir.get("is_id") or ""),
+            "basladi": _iso_z(satir.get("basladi")),
+            "son": _iso_z(son),
+            "yas_sn": (None if son is None
+                       else max(0, round(an - float(son)))),
+        })
+        try:
+            if son is not None and (son_kalp is None or float(son) > son_kalp):
+                son_kalp = float(son)
+        except (TypeError, ValueError):
+            logger.debug("kalp zamanı çözülemedi: %r", son)
+
+    return {
+        "hazir": True,
+        "canli": len(isciler),
+        "isciler": isciler,
+        "kuyruk": sayilar,
+        "son_kalp": _iso_z(son_kalp),
+        "son_kalp_yas_sn": (None if son_kalp is None
+                            else max(0, round(an - son_kalp))),
+        "esik_sn": esik,
+        "neden": "",
+    }
 
 
 class Kosu:

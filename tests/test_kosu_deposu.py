@@ -9,10 +9,14 @@ Olculen sozlesme:
 """
 
 import json
+import os
+import time
 
 import pytest
 
 from chat import kosu_deposu as kd
+from worker.guvenlik import token_uret
+from worker.kuyruk import Kuyruk
 
 
 @pytest.fixture(autouse=True)
@@ -117,6 +121,52 @@ def test_uretimde_dsn_yoksa_defter_kapali(monkeypatch):
     assert kd.yukle("herhangi") is None
 
 
+def _isci_isi_birak(kuyruk, adim="a1", kosu="kosu-1"):
+    eylem = {"tur": "oku", "secici": "#icerik"}
+    token, _ = token_uret(
+        "test-iscisi-anahtari-32-bayt", kosu_id=kosu, adim_id=adim,
+        tur="oku", url="https://ornek.test/sayfa", argumanlar=eylem)
+    return kuyruk.birak(
+        kosu, adim, eylem, token, "https://ornek.test/sayfa")
+
+
+def test_isci_durumu_kuyruk_yokken_kapali(tmp_path):
+    """İşçi hiç çalışmadıysa tablo yoktur; bu "hata" değil, kapalı bilgidir."""
+    veri = kd.isci_durumu()
+    assert veri["hazir"] is False
+    assert veri["canli"] == 0
+    assert veri["isciler"] == []
+    assert "tablo" in veri["neden"]
+
+
+def test_isci_durumu_canli_iscili_ve_kuyrugu_gosterir(tmp_path):
+    kuyruk = Kuyruk(sqlite_yolu=os.path.join(str(tmp_path), "kosular.db"))
+    kuyruk.kalp("isci-1", surum="abc1234")
+    _isci_isi_birak(kuyruk)
+
+    veri = kd.isci_durumu()
+
+    assert veri["hazir"] is True
+    assert veri["canli"] == 1
+    assert veri["isciler"][0]["isci"] == "isci-1"
+    assert veri["isciler"][0]["surum"] == "abc1234"
+    assert veri["isciler"][0]["yas_sn"] is not None
+    assert veri["kuyruk"]["bekliyor"] == 1
+    assert veri["son_kalp"]
+    assert veri["neden"] == ""
+
+
+def test_isci_durumu_bayat_kalbi_canli_saymaz(tmp_path):
+    kuyruk = Kuyruk(sqlite_yolu=os.path.join(str(tmp_path), "kosular.db"))
+    kuyruk.kalp("isci-1", simdi=time.time() - 1_000)
+
+    veri = kd.isci_durumu(esik=90)
+
+    assert veri["hazir"] is True
+    assert veri["canli"] == 0
+    assert veri["isciler"] == []
+
+
 def test_bitir_durumu_ve_cevabi_yazar():
     kosu = kd.ac("casper", "is")
     kosu.bitir("completed", cevap="bitti")
@@ -127,7 +177,12 @@ def test_bitir_durumu_ve_cevabi_yazar():
 
 
 def test_durum_ucu_defteri_gercegi_soyler(monkeypatch, tmp_path):
-    """`/api/durum` sabit `false` yazmaz; defterin kendisini okur."""
+    """`/api/durum` sabit değer yazmaz; defter + canlı işçi gerçeğini okur.
+
+    `checkpoint_resume` yalnız iki şart birlikteyken true: kalıcı defter
+    AÇIK ve heartbeat'i taze işçi VAR. Yalnız defter "sürdürülebilir"
+    demek, işi alacak kimse yokken yalan olurdu.
+    """
     from fastapi.testclient import TestClient
 
     monkeypatch.setenv("VERCEL", "1")
@@ -138,12 +193,19 @@ def test_durum_ucu_defteri_gercegi_soyler(monkeypatch, tmp_path):
     import app as app_modulu
     monkeypatch.setattr(app_modulu, "_cekirdek", lambda: (object(), []))
 
-    for beklenen in (True, False):
-        monkeypatch.setattr(kd, "hazir", lambda deger=beklenen: deger)
+    for defter, canli, beklenen in (
+            (True, 1, True), (True, 0, False), (False, 0, False)):
+        monkeypatch.setattr(kd, "hazir", lambda deger=defter: deger)
+        monkeypatch.setattr(kd, "isci_durumu", lambda c=canli, h=defter: {
+            "hazir": h, "canli": c, "isciler": [], "kuyruk": {},
+            "neden": "",
+        })
         with TestClient(app_modulu.app,
                         base_url="https://preview.test") as istemci:
             istemci.post("/api/kimlik", json={})
             veri = istemci.get("/api/durum").json()
+        assert veri["kosu_defteri"] is defter, veri
+        assert veri["isciler"]["canli"] == canli, veri
         assert veri["checkpoint_resume"] is beklenen, veri
 
 

@@ -5,4 +5,6 @@
 #
 # Surumler sabit: testler ve uretim ayni Playwright'i kullanmali.
 playwright==1.63.0
+# Kalıcı iş kuyruğu Postgres'e bağlanır; sürüm kök requirements ile aynı.
+psycopg[binary]==3.3.6
 pytest==9.1.1

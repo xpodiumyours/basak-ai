@@ -91,11 +91,33 @@
           ? "Beklemeden yazıyor; uzun cevaplar da kesilmeden görünüyor."
           : "Bu sürümde akış tek parça.");
 
+    var isciDurumu = (d.isciler && typeof d.isciler === "object") ? d.isciler : {};
+    var canliIsci = Number(isciDurumu.canli || 0);
+    var defterVar = !!d.kosu_defteri;
+    var kuyruk = isciDurumu.kuyruk || {};
+    var bekleyen = Number(kuyruk.bekliyor || 0);
+    var calisan = Number(kuyruk.calisiyor || 0);
+
+    if (canliIsci > 0) {
+      yaz("isci", "pass", canliIsci + " canlı işçi",
+          "Kalp atışı son " + Number(isciDurumu.esik_sn || 90) + " sn içinde · " +
+          bekleyen + " bekleyen, " + calisan + " çalışan iş.");
+    } else if (isciDurumu.hazir) {
+      yaz("isci", "waiting", "Canlı işçi yok",
+          "Kuyruk açık (" + bekleyen + " bekleyen iş), ama işi alacak işçi kalp atmıyor.");
+    } else {
+      yaz("isci", "waiting", "İşçi kuyruğu kapalı",
+          String(isciDurumu.neden || "Kuyruk tablosu henüz oluşmadı."));
+    }
+
     yaz("devam", d.checkpoint_resume ? "pass" : "waiting",
-        d.checkpoint_resume ? "Yarım kalan iş sürdürülebiliyor" : "Yarım kalan iş sürdürülemiyor",
+        d.checkpoint_resume ? "Yarım kalan iş sürdürülebiliyor"
+          : (defterVar ? "Defter açık, canlı işçi yok" : "Yarım kalan iş sürdürülemiyor"),
         d.checkpoint_resume
           ? "Kopan bir tur kaldığı yerden devam eder."
-          : "Bağlantı koparsa tur baştan başlar. Henüz eklenmedi.");
+          : (defterVar
+              ? "Koşu kaydı kalıcı; sürdürmek için canlı işçi heartbeat'i gerekli."
+              : "Bağlantı koparsa tur baştan başlar. Henüz eklenmedi."));
   }
 
   /* ── Ölçüm 2: beyin gerçekten yanıt veriyor mu ─────────────────── */
@@ -230,6 +252,7 @@
       yaz("saglayici", "waiting", "Ölçülemedi");
       yaz("surum", "waiting", "Ölçülemedi");
       yaz("akis", "waiting", "Ölçülemedi");
+      yaz("isci", "waiting", "Ölçülemedi");
       yaz("devam", "waiting", "Ölçülemedi");
     }
 
@@ -500,6 +523,7 @@
   satirEkle("kanal", "Tarayıcı eklentisi kanalı");
   satirEkle("surum", "Canlı sürüm");
   satirEkle("akis", "Cevap akışı");
+  satirEkle("isci", "Bulut tarayıcı işçisi");
   satirEkle("devam", "Yarım kalan işi sürdürme");
 
   if (yenileEl) yenileEl.addEventListener("click", function () { olc(); });

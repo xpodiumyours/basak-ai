@@ -1,0 +1,47 @@
+# Başak bulut tarayıcı işçisi — Oracle Always Free hedefi.
+#
+# Dışarıya port AÇILMAZ. Sağlık ucu yalnız konteyner içinde 127.0.0.1
+# dinler; `docker compose ps` / healthcheck aynı makineden okur.
+#
+# Kullanım (bu dizinde):
+#   cp .env.example .env   # anahtarları doldur
+#   docker compose up -d --build
+#
+# Not: bu dizin kurulum içindir; canlı Oracle kurulumu henüz yapılmadı.
+
+services:
+  isci:
+    build:
+      context: ../..
+      dockerfile: worker/Dockerfile
+    image: basak-isci:local
+    restart: unless-stopped
+    init: true
+    environment:
+      BASAK_ISCI_ANAHTARI: ${BASAK_ISCI_ANAHTARI:?BASAK_ISCI_ANAHTARI gerekli}
+      BASAK_ISCI_DATABASE_URL: ${BASAK_ISCI_DATABASE_URL:-}
+      BASAK_ISCI_ADI: ${BASAK_ISCI_ADI:-basak-worker-1}
+      BASAK_SURUM: ${BASAK_SURUM:-dev}
+      BASAK_STATE_DIR: /home/basak/state
+      BASAK_ISCI_SAGLIK_PORT: "8787"
+    volumes:
+      - isci-durum:/home/basak/state
+    security_opt:
+      - no-new-privileges:true
+    shm_size: "1gb"
+    mem_limit: 3g
+    cpus: 2
+    stop_grace_period: 30s
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/saglik', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  isci-durum:

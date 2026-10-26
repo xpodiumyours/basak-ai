@@ -27,6 +27,7 @@ from worker.guvenlik import (
     guvenli_url,
     token_dogrula,
 )
+from worker.hatalar import TarayiciHatasi
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +39,6 @@ _EN_FAZLA_EKRAN = 2_500_000
 _EN_FAZLA_YAZI = 10_000
 
 
-class TarayiciHatasi(RuntimeError):
-    """Tarayıcı adımı güvenli biçimde tamamlanamadı."""
-
-
 def _kisa(metin, sinir=500):
     metin = str(metin or "")
     return metin if len(metin) <= sinir else metin[:sinir] + "..."
@@ -51,7 +48,7 @@ class BulutTarayici:
     """Tek işçi süreci için Playwright oturum yöneticisi."""
 
     def __init__(self, anahtar, *, guvenlik=True, zaman_asimi_ms=15_000,
-                 azami_oturum=3, oturum_suresi=300):
+                 azami_oturum=3, oturum_suresi=300, nonce_defteri=None):
         if not str(anahtar or ""):
             raise TokenHatasi("işçi anahtarı yok")
         self._anahtar = str(anahtar)
@@ -59,7 +56,9 @@ class BulutTarayici:
         self._zaman = max(1_000, int(zaman_asimi_ms))
         self._azami = max(1, int(azami_oturum))
         self._oturum_suresi = max(30, int(oturum_suresi))
-        self._tek = TekKullanim()
+        # İşçi yeniden başlarsa süreç içi defter kaybolur; kalıcı kuyruk
+        # adaptörü verilirse aynı belge ikinci kez çalışmaz.
+        self._tek = nonce_defteri if nonce_defteri is not None else TekKullanim()
         self._oturumlar = {}
         self._kilit = asyncio.Lock()
         self._basla_kilit = asyncio.Lock()

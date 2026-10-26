@@ -136,6 +136,11 @@ globalThis.document = {
 const DURUM = {
   ok: true, arac_sayisi: 62, saglayicilar: ["ornek"], eksik_saglayicilar: [],
   commit: "abc1234", runtime: "vercel", tasima: "canli-ndjson",
+  kosu_defteri: true,
+  isciler: {
+    hazir: true, canli: 0, esik_sn: 90,
+    kuyruk: { bekliyor: 0, calisiyor: 0, bitti: 0, hata: 0, supheli: 0 },
+  },
   checkpoint_resume: false,
 };
 const CALISMA = {
@@ -291,11 +296,24 @@ def test_durum_sayfasi_olcum_satirlarini_cizer():
     basliklar = [s["baslik"] for s in sonuc["satirlar"]]
     for beklenen in ("Beyin yanıt veriyor", "Kaç araç var",
                      "Hangi modeller bağlı", "Tarayıcı eklentisi kanalı",
-                     "Canlı sürüm"):
+                     "Canlı sürüm", "Bulut tarayıcı işçisi"):
         assert beklenen in basliklar, basliklar
-    assert len(sonuc["satirlar"]) >= 7, basliklar
+    assert len(sonuc["satirlar"]) >= 8, basliklar
     # Ölçüm gerçekten sonuçlandı (sonsuza kadar "ölçülüyor" kalmadı).
     assert "Son ölçüm" in sonuc["sonOlcum"], sonuc["sonOlcum"]
+
+
+def test_durum_sayfasi_canli_iscisiz_surdurmeyi_yesil_yazmaz():
+    """Defter açık ama işçi yoksa "sürdürülebiliyor" YAZILMAZ."""
+    sonuc = _sayfayi_calistir()
+    satirlar = {s["baslik"]: s for s in sonuc["satirlar"]}
+    devam = satirlar["Yarım kalan işi sürdürme"]
+    assert "waiting" in devam["durum"], devam
+    assert "Defter açık, canlı işçi yok" in devam["metin"], devam
+
+    isci = satirlar["Bulut tarayıcı işçisi"]
+    assert "waiting" in isci["durum"], isci
+    assert "Canlı işçi yok" in isci["metin"], isci
 
 
 def test_durum_sayfasi_beyin_olcumunu_gercek_yanitla_yapar():
