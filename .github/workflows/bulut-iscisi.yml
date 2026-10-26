@@ -51,6 +51,10 @@ jobs:
       - name: Isci testlerini kos
         env:
           PYTHONWARNINGS: ignore
+        # `--noconftest`: depo kokundeki conftest beyin testleri icin
+        # `brain.stats` kurar; isci imajinda beyin bagimliliklari yok.
+        # Isci testleri kendi fixture'larini tasir, bu yuzden kok
+        # conftest'i bilerek yuklenmez.
         run: >-
           python -m pytest tests/test_bulut_iscisi_guvenlik.py
-          tests/test_bulut_iscisi_tarayici.py -q
+          tests/test_bulut_iscisi_tarayici.py -q --noconftest
