@@ -44,6 +44,10 @@ from chat.eklenti_ws import router as _eklenti_router  # noqa: E402
 
 app.include_router(_eklenti_router)
 
+from chat.freellmapi_yedek import router as _freellmapi_yedek_router  # noqa: E402
+
+app.include_router(_freellmapi_yedek_router)
+
 _BEYIN = None
 _TOOLS = None
 _PREVIEW_COOKIE = "basak_preview_oturum"
