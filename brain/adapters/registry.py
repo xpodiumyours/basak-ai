@@ -63,6 +63,8 @@ def create_providers(ayar: dict, adapters: dict = None) -> dict:
         try:
             client = adapter.create(ayar)
             if client is not None:
+                from brain.model_havuzu import bagla
+                client = bagla(ad, client, ayar)
                 providers[ad] = client
                 logger.info("Sağlayıcı başlatıldı: %s", ad)
             else:

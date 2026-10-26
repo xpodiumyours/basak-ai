@@ -145,15 +145,15 @@ class CohereClient:
 }
 
         if tools:
-            # Cohere formatinda tool tanimlarina cevir
+            # Cohere V2, type/function zarfini ister; V1'in yalniz
+            # name/parameters bicimi gercek API'de 400 verir.
             cohere_tools = []
             for t in tools:
                 if isinstance(t, dict) and t.get("type") == "function":
                     func = t.get("function", {})
                     cohere_tools.append({
-                        "name": func.get("name", ""),
-                        "description": func.get("description", ""),
-                        "parameters": func.get("parameters", {}),
+                        "type": "function",
+                        "function": dict(func),
                     })
             if cohere_tools:
                 kwargs["tools"] = cohere_tools

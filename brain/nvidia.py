@@ -191,6 +191,9 @@ class NvidiaClient:
         """
         if not self.client:
             raise RuntimeError("NVIDIA bağlı değil")
+        if getattr(self, "model_havuzu", None):
+            return self._cagri_ata(self.model, messages, tools,
+                                  tool_choice=tool_choice)
 
         # Kullanıcı işi veya tool varlığı modele karar vermez. Seçili model
         # korunur; yalnız gerçek API/model hatasında sabit teknik yedek zinciri

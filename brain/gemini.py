@@ -73,6 +73,9 @@ class GeminiClient:
         """
         if not self.client:
             raise RuntimeError("Gemini bağlı değil")
+        if getattr(self, "model_havuzu", None):
+            return self._cagri_ata(self.model, messages, tools,
+                                  tool_choice=tool_choice)
 
         # Secili model basarisizsa yedek zincire dusen tek seferlik
         # geri donus (nvidia.cevapla ile ayni kalip — Faz 3).

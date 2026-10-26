@@ -758,6 +758,8 @@ async def durum(request: Request):
             modeller.append({
                 "ad": ad,
                 "model": getattr(istemci, "model", None) or "dogrulanamadi",
+                "model_havuzu": list(getattr(istemci, "model_havuzu", [])),
+                "son_model": getattr(getattr(istemci, "client", None), "son_model", None),
                 "gucleri": list(kart.get("gucleri") or []),
                 "limit": {
                     "saatlik_istek": kart.get("saatlik_istek"),
