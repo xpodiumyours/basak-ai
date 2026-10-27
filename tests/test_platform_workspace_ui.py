@@ -204,7 +204,7 @@ def test_real_chromium_pending_chat_title_reload_and_view_preservation(width, he
                 route.fulfill(status=200, content_type='application/json', body=json.dumps(data))
             page.route('**/api/**', api)
             page.goto('http://127.0.0.1:%d/index.html' % server.server_port)
-            page.wait_for_function("typeof olayiIsle === 'function' && window.basakKullanici")
+            page.wait_for_function("typeof olayiIsle === 'function' && window.basakKimlik?.kullanici")
             assert page.locator('.chat-main').is_visible()
             assert not page.locator('#workspacePreview').is_visible()
             page.evaluate("""() => {
@@ -218,6 +218,8 @@ def test_real_chromium_pending_chat_title_reload_and_view_preservation(width, he
             assert not page.locator('#platformTaskView').is_visible()
             assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
             page.reload()
+            if page.locator('#sidebarToggle').is_visible():
+                page.locator('#sidebarToggle').click()
             page.get_by_role('button', name='Saved title', exact=True).click()
             assert page.get_by_role('button', name='Görevi aç', exact=True).is_visible()
             assert page.locator('#chat').inner_text().startswith('Long task')
