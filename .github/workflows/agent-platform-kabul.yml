@@ -59,3 +59,13 @@ jobs:
 
       - name: Alti agent platform test paketi
         run: python -m pytest tests/test_platform_*.py -q
+
+      - name: Mevcut sohbet, model havuzu ve FreeLLMAPI korunma testleri
+        run: >-
+          python -m pytest -q
+          tests/test_dogrudan_model_havuzu.py
+          tests/test_freellmapi.py
+          tests/test_freellmapi_yedek.py
+          tests/test_agent_protocol.py
+          tests/test_anonim_web_kimligi.py
+          tests/test_web_yeni_cekirdek.py
