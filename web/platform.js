@@ -3,7 +3,8 @@
 (function (scope) {
   "use strict";
   const STATUS = Object.freeze({
-    queued: "Sırada", running: "Çalışıyor", awaiting_approval: "Onay bekliyor",
+    queued: "Sırada", running: "Çalışıyor", waiting_children: "Alt ajanlar bekleniyor",
+    awaiting_approval: "Onay bekliyor",
     awaiting_connection: "Bağlantı bekliyor", paused: "Duraklatıldı",
     verifying: "Doğrulanıyor", completed: "Tamamlandı", partial: "Kısmi",
     blocked: "Engellendi", failed: "Başarısız", cancelled: "İptal edildi",
@@ -75,6 +76,31 @@
 
   function statusText(value) { return STATUS[value] || "Durum alınamadı"; }
 
+  // Derived exclusively from persisted task snapshots; never invent progress.
+  function childProgress(run) {
+    const children = (run && run.children) || [];
+    const counts = { total: children.length, completed: 0, running: 0, failed: 0, pending: 0 };
+    for (const child of children) {
+      if (child.durum === "completed") counts.completed++;
+      else if (child.durum === "running") counts.running++;
+      else if (TERMINAL.has(child.durum)) counts.failed++;
+      else counts.pending++;
+    }
+    return counts;
+  }
+
+  function evidenceText(check) {
+    const data = check && check.evidence;
+    if (!data || typeof data !== "object" || Array.isArray(data)) return String(check.id || "Kabul kontrolü");
+    const detail = [];
+    if (data.verified === true) detail.push("Tarayıcı doğrulandı");
+    if (typeof data.exit_code === "number") detail.push("Çıkış kodu " + data.exit_code);
+    if (typeof data.sha256 === "string") detail.push("SHA-256 " + data.sha256.slice(0, 12));
+    if (data.missing === true) detail.push("Kanıt bulunamadı");
+    if (data.unsupported_validator) detail.push("Bilinmeyen doğrulama türü");
+    return String(check.id || "Kabul kontrolü") + (detail.length ? " · " + detail.join(" · ") : "");
+  }
+
   function safeHref(value, origin) {
     if (!value) return null;
     try {
@@ -118,7 +144,8 @@
     };
   }
 
-  const exported = { createState, identity, snapshot, events, statusText, safeHref, previewHref, createClient };
+  const exported = { createState, identity, snapshot, events, statusText,
+    childProgress, evidenceText, safeHref, previewHref, createClient };
   if (typeof module !== "undefined" && module.exports) module.exports = exported;
   if (!scope.document) return;
   scope.BasakWorkspace = exported;
@@ -275,6 +302,13 @@
     byId("platformCancel").disabled = busy || TERMINAL.has(root.durum);
     byId("platformResume").hidden = !["paused", "blocked", "awaiting_connection", "partial"].includes(root.durum);
     byId("platformResume").disabled = busy;
+    const progress = childProgress(root);
+    if (progress.total) {
+      container.append(node("p", "workspace-muted",
+        "Alt ajanlar · " + progress.completed + "/" + progress.total + " tamamlandı · " +
+        progress.running + " çalışıyor · " + progress.pending + " bekliyor · " +
+        progress.failed + " başarısız/kısmi"));
+    }
     const visited = new Set();
     function draw(run, depth) {
       if (!run || visited.has(run.id)) return;
@@ -289,7 +323,7 @@
       if (model) row.append(node("small", "workspace-muted", model));
       if (run.hata || run.reason || run.blocked_reason) row.append(node("p", "workspace-run-reason", run.hata || run.reason || run.blocked_reason));
       for (const check of run.checks || []) {
-        row.append(node("p", "workspace-check", (check.ok === true ? "Geçti: " : "Geçmedi: ") + (check.evidence || check.id || "Kabul kontrolü")));
+        row.append(node("p", "workspace-check", (check.ok === true ? "Geçti: " : "Geçmedi: ") + evidenceText(check)));
       }
       for (const approval of run.approvals || []) {
         if (approval.status !== "pending") continue;

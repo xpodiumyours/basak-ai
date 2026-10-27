@@ -132,3 +132,19 @@ def test_index_has_unique_labels_and_preserves_chat_entrypoints():
     assert {"chat", "message", "send", "historyList", "platformTaskList",
             "workspacePreview", "platformTaskForm", "platformAccount"} <= set(page.ids)
     assert any(src.startswith("/platform.js") for src in page.scripts)
+
+
+def test_waiting_children_summary_and_check_evidence_are_human_readable():
+    js("""
+assert.equal(ui.statusText('waiting_children'),'Alt ajanlar bekleniyor');
+const counts=ui.childProgress({children:[
+ {durum:'completed'}, {durum:'running'}, {durum:'queued'}, {durum:'uncertain'}
+]});
+assert.deepEqual(counts,{total:4,completed:1,running:1,failed:1,pending:1});
+assert.equal(ui.evidenceText({id:'postcondition', evidence:{verified:true}}),
+ 'postcondition · Tarayıcı doğrulandı');
+assert.equal(ui.evidenceText({id:'build', evidence:{exit_code:0}}),
+ 'build · Çıkış kodu 0');
+assert(!ui.evidenceText({id:'secret', evidence:{access_token:'HIDDEN_SECRET'}})
+ .includes('HIDDEN_SECRET'));
+""")

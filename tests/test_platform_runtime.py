@@ -341,3 +341,45 @@ def test_empty_parent_permissions_remain_denied_on_implicit_child(store):
     parent = create(store, allowed_tools=[])
     child = create(store, parent_id=parent['id'])
     assert store.get('alice', child['id'])['allowed_tools'] == []
+
+
+def test_subagent_caps_enforced_atomically_and_replay_remains_idempotent(store):
+    parent = create(store)
+    created = [create(store, parent_id=parent["id"], request_key="agent:%d" % i)
+               for i in range(8)]
+    assert len({r["id"] for r in created}) == 8
+    assert create(store, parent_id=parent["id"], request_key="agent:0")["id"] == created[0]["id"]
+    with pytest.raises(Conflict, match="kapasitesi"):
+        create(store, parent_id=parent["id"], request_key="agent:8")
+
+
+def test_only_three_siblings_run_at_once_and_queued_fourth_resumes(store):
+    parent = create(store)
+    children = [create(store, parent_id=parent["id"]) for _ in range(4)]
+    from chat.platform_runtime import Control, RunSuspended
+    parent_lease = store.claim("parent", run_id=parent["id"])["lease"]
+    with pytest.raises(RunSuspended):
+        Control(store, parent_lease).wait_for_children([r["id"] for r in children])
+    leases = [store.claim("worker-%d" % i) for i in range(4)]
+    assert sum(job is not None for job in leases) == 3
+    assert len({job["id"] for job in leases if job}) == 3
+    assert store.get("alice", children[3]["id"])["durum"] == "queued"
+    first = next(job for job in leases if job)
+    store.record_check(first["lease"], "result_verified", True, {"id": "ok"})
+    store.finish(first["lease"], {"answer": "done"})
+    resumed = store.claim("next")
+    assert resumed is not None
+    assert resumed["id"] == children[3]["id"]
+
+
+def test_subagent_may_not_delegate_grandchildren(store):
+    root = create(store)
+    child = create(store, parent_id=root["id"])
+    with pytest.raises(Conflict, match="Alt ajanlar"):
+        create(store, parent_id=child["id"])
+
+
+def test_subagent_capacity_configuration_is_valid(tmp_path):
+    depo = kosu_deposu._SqliteDepo(str(tmp_path / "bad.db"))
+    with pytest.raises(ValueError, match="kapasitesi"):
+        RuntimeStore(depo, max_children_per_parent=2, max_active_children_per_parent=3)

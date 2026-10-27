@@ -116,7 +116,14 @@ class RuntimeStore:
     Production never falls back to ephemeral SQLite. Constructor injection is
     used by tests and by the worker process with its existing ledger backend.
     """
-    def __init__(self, depo=None, *, clock=None, max_queued_per_user=None):
+    def __init__(self, depo=None, *, clock=None, max_queued_per_user=None,
+                 max_children_per_parent=8, max_active_children_per_parent=3):
+        # Bound delegated work independently of provider context length.
+        # Same values in every process; the database enforces limits atomically.
+        self.max_children_per_parent = int(max_children_per_parent)
+        self.max_active_children_per_parent = int(max_active_children_per_parent)
+        if not (1 <= self.max_active_children_per_parent <= self.max_children_per_parent <= 32):
+            raise ValueError("Alt ajan kapasitesi 1..32 ve aktif <= toplam olmali")
         self.depo = depo if depo is not None else kosu_deposu._depo()
         if self.depo is None:
             raise Unavailable("Kalıcı görev deposu hazır değil")
@@ -293,6 +300,13 @@ class RuntimeStore:
                 parent = self._require(tx, user_id, parent_id)
                 if parent["workspace_id"] != workspace_id or parent["durum"] in TERMINAL:
                     raise Conflict("Üst görev bu çalışma alanında etkin değil")
+                if parent["parent_id"]:
+                    raise Conflict("Alt ajanlar yeni alt ajan olusturamaz; delegasyonu ana ajan yonetir")
+                child_count = tx.one(
+                    "SELECT COUNT(*) AS n FROM basak_platform_run WHERE parent_id=%s",
+                    (parent_id,))["n"]
+                if child_count >= self.max_children_per_parent:
+                    raise Conflict("Ana gorevin alt ajan kapasitesi dolu")
                 parent_tools = _read(parent["spec"], {}).get("allowed_tools")
                 if parent_tools is not None:
                     if allowed_tools is None:
@@ -404,6 +418,13 @@ class RuntimeStore:
                     if parent["durum"] in TERMINAL:
                         self._status(tx, row, "cancelled", "Üst görev kapandı")
                         continue
+                    active = tx.one(
+                        "SELECT COUNT(*) AS n FROM basak_platform_run m "
+                        "JOIN basak_kosu r ON r.id=m.run_id "
+                        "WHERE m.parent_id=%s AND r.durum='running'",
+                        (row["parent_id"],))["n"]
+                    if active >= self.max_active_children_per_parent:
+                        continue  # Keep pending work durable, do not run a fourth sibling.
                 deps = tx.rows("SELECT r.durum FROM basak_platform_dependency d JOIN basak_kosu r ON d.dependency_id=r.id WHERE d.run_id=%s", (row["id"],))
                 if any(d["durum"] in SETTLED - {"completed"} for d in deps):
                     self._status(tx, row, "blocked", "Bağımlı görev tamamlanamadı")

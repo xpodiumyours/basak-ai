@@ -60,6 +60,10 @@ def execute(name, args):
         jobs = args.get('isler')
         if not isinstance(jobs, list) or not jobs:
             raise ValueError('isler bos olmayan gorev listesi olmali')
+        if ctx.parent_run_id:
+            raise PermissionError('Alt ajan yeni alt ajan olusturamaz; yalniz ana ajan dagitir')
+        if len(jobs) > store.max_children_per_parent:
+            raise ValueError('Tek seferde alt ajan siniri asildi')
         created = []
         for job in jobs:
             if not isinstance(job, dict) or not str(job.get('gorev') or '').strip():
