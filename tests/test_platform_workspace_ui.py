@@ -160,3 +160,12 @@ const b={preview:{operation:'yaz',target:{session_id:'session'}}};
 assert.match(ui.approvalDetails(b),/Tarayıcı oturumu: session/);
 assert(!ui.approvalDetails(b).includes('password'));
 """)
+
+
+def test_worker_online_indicator_reports_real_server_state_only():
+    js("""
+assert.match(ui.workerStatusText(null),/çevrimdışı/);
+assert.match(ui.workerStatusText({online:false,live_workers:8}),/çevrimdışı/);
+assert.equal(ui.workerStatusText({online:true,live_workers:3}),
+ 'Ajan işçisi çevrimiçi · 3 çalışan');
+""")

@@ -89,6 +89,12 @@
     return counts;
   }
 
+  function workerStatusText(health) {
+    if (!health || !health.online) return "Ajan işçisi çevrimdışı · görevler sırada bekler";
+    const n = Number(health.live_workers) || 0;
+    return "Ajan işçisi çevrimiçi · " + n + " çalışan";
+  }
+
   function approvalDetails(approval) {
     const preview = approval && approval.preview || {};
     const titles = { repository: "Depo", branch: "Dal", path: "Dosya",
@@ -159,7 +165,8 @@
   }
 
   const exported = { createState, identity, snapshot, events, statusText,
-    childProgress, evidenceText, approvalDetails, safeHref, previewHref, createClient };
+    childProgress, evidenceText, approvalDetails, workerStatusText,
+    safeHref, previewHref, createClient };
   if (typeof module !== "undefined" && module.exports) module.exports = exported;
   if (!scope.document) return;
   scope.BasakWorkspace = exported;
@@ -569,6 +576,29 @@
 
   function render() { renderAccount(); renderTaskList(); renderRunTree(); renderEvents(); renderPreview(); }
 
+  async function refreshWorkerStatus() {
+    const indicator = byId("platformWorkerStatus");
+    if (!indicator) return;
+    if (!state.user) {
+      indicator.textContent = "Çevrimiçi ajan durumu için hesabınla giriş yap";
+      indicator.dataset.online = "false";
+      return;
+    }
+    const version = revision;
+    try {
+      const data = await client.read("/api/kosu/isciler");
+      if (version === revision) {
+        indicator.textContent = workerStatusText(data);
+        indicator.dataset.online = String(!!data.online);
+      }
+    } catch (error) {
+      if (version === revision) {
+        indicator.textContent = workerStatusText(null);
+        indicator.dataset.online = "false";
+      }
+    }
+  }
+
   async function refreshRuns() {
     if (!state.user) { renderTaskList(); return; }
     const version = revision;
@@ -717,7 +747,7 @@
       state = identity(state, account.authenticated ? account.user : null);
       state.providers = providers.providers || [];
       if (state.user) {
-        await Promise.all([refreshRuns(), refreshConnections()]);
+        await Promise.all([refreshRuns(), refreshConnections(), refreshWorkerStatus()]);
         scope.dispatchEvent(new CustomEvent("basak:platform-account", { detail: state.user }));
       }
       render();
@@ -734,5 +764,10 @@
   const poll = scope.setInterval(() => {
     if (!document.hidden) pollEvents();
   }, 3000);
-  scope.addEventListener("pagehide", () => scope.clearInterval(poll));
+  const healthPoll = scope.setInterval(() => {
+    if (!document.hidden) refreshWorkerStatus();
+  }, 10000);
+  scope.addEventListener("pagehide", () => {
+    scope.clearInterval(poll); scope.clearInterval(healthPoll);
+  });
 })(typeof window !== "undefined" ? window : globalThis);
