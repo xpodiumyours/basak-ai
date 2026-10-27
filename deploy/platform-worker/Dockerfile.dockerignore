@@ -1,40 +1,8 @@
-# Deny by default; only Python source + the two pinned requirements lists.
-# This Dockerfile-specific policy overrides the legacy worker root .dockerignore.
+# Strict Dockerfile-specific source allowlist. No .env, databases, markdown,
+# user files, browser profiles, certificates or AGENTS.md are build inputs.
+# Root .dockerignore for the old worker remains untouched.
 **
 !requirements.txt
-!*.py
-!brain/
-!brain/**/
-!brain/**/*.py
-!chat/
-!chat/**/
-!chat/**/*.py
-!tools/
-!tools/**/
-!tools/**/*.py
-!worker/
-!worker/**/
-!worker/**/*.py
 !worker/requirements-worker.txt
-!memory/
-!memory/**/
-!memory/**/*.py
-!scripts/
-!scripts/**/
-!scripts/**/*.py
-!eklenti/
-!eklenti/**/
-!eklenti/**/*.py
-# No application user data or credentials, even inside source directories.
-**/__pycache__/
-**/*.pyc
-**/*.sqlite
-**/*.sqlite3
-**/*.db
-**/*.log
-**/.env
-**/.env.*
-**/*.env
-**/*.json
-**/*.pem
-**/*.key
+!*.py
+!**/*.py
