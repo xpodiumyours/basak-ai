@@ -75,6 +75,12 @@ def _json(value, status=200):
     return JSONResponse(value, status_code=status, headers={"Cache-Control": "no-store"})
 
 
+@router.get("/isciler")
+async def workers_status(request: Request):
+    await _user(request)
+    return _json(_call(_store().worker_health))
+
+
 @router.post("")
 async def submit(request: Request):
     user, body = await _user(request), await _body(request)

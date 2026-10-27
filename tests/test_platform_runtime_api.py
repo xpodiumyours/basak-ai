@@ -84,3 +84,15 @@ def test_live_app_mounts_platform_observer_and_account_routes():
     assert "/api/kosu/{run_id}/iptal" in paths
     assert "/api/hesap" in paths
     assert "/api/baglantilar" in paths
+
+
+def test_worker_health_endpoint_requires_login_and_reflects_live_heartbeats(api):
+    client, store = api
+    assert client.get("/api/kosu/isciler").status_code == 401
+    headers = {"X-Test-User": "alice"}
+    assert client.get("/api/kosu/isciler", headers=headers).json()["online"] is False
+    store.worker_ping("ci-real-worker")
+    state = client.get("/api/kosu/isciler", headers=headers).json()
+    assert state["online"] is True and state["live_workers"] == 1
+    store.worker_stopped("ci-real-worker")
+    assert client.get("/api/kosu/isciler", headers=headers).json()["online"] is False

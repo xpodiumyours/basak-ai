@@ -34,12 +34,34 @@ def main(argv=None):
     stop = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
-    while not stop.is_set():
-        worked = worker.tick()
-        if args.once:
-            return 0
-        if not worked:
-            stop.wait(args.poll_seconds)
+
+    # Process presence is distinct from the per-job lease heartbeat. Even
+    # while handling a long job, an active worker must remain observable.
+    def report_presence():
+        while not stop.is_set():
+            try:
+                store.worker_ping(worker.worker_id)
+            except Exception:
+                logging.exception("Ajan isci kalp atisi yazilamadi")
+            stop.wait(10)
+
+    presence = threading.Thread(target=report_presence, daemon=True,
+                                name="basak-agent-presence")
+    presence.start()
+    try:
+        while not stop.is_set():
+            worked = worker.tick()
+            if args.once:
+                break
+            if not worked:
+                stop.wait(args.poll_seconds)
+    finally:
+        stop.set()
+        presence.join(timeout=3)
+        try:
+            store.worker_stopped(worker.worker_id)
+        except Exception:
+            logging.exception("Ajan isci kapanisi kaydedilemedi")
     return 0
 
 
