@@ -148,7 +148,7 @@ class RuntimeStore:
     Production never falls back to ephemeral SQLite. Constructor injection is
     used by tests and by the worker process with its existing ledger backend.
     """
-    def __init__(self, depo=None, *, clock=None, max_queued_per_user=None,
+    def __init__(self, depo=None, *, clock=None, max_queued_per_user=32,
                  max_children_per_parent=8, max_active_children_per_parent=3):
         # Bound delegated work independently of provider context length.
         # Same values in every process; the database enforces limits atomically.
@@ -160,7 +160,10 @@ class RuntimeStore:
         if self.depo is None:
             raise Unavailable("Kalıcı görev deposu hazır değil")
         self.clock = clock or time.time
-        self.max_queued_per_user = max_queued_per_user
+        self.max_queued_per_user = (None if max_queued_per_user is None
+                                    else int(max_queued_per_user))
+        if self.max_queued_per_user is not None and not 1 <= self.max_queued_per_user <= 256:
+            raise ValueError("Kullanici gorev kapasitesi 1..256 olmali")
         self._schema()
 
     @contextlib.contextmanager

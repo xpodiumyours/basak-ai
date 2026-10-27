@@ -482,3 +482,15 @@ def test_worker_presence_does_not_claim_or_complete_tasks(store):
     store.worker_ping("idle-worker")
     assert store.worker_health()["online"] is True
     assert store.get("alice", pending["id"])["durum"] == "queued"
+
+
+def test_default_user_task_quota_rejects_unbounded_work(store):
+    assert store.max_queued_per_user == 32
+    tasks = [create(store, request_key="bounded-%d" % i) for i in range(32)]
+    assert len({x["id"] for x in tasks}) == 32
+    with pytest.raises(Conflict, match="kapasitesi"):
+        create(store)
+    assert create(store, request_key="bounded-0")["id"] == tasks[0]["id"]
+    assert create(store, user="bob")["durum"] == "queued"
+    store.cancel("alice", tasks[0]["id"])
+    assert create(store)["durum"] == "queued"
