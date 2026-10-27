@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - feat/basak-agent-platform
+      - "fix/agent-platform-*"
+      - main
+      - preview
     paths:
       - "deploy/platform-worker/**"
       - "worker/platform.py"
@@ -31,6 +34,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+
+      # Inspect both runtime definitions with synthetic CI-only URLs.
+      # No worker starts and no database connections are attempted.
+      - name: Preview ve Production Compose sozlesmesini denetle
+        env:
+          BASAK_PREVIEW_DATABASE_URL: postgresql://ci:ci@preview.invalid/preview
+          BASAK_PRODUCTION_DATABASE_URL: postgresql://ci:ci@production.invalid/production
+        run: |
+          cp deploy/platform-worker/environment.example.txt deploy/platform-worker/.env
+          cp deploy/platform-worker/environment.production.example.txt deploy/platform-worker/.env.production
+          docker compose --env-file deploy/platform-worker/.env -f deploy/platform-worker/compose.yaml config --quiet
+          docker compose --env-file deploy/platform-worker/.env.production -f deploy/platform-worker/compose.production.yaml config --quiet
+          rm -f deploy/platform-worker/.env deploy/platform-worker/.env.production
 
       - name: Izole ajan isci imajini kur
         run: >-
