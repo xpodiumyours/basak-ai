@@ -24,7 +24,7 @@ name: testler
 
 on:
   push:
-    branches: [main]
+    branches: [main, "fix/agent-platform-*"]
   pull_request:
   workflow_dispatch:
   # Haftalik kabul matrisi kosusu (2026-10-04, task_0002):
