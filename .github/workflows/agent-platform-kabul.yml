@@ -1,0 +1,61 @@
+name: agent-platform-kabul
+
+# Ajan platformunun alti yeni test dosyasini gercek Chromium'la calistirir.
+# Gercek OAuth hesabi, token, ucretli model veya harici yazma kullanmaz.
+on:
+  push:
+    branches:
+      - feat/basak-agent-platform
+  pull_request:
+    paths:
+      - "chat/platform_*.py"
+      - "worker/platform_*.py"
+      - "tools/platform.py"
+      - "web/platform.js"
+      - "tests/test_platform_*.py"
+      - ".github/workflows/agent-platform-kabul.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-platform-kabul-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  agent-platform-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BASAK_TEST_KOSUSU: "1"
+      PYTHONWARNINGS: ignore
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Python 3.12 kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            worker/requirements-worker.txt
+
+      - name: Platform ve isci bagimliliklarini kur
+        run: |
+          python -m pip install -r requirements.txt -r worker/requirements-worker.txt
+          python -m pip install ruff==0.16.9
+
+      - name: Gercek Chromium kur
+        run: python -m playwright install --with-deps chromium
+
+      - name: Platform Python dosyalarini denetle
+        run: |
+          python -m compileall -q chat worker tools
+          ruff check chat/platform_agents.py worker/platform_browser.py tools/platform.py tests/test_platform_execution.py tests/test_platform_browser.py
+
+      - name: Alti agent platform test paketi
+        run: python -m pytest tests/test_platform_*.py -q
