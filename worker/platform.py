@@ -17,9 +17,15 @@ def main(argv=None):
     parser.add_argument("--worker-id", default=None)
     parser.add_argument("--poll-seconds", type=float, default=1)
     parser.add_argument("--lease-seconds", type=float, default=60)
+    parser.add_argument("--allow-local-sqlite", action="store_true",
+                        help="Yalniz yerel test: web sitesiyle ortak veritabanini kullanmaz")
     args = parser.parse_args(argv)
     if args.poll_seconds <= 0 or args.lease_seconds <= 0:
         parser.error("Bekleme ve lease süreleri pozitif olmalı")
+    from chat.kosu_deposu import _dsn
+    if not _dsn() and not args.allow_local_sqlite:
+        parser.error("Kalici bulut iscisi icin ortak DATABASE_URL gerekli; "
+                     "yerel SQLite yalniz --allow-local-sqlite ile test edilir")
     logging.basicConfig(level=logging.INFO)
     from chat.platform_agents import execute_job
     store = RuntimeStore()
