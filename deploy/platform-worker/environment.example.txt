@@ -1,0 +1,12 @@
+# Copy to .env locally; NEVER commit .env or actual credentials.
+# Must be the PostgreSQL ledger of the matching Başak web environment.
+DATABASE_URL=
+# Required to read encrypted user connections (identical key to that web environment).
+BASAK_CONNECTION_KEY=
+# Existing provider model pool credentials. Set only providers you intend to use.
+GROQ_API_KEY=
+GEMINI_API_KEY=
+OPENROUTER_API_KEY=
+# Preserve FreeLLMAPI as a supported provider; do not change its routing logic.
+FREELLMAPI_URL=
+FREELLMAPI_API_KEY=

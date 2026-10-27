@@ -1,0 +1,51 @@
+name: platform-worker-image
+
+# Build only; no cloud deployment, tokens or external writes.
+on:
+  push:
+    branches:
+      - feat/basak-agent-platform
+    paths:
+      - "deploy/platform-worker/**"
+      - "worker/platform.py"
+      - "requirements.txt"
+      - "worker/requirements-worker.txt"
+      - ".github/workflows/platform-worker-image.yml"
+  pull_request:
+    paths:
+      - "deploy/platform-worker/**"
+      - "worker/platform.py"
+      - "requirements.txt"
+      - "worker/requirements-worker.txt"
+      - ".github/workflows/platform-worker-image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Izole ajan isci imajini kur
+        run: >-
+          docker build --file deploy/platform-worker/Dockerfile
+          --tag basak-agent-platform:ci .
+
+      - name: Isci, beyin ve baglanti kodunu ice aktar
+        run: >-
+          docker run --rm --entrypoint python basak-agent-platform:ci
+          -c "from brain import Brain; from chat.platform_agents import execute_job; from worker.platform_browser import PlatformBrowser; print('worker imports OK')"
+
+      - name: Ortak veritabani yoksa calismayi reddet
+        run: |
+          if docker run --rm basak-agent-platform:ci --once; then
+            echo "HATA: DATABASE_URL olmadan kalici isci basladi" >&2
+            exit 1
+          fi
+          echo "Beklenen: DATABASE_URL olmadan baslatma reddedildi."

@@ -1,0 +1,30 @@
+# Scoped only to this Dockerfile; the older worker's root .dockerignore stays unchanged.
+# Deny by default; never copy local credentials, state, .git or AGENTS.md.
+**
+!requirements.txt
+!*.py
+!brain/
+!brain/**
+!chat/
+!chat/**
+!tools/
+!tools/**
+!worker/
+!worker/**
+!memory/
+!memory/**
+!scripts/
+!scripts/**
+!eklenti/
+!eklenti/**
+**/__pycache__/
+**/*.pyc
+**/*.sqlite
+**/*.sqlite3
+**/*.db
+**/*.log
+**/.env
+**/.env.*
+**/*.env
+**/*.pem
+**/*.key

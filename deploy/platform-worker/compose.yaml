@@ -1,0 +1,32 @@
+# Separate preview/agent worker configuration; no public ports and no production deployment.
+services:
+  agent:
+    build:
+      context: ../..
+      dockerfile: deploy/platform-worker/Dockerfile
+    image: basak-agent-platform:local
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Use the SAME PostgreSQL database as the target web environment}
+      BASAK_STATE_DIR: /home/basak/state
+      BASAK_URETIM: "1"
+      BASAK_BROWSER_ISOLATED: "1"
+    volumes:
+      - agent-state:/home/basak/state
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=512m
+    shm_size: "1gb"
+    mem_limit: 3g
+    cpus: 2
+    stop_grace_period: 60s
+
+volumes:
+  agent-state:
