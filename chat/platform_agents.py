@@ -44,6 +44,12 @@ def effective_permissions(allowed_tools):
     return frozenset(CLOUD_TOOLS if allowed_tools is None else allowed_tools)
 
 
+def job_permissions(job):
+    """Children may execute assigned tools but cannot spawn agents."""
+    allowed = effective_permissions(job.get('allowed_tools'))
+    return allowed - {'alt_ajan'} if job.get('parent_id') else allowed
+
+
 def action_has_effect(name, args, ctx):
     if name in READ_TOOLS:
         return False
@@ -182,7 +188,7 @@ def execute_job(job, control, brain=None):
     user = job['user_id']
     workspace = Workspace(state_kok(), user, job['workspace_id'])
     brain = brain or Brain()
-    permissions = effective_permissions(job.get('allowed_tools'))
+    permissions = job_permissions(job)
     if not permissions.issubset(CLOUD_TOOLS):
         return {'status': 'blocked', 'reason': 'Bu araclar bulut kullanici izolasyonunda desteklenmiyor'}
     ctx = ExecutionContext(user, job['workspace_id'], job['id'],

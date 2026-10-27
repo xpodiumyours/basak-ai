@@ -246,3 +246,11 @@ def test_unavailable_browser_is_a_failed_tool_not_a_success(monkeypatch):
                           {'islem': 'ac', 'argumanlar': {'url': 'https://example.com'}})
     assert outcome['result']['status'] == 'browser_unavailable'
     assert sonucu_donustur(outcome).startswith('Hata:')
+
+
+def test_child_model_never_sees_delegation_tool_even_when_parent_allows_it():
+    from chat.platform_agents import CLOUD_TOOLS, job_permissions
+    assert job_permissions({'parent_id': None, 'allowed_tools': None}) == CLOUD_TOOLS
+    assert job_permissions({'parent_id': 'parent-id', 'allowed_tools': None}) == CLOUD_TOOLS - {'alt_ajan'}
+    assert job_permissions({'parent_id': 'parent-id', 'allowed_tools': ['web_search', 'alt_ajan']}) == frozenset({'web_search'})
+    assert job_permissions({'parent_id': 'parent-id', 'allowed_tools': []}) == frozenset()

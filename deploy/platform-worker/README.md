@@ -37,3 +37,13 @@ Gerçek sunucu kurulumu, gizli değişkenler, maliyet kontrolü ve canlı görev
   otomatik iyileştirilmesi gerçek çok-adımlı kabul testinde ayrıca ölçülmelidir.
 - İşçi kapalıyken kayıtlı görevler Postgres'te korunur fakat ilerlemez.
   CI'nın yeşil olması üretimde çalışan işçi kanıtı sayılmaz.
+
+## Paralel alt ajan ölçeği (yalnız test ortamında)
+
+Aynı test PostgreSQL kuyruğunu kullanan üç kopya başlatılabilir:
+`docker compose up -d --scale agent=3`.
+`RuntimeStore` aynı ana görevin aynı anda en fazla üç alt ajanını claim eder;
+dördüncü çocuk görevi kuyrukta kalır. Bu sınır tek sunucudaki görünüm değil,
+veritabanı transaction düzeyinde uygulanır. CI, sahte ve kotasız görev işleyicileriyle
+üç ayrı `Worker.tick()` çağrısının eşzamanlılığını test eder.
+Bu kontrol uzak sunucu, OAuth veya gerçek sağlayıcı testi yerine geçmez.

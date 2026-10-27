@@ -383,3 +383,38 @@ def test_subagent_capacity_configuration_is_valid(tmp_path):
     depo = kosu_deposu._SqliteDepo(str(tmp_path / "bad.db"))
     with pytest.raises(ValueError, match="kapasitesi"):
         RuntimeStore(depo, max_children_per_parent=2, max_active_children_per_parent=3)
+
+
+def test_three_independent_worker_handlers_run_concurrently_without_fourth(store):
+    import threading
+    from chat.platform_runtime import Control, RunSuspended
+
+    parent = create(store)
+    children = [create(store, parent_id=parent["id"]) for _ in range(4)]
+    lease = store.claim("parent", run_id=parent["id"])["lease"]
+    with pytest.raises(RunSuspended):
+        Control(store, lease).wait_for_children([child["id"] for child in children])
+
+    started = threading.Semaphore(0)
+    release = threading.Event()
+
+    def handler(job, control):
+        started.release()
+        assert release.wait(timeout=8), "Concurrent worker handler never released"
+        control.record_check("result_verified", True, {"run_id": job["id"]})
+        return {"answer": "verified"}
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+            futures = [pool.submit(Worker(store, handler, worker_id="agent-%s" % i).tick)
+                       for i in range(3)]
+            for _ in range(3):
+                assert started.acquire(timeout=8), "Three workers did not begin concurrently"
+            assert store.claim("fourth-worker", run_id=children[3]["id"]) is None
+            assert sum(store.get("alice", r["id"])["durum"] == "running" for r in children) == 3
+            release.set()
+            assert all(f.result(timeout=10) for f in futures)
+        last = store.claim("fourth-worker", run_id=children[3]["id"])
+        assert last is not None and last["id"] == children[3]["id"]
+    finally:
+        release.set()

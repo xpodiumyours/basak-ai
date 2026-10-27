@@ -30,7 +30,7 @@
 - Tek ana görev altında en çok **8 alt görev**, aynı anda en çok **3 aktif alt ajan**.
   Her iki sınır veritabanı transaction'ında doğrulanır; dördüncü iş kaybolmaz, kuyrukta kalır.
   Ayarlar RuntimeStore constructor'ında kontrol edilir; geçersiz değerler reddedilir.
-- Alt ajanlar tekrar delegasyon yapamaz; ana ajan yönetir.
+- Alt ajanlar tekrar delegasyon yapamaz; ana ajan yönetir. Delegasyon aracı modelden de gizlenir.
 - Görevlerin idempotency anahtarı yeniden oynatılan çağrıda önce kontrol edilir.
 - UI gerçek görev kayıtlarından durum/ilerleme/kanıt gösterir; eksik kanıtı başarı göstermez.
 
