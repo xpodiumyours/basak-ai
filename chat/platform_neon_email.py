@@ -111,3 +111,42 @@ async def verify_email_password(email, password, *, transport=None):
             }
         except (ValueError, KeyError, TypeError) as exc:
             raise LoginUnavailable("Neon dogrulama cevabi gecersiz") from exc
+
+
+async def register_email(name, email, password, *, transport=None):
+    """Opt-in registration; does not create a Başak session or trust new email.
+
+    Enable only after administrators confirm managed Neon Auth email
+    verification actually sends messages to the account owner.
+    """
+    url = auth_base()
+    if not url or os.environ.get("BASAK_NEON_SIGNUP_ENABLED", "").lower() != "true":
+        raise LoginUnavailable("E-posta kaydi henuz etkin degil")
+    if not all(isinstance(v, str) for v in (name, email, password)):
+        raise ValueError("Gecersiz kayit bilgisi")
+    name, email = name.strip(), email.strip()
+    if not 1 <= len(name) <= 160 or not 3 <= len(email) <= 254 or "@" not in email:
+        raise ValueError("Gecersiz kayit bilgisi")
+    if not 12 <= len(password) <= 1024:
+        raise ValueError("Parola en az 12 karakter olmali")
+    async with httpx.AsyncClient(timeout=15, follow_redirects=False,
+                                 trust_env=False, transport=transport) as client:
+        response = await client.post(url + "/sign-up/email",
+                                     json={"name": name, "email": email,
+                                           "password": password},
+                                     headers={"Accept": "application/json"})
+        if response.status_code == 429:
+            raise LoginUnavailable("Cok sayida kayit denemesi")
+        if response.status_code >= 500:
+            raise LoginUnavailable("Kayit servisi kullanilamiyor")
+        if response.status_code in (200, 201):
+            # Signup may create a temporary provider session automatically.
+            # Sign it out before showing any success; no local login here.
+            if any(c.name.endswith("session_token") for c in client.cookies.jar):
+                closed = await client.post(url + "/sign-out",
+                                           headers={"Accept": "application/json"})
+                if closed.status_code not in (200, 204):
+                    raise LoginUnavailable("Gecici kayit oturumu kapatilamadi")
+        # The response is intentionally indistinguishable for existing emails.
+        # Only a verified future sign-in creates a local Başak session.
+        return {"accepted": True}
