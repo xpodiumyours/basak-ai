@@ -202,3 +202,17 @@ def test_signup_requires_strong_password_and_same_origin(configured):
                              "password": "long-synthetic-password"},
                        headers={"Origin": "https://attacker.example"})
     assert resp.status_code == 403
+
+
+def test_signout_http_200_without_success_is_not_trusted(configured):
+    client, store, monkeypatch = configured
+    def remote(request):
+        if request.url.path.endswith("/sign-out"):
+            return httpx.Response(200, json={"success": False})
+        return _fake_neon(request)
+    monkeypatch.setattr(api, "_transport", httpx.MockTransport(remote))
+    result = client.post("/api/hesap/eposta/giris",
+                         json={"email": "alice@example.test", "password": "synthetic-secret"},
+                         headers={"Origin": "https://basak.example"})
+    assert result.status_code == 503
+    assert store._db._sorgu("SELECT count(*) AS n FROM basak_account")[0]["n"] == 0
