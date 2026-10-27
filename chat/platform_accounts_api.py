@@ -19,7 +19,7 @@ from chat.platform_connections import ConnectionStore
 from chat.platform_connectors import ConnectorError, ConnectorService, PROVIDERS, provider_config
 from chat.platform_identity import COOKIE, SESSION_SECONDS, IdentityService, authenticate
 from chat.platform_mcp import MCPService, MCPOAuthError, validate_endpoint
-from chat.platform_neon_email import LoginUnavailable, auth_base, verify_email_password
+from chat.platform_neon_email import LoginUnavailable, auth_base, register_email, verify_email_password
 
 router = APIRouter()
 _authenticate = authenticate
@@ -131,6 +131,29 @@ async def neon_email_login(request: Request):
         return _error("E-posta girisi su anda kullanilamiyor", 503)
 
 
+@router.post("/api/hesap/eposta/kayit")
+async def neon_email_signup(request: Request):
+    """Registration creates no Başak session; verification is mandatory."""
+    if not _origin_ok(request):
+        return _error("Istek kaynagi gecersiz", 403)
+    if not auth_base() or os.environ.get("BASAK_NEON_SIGNUP_ENABLED", "").lower() != "true":
+        return _error("E-posta kaydi henuz etkin degil", 503)
+    try:
+        _public_base()
+        body = await request.json()
+        if not isinstance(body, dict) or set(body) != {"name", "email", "password"}:
+            return _error("Kayit bilgileri gecersiz", 400)
+        await register_email(body["name"], body["email"], body["password"],
+                             transport=_transport)
+        return JSONResponse({"accepted": True, "message":
+                             "Kayit alindiysa e-posta dogrulamasini tamamla."},
+                            status_code=202, headers={"Cache-Control": "no-store"})
+    except (ValueError, TypeError):
+        return _error("Kayit bilgileri gecersiz", 400)
+    except (LoginUnavailable, httpx.HTTPError, RuntimeError):
+        return _error("E-posta kaydi su anda kullanilamiyor", 503)
+
+
 @router.get("/api/baglantilar/saglayicilar")
 async def connection_providers():
     providers = []
@@ -140,7 +163,8 @@ async def connection_providers():
         providers.append({"id": "neon_email", "label": "E-posta ile giriş",
                           "configured": bool(auth_base()), "reason":
                           None if auth_base() else "auth_not_configured",
-                          "login": True, "scopes": [], "verification_required": True})
+                          "login": True, "scopes": [], "verification_required": True,
+                          "signup": os.environ.get("BASAK_NEON_SIGNUP_ENABLED", "").lower() == "true" and bool(auth_base())})
     for provider, info in PROVIDERS.items():
         cfg = provider_config(provider)
         providers.append({"id": provider, "label": info["label"], "configured": cfg["configured"], "reason": None if cfg["configured"] else "oauth_not_configured", "login": provider in ("google", "github"), "scopes": info["scopes"], "verification_required": provider == "google"})
