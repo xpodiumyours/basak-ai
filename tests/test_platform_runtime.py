@@ -418,3 +418,37 @@ def test_three_independent_worker_handlers_run_concurrently_without_fourth(store
         assert last is not None and last["id"] == children[3]["id"]
     finally:
         release.set()
+
+
+def test_approval_preview_survives_restart_and_never_exposes_secret_content(tmp_path):
+    from chat.platform_runtime import RuntimeStore
+    from chat import kosu_deposu
+    filename = str(tmp_path / "approvals.db")
+    first = RuntimeStore(kosu_deposu._SqliteDepo(filename))
+    run = first.create("alice", "personal", "Review file update")
+    lease = first.claim("first", run_id=run["id"])["lease"]
+    arguments = {
+        "baglanti_id": "conn-1", "arac": "github_write_file",
+        "argumanlar": {"repository": "a/b", "branch": "feat/safe", "path": "src/app.py",
+                       "content": "BASE64_PRIVATE_SECRET_DO_NOT_DISPLAY"}}
+    first.request_approval(lease, "baglanti_cagir", "conn-1", arguments)
+    second = RuntimeStore(kosu_deposu._SqliteDepo(filename))
+    approval = second.get("alice", run["id"])["approvals"][0]
+    assert approval["preview"]["operation"] == "github_write_file"
+    assert approval["preview"]["target"] == {
+        "repository": "a/b", "branch": "feat/safe", "path": "src/app.py"}
+    assert "BASE64_PRIVATE_SECRET_DO_NOT_DISPLAY" not in str(approval)
+    assert "BASE64_PRIVATE_SECRET_DO_NOT_DISPLAY" not in str(
+        second.events("alice", run["id"]))
+
+
+def test_browser_approval_preview_does_not_leak_form_values(store):
+    run = create(store)
+    lease = store.claim("worker", run_id=run["id"])["lease"]
+    approval = store.request_approval(lease, "bulut_tarayici", "browser:one",
+        {"islem": "yaz", "argumanlar": {"session_id": "one",
+          "selector": "input[type=password]", "text": "PRIVATE_PASSPHRASE"}})
+    assert approval["preview"]["operation"] == "yaz"
+    assert approval["preview"]["target"] == {"session_id": "one"}
+    assert "PRIVATE_PASSPHRASE" not in str(store.get("alice", run["id"]))
+    assert "PRIVATE_PASSPHRASE" not in str(store.events("alice", run["id"]))

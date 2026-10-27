@@ -74,6 +74,38 @@ def _hash(value):
     return hashlib.sha256(_json(value).encode("utf-8")).hexdigest()
 
 
+def _approval_preview(action, resource, arguments):
+    """Persist only a minimal, non-secret summary for informed user consent.
+
+    Arguments themselves are digested for an immutable, single-use approval;
+    do not expose OAuth tokens, file content, form values, headers or passwords.
+    """
+    args = arguments if isinstance(arguments, dict) else {}
+    result = {"action": str(action)[:64], "resource": str(resource)[:140]}
+    targets = {}
+    if action == "baglanti_cagir":
+        result["operation"] = str(args.get("arac") or "")[:90]
+        source = args.get("argumanlar")
+        if isinstance(source, dict):
+            for key in ("repository", "branch", "path", "workflow", "ref",
+                        "document_id", "spreadsheet_id", "page_id", "block_id",
+                        "file_id", "range", "data_source_id"):
+                value = source.get(key)
+                if isinstance(value, str) and value and len(value) <= 250:
+                    targets[key] = value
+    elif action == "bulut_tarayici":
+        result["operation"] = str(args.get("islem") or "")[:90]
+        source = args.get("argumanlar")
+        if isinstance(source, dict):
+            sid = source.get("session_id")
+            if isinstance(sid, str) and sid and len(sid) <= 128:
+                targets["session_id"] = sid
+            # Never include input text, selectors or full URLs with query
+            # tokens. Those still participate in the immutable digest.
+    result["target"] = targets
+    return result
+
+
 def _key(value, name):
     value = str(value or "").strip()
     if not value or len(value) > 128 or any(ord(c) < 32 for c in value):
@@ -195,7 +227,8 @@ class RuntimeStore:
             "CREATE TABLE IF NOT EXISTS basak_platform_approval ("
             "id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES basak_platform_run(run_id), "
             "action TEXT NOT NULL, resource TEXT NOT NULL, arguments_digest TEXT NOT NULL, "
-            "status TEXT NOT NULL, created_at DOUBLE PRECISION NOT NULL)",
+            "status TEXT NOT NULL, created_at DOUBLE PRECISION NOT NULL, "
+            "preview TEXT NOT NULL DEFAULT '{}')",
             "CREATE INDEX IF NOT EXISTS basak_platform_owner ON basak_platform_run(user_id,workspace_id)",
             "CREATE INDEX IF NOT EXISTS basak_platform_parent ON basak_platform_run(parent_id)",
         )
@@ -205,6 +238,10 @@ class RuntimeStore:
             columns = [d[0] for d in tx.execute("SELECT * FROM basak_platform_steering LIMIT 0").description]
             if "position" not in columns:
                 tx.execute("ALTER TABLE basak_platform_steering ADD COLUMN position INTEGER NOT NULL DEFAULT 0")
+            approval_columns = [d[0] for d in tx.execute(
+                "SELECT * FROM basak_platform_approval LIMIT 0").description]
+            if "preview" not in approval_columns:
+                tx.execute("ALTER TABLE basak_platform_approval ADD COLUMN preview TEXT NOT NULL DEFAULT '{}'")
 
     def _require(self, tx, user, run_id):
         row = tx.one(
@@ -254,7 +291,9 @@ class RuntimeStore:
             item = {k: v for k, v in item.items() if k not in ("content", "data_base64", "path", "local_path")}
             item.update({"id": value["artifact_id"], "href": "/api/kosu/%s/artifacts/%s" % (row["id"], value["artifact_id"])})
             artifacts.append(item)
-        approvals = tx.rows("SELECT id,action,resource,arguments_digest,status FROM basak_platform_approval WHERE run_id=%s ORDER BY created_at,id", (row["id"],))
+        approvals = [{**r, "preview": _read(r["preview"], {})} for r in tx.rows(
+            "SELECT id,action,resource,arguments_digest,status,preview "
+            "FROM basak_platform_approval WHERE run_id=%s ORDER BY created_at,id", (row["id"],))]
         child_ids = tx.rows("SELECT run_id FROM basak_platform_run WHERE parent_id=%s AND user_id=%s ORDER BY run_id", (row["id"], row["user_id"]))
         children = [self._project(tx, self._require(tx, row["user_id"], x["run_id"]), recursive=True)
                     for x in child_ids] if recursive else [x["run_id"] for x in child_ids]
@@ -672,8 +711,13 @@ class RuntimeStore:
             row = self._lease(tx, lease)
             aid = uuid.uuid4().hex
             data = {"id": aid, "action": str(action), "resource": str(resource),
-                    "arguments_digest": _hash(arguments), "status": "pending"}
-            tx.execute("INSERT INTO basak_platform_approval(id,run_id,action,resource,arguments_digest,status,created_at) VALUES(%s,%s,%s,%s,%s,'pending',%s)", (aid, lease.run_id, action, resource, data["arguments_digest"], self.clock()))
+                    "arguments_digest": _hash(arguments), "status": "pending",
+                    "preview": _approval_preview(action, resource, arguments)}
+            tx.execute("INSERT INTO basak_platform_approval"
+                       "(id,run_id,action,resource,arguments_digest,status,created_at,preview) "
+                       "VALUES(%s,%s,%s,%s,%s,'pending',%s,%s)",
+                       (aid, lease.run_id, action, resource,
+                        data["arguments_digest"], self.clock(), _json(data["preview"])))
             self._event(tx, lease.run_id, "approval", data)
             self._status(tx, row, "awaiting_approval")
             return data

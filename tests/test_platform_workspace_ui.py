@@ -148,3 +148,15 @@ assert.equal(ui.evidenceText({id:'build', evidence:{exit_code:0}}),
 assert(!ui.evidenceText({id:'secret', evidence:{access_token:'HIDDEN_SECRET'}})
  .includes('HIDDEN_SECRET'));
 """)
+
+
+def test_approval_details_display_targets_not_form_or_token_values():
+    js("""
+const a={preview:{operation:'github_write_file',
+ target:{repository:'team/app',branch:'feat/task',path:'src/app.py'}}};
+assert.match(ui.approvalDetails(a),/Depo: team\\/app/);
+assert.match(ui.approvalDetails(a),/Dosya: src\\/app.py/);
+const b={preview:{operation:'yaz',target:{session_id:'session'}}};
+assert.match(ui.approvalDetails(b),/Tarayıcı oturumu: session/);
+assert(!ui.approvalDetails(b).includes('password'));
+""")

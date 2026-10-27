@@ -89,6 +89,20 @@
     return counts;
   }
 
+  function approvalDetails(approval) {
+    const preview = approval && approval.preview || {};
+    const titles = { repository: "Depo", branch: "Dal", path: "Dosya",
+      workflow: "İş akışı", ref: "Referans", document_id: "Belge",
+      spreadsheet_id: "Tablo", page_id: "Sayfa", block_id: "Blok",
+      file_id: "Dosya kimliği", range: "Hücre aralığı", session_id: "Tarayıcı oturumu",
+      data_source_id: "Veri kaynağı" };
+    const targets = preview.target || {};
+    const fields = Object.keys(titles).filter(k => typeof targets[k] === "string")
+      .map(k => titles[k] + ": " + targets[k]);
+    if (typeof preview.operation === "string" && preview.operation) fields.unshift("İşlem: " + preview.operation);
+    return fields.join(" · ") || "İşlem ayrıntısı kayıtlı değil; onay öncesi hedefi doğrula";
+  }
+
   function evidenceText(check) {
     const data = check && check.evidence;
     if (!data || typeof data !== "object" || Array.isArray(data)) return String(check.id || "Kabul kontrolü");
@@ -145,7 +159,7 @@
   }
 
   const exported = { createState, identity, snapshot, events, statusText,
-    childProgress, evidenceText, safeHref, previewHref, createClient };
+    childProgress, evidenceText, approvalDetails, safeHref, previewHref, createClient };
   if (typeof module !== "undefined" && module.exports) module.exports = exported;
   if (!scope.document) return;
   scope.BasakWorkspace = exported;
@@ -329,6 +343,8 @@
         if (approval.status !== "pending") continue;
         const box = node("div", "workspace-approval");
         box.append(node("p", "", "Onay: " + (approval.action || "İşlem") + " · " + (approval.resource || "")));
+        box.append(node("p", "workspace-muted", approvalDetails(approval)));
+        box.append(node("small", "workspace-muted", "İşlem özeti: " + String(approval.arguments_digest || "").slice(0, 16)));
         for (const approved of [true, false]) {
           const button = node("button", "workspace-button", approved ? "Bu işlemi onayla" : "Reddet");
           button.type = "button";
