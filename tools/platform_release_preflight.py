@@ -15,16 +15,22 @@ from urllib.parse import urlsplit
 
 REQUIRED_TABLES = (
     "basak_kosu",
+    "basak_kosu_adim",
     "basak_platform_run",
+    "basak_platform_chat_route",
+    "basak_platform_dependency",
     "basak_platform_event",
     "basak_platform_action",
+    "basak_platform_check",
     "basak_platform_artifact",
+    "basak_platform_steering",
+    "basak_platform_approval",
     "basak_platform_worker_presence",
     "basak_platform_workspace_file",
-    "basak_account",
-    "basak_account_session",
     "basak_connection",
     "basak_oauth_attempt",
+    "basak_account",
+    "basak_account_session",
 )
 
 
