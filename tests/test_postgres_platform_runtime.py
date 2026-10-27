@@ -1,0 +1,99 @@
+"""PostgreSQL-only acceptance: real transactions across independent worker stores.
+
+Runs only against an ephemeral, LOCAL database named basak_platform_ci.
+No OAuth credentials, model calls or remote services are used.
+"""
+import concurrent.futures
+import os
+import uuid
+from urllib.parse import urlsplit
+
+import pytest
+
+from chat import kosu_deposu
+from chat.platform_runtime import Conflict, RuntimeStore
+
+
+@pytest.fixture(scope="module")
+def postgres_url():
+    url = os.environ.get("BASAK_TEST_POSTGRES_URL", "")
+    if not url:
+        pytest.skip("Isolated PostgreSQL CI service not configured")
+    parsed = urlsplit(url)
+    if (parsed.scheme not in ("postgres", "postgresql")
+            or parsed.hostname not in ("localhost", "127.0.0.1", "::1")
+            or parsed.path != "/basak_platform_ci"):
+        pytest.fail("PostgreSQL acceptance tests require local basak_platform_ci; refusing external DB")
+    return url
+
+
+def new_store(url, *, clock=None):
+    return RuntimeStore(kosu_deposu._PostgresDepo(url), clock=clock)
+
+
+def new_user():
+    return "pg-ci-" + uuid.uuid4().hex
+
+
+def test_three_siblings_claim_across_independent_postgres_workers(postgres_url):
+    coordinator = new_store(postgres_url)
+    user = new_user()
+    parent = coordinator.create(user, "ci", "Delegate the work")
+    children = [
+        coordinator.create(user, "ci", "Independent work " + str(i),
+                           parent_id=parent["id"])
+        for i in range(4)
+    ]
+    parent_lease = coordinator.claim("orchestrator", run_id=parent["id"])["lease"]
+    coordinator.wait_for_children(parent_lease, [child["id"] for child in children])
+
+    # Each RuntimeStore has its own depo and database connections, like real workers.
+    stores = [new_store(postgres_url) for _ in range(4)]
+
+    def claim(index):
+        return stores[index].claim("worker-" + str(index), run_id=children[index]["id"])
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+        jobs = list(pool.map(claim, range(3)))
+
+    assert [job["id"] for job in jobs] == [child["id"] for child in children[:3]]
+    assert claim(3) is None
+    assert coordinator.get(user, children[3]["id"])["durum"] == "queued"
+
+    # Completing one sibling frees precisely one slot for the queued fourth.
+    coordinator.record_check(jobs[0]["lease"], "result_verified", True, {"ci": True})
+    coordinator.finish(jobs[0]["lease"], {"answer": "verified"})
+    fourth = claim(3)
+    assert fourth is not None and fourth["id"] == children[3]["id"]
+
+
+def test_request_idempotency_is_atomic_across_postgres_connections(postgres_url):
+    stores = [new_store(postgres_url) for _ in range(6)]
+    user = new_user()
+
+    def submit(index):
+        return stores[index].create(
+            user, "ci", "One submission", request_key="same-operation"
+        )["id"]
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+        ids = list(pool.map(submit, range(6)))
+
+    assert len(set(ids)) == 1
+    with pytest.raises(Conflict):
+        stores[0].create(user, "ci", "Changed submission",
+                         request_key="same-operation")
+
+
+def test_uncertain_external_effect_is_never_replayed_by_second_postgres_worker(postgres_url):
+    user = new_user()
+    first = new_store(postgres_url, clock=lambda: 100.0)
+    second = new_store(postgres_url, clock=lambda: 106.0)
+    run = first.create(user, "ci", "Perform a sensitive write")
+    lease = first.claim("worker-before-restart", run_id=run["id"],
+                        lease_seconds=5)["lease"]
+    first.begin_action(lease, "call-1", "external_write", {"value": 1},
+                       side_effect=True)
+
+    assert second.claim("worker-after-restart", run_id=run["id"]) is None
+    assert second.get(user, run["id"])["durum"] == "uncertain"
