@@ -76,6 +76,12 @@ def before_action(name, args, ctx):
     ctx.control.check_cancelled()
     if ctx.allowed_tools is not None and name not in ctx.allowed_tools:
         raise PermissionError('Bu gorevin bu araca erisimi yok')
+    # The action ledger is authoritative: an identical completed call must
+    # replay its result without requiring another approval. Unknown or altered
+    # calls never bypass the consent gate.
+    if ctx.tool_call_id and ctx.control.store.replay_completed(
+            ctx.control.lease, ctx.tool_call_id, name, args):
+        return
     if name == 'baglanti_cagir':
         meta = _connection_meta(args, ctx)
         # Built-in writes require approval. MCP tools are untrusted even if

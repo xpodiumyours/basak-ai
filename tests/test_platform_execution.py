@@ -390,3 +390,41 @@ def test_browser_navigation_read_and_scroll_do_not_prompt_for_write_consent(oper
     args = {'islem': operation, 'argumanlar': {'url': 'https://example.com'}}
     assert not action_has_effect('bulut_tarayici', args, ctx)
     before_action('bulut_tarayici', args, ctx)
+
+
+def test_completed_external_action_replays_without_new_user_approval(tmp_path, monkeypatch):
+    from dataclasses import replace
+    from chat import kosu_deposu
+    from chat.platform_context import ExecutionContext
+    from chat.platform_runtime import Control, RunSuspended, Conflict, RuntimeStore
+    from chat.platform_agents import before_action
+    store = RuntimeStore(kosu_deposu._SqliteDepo(str(tmp_path / "replay-approval.db")))
+    job = store.create("alice", "personal", "Write once", allowed_tools=["baglanti_cagir"])
+    arguments = {"baglanti_id": "github-1", "arac": "github_write_file",
+                 "argumanlar": {"repository": "team/app", "path": "code.py"}}
+    monkeypatch.setattr("chat.platform_agents._connection_meta",
+                        lambda *_: {"provider": "github", "side_effect": True})
+    one = store.claim("w1", run_id=job["id"])["lease"]
+    first_ctx = ExecutionContext("alice", "personal", job["id"],
+                                 tool_call_id="call-1",
+                                 allowed_tools=frozenset(["baglanti_cagir"]),
+                                 control=Control(store, one))
+    with pytest.raises(RunSuspended):
+        before_action("baglanti_cagir", arguments, first_ctx)
+    approval = store.get("alice", job["id"])["approvals"][0]
+    store.approve("alice", job["id"], approval["id"], True)
+    two = store.claim("w2", run_id=job["id"])["lease"]
+    approved_ctx = replace(first_ctx, control=Control(store, two))
+    before_action("baglanti_cagir", arguments, approved_ctx)
+    approved_ctx.control.begin_action("call-1", "baglanti_cagir", arguments, True)
+    approved_ctx.control.finish_action("call-1", {"net": "written"}, True)
+    before_action("baglanti_cagir", arguments, approved_ctx)  # no second approval
+    assert approved_ctx.control.begin_action(
+        "call-1", "baglanti_cagir", arguments, True)["result"]["net"] == "written"
+    assert len(store.get("alice", job["id"])["approvals"]) == 1
+    altered = {**arguments, "argumanlar": {**arguments["argumanlar"], "path": "other.py"}}
+    with pytest.raises(Conflict, match="farklı"):
+        before_action("baglanti_cagir", altered, approved_ctx)
+    with pytest.raises(RunSuspended):
+        before_action("baglanti_cagir", arguments, replace(approved_ctx, tool_call_id="call-2"))
+    assert len(store.get("alice", job["id"])["approvals"]) == 2

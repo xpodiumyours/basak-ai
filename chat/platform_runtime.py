@@ -531,6 +531,21 @@ class RuntimeStore:
             tx.execute("UPDATE basak_platform_run SET continuation=%s WHERE run_id=%s", (_json(continuation), lease.run_id))
             self._event(tx, lease.run_id, "checkpoint", {"generation": lease.generation})
 
+    def replay_completed(self, lease, call_id, tool, args):
+        """No fresh approval needed for an identical already-completed call.
+
+        The committed record is authoritative; never re-execute its effect.
+        """
+        with self.transaction() as tx:
+            self._lease(tx, lease)
+            row = tx.one("SELECT tool,digest,status FROM basak_platform_action "
+                         "WHERE run_id=%s AND call_id=%s", (lease.run_id, call_id))
+            if not row:
+                return False
+            if row["tool"] != tool or row["digest"] != _hash({"tool": tool, "args": args}):
+                raise Conflict("Araç çağrısı kimliği farklı argümanlarla kullanıldı")
+            return row["status"] == "completed"
+
     def begin_action(self, lease, call_id, tool, args, side_effect=False):
         call_id = _key(call_id, "call_id")
         with self.transaction() as tx:
