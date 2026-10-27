@@ -99,7 +99,7 @@ def test_github_call_owner_and_safe_fixed_host(store):
         calls.append(req)
         return httpx.Response(200, json={"number": 1, "html_url": "https://github.com/a/b/pull/1"})
 
-    cid = store.save("alice", "github", {"access_token": "x"}, [],
+    cid = store.save("alice", "github", {"access_token": "x"}, ["public_repo"],
                      {"repositories": ["a/b"]})["id"]
     svc = ConnectorService(store, transport=httpx.MockTransport(transport))
     result = svc.execute("alice", cid, "github_create_pr", {
@@ -263,3 +263,44 @@ def test_mcp_permission_update_checks_discovered_names(api, store):
     assert api.patch(path, json={"allowed_tools": ["read"]}, headers={"x-test-user": "bob"}).status_code == 404
     assert api.patch(path, json={"allowed_tools": ["read"]}, headers={"x-test-user": "alice"}).status_code == 200
     assert store.get("alice", cid)["metadata"]["allowed_tools"] == ["read"]
+
+
+def test_github_oauth_connect_requests_public_repo_but_login_does_not(api):
+    from chat.platform_connectors import PROVIDERS
+    from urllib.parse import urlsplit, parse_qs
+    assert PROVIDERS["github"]["scopes"] == ["public_repo"]
+    login = api.get("/api/baglantilar/oauth/github/baslat?purpose=login",
+                    follow_redirects=False)
+    connect = api.get("/api/baglantilar/oauth/github/baslat?purpose=connect",
+                      headers={"x-test-user": "alice"}, follow_redirects=False)
+    assert "scope" not in parse_qs(urlsplit(login.headers["location"]).query)
+    assert parse_qs(urlsplit(connect.headers["location"]).query)["scope"] == ["public_repo"]
+
+
+def test_github_public_repo_write_requires_scope_even_with_approved_tool(store):
+    import httpx
+    from chat.platform_connectors import ConnectorService, ConnectorError
+    requests = []
+
+    def fake(request):
+        requests.append(request)
+        return httpx.Response(201, json={"ref": "refs/heads/feat/test"})
+
+    basic = store.save("alice", "github", {"access_token": "basic"}, [],
+                       {"repositories": ["a/b"]})["id"]
+    private = store.save("alice", "github", {"access_token": "private"}, ["repo"],
+                         {"repositories": ["a/b"]})["id"]
+    public = store.save("alice", "github", {"access_token": "public"}, ["public_repo"],
+                        {"repositories": ["a/b"]})["id"]
+    service = ConnectorService(store, transport=httpx.MockTransport(fake))
+    writes = {"github_create_branch", "github_write_file", "github_create_pr", "github_dispatch_workflow"}
+    assert writes.isdisjoint({t["name"] for t in service.tools("alice", basic)})
+    assert {"github_read_file"}.issubset({t["name"] for t in service.tools("alice", basic)})
+    arguments = {"repository": "a/b", "branch": "feat/test", "sha": "a"*40}
+    with pytest.raises(ConnectorError, match="yetki"):
+        service.execute("alice", basic, "github_create_branch", arguments)
+    assert requests == [], "Write without GitHub scope reached network"
+    assert writes.issubset({t["name"] for t in service.tools("alice", private)})
+    assert writes.issubset({t["name"] for t in service.tools("alice", public)})
+    service.execute("alice", public, "github_create_branch", arguments)
+    assert len(requests) == 1

@@ -70,3 +70,18 @@ gereklidir. Onay olmadan dış eylem başlamaz. Normal sayfa açma
 (GET), okuma, ekran görüntüsü, DOM doğrulaması ve kaydırma onay
 beklemez. Tüm dış sitelerin GET davranışını garanti etmek mümkün
 olmadığı için bu istisna üretim güvenlik değerlendirmesine dahildir.
+
+## GitHub OAuth yazma yetkisi
+GitHub resmî scope listesi:
+https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps
+- İlk giriş için kapsam istenmez; herkese açık hesap bilgisi okunabilir.
+- Kullanıcının **açıkça bağladığı** GitHub OAuth bağlantısı için yalnızca
+  `public_repo` istenir; özel depolara geniş `repo` kapsamı varsayılan
+  olarak **istenmez**.
+- Yetki verilmemiş bağlantılarda GitHub yazma araçları keşif kataloğundan
+  çıkarılır ve sunucuda da reddedilir. `repo` kapsamı almış önceden var
+  olan bağlantılar geriye dönük olarak kullanılabilir; gizlice yükseltilmez.
+- Özel depo için güvenli uzun vadeli seçenek GitHub App kurulum
+  yetkilendirmesidir (depo bazlı ve kısa ömürlü erişim):
+  https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/differences-between-github-apps-and-oauth-apps
+  Bu entegrasyon ve gerçek GitHub kabulü halen açıktır.
