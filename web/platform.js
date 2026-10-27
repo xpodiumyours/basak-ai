@@ -546,6 +546,41 @@
           } finally { submit.disabled = false; }
         });
         card.append(form);
+        if (provider.signup) {
+          const signup = node("form", "workspace-auth-form");
+          const name = node("input", "workspace-input");
+          name.type = "text"; name.name = "name"; name.required = true;
+          name.maxLength = 160; name.autocomplete = "name";
+          name.placeholder = "Adın"; name.setAttribute("aria-label", "Ad");
+          const signupEmail = node("input", "workspace-input");
+          signupEmail.type = "email"; signupEmail.name = "email"; signupEmail.required = true;
+          signupEmail.maxLength = 254; signupEmail.autocomplete = "email";
+          signupEmail.placeholder = "E-posta"; signupEmail.setAttribute("aria-label", "Kayıt e-postası");
+          const signupPass = node("input", "workspace-input");
+          signupPass.type = "password"; signupPass.name = "password"; signupPass.required = true;
+          signupPass.minLength = 12; signupPass.autocomplete = "new-password";
+          signupPass.placeholder = "En az 12 karakter"; signupPass.setAttribute("aria-label", "Yeni parola");
+          const create = node("button", "workspace-button", "Hesap oluştur");
+          create.type = "submit";
+          const signupFeedback = node("p", "workspace-muted", "");
+          signupFeedback.setAttribute("role", "status");
+          signup.append(name, signupEmail, signupPass, create, signupFeedback);
+          signup.addEventListener("submit", async (event) => {
+            event.preventDefault(); create.disabled = true;
+            try {
+              await client.write("/api/hesap/eposta/kayit", {
+                name: name.value.trim(), email: signupEmail.value.trim(),
+                password: signupPass.value,
+              });
+              signupPass.value = "";
+              signupFeedback.textContent = "Kayıt alındıysa e-posta doğrulamasını tamamla.";
+            } catch (error) {
+              signupPass.value = "";
+              signupFeedback.textContent = error.message || "Kayıt yapılamadı.";
+            } finally { create.disabled = false; }
+          });
+          card.append(signup);
+        }
       } else if (state.user && provider.id === "neon_email") {
         card.append(node("p", "workspace-muted", "E-posta hesabı giriş yöntemi."));
       } else if (!state.user && provider.login) {
