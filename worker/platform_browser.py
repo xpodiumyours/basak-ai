@@ -119,9 +119,20 @@ class PlatformBrowser:
             context = await browser.new_context(
                 accept_downloads=True, service_workers="block")
 
+            # The test-only localhost exemption applies to exactly the
+            # initial fixture origin, never to unrelated private services.
+            initial = urlparse(url)
+            fixture_origin = (
+                (initial.scheme, initial.hostname, initial.port)
+                if local_ok else None
+            )
+
             def allowed_destination(destination):
                 parsed = urlparse(str(destination or ""))
-                local_fixture = self.testing and parsed.hostname in ("127.0.0.1", "localhost")
+                local_fixture = (
+                    fixture_origin is not None
+                    and (parsed.scheme, parsed.hostname, parsed.port) == fixture_origin
+                )
                 return local_fixture or request_allowed(destination)
 
             async def guard_request(route):
