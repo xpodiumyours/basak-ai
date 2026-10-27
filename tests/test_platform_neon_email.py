@@ -146,3 +146,59 @@ def test_fail_closed_when_neon_email_login_key_missing(configured):
     _, _, monkeypatch = configured
     monkeypatch.delenv("BASAK_CONNECTION_KEY")
     assert auth_base() == ""
+
+
+def test_signup_requires_explicit_verified_email_rollout(configured):
+    client, _, monkeypatch = configured
+    def forbidden(_):
+        raise AssertionError("No provider call while signup disabled")
+    monkeypatch.setattr(api, "_transport", httpx.MockTransport(forbidden))
+    assert client.post("/api/hesap/eposta/kayit",
+                       json={"name": "Alice", "email": "alice@example.test",
+                             "password": "long-synthetic-password"},
+                       headers={"Origin": "https://basak.example"}).status_code == 503
+    email = next(p for p in client.get("/api/baglantilar/saglayicilar").json()
+                 ["providers"] if p["id"] == "neon_email")
+    assert email["configured"] and not email["signup"]
+
+
+def test_signup_never_mints_local_session_or_account(configured):
+    client, store, monkeypatch = configured
+    monkeypatch.setenv("BASAK_NEON_SIGNUP_ENABLED", "true")
+    calls = []
+
+    def remote(request):
+        calls.append(request.url.path)
+        if request.url.path.endswith("/sign-up/email"):
+            return httpx.Response(200, json={
+                "user": {"emailVerified": False, "email": "alice@example.test"}},
+                headers={"set-cookie": "better-auth.session_token=temporary; Path=/neondb/auth; Secure; HttpOnly"})
+        if request.url.path.endswith("/sign-out"):
+            assert "better-auth.session_token=temporary" in request.headers.get("cookie", "")
+            return httpx.Response(200, json={"success": True})
+        return httpx.Response(404)
+
+    monkeypatch.setattr(api, "_transport", httpx.MockTransport(remote))
+    resp = client.post("/api/hesap/eposta/kayit",
+                       json={"name": "Alice", "email": "alice@example.test",
+                             "password": "long-synthetic-password"},
+                       headers={"Origin": "https://basak.example"})
+    assert resp.status_code == 202
+    assert client.get("/api/hesap").json()["authenticated"] is False
+    assert store._db._sorgu("SELECT count(*) AS n FROM basak_account")[0]["n"] == 0
+    assert any(p.endswith("/sign-out") for p in calls)
+    assert "long-synthetic-password" not in str(resp.headers) + resp.text
+
+
+def test_signup_requires_strong_password_and_same_origin(configured):
+    client, _, monkeypatch = configured
+    monkeypatch.setenv("BASAK_NEON_SIGNUP_ENABLED", "true")
+    resp = client.post("/api/hesap/eposta/kayit",
+                       json={"name": "Alice", "email": "alice@example.test", "password": "short"},
+                       headers={"Origin": "https://basak.example"})
+    assert resp.status_code == 400
+    resp = client.post("/api/hesap/eposta/kayit",
+                       json={"name": "Alice", "email": "alice@example.test",
+                             "password": "long-synthetic-password"},
+                       headers={"Origin": "https://attacker.example"})
+    assert resp.status_code == 403
