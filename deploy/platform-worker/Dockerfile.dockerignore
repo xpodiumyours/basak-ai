@@ -1,22 +1,31 @@
-# Scoped only to this Dockerfile; the older worker's root .dockerignore stays unchanged.
-# Deny by default; never copy local credentials, state, .git or AGENTS.md.
+# Deny by default; only Python source + the two pinned requirements lists.
+# This Dockerfile-specific policy overrides the legacy worker root .dockerignore.
 **
 !requirements.txt
 !*.py
 !brain/
-!brain/**
+!brain/**/
+!brain/**/*.py
 !chat/
-!chat/**
+!chat/**/
+!chat/**/*.py
 !tools/
-!tools/**
+!tools/**/
+!tools/**/*.py
 !worker/
-!worker/**
+!worker/**/
+!worker/**/*.py
+!worker/requirements-worker.txt
 !memory/
-!memory/**
+!memory/**/
+!memory/**/*.py
 !scripts/
-!scripts/**
+!scripts/**/
+!scripts/**/*.py
 !eklenti/
-!eklenti/**
+!eklenti/**/
+!eklenti/**/*.py
+# No application user data or credentials, even inside source directories.
 **/__pycache__/
 **/*.pyc
 **/*.sqlite
@@ -26,5 +35,6 @@
 **/.env
 **/.env.*
 **/*.env
+**/*.json
 **/*.pem
 **/*.key

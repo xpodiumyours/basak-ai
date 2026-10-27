@@ -42,6 +42,19 @@ jobs:
           docker run --rm --entrypoint python basak-agent-platform:ci
           -c "from brain import Brain; from chat.platform_agents import execute_job; from worker.platform_browser import PlatformBrowser; print('worker imports OK')"
 
+      - name: Imagin kaynak sinirini ve gizli dosya yoklugunu kontrol et
+        run: |
+          docker run --rm --entrypoint sh basak-agent-platform:ci -ec '
+            test ! -e /app/AGENTS.md
+            test ! -e /app/data
+            test ! -e /app/.env
+            unexpected=$(find /app -type f ! -name "*.py" ! -name "requirements.txt" ! -name "requirements-worker.txt" -print -quit)
+            if [ -n "$unexpected" ]; then
+              echo "Beklenmeyen dosya imaja dahil: $unexpected" >&2
+              exit 1
+            fi
+          '
+
       - name: Ortak veritabani yoksa calismayi reddet
         run: |
           if docker run --rm basak-agent-platform:ci --once; then
