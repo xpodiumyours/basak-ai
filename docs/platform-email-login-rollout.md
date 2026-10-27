@@ -13,9 +13,11 @@ olması gerçek hesap girişi kabulü değildir.
 - Her provider yalnız explicit HTTPS `*.neonauth.*.neon.tech/<database>/auth`
   tabanı ile çağrılır; HTTP redirect, dinamik hedef veya kullanıcı URL'si yoktur.
 - E-posta **doğrulanmış değilse hesap oturumu oluşturulmaz**.
-- Üretimde kullanıcı kaydı açma/şifre sıfırlama arayüzü bu sürümün
-  kapsamı dışındadır. Yönetilen Neon Auth'da kayıt, doğrulama ve
-  kurtarma politikaları doğrulanmadan genel kullanıcıya açılmayacak.
+- Kullanıcı kayıt formu ayrı `BASAK_NEON_SIGNUP_ENABLED` bayrağıyla
+  varsayılan kapalıdır. Kayıt hiçbir zaman doğrudan Başak oturumu vermez;
+  şifre sıfırlama yolu ise henüz bu sürümün kapsamı dışındadır.
+  Yönetilen Neon Auth'da doğrulama/kurtarma politikaları kabul edilmeden
+  kayıt genel kullanıcıya açılmayacak.
 
 ## İzole Preview hazırlığı
 1. `preview-izole` Neon branch içinde `neon_auth` ve mevcut
@@ -35,10 +37,13 @@ olması gerçek hesap girişi kabulü değildir.
    güvenli hale getir. Varsayılan yapılandırmada doğrulama kapalıysa
    gerçek e-posta girişi kabulü yapma.
 7. Son olarak yalnız Preview dalında `BASAK_NEON_EMAIL_ENABLED=true`
-   ayarla ve yeniden deploy et. Production flag kapalı kalmalı.
+   ayarla ve yeniden deploy et. Neon e-posta doğrulaması gerçekten çalışıyorsa
+   ayrıca `BASAK_NEON_SIGNUP_ENABLED=true` ayarlayıp kayıt/doğrulama
+   akışını sınayabilirsin. Production flag'leri kapalı kalmalı.
 
 ## Kabul: gerçek kullanıcı ve gerçek yönetilen servis
-- Gerçek doğrulanmış Preview hesabı ile giriş yap:
+- Yeni hesap kaydı (doğrulama e-postası gerçekten geliyor mu?) ve sonra
+  gerçek doğrulanmış Preview hesabı ile giriş yap:
   `GET /api/hesap` -> `authenticated: true`.
 - Sayfayı kapat/aç: oturum aynı kişiye ait kalmalı.
 - Kullanıcı A ve kullanıcı B veri erişimi ayrılmalı.
@@ -51,7 +56,8 @@ olması gerçek hesap girişi kabulü değildir.
 - PostgreSQL tabloları izole Preview'da artmalı; Production'a veri
   yazılmamalı.
 - Asıl kullanıcı kabulü tamamlanmadan Production'da
-  `BASAK_NEON_EMAIL_ENABLED=true` yapılmamalı.
+  `BASAK_NEON_EMAIL_ENABLED=true` veya
+  `BASAK_NEON_SIGNUP_ENABLED=true` yapılmamalı.
 
 ## Production
 Ayrı Production Auth URL'si `BASAK_PRODUCTION_NEON_AUTH_BASE_URL`,
