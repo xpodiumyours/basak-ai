@@ -60,6 +60,17 @@ def auth_base(env=None):
     return raw
 
 
+def _signed_out(response):
+    if response.status_code == 204:
+        return True
+    if response.status_code != 200:
+        return False
+    try:
+        return response.json().get("success") is True
+    except (ValueError, TypeError, AttributeError):
+        return False
+
+
 async def verify_email_password(email, password, *, transport=None):
     """Prove an existing, email-verified Neon user and close the upstream session.
 
@@ -100,7 +111,7 @@ async def verify_email_password(email, password, *, transport=None):
                 raise LoginUnavailable("Neon oturum kaniti alinmadi")
             signed_out = await client.post(url + "/sign-out",
                                            headers={"Accept": "application/json"})
-            if signed_out.status_code not in (200, 204):
+            if not _signed_out(signed_out):
                 raise LoginUnavailable("Gecici Neon oturumu kapatilamadi")
             if not verified:
                 raise PermissionError("E-posta dogrulamasi gerekli")
@@ -145,7 +156,7 @@ async def register_email(name, email, password, *, transport=None):
             if any(c.name.endswith("session_token") for c in client.cookies.jar):
                 closed = await client.post(url + "/sign-out",
                                            headers={"Accept": "application/json"})
-                if closed.status_code not in (200, 204):
+                if not _signed_out(closed):
                     raise LoginUnavailable("Gecici kayit oturumu kapatilamadi")
         # The response is intentionally indistinguishable for existing emails.
         # Only a verified future sign-in creates a local Başak session.
