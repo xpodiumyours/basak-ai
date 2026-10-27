@@ -308,3 +308,51 @@ def test_browser_guards_private_redirects_subrequests_and_websockets(tmp_path):
         finally:
             await browser.kapat()
     asyncio.run(run())
+
+def test_successful_browser_postcondition_returns_verification_evidence(tmp_path):
+    async def run():
+        browser = service()
+        try:
+            ctx = context(tmp_path)
+            assert (await browser.execute(ctx, 'ac', {'url': 'https://example.com'}))['ok']
+            passed = await browser.execute(ctx, 'dogrula',
+                                           {'selector': 'body', 'expected': 'test content'})
+            assert passed['ok'] is True and passed['verified'] is True
+            failed = await browser.execute(ctx, 'dogrula',
+                                           {'selector': 'body', 'expected': 'not present'})
+            assert failed['ok'] is False
+            assert failed.get('verified') is not True
+        finally:
+            await browser.kapat()
+    asyncio.run(run())
+
+
+def test_sync_browser_wrapper_preserves_event_loop_between_actions(tmp_path, monkeypatch):
+    from worker import platform_browser as module
+
+    class FixtureBrowser:
+        def __init__(self, testing=False):
+            self.owner_loop = None
+            self.calls = []
+        async def execute(self, ctx, operation, args=None, actor=None):
+            current_loop = asyncio.get_running_loop()
+            if self.owner_loop is None:
+                self.owner_loop = current_loop
+            assert current_loop is self.owner_loop
+            self.calls.append(operation)
+            return {'ok': True, 'status': 'ok'}
+        async def kapat(self):
+            pass
+
+    monkeypatch.setenv('BASAK_BROWSER_ISOLATED', '1')
+    module._shutdown_service()
+    monkeypatch.setattr(module, 'PlatformBrowser', FixtureBrowser)
+    ctx = context(tmp_path)
+    try:
+        assert module.execute_browser(ctx, 'ac', {'url': 'https://example.com'})['ok']
+        instance = module._SERVICE
+        assert module.execute_browser(ctx, 'yaz', {'selector': '#field', 'text': 'hello'})['ok']
+        assert module.execute_browser(ctx, 'tikla', {'selector': '#submit'})['ok']
+        assert instance.calls == ['ac', 'yaz', 'tikla']
+    finally:
+        module._shutdown_service()

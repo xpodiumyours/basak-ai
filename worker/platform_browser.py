@@ -207,7 +207,7 @@ class PlatformBrowser:
             ok = text == expected if exact else expected in text
             if not ok:
                 return _fail("check_failed", found=text, expected=expected)
-            return _ok(session_id=sess["id"], found=text)
+            return _ok(session_id=sess["id"], found=text, verified=True)
         if islem == "ekran":
             png = await page.screenshot(full_page=True)
             if control is not None:
@@ -250,22 +250,60 @@ class PlatformBrowser:
 
 
 _SERVICE = None
+_SERVICE_LOOP = None
+_SERVICE_THREAD = None
 _SERVICE_LOCK = threading.Lock()
 
 
+def _shutdown_service():
+    """Close Chromium on its owning event loop, then stop the loop."""
+    global _SERVICE, _SERVICE_LOOP, _SERVICE_THREAD
+    with _SERVICE_LOCK:
+        service, loop, thread = _SERVICE, _SERVICE_LOOP, _SERVICE_THREAD
+        _SERVICE, _SERVICE_LOOP, _SERVICE_THREAD = None, None, None
+    if loop is None:
+        return
+    try:
+        if service is not None:
+            asyncio.run_coroutine_threadsafe(service.kapat(), loop).result(timeout=15)
+    finally:
+        loop.call_soon_threadsafe(loop.stop)
+        if thread is not None:
+            thread.join(timeout=5)
+        if not loop.is_running():
+            loop.close()
+
+
 def execute_browser(ctx, islem, args=None, actor=None):
+    """Keep Chromium and its pages on one event loop across tool calls."""
     if not os.environ.get("BASAK_BROWSER_ISOLATED"):
         return _fail("browser_unavailable")
-    async def run():
-        global _SERVICE
-        with _SERVICE_LOCK:
-            service = _SERVICE
-            if service is None:
-                service = PlatformBrowser(testing=False)
-                _SERVICE = service
-        return await service.execute(ctx, islem, args, actor=actor)
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(run())
-    raise RuntimeError("Aktif async dongude bulut tarayicisi await edilmeli")
+        pass
+    else:
+        raise RuntimeError("Aktif async dongude bulut tarayicisi await edilmeli")
+
+    global _SERVICE, _SERVICE_LOOP, _SERVICE_THREAD
+    with _SERVICE_LOCK:
+        if _SERVICE_LOOP is None:
+            loop = asyncio.new_event_loop()
+            service = PlatformBrowser(testing=False)
+
+            def run_loop():
+                asyncio.set_event_loop(loop)
+                loop.run_forever()
+
+            thread = threading.Thread(target=run_loop, name="basak-browser-loop",
+                                      daemon=True)
+            _SERVICE, _SERVICE_LOOP, _SERVICE_THREAD = service, loop, thread
+            thread.start()
+        loop, service = _SERVICE_LOOP, _SERVICE
+    return asyncio.run_coroutine_threadsafe(
+        service.execute(ctx, islem, args, actor=actor), loop
+    ).result()
+
+
+import atexit
+atexit.register(_shutdown_service)

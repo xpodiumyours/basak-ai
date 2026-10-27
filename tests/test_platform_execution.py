@@ -179,3 +179,70 @@ def test_platform_tool_loop_invokes_pre_action_gate_before_external_call(monkeyp
         arac_dongusu([call], [], SimpleNamespace(), None, lambda *_: None,
                      lambda *_: pytest.fail('external tool unexpectedly ran'),
                      tools=[schema], yanit={'tool_calls': [call]})
+
+@pytest.mark.parametrize("provider,tool,side_effect", [
+    ('github', 'github_write_file', True),
+    ('github', 'github_create_branch', True),
+    ('google', 'docs_update', True),
+    ('google', 'sheets_write', True),
+    ('notion', 'notion_update_page', True),
+    ('mcp', 'untrusted_readonly_claim', False),
+])
+def test_all_remote_mutations_require_owner_approval(monkeypatch, provider, tool, side_effect):
+    from chat.platform_agents import before_action, action_has_effect
+    from chat.platform_context import ExecutionContext
+    from chat.platform_runtime import RunSuspended
+
+    def suspend(*_args):
+        raise RunSuspended()
+
+    control = SimpleNamespace(
+        check_cancelled=lambda: None,
+        store=SimpleNamespace(consume_approval=lambda *_args: False),
+        lease=SimpleNamespace(),
+        request_approval=suspend,
+    )
+    ctx = ExecutionContext('alice', 'personal', 'run-1', control=control,
+                           allowed_tools=frozenset(['baglanti_cagir']))
+    monkeypatch.setattr('chat.platform_agents._connection_meta',
+                        lambda *_: {'provider': provider, 'read_only': not side_effect,
+                                    'side_effect': side_effect, 'requires_approval': False})
+    args = {'baglanti_id': 'sandbox-connection', 'arac': tool, 'argumanlar': {}}
+    assert action_has_effect('baglanti_cagir', args, ctx) is True
+    with pytest.raises(RunSuspended):
+        before_action('baglanti_cagir', args, ctx)
+
+
+def test_builtin_connection_reads_do_not_request_approval(monkeypatch):
+    from chat.platform_agents import before_action, action_has_effect
+    from chat.platform_context import ExecutionContext
+
+    def forbidden(*_args):
+        pytest.fail('readonly built-in tool requested approval')
+
+    control = SimpleNamespace(check_cancelled=lambda: None, request_approval=forbidden)
+    ctx = ExecutionContext('alice', 'personal', 'run-1', control=control,
+                           allowed_tools=frozenset(['baglanti_cagir']))
+    monkeypatch.setattr('chat.platform_agents._connection_meta',
+                        lambda *_: {'provider': 'google', 'read_only': True,
+                                    'side_effect': False, 'requires_approval': False})
+    args = {'baglanti_id': 'sandbox-connection', 'arac': 'drive_get_file',
+            'argumanlar': {'file_id': 'test'}}
+    assert action_has_effect('baglanti_cagir', args, ctx) is False
+    before_action('baglanti_cagir', args, ctx)
+
+
+def test_unavailable_browser_is_a_failed_tool_not_a_success(monkeypatch):
+    from chat.platform_context import ExecutionContext, bound
+    from chat.tools import sonucu_donustur
+    from tools.platform import execute
+
+    monkeypatch.delenv('BASAK_BROWSER_ISOLATED', raising=False)
+    control = SimpleNamespace(check_cancelled=lambda: None)
+    ctx = ExecutionContext('alice', 'personal', 'run-1', control=control,
+                           allowed_tools=frozenset(['bulut_tarayici']))
+    with bound(ctx):
+        outcome = execute('bulut_tarayici',
+                          {'islem': 'ac', 'argumanlar': {'url': 'https://example.com'}})
+    assert outcome['result']['status'] == 'browser_unavailable'
+    assert sonucu_donustur(outcome).startswith('Hata:')

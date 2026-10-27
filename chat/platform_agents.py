@@ -54,7 +54,9 @@ def action_has_effect(name, args, ctx):
     if name == 'bulut_tarayici':
         return args.get('islem') not in ('oku', 'ekran', 'dogrula', 'read', 'screenshot', 'verify')
     if name == 'baglanti_cagir':
-        return not _connection_meta(args, ctx).get('read_only', False)
+        meta = _connection_meta(args, ctx)
+        # Remote MCP annotations are advisory, not an execution guarantee.
+        return meta.get('provider') == 'mcp' or meta.get('side_effect', True)
     return True
 
 
@@ -65,13 +67,13 @@ def before_action(name, args, ctx):
         raise PermissionError('Bu gorevin bu araca erisimi yok')
     if name == 'baglanti_cagir':
         meta = _connection_meta(args, ctx)
-        # MCP hints are advisory: unknown remote writes need owner approval.
-        # A GitHub PR or workflow can publish code or run a paid deployment.
-        remote_tool = str(args.get('arac') or '')
+        # Built-in writes require approval. MCP tools are untrusted even if
+        # their remote server claims readOnlyHint: consent before each call.
+        # Fail closed when side-effect metadata is missing.
         sensitive = bool(
             meta.get('requires_approval')
-            or (meta.get('provider') == 'mcp' and meta.get('side_effect', True))
-            or remote_tool in ('github_create_pr', 'github_dispatch_workflow')
+            or meta.get('side_effect', True)
+            or meta.get('provider') == 'mcp'
         )
         if sensitive:
             resource = str(args.get('baglanti_id', ''))

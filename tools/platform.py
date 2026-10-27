@@ -132,6 +132,10 @@ def execute(name, args):
             'error': 'Komut basarisiz: cikis kodu %s' % result['exit_code'], 'result': result}
     if name == 'bulut_tarayici':
         from worker.platform_browser import execute_browser
-        return {'result': execute_browser(ctx, str(args.get('islem') or ''),
-                                          dict(args.get('argumanlar') or {}))}
+        outcome = execute_browser(ctx, str(args.get('islem') or ''),
+                                  dict(args.get('argumanlar') or {}))
+        if outcome.get('ok') is not True:
+            return {'error': 'Tarayici islemi basarisiz: ' +
+                    str(outcome.get('status') or 'unknown'), 'result': outcome}
+        return {'result': outcome}
     raise ValueError('Bilinmeyen platform araci')
