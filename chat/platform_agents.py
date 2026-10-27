@@ -39,6 +39,11 @@ def _connection_meta(args, ctx):
         raise ExecutionBlocked('Baglanti ya da arac erisimi hazir degil', 'awaiting_connection') from None
 
 
+def effective_permissions(allowed_tools):
+    """None inherits the owner's cloud registry; [] explicitly denies tools."""
+    return frozenset(CLOUD_TOOLS if allowed_tools is None else allowed_tools)
+
+
 def action_has_effect(name, args, ctx):
     if name in READ_TOOLS:
         return False
@@ -49,7 +54,7 @@ def action_has_effect(name, args, ctx):
     if name == 'bulut_tarayici':
         return args.get('islem') not in ('oku', 'ekran', 'dogrula', 'read', 'screenshot', 'verify')
     if name == 'baglanti_cagir':
-        return not _connection_meta(args, ctx).get('annotations', {}).get('readOnlyHint', False)
+        return not _connection_meta(args, ctx).get('read_only', False)
     return True
 
 
@@ -60,8 +65,14 @@ def before_action(name, args, ctx):
         raise PermissionError('Bu gorevin bu araca erisimi yok')
     if name == 'baglanti_cagir':
         meta = _connection_meta(args, ctx)
-        annotations = meta.get('annotations', {})
-        sensitive = bool(meta.get('requires_approval') or annotations.get('destructiveHint'))
+        # MCP hints are advisory: unknown remote writes need owner approval.
+        # A GitHub PR or workflow can publish code or run a paid deployment.
+        remote_tool = str(args.get('arac') or '')
+        sensitive = bool(
+            meta.get('requires_approval')
+            or (meta.get('provider') == 'mcp' and meta.get('side_effect', True))
+            or remote_tool in ('github_create_pr', 'github_dispatch_workflow')
+        )
         if sensitive:
             resource = str(args.get('baglanti_id', ''))
             if not ctx.control.store.consume_approval(ctx.control.lease, name, resource, args):
@@ -169,7 +180,7 @@ def execute_job(job, control, brain=None):
     user = job['user_id']
     workspace = Workspace(state_kok(), user, job['workspace_id'])
     brain = brain or Brain()
-    permissions = frozenset(job.get('allowed_tools') or CLOUD_TOOLS)
+    permissions = effective_permissions(job.get('allowed_tools'))
     if not permissions.issubset(CLOUD_TOOLS):
         return {'status': 'blocked', 'reason': 'Bu araclar bulut kullanici izolasyonunda desteklenmiyor'}
     ctx = ExecutionContext(user, job['workspace_id'], job['id'],

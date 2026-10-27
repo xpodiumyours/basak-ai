@@ -267,3 +267,44 @@ def test_real_chromium_form_upload_download_and_full_snapshot(tmp_path):
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_browser_guards_private_redirects_subrequests_and_websockets(tmp_path):
+    class Route:
+        def __init__(self, url):
+            self.request = SimpleNamespace(url=url)
+            self.outcome = None
+        async def continue_(self):
+            self.outcome = 'allowed'
+        async def abort(self):
+            self.outcome = 'blocked'
+
+    class WebSocketRoute:
+        def __init__(self, url):
+            self.url = url
+            self.outcome = None
+        async def connect(self):
+            self.outcome = 'allowed'
+        async def close(self):
+            self.outcome = 'blocked'
+
+    async def run():
+        browser = service()
+        try:
+            first = await browser.execute(context(tmp_path), 'ac',
+                                          {'url': 'https://example.com'})
+            assert first['ok']
+            fake = browser._browser.contexts[0]
+            assert fake.routes, 'all requests must pass the network guard'
+            for url in ('http://127.0.0.1/admin',
+                        'http://169.254.169.254/latest/meta-data',
+                        'file:///etc/passwd'):
+                intercepted = Route(url)
+                await fake.routes[0](intercepted)
+                assert intercepted.outcome == 'blocked'
+            websocket = WebSocketRoute('ws://127.0.0.1/secrets')
+            await fake.ws_handler(websocket)
+            assert websocket.outcome == 'blocked'
+        finally:
+            await browser.kapat()
+    asyncio.run(run())

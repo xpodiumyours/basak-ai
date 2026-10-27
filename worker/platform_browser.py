@@ -118,6 +118,32 @@ class PlatformBrowser:
             browser = await self._ensure_browser()
             context = await browser.new_context(
                 accept_downloads=True, service_workers="block")
+
+            def allowed_destination(destination):
+                parsed = urlparse(str(destination or ""))
+                local_fixture = self.testing and parsed.hostname in ("127.0.0.1", "localhost")
+                return local_fixture or request_allowed(destination)
+
+            async def guard_request(route):
+                # Apply the same policy to redirects, iframes and subresources.
+                if allowed_destination(route.request.url):
+                    await route.continue_()
+                else:
+                    await route.abort()
+
+            async def guard_websocket(route):
+                # WS URLs require their own guard; no implicit intranet access.
+                parsed = urlparse(str(route.url))
+                http_scheme = "https" if parsed.scheme == "wss" else "http"
+                allowed = parsed.scheme in ("wss", "ws") and allowed_destination(
+                    parsed._replace(scheme=http_scheme).geturl())
+                if allowed:
+                    await route.connect()
+                else:
+                    await route.close()
+
+            await context.route("**/*", guard_request)
+            await context.route_web_socket("**/*", guard_websocket)
             page = await context.new_page()
             await page.goto(url, wait_until="domcontentloaded")
             sid = uuid.uuid4().hex

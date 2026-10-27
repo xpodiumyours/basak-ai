@@ -619,7 +619,10 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                     logger.warning("kosu defteri okunamadi", exc_info=True)
             _platform_replay = None
             if control is not None:
-                from chat.platform_agents import action_has_effect
+                from chat.platform_agents import action_has_effect, before_action
+                # Gate before recording a running action: approval suspends this
+                # run without leaving a phantom in-flight external side effect.
+                before_action(ad, args, replace(platform_context, tool_call_id=cagri_id))
                 _platform_replay = control.begin_action(
                     cagri_id, ad, args, action_has_effect(ad, args, platform_context))
             if _platform_replay is not None:

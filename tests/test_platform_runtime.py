@@ -335,3 +335,9 @@ def test_failed_tool_cannot_complete_even_with_human_accept(store):
     accepted = store.accept("alice", run["id"])
     assert accepted["durum"] != "completed"
     assert accepted["durum"] in {"partial", "verifying"}
+
+
+def test_empty_parent_permissions_remain_denied_on_implicit_child(store):
+    parent = create(store, allowed_tools=[])
+    child = create(store, parent_id=parent['id'])
+    assert store.get('alice', child['id'])['allowed_tools'] == []

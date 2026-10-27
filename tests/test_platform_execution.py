@@ -108,3 +108,74 @@ def test_alt_ajan_wait_result_is_json_the_tool_loop_can_parse(tmp_path):
     with pytest.raises(RunSuspended):
         ctx.control.wait_for_children(parsed['_wait_children'])
     assert store.get('alice', parent['id'])['durum'] == 'waiting_children'
+
+
+def test_empty_cloud_permissions_never_expand_to_default_registry():
+    from chat.platform_agents import CLOUD_TOOLS, effective_permissions
+    assert effective_permissions(None) == CLOUD_TOOLS
+    assert effective_permissions([]) == frozenset()
+    assert effective_permissions(['web_search']) == frozenset({'web_search'})
+
+
+def test_sensitive_platform_tool_blocks_until_exact_owner_approval(tmp_path, monkeypatch):
+    from dataclasses import replace
+    from chat import kosu_deposu
+    from chat.platform_agents import before_action, action_has_effect
+    from chat.platform_context import ExecutionContext
+    from chat.platform_runtime import Control, RunSuspended, RuntimeStore
+
+    store = RuntimeStore(kosu_deposu._SqliteDepo(str(tmp_path / 'approval.db')))
+    job = store.create('alice', 'personal', 'Review workflow', allowed_tools=['baglanti_cagir'])
+    lease = store.claim('worker-a')['lease']
+    ctx = ExecutionContext('alice', 'personal', job['id'],
+                           allowed_tools=frozenset(['baglanti_cagir']),
+                           control=Control(store, lease))
+    args = {'baglanti_id': 'connection-1', 'arac': 'github_dispatch_workflow',
+            'argumanlar': {'repository': 'team/app', 'workflow': 'deploy.yml'}}
+    monkeypatch.setattr('chat.platform_agents._connection_meta',
+                        lambda *_: {'provider': 'github', 'read_only': False,
+                                    'side_effect': True, 'requires_approval': False})
+    assert action_has_effect('baglanti_cagir', args, ctx)
+    with pytest.raises(RunSuspended):
+        before_action('baglanti_cagir', args, ctx)
+    assert store.get('alice', job['id'])['durum'] == 'awaiting_approval'
+    assert store.actions('alice', job['id']) == []
+    approval = store.get('alice', job['id'])['approvals'][0]
+    store.approve('alice', job['id'], approval['id'], True)
+    next_lease = store.claim('worker-a', run_id=job['id'])['lease']
+    next_ctx = replace(ctx, control=Control(store, next_lease))
+    before_action('baglanti_cagir', args, next_ctx)
+    with pytest.raises(RunSuspended):
+        before_action('baglanti_cagir', args, next_ctx)  # approval was single-use
+
+
+def test_platform_tool_loop_invokes_pre_action_gate_before_external_call(monkeypatch):
+    import json
+    from types import SimpleNamespace
+    from chat.platform_context import ExecutionContext, bound
+    from chat.platform_runtime import RunSuspended
+    from chat.tools import arac_dongusu
+    from tools.definitions import TOOLS
+
+    class Control:
+        def check_cancelled(self):
+            pass
+        def checkpoint(self, state):
+            pass
+        def begin_action(self, *args, **kwargs):
+            pytest.fail('an action began before owner authorization')
+
+    def suspend(*args):
+        raise RunSuspended()
+
+    monkeypatch.setattr('chat.platform_agents.before_action', suspend)
+    name = 'baglanti_cagir'
+    schema = next(x for x in TOOLS if x['function']['name'] == name)
+    call = {'id': 'sensitive-1', 'function': {'name': name, 'arguments': json.dumps({
+        'baglanti_id': 'any', 'arac': 'github_dispatch_workflow', 'argumanlar': {}})}}
+    ctx = ExecutionContext('alice', 'personal', 'run-1', control=Control(),
+                           allowed_tools=frozenset([name]))
+    with bound(ctx), pytest.raises(RunSuspended):
+        arac_dongusu([call], [], SimpleNamespace(), None, lambda *_: None,
+                     lambda *_: pytest.fail('external tool unexpectedly ran'),
+                     tools=[schema], yanit={'tool_calls': [call]})
