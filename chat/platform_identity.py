@@ -33,7 +33,7 @@ class IdentityService:
         self.store = store or ConnectionStore()
 
     def account(self, provider, subject, name, email=""):
-        if provider not in ("github", "google") or not str(subject or "").strip():
+        if provider not in ("github", "google", "neon") or not str(subject or "").strip():
             raise ValueError("Dogrulanmis dis hesap kimligi gerekli")
         uid = "u" + uuid.uuid4().hex[:30]
         self.store._db._calistir("INSERT INTO basak_account (id,provider,subject,name,email,created_at) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT(provider,subject) DO NOTHING",
