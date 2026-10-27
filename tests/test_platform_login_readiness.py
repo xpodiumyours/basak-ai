@@ -89,3 +89,68 @@ def test_api_refuses_oauth_start_before_creating_state(oauth_env):
     providers = client.get("/api/baglantilar/saglayicilar").json()["providers"]
     assert next(p for p in providers if p["id"] == "github")["configured"] is False
     assert "synthetic-client-secret" not in resp.text
+
+
+def test_mock_oauth_session_survives_new_database_connection_and_revokes(
+        oauth_env, tmp_path):
+    """No network secrets: prove the real cookie-backed account ledger persists."""
+    import httpx
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from urllib.parse import parse_qs, urlsplit
+    from chat import platform_accounts_api as endpoints
+    from chat import kosu_deposu
+    from chat.platform_connections import ConnectionStore
+    from chat.platform_identity import COOKIE, IdentityService
+
+    database = str(tmp_path / "durable-login.sqlite")
+    store = ConnectionStore(kosu_deposu._SqliteDepo(database))
+    oauth_env.setattr(endpoints, "_store_factory", lambda: store)
+
+    def authenticated(request):
+        account = IdentityService(endpoints._store_factory()).resolve_session(
+            request.cookies.get(COOKIE, ""))
+        return account["id"] if account else None
+
+    oauth_env.setattr(endpoints, "_authenticate", authenticated)
+
+    def fake_provider(request):
+        if request.url.host == "github.com":
+            return httpx.Response(200, json={"access_token": "synthetic-provider-token"})
+        if request.url.host == "api.github.com" and request.url.path == "/user":
+            return httpx.Response(200, json={"id": 13579, "name": "Durable user"})
+        return httpx.Response(404)
+
+    oauth_env.setattr(endpoints, "_transport",
+                      httpx.MockTransport(fake_provider))
+    app = FastAPI()
+    app.include_router(endpoints.router)
+    client = TestClient(app, base_url="https://basak.example")
+    start = client.get("/api/baglantilar/oauth/github/baslat?purpose=login",
+                       follow_redirects=False)
+    assert start.status_code == 302
+    state = parse_qs(urlsplit(start.headers["location"]).query)["state"][0]
+    callback = client.get("/api/baglantilar/oauth/github/callback",
+                          params={"state": state, "code": "synthetic-code"},
+                          follow_redirects=False)
+    assert callback.status_code == 303
+    session = client.cookies.get(COOKIE)
+    assert session
+    before = client.get("/api/hesap").json()
+    assert before["authenticated"] is True
+    user_id = before["user"]["id"]
+
+    # Equivalent to another serverless process loading the same durable DB.
+    fresh_store = ConnectionStore(kosu_deposu._SqliteDepo(database))
+    oauth_env.setattr(endpoints, "_store_factory", lambda: fresh_store)
+    fresh_client = TestClient(app, base_url="https://basak.example")
+    fresh_client.cookies.set(COOKIE, session)
+    after = fresh_client.get("/api/hesap").json()
+    assert after["authenticated"] is True
+    assert after["user"]["id"] == user_id
+    assert "synthetic-provider-token" not in str(after)
+
+    assert fresh_client.post("/api/hesap/cikis",
+                             headers={"Origin": "https://basak.example"}).status_code == 204
+    fresh_client.cookies.set(COOKIE, session)
+    assert fresh_client.get("/api/hesap").json()["authenticated"] is False
