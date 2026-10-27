@@ -11,7 +11,7 @@
     uncertain: "Sonuç belirsiz",
   });
   const TERMINAL = new Set(["completed", "partial", "blocked", "failed", "cancelled", "uncertain"]);
-  const ACTIONS = new Set(["iptal", "devam", "yon", "onay", "kabul"]);
+  const ACTIONS = new Set(["iptal", "devam", "yon", "onay", "kabul", "uzlastir"]);
 
   function createState(principal) {
     return { principal: String(principal || ""), user: null, runs: {}, selectedId: null,
@@ -153,8 +153,8 @@
     }
     return {
       read: (path) => request(path),
-      write: (path, data, method) => request(path, { method: method || "POST",
-        headers: { "Content-Type": "application/json" }, body: JSON.stringify(data || {}) }),
+      write: (path, data, method, requestKey) => request(path, { method: method || "POST",
+        headers: { "Content-Type": "application/json", ...(requestKey ? {'Idempotency-Key': requestKey} : {}) }, body: JSON.stringify(data || {}) }),
       action(id, action, data) {
         if (!ACTIONS.has(action)) return Promise.reject(new Error("Geçersiz görev işlemi."));
         return request("/api/kosu/" + encodeURIComponent(id) + "/" + action, {
@@ -181,7 +181,44 @@
   let previewKind = "outputs";
   let selectedArtifact = null;
   let busy = false;
+  let pendingTaskSubmission = null;
+  let pendingChatSubmission = null;
   const expandedEvents = new Set();
+  const originalFetch = scope.basakFetch;
+  if (typeof originalFetch === 'function') {
+    scope.basakFetch = async function (path, options = {}) {
+      if (path !== '/api/sohbet' || !state.user) return originalFetch(path, options);
+      const signature = state.user.id + ':' + String(options.body || '');
+      const previous = pendingChatSubmission && state.runs[pendingChatSubmission.run];
+      if (!pendingChatSubmission || pendingChatSubmission.signature !== signature ||
+          (previous && TERMINAL.has(previous.durum))) {
+        pendingChatSubmission = {signature, key: scope.crypto.randomUUID(), run: null};
+      }
+      const headers = new Headers(options.headers || {});
+      headers.set('Idempotency-Key', pendingChatSubmission.key);
+      const response = await originalFetch(path, {...options, headers});
+      const run = response.headers.get('X-Basak-Run-ID');
+      if (run) pendingChatSubmission.run = run;
+      return response;
+    };
+  }
+  const durableChats = new Set();
+  scope.addEventListener('basak:durable-run', ({detail: event}) => {
+    durableChats.add(event.istek);
+    selectRun(event.kosu_id, false).catch(handleError);
+  });
+  scope.addEventListener('basak:open-task', ({detail}) => {
+    selectRun(detail.id).then(() => switchView('tasks')).catch(handleError);
+  });
+    document.addEventListener('click', (event) => {
+      const action = event.target.closest('.work-stop,.work-redirect,.work-continue,.work-answer');
+      const row = action && action.closest('[data-durable-run]');
+      if (!row) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+      const id = row.dataset.durableRun;
+      if (action.classList.contains('work-stop')) perform(id, 'iptal', {});
+      else selectRun(id).then(() => switchView('tasks')).catch(handleError);
+    }, true);
 
   function node(tag, className, text) {
     const element = document.createElement(tag);
@@ -266,8 +303,10 @@
           state = identity(state, null);
           revision += 1;
           selectedArtifact = null;
+          durableChats.clear(); pendingTaskSubmission = null; pendingChatSubmission = null;
           render();
           scope.dispatchEvent(new CustomEvent("basak:platform-account", { detail: null }));
+          scope.location.reload(); // Reload chat/history under the new anonymous identity.
         } catch (error) { handleError(error); }
         finally { logout.disabled = false; }
       });
@@ -321,7 +360,7 @@
     status.textContent = statusText(root.durum);
     status.dataset.status = root.durum || "unknown";
     byId("platformCancel").disabled = busy || TERMINAL.has(root.durum);
-    byId("platformResume").hidden = !["paused", "blocked", "awaiting_connection", "partial"].includes(root.durum);
+    byId("platformResume").hidden = !["paused", "blocked", "awaiting_connection", "partial", "failed", "verifying"].includes(root.durum);
     byId("platformResume").disabled = busy;
     const progress = childProgress(root);
     if (progress.total) {
@@ -345,6 +384,13 @@
       if (run.hata || run.reason || run.blocked_reason) row.append(node("p", "workspace-run-reason", run.hata || run.reason || run.blocked_reason));
       for (const check of run.checks || []) {
         row.append(node("p", "workspace-check", (check.ok === true ? "Geçti: " : "Geçmedi: ") + evidenceText(check)));
+      }
+      if (run.answer) row.append(node('pre', 'workspace-code', run.answer));
+      if (run.durum === 'uncertain') {
+        const button = node('button', 'workspace-button', 'İşlemi kanıtla uzlaştır');
+        button.type = 'button';
+        button.addEventListener('click', () => reconcileRun(run.id, row));
+        row.append(button);
       }
       for (const approval of run.approvals || []) {
         if (approval.status !== "pending") continue;
@@ -379,6 +425,21 @@
       for (const child of run.children || []) draw(state.runs[child.id || child.kosu_id] || child, depth + 1);
     }
     draw(root, 0);
+  }
+
+  async function reconcileRun(id, row) {
+    try {
+      const data = await client.read('/api/kosu/' + encodeURIComponent(id) + '/islemler');
+      for (const action of (data.actions || []).filter((item) => item.status === 'uncertain')) {
+        const box = node('div', 'workspace-reconcile');
+        box.append(node('p', '', action.tool + ' · ' + action.call_id));
+        box.append(node('p', '', 'İşlemin hedefi bağlı sağlayıcıdan yeniden okunur. Sonuç doğrulanamazsa görev belirsiz kalır.'));
+        const button = node('button', 'workspace-button', 'Sağlayıcıdan doğrula');
+        button.type = 'button';
+        button.addEventListener('click', () => perform(id, 'uzlastir', {call_id: action.call_id}));
+        box.append(button); row.append(box);
+      }
+    } catch (error) { handleError(error); }
   }
 
   function eventLabel(event) {
@@ -560,9 +621,21 @@
     const origin = scope.location.origin;
     const href = safeHref(source, origin);
     const preview = previewHref(source, origin);
-    if (preview && String(artifact.media_type || "").startsWith("image/")) {
+    const media = artifact.media_type || artifact.mime_type || '';
+    if (preview && String(media).startsWith("image/")) {
       const image = node("img", "workspace-screenshot"); image.src = preview; image.alt = artifact.title || "Görev tarayıcı görüntüsü";
       details.append(image);
+    }
+    if (preview && /^(text\/|application\/json)/.test(media)) {
+      const content = node('pre', 'workspace-code', 'İçerik yükleniyor…'); details.append(content);
+      details.addEventListener('toggle', async () => {
+        if (!details.open || content.dataset.loaded) return;
+        try {
+          const response = await scope.fetch(preview, {credentials: 'same-origin', cache: 'no-store'});
+          if (!response.ok) throw new Error('Çıktı okunamadı');
+          content.textContent = await response.text(); content.dataset.loaded = 'true';
+        } catch (error) { content.textContent = error.message; }
+      });
     }
     if (href) {
       const link = node("a", "workspace-text-button", "Çıktıyı aç");
@@ -623,7 +696,7 @@
     renderPreview();
   }
 
-  async function selectRun(id) {
+  async function selectRun(id, reveal = true) {
     if (accountRequired()) return;
     const version = revision;
     try {
@@ -632,7 +705,8 @@
       state = snapshot(state, data.kosu);
       selectedArtifact = null;
       expandedEvents.clear();
-      switchView("tasks"); render();
+      if (reveal) switchView("tasks");
+      render();
       await pollEvents();
     } catch (error) { if (version === revision) handleError(error); }
   }
@@ -648,7 +722,11 @@
       state = events(state, data.olaylar || []);
       const tree = await client.read("/api/kosu/" + encodeURIComponent(id) + "/agac");
       if (version !== revision || id !== state.selectedId) return;
+      const previous = state.runs[id];
       state = snapshot(state, tree.kosu);
+      if (!previous || previous.durum !== tree.kosu.durum || previous.answer !== tree.kosu.answer) {
+        scope.dispatchEvent(new CustomEvent('basak:durable-update'));
+      }
       renderTaskList(); renderRunTree(); renderEvents();
       if (previewKind !== "connections") renderPreview();
     } catch (error) { if (version === revision && id === state.selectedId) handleError(error); }
@@ -682,9 +760,14 @@
     const version = revision;
     message("Görev kaydediliyor…");
     try {
-      const data = await client.write("/api/kosu", { istek: input.value.trim(),
-        workspace_id: byId("platformWorkspaceInput").value.trim() || "personal", model_ref: "" });
+      const payload = {istek: input.value.trim(), workspace_id: byId('platformWorkspaceInput').value.trim() || 'personal', model_ref: ''};
+      const signature = state.user.id + ':' + JSON.stringify(payload);
+      if (!pendingTaskSubmission || pendingTaskSubmission.signature !== signature) {
+        pendingTaskSubmission = {signature, key: scope.crypto.randomUUID()};
+      }
+      const data = await client.write('/api/kosu', payload, 'POST', pendingTaskSubmission.key);
       if (version !== revision) return;
+      pendingTaskSubmission = null;
       state = snapshot(state, data.kosu);
       input.value = "";
       message("Görev kaydedildi. Sunucudaki çalışma durumu izleniyor."); render();

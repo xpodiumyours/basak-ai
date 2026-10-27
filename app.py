@@ -231,6 +231,11 @@ def _kimlik(request: Request):
     import kullanici as kullanici_modulu
     from chat.kimlik import kullanici_kur
 
+    account = _platform_kimlik(request)
+    if account:
+        kullanici_kur(account)
+        return account
+
     if _preview_mi():
         kid = _preview_kimligi(request)
         if kid is None:
@@ -679,6 +684,13 @@ async def kimlik_hazirla(request: Request):
     import kullanici as kullanici_modulu
     from chat.kimlik import kullanici_kur
 
+    account = _platform_kimlik(request)
+    if account:
+        kullanici_kur(account)
+        return JSONResponse({'ok': True, 'kullanici': account,
+                             'basak_id': account, 'kayit_gerekli': False},
+                            headers={'Cache-Control': 'no-store'})
+
     if _preview_mi():
         kid = _preview_kimligi(request) or ("p" + uuid.uuid4().hex[:16])
         kullanici_kur(kid)
@@ -925,7 +937,19 @@ async def sohbet(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse({"error": "Gecersiz JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({'error': 'Istek bir JSON nesnesi olmali'}, status_code=400)
     metin = str((body or {}).get("metin") or "").strip()
+    account = _platform_kimlik(request)
+    if account and not (body or {}).get('misafir'):
+        from chat.platform_api import chat_response, _mutation_origin_ok
+        if not _mutation_origin_ok(request):
+            return JSONResponse({'error': 'Bu hesap islemi ayni kaynaktan yapilmali'}, status_code=403)
+        izin, _ = _kota_kapisi(request, kid)
+        if not izin:
+            return JSONResponse({'error': 'Gunluk ucretsiz hak doldu', 'kota': True,
+                                 'kalan': 0}, status_code=429)
+        return await chat_response(request, account, body, history=_gecmis(body))
     try:
         handoff_key = _handoff_anahtari(kid)
     except RuntimeError as e:

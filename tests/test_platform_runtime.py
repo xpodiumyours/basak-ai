@@ -223,8 +223,15 @@ def test_worker_crash_after_external_effect_intent_is_uncertain(store):
     Worker(store, handler).tick()
     assert store.get("alice", run["id"])["durum"] == "uncertain"
     assert store.claim("second") is None
-    store.reconcile_action("alice", run["id"], "c1", {"resource_id": "observed-id"},
-                           True, {"source": "GET /resource/observed-id"})
+    with pytest.raises(Conflict):
+        store.reconcile_action("alice", run["id"], "c1", {"resource_id": "observed-id"},
+                               True, {"source": "GET /resource/observed-id"})
+    action = store.actions("alice", run["id"])[0]
+    result = {"resource_id": "observed-id"}
+    aid = store.add_artifact("alice", run["id"], {
+        "kind": "external_observation", "verified": True, "call_id": "c1",
+        "arguments_digest": action['digest'], "result": result, "content": "provider observation"})
+    store.reconcile_action("alice", run["id"], "c1", result, True, {"artifact_id": aid})
     assert store.get("alice", run["id"])["durum"] == "paused"
     store.resume("alice", run["id"])
     lease = store.claim("second")["lease"]
@@ -365,6 +372,7 @@ def test_empty_parent_permissions_remain_denied_on_implicit_child(store):
 
 
 def test_subagent_caps_enforced_atomically_and_replay_remains_idempotent(store):
+    store.max_children_per_parent = 8  # Explicit resource configuration, not a model depth limit.
     parent = create(store)
     created = [create(store, parent_id=parent["id"], request_key="agent:%d" % i)
                for i in range(8)]
@@ -393,11 +401,13 @@ def test_only_three_siblings_run_at_once_and_queued_fourth_resumes(store):
     assert resumed["id"] == children[3]["id"]
 
 
-def test_subagent_may_not_delegate_grandchildren(store):
+def test_subagent_can_delegate_without_expanding_owner_tools(store):
     root = create(store)
     child = create(store, parent_id=root["id"])
-    with pytest.raises(Conflict, match="Alt ajanlar"):
-        create(store, parent_id=child["id"])
+    grandchild = create(store, parent_id=child["id"])
+    assert grandchild['parent_id'] == child['id']
+    with pytest.raises(Conflict, match='bekleyemez'):
+        create(store, parent_id=child['id'], dependencies=[root['id']])
 
 
 def test_subagent_capacity_configuration_is_valid(tmp_path):
@@ -515,3 +525,16 @@ def test_default_user_task_quota_rejects_unbounded_work(store):
     assert create(store, user="bob")["durum"] == "queued"
     store.cancel("alice", tasks[0]["id"])
     assert create(store)["durum"] == "queued"
+
+
+def test_root_budget_covers_nested_and_completed_subagents(store):
+    store.max_descendants_per_root = 3
+    root = create(store)
+    child = create(store, parent_id=root['id'])
+    grandchild = create(store, parent_id=child['id'])
+    lease = store.claim('w', run_id=grandchild['id'])['lease']
+    store.record_check(lease, 'result_verified', True, {'test': 'observed'})
+    store.finish(lease, {'answer': 'done'})
+    create(store, parent_id=root['id'])
+    with pytest.raises(Conflict, match='toplam alt ajan'):
+        create(store, parent_id=child['id'])

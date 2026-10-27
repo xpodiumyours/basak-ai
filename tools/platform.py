@@ -1,7 +1,6 @@
 """Model-selected cloud tools bound to an authenticated durable run."""
 import json
 import os
-from pathlib import Path
 
 from chat.platform_context import require
 
@@ -35,7 +34,7 @@ def selection(brain, ref):
 def _workspace(ctx):
     from worker.platform_execution import Workspace
     from chat.kimlik import state_kok
-    return Workspace(state_kok(), ctx.user_id, ctx.workspace_id)
+    return Workspace(state_kok(), ctx.user_id, ctx.workspace_id, ctx.run_id)
 
 
 def _connections():
@@ -55,14 +54,11 @@ def execute(name, args):
     if name == 'ajan_modelleri':
         return {'result': models(ctx.brain)}
     if name == 'alt_ajan':
-        from chat.platform_runtime import RuntimeStore
         store = control.store
         jobs = args.get('isler')
         if not isinstance(jobs, list) or not jobs:
             raise ValueError('isler bos olmayan gorev listesi olmali')
-        if ctx.parent_run_id:
-            raise PermissionError('Alt ajan yeni alt ajan olusturamaz; yalniz ana ajan dagitir')
-        if len(jobs) > store.max_children_per_parent:
+        if store.max_children_per_parent is not None and len(jobs) > store.max_children_per_parent:
             raise ValueError('Tek seferde alt ajan siniri asildi')
         created = []
         for job in jobs:
@@ -116,8 +112,6 @@ def execute(name, args):
             result = workspace.read(args.get('yol'), args.get('baslangic', 0))
         elif op == 'yaz':
             result = workspace.write(args.get('yol'), args.get('icerik', ''))
-            control.artifact('file', title=result['path'], content=str(args.get('icerik', '')),
-                             mime_type='text/plain', workspace_path=result['path'])
         else:
             raise ValueError('Dosya islemi liste, oku veya yaz olmali')
         return {'result': result}

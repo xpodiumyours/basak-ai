@@ -141,9 +141,19 @@ YETENEK_AC_ARACI = {
 }
 
 
-def baslangic_araclari():
+def baslangic_araclari(katalog=None):
     """Ilk turda modele sunulan tek sema: yetenek_ac."""
-    return [YETENEK_AC_ARACI]
+    if katalog is None:
+        return [YETENEK_AC_ARACI]
+    import copy
+    names = {t['function']['name'] for t in katalog}
+    areas = [area for area, tools in YETENEK_ALANLARI.items() if names.intersection(tools)]
+    schema = copy.deepcopy(YETENEK_AC_ARACI)
+    schema['function']['parameters']['properties']['alanlar']['items']['enum'] = areas
+    schema['function']['description'] = (
+        'Bir veya birkac yetenek alanini acar; bu kosudaki gercek arac semalarini doner. Alanlar: ' +
+        '; '.join(area + '=' + ALAN_ACIKLAMALARI[area] for area in areas))
+    return [schema]
 
 
 def istenen_alanlar(args):
@@ -174,4 +184,5 @@ def acik_alan_araclari(katalog, acik_alanlar):
         if isinstance(arac, dict)
         and (arac.get("function") or {}).get("name") in adlar
     ]
-    return secilen + [YETENEK_AC_ARACI]
+    from chat.platform_context import current
+    return secilen + baslangic_araclari(katalog if current() is not None else None)

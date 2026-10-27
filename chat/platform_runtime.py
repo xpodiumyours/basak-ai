@@ -149,12 +149,19 @@ class RuntimeStore:
     used by tests and by the worker process with its existing ledger backend.
     """
     def __init__(self, depo=None, *, clock=None, max_queued_per_user=32,
-                 max_children_per_parent=8, max_active_children_per_parent=3):
+                 max_children_per_parent=8, max_active_children_per_parent=3,
+                 max_descendants_per_root=32):
         # Bound delegated work independently of provider context length.
         # Same values in every process; the database enforces limits atomically.
-        self.max_children_per_parent = int(max_children_per_parent)
+        self.max_children_per_parent = (int(max_children_per_parent)
+                                        if max_children_per_parent is not None else None)
         self.max_active_children_per_parent = int(max_active_children_per_parent)
-        if not (1 <= self.max_active_children_per_parent <= self.max_children_per_parent <= 32):
+        self.max_descendants_per_root = int(max_descendants_per_root)
+        if self.max_descendants_per_root < 1:
+            raise ValueError('Gorev agaci kapasitesi pozitif olmali')
+        if not (1 <= self.max_active_children_per_parent <= 32) or (
+                self.max_children_per_parent is not None and not
+                self.max_active_children_per_parent <= self.max_children_per_parent <= 32):
             raise ValueError("Alt ajan kapasitesi 1..32 ve aktif <= toplam olmali")
         self.depo = depo if depo is not None else kosu_deposu._depo()
         if self.depo is None:
@@ -237,6 +244,10 @@ class RuntimeStore:
             "state TEXT NOT NULL)",
             "CREATE INDEX IF NOT EXISTS basak_platform_owner ON basak_platform_run(user_id,workspace_id)",
             "CREATE INDEX IF NOT EXISTS basak_platform_parent ON basak_platform_run(parent_id)",
+            "CREATE TABLE IF NOT EXISTS basak_platform_workspace_file ("
+            "user_id TEXT NOT NULL, workspace_id TEXT NOT NULL, path TEXT NOT NULL, "
+            "data_base64 TEXT NOT NULL, sha256 TEXT NOT NULL, "
+            "PRIMARY KEY(user_id,workspace_id,path))",
         )
         with self.transaction() as tx:
             for statement in tables:
@@ -248,6 +259,10 @@ class RuntimeStore:
                 "SELECT * FROM basak_platform_approval LIMIT 0").description]
             if "preview" not in approval_columns:
                 tx.execute("ALTER TABLE basak_platform_approval ADD COLUMN preview TEXT NOT NULL DEFAULT '{}'")
+            file_columns = [d[0] for d in tx.execute(
+                'SELECT * FROM basak_platform_workspace_file LIMIT 0').description]
+            if 'deleted' not in file_columns:
+                tx.execute('ALTER TABLE basak_platform_workspace_file ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0')
 
     def worker_ping(self, worker_id):
         """Worker proves liveness independently of whether jobs are queued."""
@@ -258,6 +273,35 @@ class RuntimeStore:
                        "ON CONFLICT(worker_id) DO UPDATE SET "
                        "seen_at=excluded.seen_at,state='online'",
                        (worker_id, self.clock()))
+
+    def workspace_files(self, user_id, workspace_id, include_deleted=False):
+        with self.transaction() as tx:
+            return tx.rows('SELECT path,data_base64,sha256,deleted FROM basak_platform_workspace_file '
+                           'WHERE user_id=%s AND workspace_id=%s' + ('' if include_deleted else ' AND deleted=0'),
+                           (user_id, workspace_id))
+
+    def publish_files(self, lease, workspace_id, changes):
+        """Compare content versions before publishing parallel worker changes."""
+        with self.transaction() as tx:
+            row = self._lease(tx, lease)
+            if row['workspace_id'] != workspace_id:
+                raise Conflict('Calisma alani eslesmiyor')
+            for item in changes:
+                old = tx.one('SELECT sha256,deleted FROM basak_platform_workspace_file '
+                             'WHERE user_id=%s AND workspace_id=%s AND path=%s',
+                             (lease.user_id, workspace_id, item['path']))
+                actual = old['sha256'] if old and not old['deleted'] else None
+                same_result = bool(old and old['sha256'] == item['sha256']
+                                   and bool(old['deleted']) == bool(item.get('deleted')))
+                if actual != item['before_sha256'] and not same_result:
+                    raise Conflict('Paralel dosya degisikligi: ' + item['path'])
+            for item in changes:
+                tx.execute('INSERT INTO basak_platform_workspace_file '
+                           '(user_id,workspace_id,path,data_base64,sha256,deleted) VALUES(%s,%s,%s,%s,%s,%s) '
+                           'ON CONFLICT(user_id,workspace_id,path) DO UPDATE SET '
+                           'data_base64=excluded.data_base64,sha256=excluded.sha256,deleted=excluded.deleted',
+                           (lease.user_id, workspace_id, item['path'], item['data_base64'], item['sha256'],
+                            int(bool(item.get('deleted')))))
 
     def worker_stopped(self, worker_id):
         worker_id = _key(worker_id, "worker_id")
@@ -323,6 +367,7 @@ class RuntimeStore:
         artifacts = []
         for value in tx.rows("SELECT artifact_id,data FROM basak_platform_artifact WHERE run_id=%s ORDER BY artifact_id", (row["id"],)):
             item = _read(value["data"], {})
+            item['media_type'] = item.get('media_type') or item.get('mime_type') or 'application/octet-stream'
             item = {k: v for k, v in item.items() if k not in ("content", "data_base64", "path", "local_path")}
             item.update({"id": value["artifact_id"], "href": "/api/kosu/%s/artifacts/%s" % (row["id"], value["artifact_id"])})
             artifacts.append(item)
@@ -350,7 +395,12 @@ class RuntimeStore:
         instruction = str(instruction or "").strip()
         if not instruction:
             raise ValueError("Görev açıklaması gerekli")
-        acceptance = acceptance if acceptance is not None else [{"id": "result_verified", "description": "Sonuç doğrulandı"}]
+        acceptance = acceptance if acceptance is not None else [
+            {"id": "result_verified", "kind": "execution_observed",
+             "description": "Alt görevin araçları ve çıktı kaydı doğrulandı"}
+            if parent_id else ({"id": "response_recorded", "kind": "message_recorded",
+                               "description": "Sohbet yanıtı kaydedildi"} if kind == 'chat' else
+                              {"id": "result_verified", "description": "Sonuç doğrulandı"})]
         if not isinstance(acceptance, (list, tuple)) or not acceptance:
             raise ValueError("En az bir kabul koşulu gerekli")
         if any(not isinstance(c, dict) or not c.get("id") for c in acceptance):
@@ -374,13 +424,22 @@ class RuntimeStore:
                 parent = self._require(tx, user_id, parent_id)
                 if parent["workspace_id"] != workspace_id or parent["durum"] in TERMINAL:
                     raise Conflict("Üst görev bu çalışma alanında etkin değil")
-                if parent["parent_id"]:
-                    raise Conflict("Alt ajanlar yeni alt ajan olusturamaz; delegasyonu ana ajan yonetir")
                 child_count = tx.one(
                     "SELECT COUNT(*) AS n FROM basak_platform_run WHERE parent_id=%s",
                     (parent_id,))["n"]
-                if child_count >= self.max_children_per_parent:
+                if self.max_children_per_parent is not None and child_count >= self.max_children_per_parent:
                     raise Conflict("Ana gorevin alt ajan kapasitesi dolu")
+                root = parent
+                while root['parent_id']:
+                    root = self._require(tx, user_id, root['parent_id'])
+                descendants = tx.one(
+                    'WITH RECURSIVE tree(run_id) AS ('
+                    'SELECT run_id FROM basak_platform_run WHERE parent_id=%s AND user_id=%s '
+                    'UNION ALL SELECT m.run_id FROM basak_platform_run m JOIN tree t ON m.parent_id=t.run_id '
+                    'WHERE m.user_id=%s) SELECT COUNT(*) AS n FROM tree',
+                    (root['id'], user_id, user_id))['n']
+                if descendants >= self.max_descendants_per_root:
+                    raise Conflict('Gorev agacinin toplam alt ajan kapasitesi dolu')
                 parent_tools = _read(parent["spec"], {}).get("allowed_tools")
                 if parent_tools is not None:
                     if allowed_tools is None:
@@ -452,6 +511,28 @@ class RuntimeStore:
             params.append(limit)
             return [self._project(tx, self._require(tx, user_id, r["id"])) for r in tx.rows(sql, tuple(params))]
 
+    def chat_threads(self, user_id):
+        """Rebuild account chat history from durable root turns, including pending ones."""
+        with self.transaction() as tx:
+            rows = tx.rows("SELECT r.id FROM basak_kosu r JOIN basak_platform_run m ON r.id=m.run_id "
+                           "WHERE m.user_id=%s AND r.kullanici=%s AND m.kind='chat' AND m.parent_id IS NULL "
+                           "ORDER BY r.olustu,r.id", (user_id, user_id))
+            threads = {}
+            for row in rows:
+                run = self._project(tx, self._require(tx, user_id, row['id']))
+                context = run['context']
+                cid = context.get('conversation_id') or run['id']
+                thread = threads.setdefault(cid, {
+                    'id': cid, 'title': context.get('conversation_title') or run['istek'],
+                    'messages': list(context.get('history') or []), 'pendingRuns': []})
+                thread['messages'].append({'role': 'user', 'content': context.get('display_text') or run['istek']})
+                if run['answer']:
+                    thread['messages'].append({'role': 'assistant', 'content': run['answer']})
+                if run['durum'] not in TERMINAL:
+                    thread['pendingRuns'].append({'id': run['id'], 'state': run['durum']})
+                thread['updatedAt'] = run['guncelleme']
+            return list(threads.values())
+
     def events(self, user_id, run_id, after=0, limit=200):
         with self.transaction() as tx:
             self._require(tx, user_id, run_id)
@@ -461,6 +542,9 @@ class RuntimeStore:
     def append_event(self, user_id, run_id, type_, payload):
         with self.transaction() as tx:
             self._require(tx, user_id, run_id)
+            if type_ == 'provider' and payload.get('provider'):
+                tx.execute('UPDATE basak_kosu SET saglayici=%s WHERE id=%s',
+                           (str(payload['provider']), run_id))
             return self._event(tx, run_id, str(type_), dict(payload or {}))
 
     def _recover(self, tx):
@@ -601,6 +685,13 @@ class RuntimeStore:
             action = tx.one("SELECT * FROM basak_platform_action WHERE run_id=%s AND call_id=%s", (run_id, call_id))
             if row["durum"] != "uncertain" or not action or action["status"] != "uncertain":
                 raise Conflict("Belirsiz işlem bulunamadı")
+            artifact = tx.one('SELECT data FROM basak_platform_artifact WHERE run_id=%s AND artifact_id=%s',
+                              (run_id, evidence.get('artifact_id', '')))
+            observed = _read(artifact['data'], {}) if artifact else {}
+            if (observed.get('kind') != 'external_observation' or observed.get('verified') is not True
+                    or observed.get('call_id') != call_id or observed.get('arguments_digest') != action['digest']
+                    or observed.get('result') != result or ok is not True):
+                raise Conflict('Saglayicidan bagimsiz okunmus ve bu cagrinin hedefiyle eslesmis kanit gerekli')
             tx.execute("UPDATE basak_platform_action SET status='completed',result=%s,ok=%s WHERE run_id=%s AND call_id=%s", (_json(result), int(ok), run_id, call_id))
             self._event(tx, run_id, "reconciliation", {"call_id": call_id, "ok": ok, "evidence": evidence})
             if not tx.one("SELECT call_id FROM basak_platform_action WHERE run_id=%s AND status='uncertain'", (run_id,)):
@@ -616,6 +707,8 @@ class RuntimeStore:
 
     def add_artifact(self, user_id, run_id, artifact):
         item = dict(artifact)
+        legacy_media = item.pop('mime_type', None)
+        item['media_type'] = item.get('media_type') or legacy_media or 'application/octet-stream'
         aid = _key(item.pop("id", None) or uuid.uuid4().hex, "artifact_id")
         if "content" in item:
             data = str(item["content"]).encode("utf-8")
@@ -862,6 +955,8 @@ class Worker:
         self.lease_seconds = lease_seconds
 
     def tick(self, run_id=None):
+        from worker.platform_browser import release_finished_sessions
+        release_finished_sessions(self.store)
         job = self.store.claim(self.worker_id, self.lease_seconds, run_id)
         if job is None:
             return False
@@ -893,4 +988,5 @@ class Worker:
         finally:
             stopped.set()
             heartbeat.join(timeout=2)
+            release_finished_sessions(self.store)
         return True

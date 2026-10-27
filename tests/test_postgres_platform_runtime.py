@@ -114,3 +114,22 @@ def test_idle_worker_heartbeat_visible_to_independent_postgres_store(postgres_ur
         row = tx.one("SELECT state FROM basak_platform_worker_presence "
                      "WHERE worker_id=%s", (worker_id,))
     assert row["state"] == "offline"
+
+
+def test_root_lifetime_budget_is_atomic_across_postgres_connections(postgres_url):
+    coordinator = new_store(postgres_url)
+    user = new_user()
+    root = coordinator.create(user, 'ci', 'bounded delegation')
+    parents = [coordinator.create(user, 'ci', 'delegate', parent_id=root['id']) for _ in range(2)]
+    stores = [new_store(postgres_url) for _ in range(6)]
+    for store in stores:
+        store.max_descendants_per_root = 4
+    def create(index):
+        try:
+            return stores[index].create(user, 'ci', 'nested', parent_id=parents[index % 2]['id'])['id']
+        except Conflict:
+            return None
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+        results = list(pool.map(create, range(6)))
+    assert len([result for result in results if result]) == 2
+    assert sum(len(child['children']) for child in coordinator.tree(user, root['id'])['children']) == 2

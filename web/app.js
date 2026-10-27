@@ -107,7 +107,7 @@ function aktifSohbetiKaydet() {
   const simdi = Date.now();
   const kayit = {
     id: activeChatId,
-    title: sohbetBasligi(bulutGecmisi),
+    title: (chats.find((c) => c.id === activeChatId) || {}).title || sohbetBasligi(bulutGecmisi),
     messages: bulutGecmisi.slice(),
     updatedAt: simdi,
   };
@@ -426,6 +426,8 @@ function sohbetiCiz() {
     if (m.role === "user") bubble("user", m.content || "");
     else if (m.role === "assistant") bubble("assistant", m.content || "");
   }
+  const active = chats.find((c) => c.id === activeChatId);
+  for (const run of (active && active.pendingRuns) || []) chatEl.appendChild(kaliciGorevDugmesi(run));
   sohbetAlta();
 }
 
@@ -1597,10 +1599,56 @@ function akiciMetniDurdur(b) {
   akiciBekleyenleriCoz(kayit);
 }
 
+const kaliciSohbetler = new Set();
+function kaliciGorevDugmesi(run) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "work-action";
+  button.textContent = "Görevi aç";
+  button.addEventListener("click", () => window.dispatchEvent(new CustomEvent("basak:open-task", {detail: {id: run.id}})));
+  return button;
+}
+async function kaliciSohbetleriYukle() {
+  if (gonderiliyor) return;
+  const owner = depoAnahtari(CHATS_BASE);
+  try {
+    const response = await window.basakFetch("/api/kosu/sohbetler");
+    if (!response.ok || gonderiliyor) return;
+    const data = await response.json();
+    if (gonderiliyor || owner !== depoAnahtari(CHATS_BASE)) return;
+    for (const incoming of data.chats || []) {
+      incoming.updatedAt = Date.parse(incoming.updatedAt) || Date.now();
+      const index = chats.findIndex((c) => c.id === incoming.id);
+      if (index >= 0) chats[index] = {...incoming, title: chats[index].title || incoming.title};
+      else chats.push(incoming);
+    }
+    chats.sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
+    const active = chats.find((c) => c.id === activeChatId);
+    if (active) bulutGecmisi = active.messages.slice();
+    depoyuKaydet(); gecmisCiz(); sohbetiCiz();
+  } catch { /* Saved local history stays available while the server is offline. */ }
+}
+
 function olayiIsle(o) {
   const no = o.istek;
 
   if (o.tur === "ping") return false;
+  if (o.tur === "durableRun") {
+    kaliciSohbetler.add(no);
+    activeChatId = o.conversation_id || activeChatId || sohbetId();
+    const index = chats.findIndex((c) => c.id === activeChatId);
+    const previous = index >= 0 ? chats[index] : {};
+    const messages = [...bulutGecmisi, {role: "user", content: o.display_text || "Görev"}];
+    const record = {...previous, id: activeChatId,
+      title: previous.title || o.conversation_title || sohbetBasligi(messages), messages,
+      pendingRuns: [...(previous.pendingRuns || []), {id: no, state: "queued"}], updatedAt: Date.now()};
+    if (index >= 0) chats[index] = record; else chats.unshift(record);
+    const bubble = balonlar.get(no);
+    if (bubble) bubble.closest(".message-row").dataset.durableRun = no;
+    depoyuKaydet(); gecmisCiz();
+    window.dispatchEvent(new CustomEvent("basak:durable-run", {detail: o}));
+    return false;
+  }
 
   if (typeof o.handoff_token === "string" && o.handoff_token) {
     let handoffBalonu = balonlar.get(no);
@@ -1732,7 +1780,11 @@ function olayiIsle(o) {
 
   if (o.tur === "checkpoint") {
     const b = balonlar.get(no);
-    if (b) calismaMolaVer(b);
+    if (b && kaliciSohbetler.has(no)) {
+      durumuKapat(b);
+      b.appendChild(kaliciGorevDugmesi({id: no}));
+      notYaz("Görev kayıtlı. Durumunu Görevi aç ile takip edebilirsin.");
+    } else if (b) calismaMolaVer(b);
     return false;
   }
 
@@ -2002,6 +2054,7 @@ async function send(secenek = {}) {
     (belge ? "Ekli belgeyi incele." : "Bu görüntüyü açıkla.");
   const gorunenMetin = secenek.gorunenMetin || text ||
     (belge ? "Belge gönderildi: " + belge.ad : "Fotoğraf gönderildi");
+  if (!activeChatId) activeChatId = sohbetId();
   const userBubble = bubble("user", gorunenMetin);
   if (gorsel) gorselBalonaEkle(userBubble, gorsel);
 
@@ -2047,6 +2100,8 @@ async function send(secenek = {}) {
         "accept":"application/x-ndjson",
       },
       body:JSON.stringify({
+        conversation_id: activeChatId,
+        conversation_title: (chats.find((c) => c.id === activeChatId) || {}).title || sohbetBasligi([...bulutGecmisi, {role:"user",content:gorunenMetin}]),
         metin:gonderilecekMetin,
         misafir:MISAFIR,
         gecmis:bulutGecmisi,
@@ -2151,6 +2206,7 @@ async function send(secenek = {}) {
     gonderiliyor = false;
     notYaz(UYARI_NOTU);
     gonderimDurumu();
+    if (kaliciSohbetler.size) kaliciSohbetleriYukle();
 
     if (devam) {
       // İlk kullanıcı görevi final almadı; yeni yönün bağlamında yine de
@@ -2355,6 +2411,8 @@ async function baslat() {
     sendEl.disabled = true;
   }
 }
+window.addEventListener("basak:platform-account", (event) => { if (event.detail) kaliciSohbetleriYukle(); });
+window.addEventListener("basak:durable-update", kaliciSohbetleriYukle);
 baslat();
 
 // ── karşılama kartları: boş ekran yerine doğrudan iş ────────────────

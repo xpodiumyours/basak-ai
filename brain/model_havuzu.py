@@ -80,8 +80,9 @@ class ModelHavuzuSDK:
         aracli = bool(kwargs.get("tools"))
         uygun = [m["id"] for m in self.modeller if not aracli or m["tools"]]
         selection = _SELECTION.get()
-        istenen = selection[1] if selection and selection[0] == self.provider else kwargs.get("model")
-        if selection and selection[0] == self.provider and istenen not in uygun:
+        exact = selection and selection[0] == self.provider and selection[1]
+        istenen = selection[1] if exact else kwargs.get("model")
+        if exact and istenen not in uygun:
             raise ValueError('Secilen model arac protokolu icin katalogda yok')
         if istenen in uygun:
             uygun.remove(istenen)

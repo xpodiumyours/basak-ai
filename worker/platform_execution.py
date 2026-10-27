@@ -22,14 +22,76 @@ class ExecutionUnavailable(RuntimeError):
 
 
 class Workspace:
-    def __init__(self, state_root, user_id, workspace_id):
+    def __init__(self, state_root, user_id, workspace_id, run_id=''):
         if not all(_SAFE_ID.fullmatch(str(x or '')) for x in (user_id, workspace_id)):
             raise ValueError('Gecersiz calisma alani kimligi')
         root = Path(state_root).resolve()
         self.path = (root / 'workspaces' / user_id / workspace_id).resolve()
+        if run_id:
+            if not _SAFE_ID.fullmatch(run_id):
+                raise ValueError('Gecersiz gorev kimligi')
+            self.path = self.path / 'runs' / run_id
         if not self.path.is_relative_to(root):
             raise ValueError('Calisma alani kok disinda')
         self.path.mkdir(parents=True, exist_ok=True)
+
+    def restore(self, store, user_id, workspace_id):
+        import base64
+        for item in store.workspace_files(user_id, workspace_id, include_deleted=True):
+            target = self.resolve(item['path'])
+            if item['deleted']:
+                if target.is_file():
+                    target.unlink()
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            data = base64.b64decode(item['data_base64'], validate=True)
+            if hashlib.sha256(data).hexdigest() != item['sha256']:
+                raise ExecutionUnavailable('Kayitli dosya ozeti eslesmiyor')
+            target.write_bytes(data)
+
+    def snapshot(self):
+        return {item['path']: self.resolve(item['path']).read_bytes() for item in self.files()
+                if not any(part.startswith('.') for part in PurePosixPath(item['path']).parts)
+                and not item['path'].endswith(('.pem', '.key'))
+                and PurePosixPath(item['path']).name != 'ayarlar.json'}
+
+    def publish(self, ctx, before):
+        import base64
+        import difflib
+        import mimetypes
+        changes = []
+        after = self.snapshot()
+        for path in before.keys() - after.keys():
+            changes.append({'path': path, 'data_base64': '', 'deleted': True,
+                            'sha256': hashlib.sha256(before[path]).hexdigest(),
+                            'before_sha256': hashlib.sha256(before[path]).hexdigest()})
+        for path, data in after.items():
+            if before.get(path) == data:
+                continue
+            changes.append({'path': path, 'data_base64': base64.b64encode(data).decode(),
+                            'sha256': hashlib.sha256(data).hexdigest(),
+                            'before_sha256': hashlib.sha256(before[path]).hexdigest() if path in before else None})
+        ctx.control.store.publish_files(ctx.control.lease, ctx.workspace_id, changes)
+        for item in changes:
+            if item.get('deleted'):
+                ctx.control.artifact('file_deleted', title=item['path'], workspace_path=item['path'],
+                                     previous_sha256=item['before_sha256'], media_type='application/json')
+                diff = ''.join(difflib.unified_diff(
+                    before[item['path']].decode('utf-8', errors='replace').splitlines(keepends=True), [],
+                    fromfile='a/' + item['path'], tofile='/dev/null'))
+                ctx.control.artifact('diff', title=item['path'], content=diff, media_type='text/x-diff')
+                continue
+            ctx.control.artifact('file', title=item['path'], data_base64=item['data_base64'],
+                                 workspace_path=item['path'], media_type=mimetypes.guess_type(item['path'])[0] or 'application/octet-stream')
+            data = base64.b64decode(item['data_base64'])
+            try:
+                diff = ''.join(difflib.unified_diff(
+                    before.get(item['path'], b'').decode('utf-8').splitlines(keepends=True),
+                    data.decode('utf-8').splitlines(keepends=True),
+                    fromfile='a/' + item['path'], tofile='b/' + item['path']))
+            except UnicodeDecodeError:
+                continue
+            ctx.control.artifact('diff', title=item['path'], content=diff, media_type='text/x-diff')
 
     def resolve(self, relative):
         relative = str(relative or '').replace('\\', '/')
@@ -101,11 +163,14 @@ class Sandbox:
         if info.returncode or 'runsc' not in info.stdout:
             raise ExecutionUnavailable('gVisor runsc kullanilabilir degil')
         name = 'basak-job-' + uuid.uuid4().hex
+        owner = self.workspace.stat()
+        if owner.st_uid == 0:
+            raise ExecutionUnavailable('Izole calisma alani root disinda bir kullaniciya ait olmali')
         create = self._docker([
             'create', '--name', name, '--runtime', 'runsc', '--network', 'none',
             '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
             '--pids-limit', '256', '--memory', '4g', '--cpus', '1',
-            '--user', '65532:65532', '--tmpfs', '/tmp:rw,nosuid,nodev,size=256m',
+            '--user', '%s:%s' % (owner.st_uid, owner.st_gid), '--tmpfs', '/tmp:rw,nosuid,nodev,size=256m',
             '--mount', 'type=bind,src=%s,dst=/workspace' % self.workspace,
             '--workdir', '/workspace', '--env', 'HOME=/tmp', self.image, *argv], timeout=30)
         if create.returncode:

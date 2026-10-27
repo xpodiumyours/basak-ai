@@ -5,7 +5,6 @@ use the same Brain, native tool protocol and ``arac_dongusu`` as normal chat.
 https://www.kimi.com/code/docs/en/kimi-code-cli/customization/agents.html
 """
 import json
-from pathlib import Path
 
 from chat.platform_context import ExecutionContext, bound
 
@@ -23,6 +22,7 @@ READ_TOOLS = frozenset((
     'adres_kontrol', 'hesapla', 'simdi', 'hafiza_ara', 'read_file', 'list_files',
     'list_tasks', 'hatirlatma_listele', 'ajan_modelleri', 'alt_ajan_sonuclari',
     'baglanti_liste', 'baglanti_araclari',
+    'image_analyze',
 ))
 CLOUD_TOOLS = READ_TOOLS | frozenset((
     'alt_ajan', 'baglanti_cagir', 'kod_dosya', 'kod_calistir', 'bulut_tarayici',
@@ -45,9 +45,8 @@ def effective_permissions(allowed_tools):
 
 
 def job_permissions(job):
-    """Children may execute assigned tools but cannot spawn agents."""
-    allowed = effective_permissions(job.get('allowed_tools'))
-    return allowed - {'alt_ajan'} if job.get('parent_id') else allowed
+    """Delegated work inherits the explicit owner capability boundary."""
+    return effective_permissions(job.get('allowed_tools'))
 
 
 def action_has_effect(name, args, ctx):
@@ -74,6 +73,9 @@ def action_has_effect(name, args, ctx):
 def before_action(name, args, ctx):
     """Validate an immutable external effect approval before it is started."""
     ctx.control.check_cancelled()
+    if name == 'image_analyze':
+        from chat.platform_context import workspace_path
+        workspace_path(args.get('path', ''))
     if ctx.allowed_tools is not None and name not in ctx.allowed_tools:
         raise PermissionError('Bu gorevin bu araca erisimi yok')
     # The action ledger is authoritative: an identical completed call must
@@ -111,25 +113,34 @@ def before_action(name, args, ctx):
 class _Events:
     def __init__(self, control):
         self.control, self.istek = control, control.lease.run_id
+        self.answer, self.provider, self.error = '', '', ''
 
     def __call__(self, javascript):
         # Existing core UI emissions are parsed as data; never evaluated.
         self.control.check_cancelled()
         if not isinstance(javascript, str):
             return
-        for prefix, event in (('BasakUI.parca(', 'piece'), ('BasakUI.toolStatus(', 'activity'),
-                              ('BasakUI.error(', 'error')):
-            if javascript.startswith(prefix) and javascript.endswith(')'):
-                try:
-                    value = json.loads(javascript[len(prefix):-1])
-                except ValueError:
-                    return
-                self.control.event(event, {'text': value})
-                return
+        if not javascript.startswith('BasakUI.') or not javascript.endswith(')'):
+            return
+        name, raw = javascript[8:-1].split('(', 1)
+        values = json.loads('[' + raw + ']')
+        payload = {'tur': name}
+        if name == 'bitir':
+            self.answer = values[0] if values else ''
+            self.provider = values[1] if len(values) > 1 else ''
+            payload.update(cevap=self.answer, kaynak=self.provider)
+            self.control.event('provider', {'provider': self.provider})
+        elif values:
+            payload['metin'] = values[0]
+            if name == 'error':
+                self.error = str(values[0])
+        self.control.event('chat', payload)
 
     def olay(self, type_, **payload):
         payload.pop('_handoff', None)
         self.control.event(type_, payload)
+        if type_ == 'runState' and payload.get('provider'):
+            self.control.event('provider', {'provider': payload['provider']})
 
 
 def _path_value(value, field):
@@ -153,7 +164,15 @@ def validate_acceptance(job, control, workspace):
                        (control.lease.run_id,))
     for requirement in job.get('acceptance', []):
         kind, evidence, ok = requirement.get('kind'), {}, False
-        if kind == 'file_exists':
+        if kind in ('execution_observed', 'message_recorded'):
+            completed = [r for r in rows if r['status'] == 'completed' and r['ok']]
+            artifacts = control.store.get(job['user_id'], job['id'])['artifacts']
+            answers = [a for a in artifacts if a.get('kind') == 'answer' and a.get('size', 0)]
+            evidence = {'call_ids': [r['call_id'] for r in completed],
+                        'artifacts': [a['id'] for a in answers]}
+            ok = bool(answers) and (bool(completed) or kind == 'message_recorded') and all(
+                r['status'] == 'completed' and r['ok'] for r in rows)
+        elif kind == 'file_exists':
             try:
                 target = workspace.resolve(requirement.get('path'))
                 content = target.read_bytes()
@@ -185,7 +204,7 @@ def validate_acceptance(job, control, workspace):
                     ok = ok and actual is True
             else:
                 evidence = {'tool': str(requirement.get('tool')), 'missing': True}
-        elif kind is None:
+        elif kind in (None, 'human', 'user_acceptance'):
             # Human acceptance remains pending; no nonempty-answer shortcut.
             continue
         else:
@@ -197,17 +216,16 @@ def execute_job(job, control, brain=None):
     """Execute or resume one leased task through the shared native core loop."""
     from brain import Brain
     from brain.model_havuzu import model_selection
-    from chat.agent_protocol import baslangic_araclari, acik_alan_araclari
-    from chat.agent_runtime import AgentRunState, AGENT_CONTRACT
-    from chat.prompts import kimlik_blogu, kisilik_blogu
-    from chat.tools import arac_dongusu
-    from tools import TOOLS, calistir
+    from chat.flow import mesaj_isle
+    from chat.ayar import sistem_blogu
+    from tools import TOOLS
     from tools.platform import selection
     from worker.platform_execution import Workspace, ExecutionUnavailable
     from chat.kimlik import state_kok
 
     user = job['user_id']
-    workspace = Workspace(state_kok(), user, job['workspace_id'])
+    workspace = Workspace(state_kok(), user, job['workspace_id'], job['id'])
+    workspace.restore(control.store, user, job['workspace_id'])
     brain = brain or Brain()
     permissions = job_permissions(job)
     if not permissions.issubset(CLOUD_TOOLS):
@@ -224,57 +242,59 @@ def execute_job(job, control, brain=None):
         control.check_cancelled()
         catalog = [t for t in TOOLS if t['function']['name'] in permissions]
         saved = job.get('continuation') or {}
-        history = saved.get('messages')
-        if history is None:
-            history = [{'role': 'system', 'content': kimlik_blogu(user)},
-                       {'role': 'system', 'content': kisilik_blogu(user)},
-                       {'role': 'system', 'content': AGENT_CONTRACT}]
-            task_context = job.get('context', {}).get('task_context')
-            if task_context:
-                history.append({'role': 'user', 'content': str(task_context)})
-            history.append({'role': 'user', 'content': job['istek']})
-        else:
-            history = list(history)
-        existing_directions = {m.get('_steering_id') for m in history if isinstance(m, dict)}
-        for steer in saved.get('steering_messages', []) + control.drain_steering():
-            if steer['id'] not in existing_directions:
-                history.append({'role': 'user', 'content': steer['text'], '_steering_id': steer['id']})
-                existing_directions.add(steer['id'])
-        children = control.store.tree(user, job['id']).get('children', [])
-        if children and saved.get('tool_calls') is None:
-            # Explicit tool result observation, not privileged instructions.
-            history.append({'role': 'user', 'content': json.dumps(
-                {'child_results': children}, ensure_ascii=False)})
-        tools = acik_alan_araclari(catalog, saved.get('open_areas', [])) if saved.get('open_areas') else baslangic_araclari()
-        preferred = saved.get('provider') or ([provider] if provider else [])
-        callback, state = _Events(control), AgentRunState(job['id'])
-        pending = saved.get('tool_calls')
+        callback = _Events(control)
+        context = job.get('context') or {}
         try:
-            if not pending:
-                control.checkpoint({'messages': history, 'open_areas': saved.get('open_areas', []),
-                                    'tool_calls': None, 'provider': preferred})
-                response, actual_provider = brain.cevapla(history, None, tools=tools,
-                                                          tool_choice='auto', tercih=preferred)
-                control.check_cancelled()
-                control.event('provider', {'provider': actual_provider, 'requested': job.get('model_ref')})
-                preferred = [actual_provider] if actual_provider else preferred
-                pending = response.get('tool_calls') if isinstance(response, dict) else None
-                if not pending:
-                    answer = str(response.get('content') or '') if isinstance(response, dict) else str(response)
-                else:
-                    answer = ''
-            else:
-                # Recover the original assistant turn including reasoning
-                # metadata, rather than replaying tool_calls without it.
-                response, answer = saved.get('pending_reply'), ''
-            if pending:
-                answer, _ = arac_dongusu(pending, history, brain, None, callback,
-                    calistir, tools=tools, yanit=response, tool_choice='auto',
-                    tercih=preferred, run_state=state, katalog=catalog,
-                    platform_resume=saved)
+            # Both chat and delegated jobs enter the existing Python flow.
+            # Child history is explicit and independent from the owner's chat.
+            history = context.get('history', [] if job.get('parent_id') else None)
+            task_context = context.get('task_context')
+            if task_context and not saved.get('messages'):
+                history = [*(history or []), {'role': 'user', 'content': str(task_context)}]
+            children = control.store.tree(user, job['id']).get('children', [])
+            if children and saved.get('messages') and not saved.get('tool_calls'):
+                saved = {**saved, 'messages': [dict(m) for m in saved['messages']]}
+                for message in reversed(saved['messages']):
+                    if message.get('role') == 'tool' and message.get('name') == 'alt_ajan_sonuclari':
+                        message['content'] = json.dumps({'children': children}, ensure_ascii=False)
+                        break
+            instruction = job['istek']
+            attachment = context.get('attachment')
+            if attachment and not saved.get('messages'):
+                import base64
+                data_url = str(attachment.get('data_url') or '')
+                header, encoded = data_url.split(',', 1)
+                suffix = {'data:image/png;base64': '.png', 'data:image/jpeg;base64': '.jpg',
+                          'data:image/webp;base64': '.webp', 'data:image/gif;base64': '.gif'}.get(header)
+                if not suffix:
+                    raise ValueError('Gecersiz fotograf verisi')
+                data = base64.b64decode(encoded, validate=True)
+                if len(data) > 10 * 1024 * 1024:
+                    raise ValueError('Fotograf 10 MB sinirini asiyor')
+                before_files = workspace.snapshot()
+                relative = 'attachments/' + job['id'] + suffix
+                target = workspace.resolve(relative)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+                workspace.publish(ctx, before_files)
+                instruction += '\n\n' + json.dumps({'attachment': {'path': relative,
+                    'ad': str(attachment.get('ad') or 'fotograf')}}, ensure_ascii=False)
+            from chat.agent_runtime import AgentRunState
+            state = AgentRunState(job['id'])
+            mesaj_isle(instruction, brain, sistem_blogu(user), callback,
+                       tools=catalog, gecmis_override=history,
+                       run_state=state, platform_resume=saved,
+                       tool_policy=context.get('tool_policy', 'auto'),
+                       tercih=saved.get('provider') or ([provider] if provider else None),
+                       tazele=bool(context.get('tazele')))
+            if callback.error:
+                return {'status': 'failed', 'reason': callback.error}
+            control.artifact('answer', title='Basak sonucu', content=callback.answer,
+                             media_type='text/markdown')
             validate_acceptance(job, control, workspace)
-            control.artifact('answer', title='Basak sonucu', content=answer, mime_type='text/markdown')
-            return {'answer': answer}
+            return {'answer': callback.answer,
+                    **({'status': 'partial', 'reason': state.truncated_reason}
+                       if state.truncated_reason else {})}
         except ExecutionBlocked as blocked:
             return {'status': blocked.state, 'reason': blocked.reason}
         except ExecutionUnavailable as exc:

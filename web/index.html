@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="/platform.css?v=1">
 </head>
 <body>
-<div class="app-shell workspace-open">
+<div class="app-shell">
   <aside id="sidebar" class="sidebar" aria-label="Sohbet geçmişi">
     <div class="sidebar-brand">
       <a class="brand" href="/" aria-label="Başak ana sayfa">
@@ -117,7 +117,7 @@
         <button type="button" data-platform-view="chat" aria-pressed="true">Sohbet</button>
         <button type="button" data-platform-view="tasks" aria-pressed="false">Görev</button>
       </div>
-      <button id="workspaceToggle" class="workspace-preview-toggle" type="button" aria-label="Çalışma panelini aç veya kapat" aria-controls="workspacePreview" aria-expanded="true">
+      <button id="workspaceToggle" class="workspace-preview-toggle" type="button" aria-label="Çalışma panelini aç veya kapat" aria-controls="workspacePreview" aria-expanded="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16"/></svg>
       </button>
       <button id="panelButton" class="icon-button topbar-ayar" type="button" title="Ayarlar, hafıza, hatırlatmalar" aria-label="Ayarlar, hafıza ve hatırlatmalar" aria-expanded="false" aria-controls="panel">
@@ -350,7 +350,7 @@
     <div id="panelBackdrop" class="sidebar-backdrop" hidden></div>
   </div>
 
-  <aside id="workspacePreview" class="workspace-preview" aria-label="Çalışma paneli">
+  <aside id="workspacePreview" class="workspace-preview" hidden aria-label="Çalışma paneli">
     <header class="workspace-preview-header">
       <span>Çalışma paneli</span>
       <button id="workspaceClose" class="workspace-text-button" type="button" aria-label="Çalışma panelini kapat">Kapat</button>

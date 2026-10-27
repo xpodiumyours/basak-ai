@@ -322,3 +322,41 @@ def execute(user_id, connection_id, tool, args):
         from chat.platform_mcp import MCPService
         return MCPService(store).execute_sync(user_id, connection_id, tool, args)
     return ConnectorService(store).execute(user_id, connection_id, tool, args)
+
+
+def observe_uncertain_action(user_id, action):
+    """Read the original target; an uncertain mutation is never executed again."""
+    import base64
+    arguments = action.get('arguments') or {}
+    if action.get('tool') != 'baglanti_cagir':
+        raise ConnectorError('Bu islem icin bagimsiz saglayici dogrulamasi desteklenmiyor; sonuc belirsiz kalir')
+    connection = str(arguments.get('baglanti_id') or '')
+    operation = arguments.get('arac')
+    original = arguments.get('argumanlar') or {}
+    expected_provider = {'github_write_file': 'github', 'sheets_write': 'google'}.get(operation)
+    if expected_provider is None:
+        raise ConnectorError('Bu islem icin bagimsiz saglayici dogrulamasi desteklenmiyor; sonuc belirsiz kalir')
+    if tool_metadata(user_id, connection, operation).get('provider') != expected_provider:
+        raise ConnectorError('Dogrulama yalniz bu islemin yerel saglayici baglantisiyla yapilabilir')
+    if operation == 'github_write_file':
+        observation_tool = 'github_read_file'
+        target = {'repository': original['repository'], 'path': original['path'], 'ref': original['branch']}
+        response = execute(user_id, connection, observation_tool, target)
+        observed = response.get('structuredContent') or {}
+        if response.get('isError') or observed.get('encoding') != 'base64':
+            raise ConnectorError('Saglayici dosya icerigini dogrulanabilir bicimde dondurmedi')
+        actual = base64.b64decode(''.join(str(observed.get('content') or '').split()), validate=True)
+        expected = base64.b64decode(original['content'], validate=True)
+        matches = actual == expected
+    elif operation == 'sheets_write':
+        observation_tool = 'sheets_read'
+        target = {'spreadsheet_id': original['spreadsheet_id'], 'range': original['range']}
+        response = execute(user_id, connection, observation_tool, target)
+        observed = response.get('structuredContent') or {}
+        matches = not response.get('isError') and observed.get('values') == original['values']
+    else:
+        raise ConnectorError('Bu islem icin bagimsiz saglayici dogrulamasi desteklenmiyor; sonuc belirsiz kalir')
+    if not matches:
+        raise ConnectorError('Saglayicidan okunan durum istenen degisiklikle eslesmiyor; sonuc belirsiz kalir')
+    return {'observation_tool': observation_tool, 'target': target, 'response': response,
+            'result': {'raw': {'result': response}, 'net': json.dumps(response, ensure_ascii=False)}}

@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from chat.platform_runtime import Conflict, NotFound, RuntimeStore, TERMINAL, Unavailable
 from chat.kosu_deposu import platform_store
+import time
 
 
 router = APIRouter(prefix="/api/kosu", tags=["tasks"])
@@ -99,6 +100,135 @@ def _call(fn, *args, **kwargs):
 
 def _json(value, status=200):
     return JSONResponse(value, status_code=status, headers={"Cache-Control": "no-store"})
+
+
+async def chat_response(request, user, body, history):
+    """Persist an account chat turn; HTTP only observes the existing worker."""
+    if not _mutation_origin_ok(request):
+        raise HTTPException(403, 'Bu hesap islemi ayni kaynaktan yapilmali')
+    from chat.agent_runtime import normalize_tool_policy
+    text = str(body.get('metin') or '').strip()
+    if body.get('belge'):
+        from chat.belge import istemciden_blogu, BelgeHatasi
+        try:
+            text = (text + '\n\n' + istemciden_blogu(body['belge'])).strip()
+        except BelgeHatasi as exc:
+            raise HTTPException(400, str(exc)) from exc
+    if not text and not body.get('ek'):
+        raise HTTPException(400, 'Bos mesaj')
+    if body.get('ek'):
+        attachment = body['ek']
+        if not isinstance(attachment, dict) or attachment.get('tur') != 'image':
+            raise HTTPException(400, 'Gecersiz fotograf verisi')
+        try:
+            header, encoded = str(attachment.get('data_url') or '').split(',', 1)
+            if header not in {'data:image/png;base64', 'data:image/jpeg;base64',
+                              'data:image/webp;base64', 'data:image/gif;base64'}:
+                raise ValueError('Gecersiz fotograf verisi')
+            if len(base64.b64decode(encoded, validate=True)) > 10 * 1024 * 1024:
+                raise ValueError('Fotograf 10 MB sinirini asiyor')
+        except ValueError as exc:
+            raise HTTPException(400, 'Gecersiz veya cok buyuk fotograf') from exc
+    conversation_id = body.get('conversation_id')
+    if conversation_id is not None and (not isinstance(conversation_id, str)
+            or not re.fullmatch(r'[A-Za-z0-9_.-]{1,128}', conversation_id)):
+        raise HTTPException(400, 'Gecersiz sohbet kimligi')
+    title = body.get('conversation_title')
+    if title is not None and (not isinstance(title, str) or len(title) > 256):
+        raise HTTPException(400, 'Gecersiz sohbet basligi')
+    display_text = str(body.get('metin') or ('Belge gönderildi' if body.get('belge') else 'Fotoğraf gönderildi'))
+    context = {'conversation_id': conversation_id, 'conversation_title': title,
+               'display_text': display_text, 'history': history, 'tool_policy': _call(normalize_tool_policy, body.get('tool_policy')),
+               'tazele': bool(body.get('tazele')), 'attachment': body.get('ek')}
+    store = _store()
+    run = _call(store.create, user, 'personal', text or 'Bu goruntuyu acikla.',
+                kind='chat', context=context,
+                request_key=request.headers.get('Idempotency-Key'))
+    rid = run['id']
+    durable_event = {'istek': rid, 'tur': 'durableRun', 'kosu_id': rid,
+                     'conversation_id': conversation_id or rid,
+                     'conversation_title': title, 'display_text': display_text}
+
+    async def observe():
+        cursor, started = 0, time.monotonic()
+        yield json.dumps(durable_event, ensure_ascii=False) + '\n'
+        while not await request.is_disconnected():
+            try:
+                if await _user(request) != user:
+                    raise HTTPException(401, 'Oturum degisti')
+            except HTTPException:
+                yield json.dumps({'istek': rid, 'tur': 'error', 'metin': 'Hesap oturumu sona erdi'}) + '\n'
+                break
+            batch = await asyncio.to_thread(store.events, user, rid, after=cursor)
+            for event in batch:
+                cursor = event['seq']
+                # Only root chat emissions belong in this conversation.
+                if event['payload'].get('origin_run_id'):
+                    continue
+                if event['type'] == 'chat' and event['payload'].get('tur') == 'bitir':
+                    continue  # Publish final only after the durable outcome commits.
+                if event['type'] == 'chat':
+                    yield json.dumps({'istek': rid, **event['payload']}, ensure_ascii=False) + '\n'
+                elif event['type'] not in {'status', 'checkpoint', 'artifact', 'provider'}:
+                    yield json.dumps({'istek': rid, 'tur': event['type'], **event['payload']}, ensure_ascii=False) + '\n'
+            current = await asyncio.to_thread(store.get, user, rid)
+            state = current['durum']
+            if state in TERMINAL or state == 'verifying':
+                if current['answer']:
+                    yield json.dumps({'istek': rid, 'tur': 'bitir', 'cevap': current['answer'],
+                                      'kaynak': current['provider']}, ensure_ascii=False) + '\n'
+                else:
+                    yield json.dumps({'istek': rid, 'tur': 'error',
+                                      'metin': current['hata'] or state}, ensure_ascii=False) + '\n'
+                break
+            if state in {'awaiting_approval', 'awaiting_connection', 'paused'} or time.monotonic() - started >= 240:
+                # Closing an observer never pauses/cancels the worker.
+                yield json.dumps({'istek': rid, 'tur': 'checkpoint', 'kosu_id': rid}) + '\n'
+                break
+            yield json.dumps({'istek': rid, 'tur': 'ping'}) + '\n'
+            await asyncio.sleep(1)
+    if 'application/x-ndjson' in request.headers.get('accept', ''):
+        return StreamingResponse(observe(), media_type='application/x-ndjson',
+                                 headers={'Cache-Control': 'no-store', 'X-Basak-Run-ID': rid})
+    return _json({'ok': True, 'kosu_id': rid, 'olaylar': [
+        durable_event,
+        {'istek': rid, 'tur': 'checkpoint', 'kosu_id': rid}]}, 202)
+
+
+@router.get('/sohbetler')
+async def chat_threads(request: Request):
+    return _json({'chats': _call(_store().chat_threads, await _user(request))})
+
+
+@router.get('/{run_id}/islemler')
+async def actions(run_id: str, request: Request):
+    user = await _user(request)
+    return _json({'actions': _call(_store().actions, user, run_id)})
+
+
+@router.post('/{run_id}/uzlastir')
+async def reconcile(run_id: str, request: Request):
+    user, body = await _user(request), await _body(request)
+    if set(body) != {'call_id'}:
+        raise HTTPException(400, 'Yalniz cagri kimligi kabul edilir; sonuc saglayicidan okunur')
+    store = _store()
+    run = _call(store.get, user, run_id)
+    action = next((a for a in _call(store.actions, user, run_id) if a['call_id'] == body['call_id']), None)
+    if run['durum'] != 'uncertain' or action is None or action['status'] != 'uncertain':
+        raise HTTPException(409, 'Belirsiz islem bulunamadi')
+    from chat.platform_connectors import observe_uncertain_action, ConnectorError
+    try:
+        observation = await asyncio.to_thread(observe_uncertain_action, user, action)
+    except (ConnectorError, PermissionError, ValueError, KeyError) as exc:
+        raise HTTPException(409, str(exc)) from exc
+    aid = _call(store.add_artifact, user, run_id, {
+        'kind': 'external_observation', 'title': 'Saglayici dogrulamasi',
+        'content': json.dumps(observation, ensure_ascii=False), 'media_type': 'application/json',
+        'call_id': action['call_id'], 'arguments_digest': action['digest'],
+        'verified': True, 'result': observation['result']})
+    _call(store.reconcile_action, user, run_id, action['call_id'], observation['result'], True,
+          {'artifact_id': aid, 'reviewer': user, 'kind': 'provider_read'})
+    return _json({'ok': True, 'kosu': _call(store.tree, user, run_id)})
 
 
 @router.get("/isciler")
@@ -211,7 +341,7 @@ async def artifact(run_id: str, artifact_id: str, request: Request):
     else:
         return _json({"artifact": {k: v for k, v in item.items() if k not in ("path", "local_path")}})
     name = re.sub(r"[^A-Za-z0-9._-]", "_", item.get("title") or artifact_id)
-    return Response(content, media_type=item.get("media_type") or "application/octet-stream",
+    return Response(content, media_type=item.get("media_type") or item.get('mime_type') or "application/octet-stream",
                     headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
                              "Content-Security-Policy": "default-src 'none'; sandbox",
                              "Content-Disposition": 'attachment; filename="%s"' % name})

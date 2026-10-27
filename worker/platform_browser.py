@@ -2,6 +2,7 @@
 import asyncio
 import base64
 import ipaddress
+import logging
 import os
 import socket
 import threading
@@ -10,6 +11,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 _BLOCKED_NAMES = {".env", "ayarlar.json"}
+logger = logging.getLogger(__name__)
 _BLOCKED_SUFFIX = (".pem", ".key")
 
 
@@ -173,7 +175,10 @@ class PlatformBrowser:
 
         sess = self._session_for(ctx, args)
         if sess is None:
-            return _fail("session_lost")
+            if getattr(ctx, 'control', None) is not None:
+                ctx.control.event('browser_session_lost', {'session_id': str(args.get('session_id') or ''),
+                    'state_restored': False})
+            return _fail("session_lost", state_restored=False, new_session_required=True)
         if islem == "devral":
             if actor != "user":
                 return _fail("forbidden")
@@ -246,6 +251,13 @@ class PlatformBrowser:
             return _ok(session_id=sess["id"], bytes=len(body))
         return _fail("unknown_action")
 
+    async def close_run(self, run_id):
+        for sid, sess in list(self._sessions.items()):
+            if sess['run_id'] == run_id:
+                await sess['context'].close()
+                self._sessions.pop(sid, None)
+                self._locks.pop(sid, None)
+
     async def kapat(self):
         for sess in list(self._sessions.values()):
             closer = getattr(sess["context"], "close", None)
@@ -268,6 +280,22 @@ _SERVICE = None
 _SERVICE_LOOP = None
 _SERVICE_THREAD = None
 _SERVICE_LOCK = threading.Lock()
+
+
+def release_finished_sessions(store):
+    """Retain suspended sessions; release only durably settled task contexts."""
+    if _SERVICE_LOOP is None or _SERVICE is None:
+        return
+    async def cleanup():
+        from chat.platform_runtime import SETTLED, NotFound
+        for sess in list(_SERVICE._sessions.values()):
+            try:
+                state = store.get(sess['user_id'], sess['run_id'])['durum']
+            except NotFound:
+                state = 'cancelled'
+            if state in SETTLED:
+                await _SERVICE.close_run(sess['run_id'])
+    asyncio.run_coroutine_threadsafe(cleanup(), _SERVICE_LOOP).result()
 
 
 def _shutdown_service():
@@ -296,7 +324,7 @@ def execute_browser(ctx, islem, args=None, actor=None):
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        pass
+        logger.debug('Bulut tarayicisi senkron isci dongusunden cagriliyor')
     else:
         raise RuntimeError("Aktif async dongude bulut tarayicisi await edilmeli")
 

@@ -6,6 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures('sabit_genel_dns')
+
 from chat.platform_context import ExecutionContext
 
 

@@ -248,11 +248,11 @@ def test_unavailable_browser_is_a_failed_tool_not_a_success(monkeypatch):
     assert sonucu_donustur(outcome).startswith('Hata:')
 
 
-def test_child_model_never_sees_delegation_tool_even_when_parent_allows_it():
+def test_child_model_inherits_only_the_owner_assigned_tools():
     from chat.platform_agents import CLOUD_TOOLS, job_permissions
     assert job_permissions({'parent_id': None, 'allowed_tools': None}) == CLOUD_TOOLS
-    assert job_permissions({'parent_id': 'parent-id', 'allowed_tools': None}) == CLOUD_TOOLS - {'alt_ajan'}
-    assert job_permissions({'parent_id': 'parent-id', 'allowed_tools': ['web_search', 'alt_ajan']}) == frozenset({'web_search'})
+    assert job_permissions({'parent_id': 'parent-id', 'allowed_tools': None}) == CLOUD_TOOLS
+    assert job_permissions({'parent_id': 'parent-id', 'allowed_tools': ['web_search', 'alt_ajan']}) == frozenset({'web_search', 'alt_ajan'})
     assert job_permissions({'parent_id': 'parent-id', 'allowed_tools': []}) == frozenset()
 
 
@@ -428,3 +428,147 @@ def test_completed_external_action_replays_without_new_user_approval(tmp_path, m
     with pytest.raises(RunSuspended):
         before_action("baglanti_cagir", arguments, replace(approved_ctx, tool_call_id="call-2"))
     assert len(store.get("alice", job["id"])["approvals"]) == 2
+
+
+def test_provider_only_selection_keeps_the_native_default_model():
+    from brain.model_havuzu import ModelHavuzuSDK, model_selection
+    sdk = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **kw: kw)))
+    pool = ModelHavuzuSDK(sdk, [{'id': 'native', 'tools': True}], provider='groq')
+    with model_selection('groq', ''):
+        assert pool.chat.completions.create(model='native')['model'] == 'native'
+
+
+def test_shared_flow_runs_three_real_tools_and_parent_collects_results(tmp_path, monkeypatch):
+    """Model responses are test doubles; flow, tools, workers and DB are real."""
+    import json
+    import threading
+    from chat import kosu_deposu
+    from chat.platform_agents import execute_job
+    from chat.platform_runtime import RuntimeStore, Worker
+    monkeypatch.setenv('BASAK_STATE_DIR', str(tmp_path / 'state'))
+    store = RuntimeStore(kosu_deposu._SqliteDepo(str(tmp_path / 'runs.db')))
+    gate = threading.Barrier(3)
+    calls = []
+
+    class NativeBrain:
+        def bulut_musait(self): return True
+        def ajan_musait(self): return True
+        def _bulut_zinciri(self, **kwargs): return []
+        def cevapla(self, messages, model=None, tools=None, **kwargs):
+            names = [m.get('name') for m in messages if m.get('role') == 'tool']
+            child = next((m['content'] for m in messages if m.get('role') == 'user' and m.get('content', '').startswith('child-')), None)
+            def invoke(name, args):
+                return ({'content': '', 'reasoning_content': 'native metadata', 'tool_calls': [
+                    {'id': str(len(names)) + '-' + name, 'type': 'function',
+                     'function': {'name': name, 'arguments': json.dumps(args)}}]}, 'test-provider')
+            if not names:
+                if child:
+                    gate.wait(timeout=15)
+                calls.append(child or 'parent')
+                return invoke('yetenek_ac', {'alanlar': ['ajanlar', 'bulut_calisma']})
+            if child:
+                if 'kod_dosya' not in names:
+                    return invoke('kod_dosya', {'islem': 'yaz', 'yol': child + '.txt', 'icerik': child})
+                return {'content': 'Evidence: ' + child + '.txt'}, 'test-provider'
+            if 'alt_ajan' not in names:
+                return invoke('alt_ajan', {'isler': [{'gorev': 'child-' + str(i), 'kabul': [
+                    {'id': 'file', 'kind': 'file_exists', 'path': 'child-' + str(i) + '.txt'}]} for i in range(3)]})
+            if 'alt_ajan_sonuclari' not in names:
+                return invoke('alt_ajan_sonuclari', {'bekle': True})
+            observed = next(m for m in reversed(messages) if m.get('name') == 'alt_ajan_sonuclari')
+            children = json.loads(observed['content'])['children']
+            assert all(c['durum'] == 'completed' and c['artifacts'] for c in children)
+            if 'kod_dosya' not in names:
+                return invoke('kod_dosya', {'islem': 'yaz', 'yol': 'summary.md',
+                                           'icerik': '\n'.join(c['answer'] for c in children)})
+            return {'content': 'Collected three evidenced outputs.'}, 'test-provider'
+
+    parent = store.create('alice', 'personal', 'Inspect using three agents', acceptance=[
+        {'id': 'summary', 'kind': 'file_exists', 'path': 'summary.md'}])
+    def handler(job, control): return execute_job(job, control, NativeBrain())
+    assert Worker(store, handler, worker_id='coordinator').tick(parent['id'])
+    assert store.get('alice', parent['id'])['durum'] == 'waiting_children'
+    reopened = RuntimeStore(kosu_deposu._SqliteDepo(str(tmp_path / 'runs.db')))
+    with concurrent.futures.ThreadPoolExecutor(3) as pool:
+        assert all(pool.map(lambda i: Worker(reopened, handler, worker_id='worker-' + str(i)).tick(), range(3)))
+    assert all(c['durum'] == 'completed' for c in reopened.tree('alice', parent['id'])['children'])
+    assert Worker(reopened, handler, worker_id='restarted-coordinator').tick(parent['id'])
+    tree = reopened.tree('alice', parent['id'])
+    assert tree['durum'] == 'completed', tree['hata']
+    assert tree['provider'] == 'test-provider'
+    assert len(calls) == 4  # Coordinator's model turn is restored, not restarted.
+    assert {r['path'] for r in reopened.workspace_files('alice', 'personal')} == {
+        'child-0.txt', 'child-1.txt', 'child-2.txt', 'summary.md'}
+    assert any(a['kind'] == 'diff' for a in tree['artifacts'])
+
+
+def test_workspace_conflict_never_overwrites_other_worker_output(tmp_path):
+    from chat import kosu_deposu
+    from chat.platform_runtime import RuntimeStore, Control, Conflict
+    from chat.platform_context import ExecutionContext
+    from worker.platform_execution import Workspace
+    store = RuntimeStore(kosu_deposu._SqliteDepo(str(tmp_path / 'files.db')))
+    contexts = []
+    for i in range(2):
+        job = store.create('alice', 'project', 'write')
+        lease = store.claim('worker-' + str(i), run_id=job['id'])['lease']
+        contexts.append(ExecutionContext('alice', 'project', job['id'], control=Control(store, lease)))
+    first, second = [Workspace(tmp_path, c.user_id, c.workspace_id, c.run_id) for c in contexts]
+    first.write('shared.txt', 'first')
+    first.publish(contexts[0], {})
+    second.write('shared.txt', 'second')
+    with pytest.raises(Conflict, match='Paralel dosya'):
+        second.publish(contexts[1], {})
+    restored = Workspace(tmp_path / 'another-host', 'alice', 'project', 'restored')
+    restored.restore(store, 'alice', 'project')
+    assert restored.read('shared.txt')['content'] == 'first'
+
+
+def test_plain_account_chat_completes_without_human_approval(tmp_path):
+    from chat import kosu_deposu
+    from chat.platform_agents import execute_job
+    from chat.platform_runtime import RuntimeStore, Worker
+    store = RuntimeStore(kosu_deposu._SqliteDepo(str(tmp_path / 'chat.db')))
+    class Brain:
+        def bulut_musait(self): return True
+        def ajan_musait(self): return True
+        def _bulut_zinciri(self, **kwargs): return []
+        def cevapla(self, messages, *args, **kwargs):
+            return {'content': 'Merhaba, nasılsın?'}, 'native-provider'
+    run = store.create('alice', 'personal', 'Merhaba', kind='chat', context={'history': []})
+    Worker(store, lambda job, control: execute_job(job, control, Brain())).tick(run['id'])
+    result = store.get('alice', run['id'])
+    assert result['durum'] == 'completed'
+    assert result['answer'] == 'Merhaba, nasılsın?'
+    assert result['approvals'] == []
+    assert result['checks'][0]['ok'] is True
+
+
+def test_deleted_workspace_file_stays_deleted_after_restart_and_recreation(tmp_path):
+    from chat import kosu_deposu
+    from chat.platform_runtime import RuntimeStore, Control
+    from chat.platform_context import ExecutionContext
+    from worker.platform_execution import Workspace
+    database = tmp_path / 'deletion.db'
+    store = RuntimeStore(kosu_deposu._SqliteDepo(str(database)))
+    run = store.create('alice', 'project', 'edit')
+    lease = store.claim('w', run_id=run['id'])['lease']
+    ctx = ExecutionContext('alice', 'project', run['id'], control=Control(store, lease))
+    workspace = Workspace(tmp_path / 'host1', 'alice', 'project', run['id'])
+    workspace.write('old.txt', 'original')
+    workspace.publish(ctx, {})
+    before = workspace.snapshot()
+    workspace.resolve('old.txt').unlink()
+    workspace.publish(ctx, before)
+    reopened = RuntimeStore(kosu_deposu._SqliteDepo(str(database)))
+    assert reopened.workspace_files('alice', 'project') == []
+    restored = Workspace(tmp_path / 'host2', 'alice', 'project', 'replacement')
+    restored.write('old.txt', 'stale local copy')
+    restored.restore(reopened, 'alice', 'project')
+    assert not restored.resolve('old.txt').exists()
+    assert reopened.workspace_files('bob', 'project', include_deleted=True) == []
+    workspace.write('old.txt', 'recreated')
+    workspace.publish(ctx, {})
+    restored.restore(reopened, 'alice', 'project')
+    assert restored.read('old.txt')['content'] == 'recreated'
+    assert {'file_deleted', 'diff'} <= {a['kind'] for a in reopened.get('alice', run['id'])['artifacts']}

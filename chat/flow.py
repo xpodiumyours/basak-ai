@@ -129,7 +129,9 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
     kisa sure icin saklanir ki ayni mesaj tekrar gonderilirse model
     yeniden cagrilmasin (bkz. chat/onbellek.py).
     """
-    if misafir:
+    from chat.platform_context import current
+    execution = current()
+    if misafir or (execution is not None and execution.parent_run_id):
         # Misafir iz birakmaz: ortak gecmise, oturuma ve hafizaya yazilmaz.
         js_callback("BasakUI.bitir(" + _j(cevap) + ", " + _j(kaynak) + ")")
         return
@@ -346,7 +348,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                misafir=False, gecmis_override=None,
                yonlendirme_baglami=None, tool_policy="auto",
                run_state=None, mola_zamani=None, tercih=None,
-               tazele=False, kosu=None, kosu_id=None):
+               tazele=False, kosu=None, kosu_id=None, platform_resume=None):
     """Bir mesajı baştan sona işler.
 
     tercih: acik saglayici sira zorlamasi (yalniz saglayici adlari).
@@ -369,6 +371,10 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     # paketi, istemcinin tasidigi imzali handoff ile ayni bicimdedir; yani
     # devam yolu tek kalir (chat/kosu_deposu.devam_paketi).
     from chat import kosu_deposu
+    from chat.platform_context import current
+    execution = current()
+    control = execution.control if execution is not None else None
+    saved = platform_resume or {}
     if kosu is None and kosu_id:
         kosu = kosu_deposu.yukle(kosu_id, kullanici=aktif_kullanici())
         if kosu is None:
@@ -457,7 +463,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     tool_policy = normalize_tool_policy(tool_policy)
     katalog = capability_surface(tools, tool_policy)
     arac_acik = bool(katalog)
-    etkin_tools = baslangic_araclari() if arac_acik else []
+    etkin_tools = baslangic_araclari(katalog if control is not None else None) if arac_acik else []
     state = run_state or AgentRunState(
         run_id=(kosu.id if kosu is not None else str(
             getattr(js_callback, "istek", "") or ctx.OTURUM_ID)),
@@ -468,6 +474,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     def _kosu_ac():
         """Ilk arac turunda kalici kosuyu acar; defter kapaliysa None."""
         nonlocal kosu
+        if control is not None:
+            return None  # The lease/action ledger owns this run, not legacy Kosu.
         if kosu is None and not misafir:
             try:
                 kosu = kosu_deposu.ac(
@@ -507,18 +515,32 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
         yonlendirme_baglami, mesajlar
     )
     mesajlar.append({"role": "user", "content": text})
+    if control is not None:
+        mesajlar = list(saved.get("messages") or mesajlar)
+        seen = {m.get('_steering_id') for m in mesajlar if isinstance(m, dict)}
+        for direction in saved.get('steering_messages', []) + control.drain_steering():
+            if direction['id'] not in seen:
+                mesajlar.append({'role': 'user', 'content': direction['text'],
+                                 '_steering_id': direction['id']})
+                seen.add(direction['id'])
+        if saved.get('open_areas'):
+            from chat.agent_protocol import acik_alan_araclari
+            etkin_tools = acik_alan_araclari(katalog, saved['open_areas'])
+        control.checkpoint({**saved, 'messages': mesajlar})
 
     # ── Provider-neutral ajan yolu ───────────────────────────────────
     if arac_acik and hasattr(brain, "ajan_musait"):
         ajan_tools = list(etkin_tools)
         secim = tool_policy
-        yanit = None
-        kaynak = ""
+        pending = saved.get('tool_calls') if control is not None else None
+        yanit = ({**(saved.get('pending_reply') or {}), 'tool_calls': pending}
+                 if pending else None)
+        kaynak = (saved.get('provider') or [''])[0]
 
         # auto: model-native stream hem metin hem native tool_call uretebilir.
         # required: tool_choice gercekten provider'a zorlanir; once tool-call
         # alinmadan final metin kabul edilmez.
-        if secim == "auto":
+        if secim == "auto" and yanit is None:
             yanit, kaynak, _akis_acildi = akan_ajan_adimi(
                 brain, model, mesajlar, js_callback, ajan_tools,
                 tercih=_tercih,
@@ -599,7 +621,7 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 tools=ajan_tools, yanit=yanit, tool_choice="auto",
                 tercih=[kaynak] if kaynak else None, run_state=state,
                 katalog=katalog, mola_zamani=mola_zamani,
-                kosu=_kosu_ac())
+                kosu=_kosu_ac(), platform_resume=saved)
         except AracSonrasiHatasi as e:
             state.fail()
             emit_run_state(js_callback, state)

@@ -169,3 +169,59 @@ assert.match(ui.workerStatusText({online:false,live_workers:8}),/çevrimdışı/
 assert.equal(ui.workerStatusText({online:true,live_workers:3}),
  'Ajan işçisi çevrimiçi · 3 çalışan');
 """)
+
+
+@pytest.mark.parametrize('width,height', [(1440, 900), (390, 844)])
+def test_real_chromium_pending_chat_title_reload_and_view_preservation(width, height):
+    import functools
+    import threading
+    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+    playwright = pytest.importorskip('playwright.sync_api')
+    class Handler(SimpleHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+    server = ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Handler, directory=str(ROOT / 'web')))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    run = {'id': 'durable-test', 'kind': 'chat', 'durum': 'queued', 'istek': 'Long task',
+           'children': [], 'artifacts': [], 'checks': [], 'approvals': [], 'seq': 0}
+    try:
+        with playwright.sync_playwright() as pw:
+            browser = pw.chromium.launch()
+            page = browser.new_page(viewport={'width': width, 'height': height})
+            def api(route):
+                path = route.request.url.split('?', 1)[0]
+                data = {'ok': True}
+                if path.endswith('/api/kimlik'):
+                    data.update(kullanici='alice', basak_id='Alice')
+                elif path.endswith('/api/hesap'):
+                    data.update(authenticated=True, user={'id': 'alice', 'name': 'Alice'})
+                elif path.endswith('/agac'):
+                    data['kosu'] = run
+                elif path.endswith('/api/kosu/sohbetler'):
+                    data['chats'] = []
+                else:
+                    data.update(kosular=[], olaylar=[], connections=[], providers=[])
+                route.fulfill(status=200, content_type='application/json', body=json.dumps(data))
+            page.route('**/api/**', api)
+            page.goto('http://127.0.0.1:%d/index.html' % server.server_port)
+            page.wait_for_function("typeof olayiIsle === 'function' && window.basakKullanici")
+            assert page.locator('.chat-main').is_visible()
+            assert not page.locator('#workspacePreview').is_visible()
+            page.evaluate("""() => {
+                const b = bubble('assistant', ''); balonlar.set('durable-test', b);
+                olayiIsle({istek:'durable-test', kosu_id:'durable-test', tur:'durableRun',
+                  conversation_id:'saved-thread', conversation_title:'Saved title', display_text:'Long task'});
+                olayiIsle({istek:'durable-test', tur:'checkpoint'});
+            }""")
+            page.wait_for_function("document.querySelector('#historyList').textContent.includes('Saved title')")
+            assert page.locator('.chat-main').is_visible()
+            assert not page.locator('#platformTaskView').is_visible()
+            assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+            page.reload()
+            page.get_by_role('button', name='Saved title', exact=True).click()
+            assert page.get_by_role('button', name='Görevi aç', exact=True).is_visible()
+            assert page.locator('#chat').inner_text().startswith('Long task')
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()

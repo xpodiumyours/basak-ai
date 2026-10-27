@@ -304,3 +304,49 @@ def test_github_public_repo_write_requires_scope_even_with_approved_tool(store):
     assert writes.issubset({t["name"] for t in service.tools("alice", public)})
     service.execute("alice", public, "github_create_branch", arguments)
     assert len(requests) == 1
+
+
+@pytest.mark.parametrize('observed,should_match', [(b'expected', True), (b'wrong', False)])
+def test_uncertain_github_write_uses_only_read_of_original_target(store, monkeypatch, observed, should_match):
+    from chat import platform_connectors as module
+    cid = store.save('alice', 'github', {'access_token': 'fixture'}, ['repo'],
+                     {'repositories': ['owner/repo']})['id']
+    monkeypatch.setattr(module, 'ConnectionStore', lambda: store)
+    requests = []
+    def get(self, method, url, token, **kwargs):
+        requests.append((method, url, kwargs))
+        return {'encoding': 'base64', 'content': base64.b64encode(observed).decode()}
+    monkeypatch.setattr(module.ConnectorService, '_request', get)
+    action = {'tool': 'baglanti_cagir', 'arguments': {'baglanti_id': cid,
+        'arac': 'github_write_file', 'argumanlar': {'repository': 'owner/repo',
+        'path': 'result.md', 'branch': 'feat/task', 'content': base64.b64encode(b'expected').decode()}}}
+    if should_match:
+        assert module.observe_uncertain_action('alice', action)['target']['ref'] == 'feat/task'
+    else:
+        with pytest.raises(module.ConnectorError, match='eslesmiyor'):
+            module.observe_uncertain_action('alice', action)
+    assert len(requests) == 1
+    assert requests[0][0:2] == ('GET', 'https://api.github.com/repos/owner/repo/contents/result.md')
+    assert requests[0][2]['params'] == {'ref': 'feat/task'}
+    with pytest.raises(PermissionError):
+        module.observe_uncertain_action('bob', action)
+
+
+def test_uncertain_unsupported_mutation_never_retries_provider(monkeypatch):
+    from chat import platform_connectors as module
+    def forbidden(*args):
+        pytest.fail('Unsupported mutation must remain uncertain without provider traffic')
+    monkeypatch.setattr(module, 'execute', forbidden)
+    with pytest.raises(module.ConnectorError, match='belirsiz kalir'):
+        module.observe_uncertain_action('alice', {'tool': 'tarayici_kullan', 'arguments': {}})
+
+
+def test_mcp_tool_cannot_impersonate_native_provider_observation(monkeypatch):
+    from chat import platform_connectors as module
+    monkeypatch.setattr(module, 'tool_metadata', lambda *args: {'provider': 'mcp'})
+    def forbidden(*args):
+        pytest.fail('MCP cannot provide trusted native GitHub evidence')
+    monkeypatch.setattr(module, 'execute', forbidden)
+    with pytest.raises(module.ConnectorError, match='yerel saglayici'):
+        module.observe_uncertain_action('alice', {'tool': 'baglanti_cagir', 'arguments': {
+            'baglanti_id': 'mcp-1', 'arac': 'github_write_file', 'argumanlar': {}}})

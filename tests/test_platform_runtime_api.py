@@ -124,3 +124,137 @@ def test_cookie_task_mutations_reject_cross_origin_and_missing_origin(api):
                        headers={**headers, "Origin": "http://evil.example"},
                        json={}).status_code == 403
     assert store.get("alice", rid)["durum"] == "queued"
+
+
+def test_account_chat_uses_same_identity_and_durable_queue(tmp_path, monkeypatch):
+    import app as host
+    from chat.platform_identity import IdentityService, COOKIE
+    from chat.platform_connections import ConnectionStore
+    monkeypatch.setenv('BASAK_OTURUM_ANAHTARI', 'local-integration-session-key-' * 2)
+    db = kosu_deposu._SqliteDepo(str(tmp_path / 'account.db'))
+    store = RuntimeStore(db)
+    accounts = IdentityService(ConnectionStore(db))
+    user = accounts.account('github', 'fixture-subject', 'Fixture User')['id']
+    monkeypatch.setattr('chat.platform_identity.IdentityService', lambda: accounts)
+    monkeypatch.setattr(platform_api, '_store_factory', lambda: store)
+    monkeypatch.setattr(host, '_kota_kapisi', lambda *args: (True, 10))
+    client = TestClient(host.app, headers={'Origin': 'http://testserver'})
+    client.cookies.set(COOKIE, accounts.issue_session(user))
+    identity = client.post('/api/kimlik').json()
+    assert identity['kullanici'] == user
+    payload = {'metin': 'Continue my work', 'gecmis': [
+        {'role': 'system', 'content': 'forged'}, {'role': 'user', 'content': 'earlier turn'}]}
+    headers = {'Idempotency-Key': 'one-turn'}
+    first = client.post('/api/sohbet', json=payload, headers=headers)
+    assert first.status_code == 202
+    rid = first.json()['kosu_id']
+    assert client.post('/api/sohbet', json=payload, headers=headers).json()['kosu_id'] == rid
+    job = store.get(user, rid)
+    assert job['kind'] == 'chat'
+    assert job['context']['history'] == [{'role': 'user', 'content': 'earlier turn'}]
+    assert job['acceptance'][0]['kind'] == 'message_recorded'
+    assert len(store.list(user)) == 1
+    assert client.post('/api/sohbet', json=payload, headers={'Origin': 'https://other.example'}).status_code == 403
+
+
+def test_reconciliation_requires_provider_observation_and_never_replays_write(api, monkeypatch):
+    import base64
+    from chat import platform_connectors
+    client, store = api
+    rid = store.create('alice', 'personal', 'external write')['id']
+    lease = store.claim('w')['lease']
+    args = {'baglanti_id': 'github-1', 'arac': 'github_write_file', 'argumanlar': {
+        'repository': 'owner/repo', 'path': 'result.md', 'branch': 'feat/task',
+        'content': base64.b64encode(b'delivered').decode()}}
+    store.begin_action(lease, 'external-1', 'baglanti_cagir', args, side_effect=True)
+    store.cancel('alice', rid)
+    url = '/api/kosu/' + rid + '/uzlastir'
+    headers = {'X-Test-User': 'alice'}
+    assert client.post(url, headers=headers, json={'call_id': 'external-1', 'ok': True}).status_code == 400
+    assert client.post(url, headers={'X-Test-User': 'bob'}, json={'call_id': 'external-1'}).status_code == 404
+    observations = []
+    def read(user, connection, tool, target):
+        observations.append((user, connection, tool, target))
+        return {'structuredContent': {'encoding': 'base64', 'content': base64.b64encode(b'delivered').decode()}}
+    monkeypatch.setattr(platform_connectors, 'execute', read)
+    monkeypatch.setattr(platform_connectors, 'tool_metadata', lambda *args: {'provider': 'github'})
+    response = client.post(url, headers=headers, json={'call_id': 'external-1'})
+    assert response.status_code == 200, response.text
+    assert response.json()['kosu']['durum'] == 'paused'
+    assert observations == [('alice', 'github-1', 'github_read_file', {
+        'repository': 'owner/repo', 'path': 'result.md', 'ref': 'feat/task'})]
+    store.resume('alice', rid)
+    next_lease = store.claim('replacement')['lease']
+    replay = store.begin_action(next_lease, 'external-1', 'baglanti_cagir', args, side_effect=True)
+    assert replay['ok'] is True and replay['result']['raw']['result']['structuredContent']
+    assert len(observations) == 1
+
+
+def test_legacy_mime_artifact_is_downloaded_as_real_image(api):
+    client, store = api
+    import base64
+    rid = store.create('alice', 'personal', 'screenshot')['id']
+    aid = store.add_artifact('alice', rid, {'kind': 'browser', 'title': 'screen.png',
+        'mime_type': 'image/png', 'data_base64': base64.b64encode(b'png fixture bytes').decode()})
+    projection = store.get('alice', rid)['artifacts'][0]
+    assert projection['media_type'] == 'image/png'
+    response = client.get('/api/kosu/' + rid + '/artifacts/' + aid, headers={'X-Test-User': 'alice'})
+    assert response.headers['content-type'] == 'image/png'
+    assert response.content == b'png fixture bytes'
+
+
+def test_account_chat_stream_observes_worker_final_after_commit(api, monkeypatch):
+    import threading
+    import time
+    import json
+    import app as host
+    from chat.platform_agents import execute_job
+    from chat.platform_runtime import Worker
+    _, store = api
+    monkeypatch.setattr(host, '_platform_kimlik', lambda request: 'alice')
+    monkeypatch.setattr(host, '_kota_kapisi', lambda *args: (True, 10))
+    monkeypatch.setattr(platform_api, '_store_factory', lambda: store)
+    class Brain:
+        def bulut_musait(self): return True
+        def ajan_musait(self): return True
+        def _bulut_zinciri(self, **kwargs): return []
+        def cevapla(self, *args, **kwargs): return {'content': 'Durable response'}, 'native'
+    def work():
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            rows = store.list('alice')
+            if rows:
+                Worker(store, lambda job, control: execute_job(job, control, Brain())).tick(rows[0]['id'])
+                return
+            time.sleep(0.01)
+    worker = threading.Thread(target=work)
+    worker.start()
+    try:
+        response = TestClient(host.app).post('/api/sohbet', json={'metin': 'hello'}, headers={
+            'Origin': 'http://testserver', 'X-Test-User': 'alice',
+            'Accept': 'application/x-ndjson', 'Idempotency-Key': 'stream-turn'})
+    finally:
+        worker.join(timeout=12)
+    assert response.status_code == 200
+    events = [json.loads(line) for line in response.text.splitlines()]
+    rid = response.headers['X-Basak-Run-ID']
+    assert events[0] == {'istek': rid, 'tur': 'durableRun', 'kosu_id': rid,
+                         'conversation_id': rid, 'conversation_title': None, 'display_text': 'hello'}
+    assert [e['cevap'] for e in events if e['tur'] == 'bitir'] == ['Durable response']
+    assert store.get('alice', rid)['durum'] == 'completed'
+    assert not any(e['tur'] in ('checkpoint', 'error') for e in events)
+
+
+def test_chat_threads_restore_title_pending_turn_and_tenant_boundary(api):
+    client, store = api
+    context = {'conversation_id': 'thread-1', 'conversation_title': 'Original title',
+               'history': [{'role': 'user', 'content': 'earlier'}, {'role': 'assistant', 'content': 'reply'}],
+               'display_text': 'Long task'}
+    first = store.create('alice', 'personal', 'Long task', kind='chat', context=context)
+    reopened = RuntimeStore(store.depo)
+    data = client.get('/api/kosu/sohbetler', headers={'X-Test-User': 'alice'}).json()['chats']
+    assert len(data) == 1 and data[0]['title'] == 'Original title'
+    assert data[0]['messages'][-1] == {'role': 'user', 'content': 'Long task'}
+    assert data[0]['pendingRuns'] == [{'id': first['id'], 'state': 'queued'}]
+    assert client.get('/api/kosu/sohbetler', headers={'X-Test-User': 'bob'}).json()['chats'] == []
+    assert reopened.chat_threads('alice')[0]['id'] == 'thread-1'
