@@ -3,10 +3,11 @@
 References: GitHub REST pulls/contents/git refs, Google Drive v3/Docs v1/
 Sheets v4, and Notion API 2026-03-11. No model-selected host or credential.
 """
+import base64
 import json
 import os
 import time
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import httpx
 
@@ -29,6 +30,47 @@ PROVIDERS = {
 }
 
 
+def _oauth_prerequisites_ready():
+    """Reject OAuth links that cannot complete a durable, secure login.
+
+    This is only a fail-closed configuration gate; a real provider callback
+    and persisted session remain mandatory acceptance evidence.
+    """
+    raw = os.environ.get("BASAK_PUBLIC_URL", "").strip()
+    try:
+        url = urlsplit(raw)
+        local = (url.hostname in {"localhost", "127.0.0.1"}
+                 and not (os.environ.get("VERCEL") or os.environ.get("BASAK_URETIM")))
+        valid_url = (bool(url.hostname) and not url.username and not url.password
+                     and not url.query and not url.fragment and url.path in {"", "/"}
+                     and (url.scheme == "https" or (local and url.scheme == "http")))
+        if not valid_url:
+            return False
+    except ValueError:
+        return False
+
+    if len(os.environ.get("BASAK_OTURUM_ANAHTARI", "").encode()) < 32:
+        return False
+    try:
+        key = base64.urlsafe_b64decode(
+            os.environ.get("BASAK_CONNECTION_KEY", "").strip())
+        if len(key) != 32:
+            return False
+    except (ValueError, TypeError):
+        return False
+
+    # Local injected SQLite is supported by offline tests. Real Vercel/worker
+    # environments must use their explicitly chosen persistent PostgreSQL.
+    if os.environ.get("VERCEL") or os.environ.get("BASAK_URETIM"):
+        from chat.kosu_deposu import _dsn
+        try:
+            if not _dsn():
+                return False
+        except RuntimeError:
+            return False
+    return True
+
+
 def provider_config(provider):
     if provider not in PROVIDERS:
         raise ConnectorError("Desteklenmeyen saglayici")
@@ -36,7 +78,8 @@ def provider_config(provider):
     prefix = "BASAK_" + provider.upper()
     base["client_id"] = os.environ.get(prefix + "_CLIENT_ID", "").strip()
     base["client_secret"] = os.environ.get(prefix + "_CLIENT_SECRET", "").strip()
-    base["configured"] = bool(base["client_id"] and base["client_secret"] and os.environ.get("BASAK_PUBLIC_URL", "").strip())
+    base["configured"] = bool(
+        base["client_id"] and base["client_secret"] and _oauth_prerequisites_ready())
     return base
 
 
