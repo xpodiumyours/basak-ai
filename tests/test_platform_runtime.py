@@ -452,3 +452,33 @@ def test_browser_approval_preview_does_not_leak_form_values(store):
     assert approval["preview"]["target"] == {"session_id": "one"}
     assert "PRIVATE_PASSPHRASE" not in str(store.get("alice", run["id"]))
     assert "PRIVATE_PASSPHRASE" not in str(store.events("alice", run["id"]))
+
+
+def test_worker_health_requires_recent_independent_process_heartbeat(tmp_path):
+    from chat.platform_runtime import RuntimeStore
+    from chat import kosu_deposu
+    now = [100.0]
+    location = str(tmp_path / "presence.db")
+    store = RuntimeStore(kosu_deposu._SqliteDepo(location), clock=lambda: now[0])
+    assert store.worker_health()["online"] is False
+    store.worker_ping("worker-one")
+    again = RuntimeStore(kosu_deposu._SqliteDepo(location), clock=lambda: now[0])
+    assert again.worker_health() == {
+        "online": True, "live_workers": 1, "freshness_seconds": 30,
+        "last_seen_age_seconds": 0.0}
+    now[0] = 125.0
+    assert again.worker_health()["online"] is True
+    now[0] = 131.0
+    assert again.worker_health()["online"] is False
+    again.worker_ping("worker-one")
+    again.worker_ping("worker-two")
+    assert store.worker_health()["live_workers"] == 2
+    again.worker_stopped("worker-one")
+    assert store.worker_health()["live_workers"] == 1
+
+
+def test_worker_presence_does_not_claim_or_complete_tasks(store):
+    pending = create(store)
+    store.worker_ping("idle-worker")
+    assert store.worker_health()["online"] is True
+    assert store.get("alice", pending["id"])["durum"] == "queued"

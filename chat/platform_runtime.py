@@ -229,6 +229,9 @@ class RuntimeStore:
             "action TEXT NOT NULL, resource TEXT NOT NULL, arguments_digest TEXT NOT NULL, "
             "status TEXT NOT NULL, created_at DOUBLE PRECISION NOT NULL, "
             "preview TEXT NOT NULL DEFAULT '{}')",
+            "CREATE TABLE IF NOT EXISTS basak_platform_worker_presence ("
+            "worker_id TEXT PRIMARY KEY, seen_at DOUBLE PRECISION NOT NULL, "
+            "state TEXT NOT NULL)",
             "CREATE INDEX IF NOT EXISTS basak_platform_owner ON basak_platform_run(user_id,workspace_id)",
             "CREATE INDEX IF NOT EXISTS basak_platform_parent ON basak_platform_run(parent_id)",
         )
@@ -242,6 +245,35 @@ class RuntimeStore:
                 "SELECT * FROM basak_platform_approval LIMIT 0").description]
             if "preview" not in approval_columns:
                 tx.execute("ALTER TABLE basak_platform_approval ADD COLUMN preview TEXT NOT NULL DEFAULT '{}'")
+
+    def worker_ping(self, worker_id):
+        """Worker proves liveness independently of whether jobs are queued."""
+        worker_id = _key(worker_id, "worker_id")
+        with self.transaction() as tx:
+            tx.execute("INSERT INTO basak_platform_worker_presence"
+                       "(worker_id,seen_at,state) VALUES(%s,%s,'online') "
+                       "ON CONFLICT(worker_id) DO UPDATE SET "
+                       "seen_at=excluded.seen_at,state='online'",
+                       (worker_id, self.clock()))
+
+    def worker_stopped(self, worker_id):
+        worker_id = _key(worker_id, "worker_id")
+        with self.transaction() as tx:
+            tx.execute("UPDATE basak_platform_worker_presence SET state='offline',"
+                       "seen_at=%s WHERE worker_id=%s", (self.clock(), worker_id))
+
+    def worker_health(self, stale_seconds=30):
+        """No health signal means unavailable, never a simulated live worker."""
+        stale_seconds = max(1, min(int(stale_seconds), 600))
+        now = self.clock()
+        with self.transaction() as tx:
+            rows = tx.rows("SELECT seen_at FROM basak_platform_worker_presence "
+                           "WHERE state='online' AND seen_at>=%s",
+                           (now-stale_seconds,))
+        return {"online": bool(rows), "live_workers": len(rows),
+                "freshness_seconds": stale_seconds,
+                "last_seen_age_seconds": round(now-max(x["seen_at"] for x in rows), 1)
+                if rows else None}
 
     def _require(self, tx, user, run_id):
         row = tx.one(
