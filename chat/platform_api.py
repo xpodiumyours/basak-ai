@@ -8,6 +8,7 @@ import base64
 import inspect
 import json
 import re
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -28,7 +29,32 @@ def configure(principal, store_factory=None):
     _store_factory = store_factory or platform_store
 
 
+def _mutation_origin_ok(request):
+    """Cookie-authenticated writes must come from the exact same origin.
+
+    Sec-Fetch-Site 'same-site' is not sufficient when another subdomain can
+    submit a request. Origin is required even when fetch metadata is absent.
+    """
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return True
+    site = request.headers.get("sec-fetch-site", "").lower()
+    if site and site != "same-origin":
+        return False
+    origin = request.headers.get("origin", "")
+    if not origin:
+        return False
+    source, target = urlsplit(origin), urlsplit(str(request.url))
+    return bool(source.scheme in ("https", "http") and source.netloc
+                and source.scheme == target.scheme
+                and source.netloc == target.netloc
+                and source.path in ("", "/") and not source.query
+                and not source.fragment and not source.username
+                and not source.password)
+
+
 async def _user(request):
+    if not _mutation_origin_ok(request):
+        raise HTTPException(403, "Bu hesap islemi ayni kaynaktan yapilmali")
     if _principal is None:
         raise HTTPException(503, "Görev kimlik doğrulaması yapılandırılmadı")
     user = _principal(request)

@@ -14,7 +14,7 @@ def api(tmp_path):
     onceki = (platform_api._principal, platform_api._store_factory)
     platform_api.configure(lambda request: request.headers.get("X-Test-User"), lambda: store)
     app.include_router(platform_api.router)
-    yield TestClient(app), store
+    yield TestClient(app, headers={"Origin": "http://testserver"}), store
     platform_api._principal, platform_api._store_factory = onceki
 
 
@@ -96,3 +96,31 @@ def test_worker_health_endpoint_requires_login_and_reflects_live_heartbeats(api)
     assert state["online"] is True and state["live_workers"] == 1
     store.worker_stopped("ci-real-worker")
     assert client.get("/api/kosu/isciler", headers=headers).json()["online"] is False
+
+
+def test_cookie_task_mutations_reject_cross_origin_and_missing_origin(api):
+    client, store = api
+    url = "/api/kosu"
+    payload = {"istek": "Should not execute"}
+    headers = {"X-Test-User": "alice"}
+    bad = [
+        {"Origin": "https://evil.example"},
+        {"Origin": "null"},
+        {"Origin": "http://testserver", "Sec-Fetch-Site": "same-site"},
+        {"Origin": "http://testserver", "Sec-Fetch-Site": "cross-site"},
+    ]
+    for extra in bad:
+        response = client.post(url, headers={**headers, **extra}, json=payload)
+        assert response.status_code == 403
+    missing = client.post(url, headers={**headers, "Origin": ""}, json=payload)
+    assert missing.status_code == 403
+    assert store.list("alice") == []
+    good = client.post(url, headers={**headers,
+                                   "Origin": "http://testserver",
+                                   "Sec-Fetch-Site": "same-origin"}, json=payload)
+    assert good.status_code == 202
+    rid = good.json()["kosu"]["id"]
+    assert client.post("/api/kosu/" + rid + "/iptal",
+                       headers={**headers, "Origin": "http://evil.example"},
+                       json={}).status_code == 403
+    assert store.get("alice", rid)["durum"] == "queued"
