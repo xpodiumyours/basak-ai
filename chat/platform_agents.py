@@ -58,7 +58,12 @@ def action_has_effect(name, args, ctx):
     if name == 'kod_dosya':
         return args.get('islem') == 'yaz'
     if name == 'bulut_tarayici':
-        return args.get('islem') not in ('oku', 'ekran', 'dogrula', 'read', 'screenshot', 'verify')
+        # Browser click/keyboard/upload/download can modify a third-party
+        # service even when the DOM does not reveal that effect beforehand.
+        # Fail closed on unknown operations; reading, scrolling and an
+        # ordinary GET navigation are not considered mutations.
+        return args.get('islem') not in (
+            'ac', 'oku', 'ekran', 'dogrula', 'kaydir', 'devral', 'birak')
     if name == 'baglanti_cagir':
         meta = _connection_meta(args, ctx)
         # Remote MCP annotations are advisory, not an execution guarantee.
@@ -85,6 +90,16 @@ def before_action(name, args, ctx):
             resource = str(args.get('baglanti_id', ''))
             if not ctx.control.store.consume_approval(ctx.control.lease, name, resource, args):
                 ctx.control.request_approval(name, resource, args)
+    elif name == 'bulut_tarayici' and action_has_effect(name, args, ctx):
+        # Browser actions are untrusted external mutations, not local writes.
+        # Consent is bound to the exact operation, session and arguments
+        # digest. Do not allocate a running action until consent is consumed.
+        details = args.get('argumanlar')
+        details = details if isinstance(details, dict) else {}
+        session_id = str(details.get('session_id') or '')
+        resource = 'browser:' + (session_id or 'unknown-session')
+        if not ctx.control.store.consume_approval(ctx.control.lease, name, resource, args):
+            ctx.control.request_approval(name, resource, args)
 
 
 class _Events:

@@ -58,3 +58,15 @@ takıldığında kontrol noktası yalnız çağrı kimliğini saklıyordu, assis
 modelin son araç çağrısıyla eşleştirerek geri verir. Simüle edilmiş gerçek
 SQLite kayıtları ve iki ayrı işçiyle, DeepSeek/MiMo için ağ kullanmadan
 test edilir. Resmî canlı sağlayıcı doğrulaması yine ayrı kabul koşuludur.
+
+## P0 tarayıcı dış yazma izinleri (27 Ekim)
+Önceki sürümde `bulut_tarayici` işlemlerindeki dış etki olasılığı
+görev defterinde işaretleniyordu, **ancak `before_action` kullanıcı
+onayını yalnız `baglanti_cagir` için istiyordu**.
+Artık tarayıcıdaki `tikla`, `yaz`, `tus`, `yukle`, `indir`
+ve bilinmeyen işlemler için modelin yetkisi yeterli değildir:
+belirli oturum, işlem ve argüman özetine bağlı tek kullanımlık onay
+gereklidir. Onay olmadan dış eylem başlamaz. Normal sayfa açma
+(GET), okuma, ekran görüntüsü, DOM doğrulaması ve kaydırma onay
+beklemez. Tüm dış sitelerin GET davranışını garanti etmek mümkün
+olmadığı için bu istisna üretim güvenlik değerlendirmesine dahildir.

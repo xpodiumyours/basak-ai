@@ -331,3 +331,63 @@ def test_thinking_tool_reply_survives_owner_approval_and_worker_restart(
         'reasoning_content'] == reply['reasoning_content']
     assert 'reasoning_content' not in mesajlari_temizle(
         [assistant], provider='other-provider')[0]
+
+
+@pytest.mark.parametrize("operation", ["tikla", "yaz", "tus", "yukle", "indir", "unknown_operation"])
+def test_browser_external_mutations_require_exact_single_use_approval(
+        tmp_path, operation):
+    from dataclasses import replace
+    from chat import kosu_deposu
+    from chat.platform_context import ExecutionContext
+    from chat.platform_agents import before_action, action_has_effect
+    from chat.platform_runtime import Control, RunSuspended, RuntimeStore
+
+    store = RuntimeStore(kosu_deposu._SqliteDepo(str(tmp_path / ('browser-' + operation + '.db'))))
+    job = store.create('alice', 'personal', 'Approved browser action',
+                       allowed_tools=['bulut_tarayici'])
+    lease = store.claim('browser-worker', run_id=job['id'])['lease']
+    ctx = ExecutionContext('alice', 'personal', job['id'],
+                           allowed_tools=frozenset(['bulut_tarayici']),
+                           control=Control(store, lease))
+    args = {'islem': operation,
+            'argumanlar': {'session_id': 'owned-browser', 'selector': '#submit'}}
+    assert action_has_effect('bulut_tarayici', args, ctx)
+    with pytest.raises(RunSuspended):
+        before_action('bulut_tarayici', args, ctx)
+    assert store.actions('alice', job['id']) == []
+    approval = store.get('alice', job['id'])['approvals'][0]
+    assert approval['resource'] == 'browser:owned-browser'
+    store.approve('alice', job['id'], approval['id'], True)
+    next_lease = store.claim('resumed-browser-worker', run_id=job['id'])['lease']
+    next_ctx = replace(ctx, control=Control(store, next_lease))
+    # An approved selector/session cannot authorize another target.
+    tampered = {'islem': operation,
+                'argumanlar': {'session_id': 'other-browser', 'selector': '#submit'}}
+    with pytest.raises(RunSuspended):
+        before_action('bulut_tarayici', tampered, next_ctx)
+    # A suspended request needs its own approval; resume via the owner.
+    other = store.get('alice', job['id'])['approvals'][-1]
+    store.approve('alice', job['id'], other['id'], False)
+    with pytest.raises(Conflict):
+        store.claim('worker', run_id=job['id'])
+    # Resume explicitly; the first approval remains available and single-use.
+    store.resume('alice', job['id'])
+    approved_lease = store.claim('worker', run_id=job['id'])['lease']
+    approved_ctx = replace(ctx, control=Control(store, approved_lease))
+    before_action('bulut_tarayici', args, approved_ctx)
+    with pytest.raises(RunSuspended):
+        before_action('bulut_tarayici', args, approved_ctx)
+
+
+@pytest.mark.parametrize("operation", ["ac", "oku", "ekran", "dogrula", "kaydir", "devral", "birak"])
+def test_browser_navigation_read_and_scroll_do_not_prompt_for_write_consent(operation):
+    from chat.platform_agents import action_has_effect, before_action
+    from chat.platform_context import ExecutionContext
+    control = SimpleNamespace(
+        check_cancelled=lambda: None,
+        request_approval=lambda *_: pytest.fail('Read-only browser operation demanded write consent'))
+    ctx = ExecutionContext('alice', 'personal', 'run-1',
+                           allowed_tools=frozenset(['bulut_tarayici']), control=control)
+    args = {'islem': operation, 'argumanlar': {'url': 'https://example.com'}}
+    assert not action_has_effect('bulut_tarayici', args, ctx)
+    before_action('bulut_tarayici', args, ctx)
