@@ -91,9 +91,9 @@ async def verify_email_password(email, password, *, transport=None):
                     not isinstance(user.get("id"), str) or
                     not 1 <= len(user["id"]) <= 128 or
                     not isinstance(user.get("email"), str) or
-                    user["email"].casefold() != email.casefold() or
-                    user.get("emailVerified") is not True):
-                raise PermissionError("Hesap dogrulamasi gerekli")
+                    user["email"].casefold() != email.casefold()):
+                raise LoginUnavailable("Neon hesap kimligi dogrulanamadi")
+            verified = user.get("emailVerified") is True
             # A successful Neon sign-in creates a session at Neon. We do not
             # adopt/copy its token; revoke the temporary session immediately.
             if not any(c.name.endswith("session_token") for c in client.cookies.jar):
@@ -102,6 +102,8 @@ async def verify_email_password(email, password, *, transport=None):
                                            headers={"Accept": "application/json"})
             if signed_out.status_code not in (200, 204):
                 raise LoginUnavailable("Gecici Neon oturumu kapatilamadi")
+            if not verified:
+                raise PermissionError("E-posta dogrulamasi gerekli")
             return {
                 "subject": user["id"],
                 "name": str(user.get("name") or "Kullanici")[:160],
