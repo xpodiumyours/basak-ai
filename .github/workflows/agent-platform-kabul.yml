@@ -6,14 +6,46 @@ on:
   push:
     branches:
       - feat/basak-agent-platform
-  pull_request:
+      - "fix/agent-platform-*"
+      - main
+      - preview
     paths:
+      - "app.py"
+      - "brain/model_havuzu.py"
+      - "chat/flow.py"
+      - "chat/kosu_deposu.py"
       - "chat/platform_*.py"
       - "worker/platform_*.py"
+      - "worker/requirements-worker.txt"
       - "tools/platform.py"
+      - "deploy/platform-worker/**"
+      - "requirements.txt"
+      - "web/app.js"
+      - "web/index.html"
       - "web/platform.js"
       - "tests/test_platform_*.py"
+      - "tests/test_postgres_platform_runtime.py"
       - ".github/workflows/agent-platform-kabul.yml"
+      - ".github/workflows/test.yml"
+  pull_request:
+    paths:
+      - "app.py"
+      - "brain/model_havuzu.py"
+      - "chat/flow.py"
+      - "chat/kosu_deposu.py"
+      - "chat/platform_*.py"
+      - "worker/platform_*.py"
+      - "worker/requirements-worker.txt"
+      - "tools/platform.py"
+      - "deploy/platform-worker/**"
+      - "requirements.txt"
+      - "web/app.js"
+      - "web/index.html"
+      - "web/platform.js"
+      - "tests/test_platform_*.py"
+      - "tests/test_postgres_platform_runtime.py"
+      - ".github/workflows/agent-platform-kabul.yml"
+      - ".github/workflows/test.yml"
   workflow_dispatch:
 
 permissions:
