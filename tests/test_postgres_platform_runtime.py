@@ -97,3 +97,20 @@ def test_uncertain_external_effect_is_never_replayed_by_second_postgres_worker(p
 
     assert second.claim("worker-after-restart", run_id=run["id"]) is None
     assert second.get(user, run["id"])["durum"] == "uncertain"
+
+
+def test_idle_worker_heartbeat_visible_to_independent_postgres_store(postgres_url):
+    """A worker that has not claimed a job must still be observable."""
+    first = new_store(postgres_url)
+    observer = new_store(postgres_url)
+    worker_id = "pg-ci-worker-" + uuid.uuid4().hex
+    first.worker_ping(worker_id)
+    health = observer.worker_health()
+    assert health["online"] is True and health["live_workers"] >= 1
+    assert health["last_seen_age_seconds"] is not None
+    first.worker_stopped(worker_id)
+    # Other CI workers can exist in the same test DB; inspect exact row.
+    with observer.transaction() as tx:
+        row = tx.one("SELECT state FROM basak_platform_worker_presence "
+                     "WHERE worker_id=%s", (worker_id,))
+    assert row["state"] == "offline"

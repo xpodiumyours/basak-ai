@@ -47,3 +47,17 @@ dördüncü çocuk görevi kuyrukta kalır. Bu sınır tek sunucudaki görünüm
 veritabanı transaction düzeyinde uygulanır. CI, sahte ve kotasız görev işleyicileriyle
 üç ayrı `Worker.tick()` çağrısının eşzamanlılığını test eder.
 Bu kontrol uzak sunucu, OAuth veya gerçek sağlayıcı testi yerine geçmez.
+
+## Canlı işçi sağlığı
+
+Yeni `basak_platform_worker_presence` kaydı, işçi **boşta beklese
+de** PostgreSQL'e 10 saniyede bir kalp atışı yazar. Görev kirası kalp
+atışı ayrı tutulur. `GET /api/kosu/isciler` oturum açmış kullanıcıya,
+son 30 saniye içinde kalp atışı olan işçi sayısını ve çevrimiçi durumunu
+gösterir. İşçi kapanınca çevrimdışı işaretlenir; beklenmedik çökmede
+kalp atışı 30 saniyede eskir. Arayüz işçi yoksa çalışıyormuş gibi
+davranmaz.
+
+GitHub CI testi, farklı PostgreSQL bağlantılarından işçi kaydının
+görüldüğünü doğrular. Bu, **uzak sunucuya gerçek işçi kurulduğunun
+kanıtı değildir**: Preview görev kabulünde ayrı canlı kanıt aranır.
