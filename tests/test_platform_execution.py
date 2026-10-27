@@ -368,8 +368,7 @@ def test_browser_external_mutations_require_exact_single_use_approval(
     # A suspended request needs its own approval; resume via the owner.
     other = store.get('alice', job['id'])['approvals'][-1]
     store.approve('alice', job['id'], other['id'], False)
-    with pytest.raises(Conflict):
-        store.claim('worker', run_id=job['id'])
+    assert store.claim('worker', run_id=job['id']) is None
     # Resume explicitly; the first approval remains available and single-use.
     store.resume('alice', job['id'])
     approved_lease = store.claim('worker', run_id=job['id'])['lease']
