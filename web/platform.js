@@ -514,6 +514,40 @@
       const connected = state.connections.filter((connection) => connection.provider === provider.id && connection.status !== "revoked");
       if (!provider.configured) {
         card.append(node("p", "workspace-muted", "Sunucu bağlantısı yapılandırılmadı."));
+      } else if (!state.user && provider.id === "neon_email") {
+        const form = node("form", "workspace-auth-form");
+        const email = node("input", "workspace-input");
+        email.type = "email"; email.name = "email"; email.required = true;
+        email.maxLength = 254; email.autocomplete = "email";
+        email.placeholder = "E-posta adresi";
+        email.setAttribute("aria-label", "E-posta adresi");
+        const password = node("input", "workspace-input");
+        password.type = "password"; password.name = "password"; password.required = true;
+        password.autocomplete = "current-password";
+        password.placeholder = "Parola";
+        password.setAttribute("aria-label", "Parola");
+        const submit = node("button", "workspace-button", "E-posta ile giriş yap");
+        submit.type = "submit";
+        const feedback = node("p", "workspace-muted", "");
+        feedback.setAttribute("role", "status");
+        form.append(email, password, submit, feedback);
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault(); submit.disabled = true;
+          feedback.textContent = "Giriş doğrulanıyor…";
+          try {
+            await client.write("/api/hesap/eposta/giris", {
+              email: email.value.trim(), password: password.value,
+            });
+            password.value = "";
+            scope.location.reload();
+          } catch (error) {
+            password.value = "";
+            feedback.textContent = error.message || "Giriş yapılamadı.";
+          } finally { submit.disabled = false; }
+        });
+        card.append(form);
+      } else if (state.user && provider.id === "neon_email") {
+        card.append(node("p", "workspace-muted", "E-posta hesabı giriş yöntemi."));
       } else if (!state.user && provider.login) {
         const link = node("a", "workspace-button", (provider.label || provider.id) + " ile giriş yap");
         link.href = "/api/baglantilar/oauth/" + encodeURIComponent(provider.id) + "/baslat?purpose=login";
