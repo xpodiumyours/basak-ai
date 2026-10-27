@@ -6,8 +6,20 @@ metni incelenmez; native yanit, arac imzalari ve akisin parcasi korunur.
 
 import json
 from contextvars import ContextVar
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
+
+_SELECTION = ContextVar('basak_model_selection', default=None)
+
+
+@contextmanager
+def model_selection(provider, model):
+    token = _SELECTION.set((provider, model))
+    try:
+        yield
+    finally:
+        _SELECTION.reset(token)
 
 
 def katalog():
@@ -45,10 +57,11 @@ class _Chat:
 
 
 class ModelHavuzuSDK:
-    def __init__(self, sdk, modeller, ortak_kota=False):
+    def __init__(self, sdk, modeller, ortak_kota=False, provider=''):
         self._sdk = sdk
         self.modeller = tuple(modeller)
         self.ortak_kota = ortak_kota
+        self.provider = provider
         self._son_model = ContextVar("basak_son_model", default=None)
         self.chat = _Chat(self)
 
@@ -59,10 +72,17 @@ class ModelHavuzuSDK:
     def __getattr__(self, name):
         return getattr(self._sdk, name)
 
+    def with_options(self, **kwargs):
+        return ModelHavuzuSDK(self._sdk.with_options(**kwargs), self.modeller,
+                             ortak_kota=self.ortak_kota, provider=self.provider)
+
     def adaylar(self, kwargs):
         aracli = bool(kwargs.get("tools"))
         uygun = [m["id"] for m in self.modeller if not aracli or m["tools"]]
-        istenen = kwargs.get("model")
+        selection = _SELECTION.get()
+        istenen = selection[1] if selection and selection[0] == self.provider else kwargs.get("model")
+        if selection and selection[0] == self.provider and istenen not in uygun:
+            raise ValueError('Secilen model arac protokolu icin katalogda yok')
         if istenen in uygun:
             uygun.remove(istenen)
             uygun.insert(0, istenen)
@@ -136,5 +156,5 @@ def bagla(ad, istemci, ayar):
         istemci.model = modeller[0]["id"]
     istemci.model_havuzu = modeller
     istemci.client = ModelHavuzuSDK(
-        sdk, modeller, ortak_kota=ad in ("mistral", "cohere", "cloudflare"))
+        sdk, modeller, ortak_kota=ad in ("mistral", "cohere", "cloudflare"), provider=ad)
     return istemci

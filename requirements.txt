@@ -53,6 +53,13 @@ numpy==2.5.3
 # PyPI 2026-09-18: psycopg 3.3.6; binary extra kendi eslesen wheel'ini kurar.
 psycopg[binary]==3.3.6
 
+# Multi-user OAuth, encrypted connection credentials and MCP client.
+# Verified against installed distributions before integration.
+Authlib==1.7.2
+cryptography==48.0.0
+mcp==1.27.2
+httpx==0.28.1
+
 # ── Ses: TTS (metin->ses) + STT (ses->metin) + konusmaci tanima ────
 # DIKKAT: piper-tts paketi ses MODELINI icermez. tr_TR-dfki-medium.onnx
 # ayri indirilir — README "Ses modeli" bolumune bak.

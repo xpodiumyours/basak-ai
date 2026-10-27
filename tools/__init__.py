@@ -29,9 +29,11 @@ def gorevler_dosyasi():
     chat.kimlik burada (modul seviyesinde degil) alinir: tools paketi
     chat paketinden once yuklenebiliyor, dairesel import riski var.
     """
-    from chat.kimlik import durum_yolu
+    from chat.kimlik import durum_yolu, aktif_kullanici, kullanici_koku
     if GOREVLER_FILE:
         return GOREVLER_FILE
+    if aktif_kullanici() != "casper":
+        return os.path.join(kullanici_koku(), "gorevler.json")
     yeni_yol = os.path.join(durum_yolu(), "gorevler.json")
     _eski_gorevleri_tasi(yeni_yol)
     return yeni_yol
@@ -72,6 +74,34 @@ def calistir(tool_name, args):
 
     args = args or {}
     try:
+        if tool_name == "ajan_modelleri":
+            from tools.platform import execute
+            return execute(tool_name, args)
+        if tool_name == "alt_ajan":
+            from tools.platform import execute
+            return execute(tool_name, args)
+        if tool_name == "alt_ajan_sonuclari":
+            from tools.platform import execute
+            return execute(tool_name, args)
+        if tool_name == "baglanti_liste":
+            from tools.platform import execute
+            return execute(tool_name, args)
+        if tool_name == "baglanti_araclari":
+            from tools.platform import execute
+            return execute(tool_name, args)
+        if tool_name == "baglanti_cagir":
+            from tools.platform import execute
+            return execute(tool_name, args)
+        if tool_name == "kod_dosya":
+            from tools.platform import execute
+            return execute(tool_name, args)
+        if tool_name == "kod_calistir":
+            from tools.platform import execute
+            return execute(tool_name, args)
+        if tool_name == "bulut_tarayici":
+            from tools.platform import execute
+            return execute(tool_name, args)
+
         if tool_name == "web_search":
             from tools import web_search as ws
             return ws.web_search(str(args.get("query", "")),

@@ -26,6 +26,15 @@ class AracSonrasiHatasi(RuntimeError):
 
 
 DURUM_METNI = {
+    'ajan_modelleri': 'Model havuzu okunuyor',
+    'alt_ajan': 'Alt gorevler siraya aliniyor',
+    'alt_ajan_sonuclari': 'Alt gorev sonuclari okunuyor',
+    'baglanti_liste': 'Baglantilar okunuyor',
+    'baglanti_araclari': 'Platform araclari kesfediliyor',
+    'baglanti_cagir': 'Platform islemi yurutuluyor',
+    'kod_dosya': 'Calisma alani dosyasi isleniyor',
+    'kod_calistir': 'Izole kod iscisi calisiyor',
+    'bulut_tarayici': 'Bulut tarayicisi calisiyor',
     "web_search": "İnternette aranıyor",
     "haber_ara": "Haberlerde aranıyor",
     "zamanli_ara": "Tarihli aranıyor",
@@ -382,7 +391,8 @@ def sonucu_donustur(sonuc):
 def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                  calistir, tools=None, yanit=None,
                  tool_choice=None, tercih=None, run_state=None,
-                 katalog=None, mola_zamani=None, kosu=None):
+                 katalog=None, mola_zamani=None, kosu=None,
+                 platform_resume=None):
     """Arac sonuclarini modele geri vererek ajan turunu surdurur.
 
     Gercek arac secimini MODEL yapar. `yetenek_ac` modelin sectigi
@@ -406,8 +416,12 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     )
     from chat.agent_runtime import emit_run_state
     from tools.definitions import TANINMIS_TOOLLAR
+    from chat.platform_context import current as execution_context, bound
+    from dataclasses import replace
 
-    acik_alanlar = []  # run boyunca acik kalan yetenek alanlari
+    platform_context = execution_context()
+    control = platform_context.control if platform_context is not None else None
+    acik_alanlar = list((platform_resume or {}).get('open_areas', []))
 
     expanded = list(mesajlar)
     kosan = 0
@@ -432,9 +446,16 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     # yere model degistirmesini engeller.
     _tercih_aktif = list(tercih or [])
 
+    def _platform_checkpoint(pending):
+        if control is not None:
+            control.checkpoint({'messages': expanded, 'tool_calls': pending,
+                                'open_areas': acik_alanlar, 'provider': list(_tercih_aktif)})
+
     def _beyin_devam(acik_tools, secim=None):
         nonlocal _tercih_aktif
         import inspect
+        if control is not None:
+            control.check_cancelled()
 
         _kw = {"tools": acik_tools}
         _p = inspect.signature(brain.cevapla).parameters
@@ -476,6 +497,9 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             emit_run_state(js_callback, run_state)
 
     while tool_calls:
+        if control is not None:
+            control.check_cancelled()
+            _platform_checkpoint(tool_calls)
         # Mola eşiği geçmişse yeni araç başlatılmaz. Bu, uzun bir model
         # turunun ardından pahalı bir aracın 300 sn sert tavana taşmasını
         # önleyen sunucu-zamanı kapısıdır; araç seçimine müdahale etmez.
@@ -593,7 +617,17 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                     _defterden = kosu.adim_onceki(cagri_id)
                 except Exception:
                     logger.warning("kosu defteri okunamadi", exc_info=True)
-            if _defterden is not None:
+            _platform_replay = None
+            if control is not None:
+                from chat.platform_agents import action_has_effect
+                _platform_replay = control.begin_action(
+                    cagri_id, ad, args, action_has_effect(ad, args, platform_context))
+            if _platform_replay is not None:
+                saved = _platform_replay.get('result') or {}
+                net = str(saved.get('net') or '')
+                ham = saved.get('raw')
+                basarili = bool(_platform_replay.get('ok'))
+            elif _defterden is not None:
                 net = str(_defterden.get("sonuc") or "")
                 basarili = bool(_defterden.get("ok"))
                 _web_olay(js_callback, "toolReplay", id=cagri_id, arac=ad)
@@ -618,7 +652,12 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                                 "arac adimi deftere yazilamadi",
                                 exc_info=True)
                     try:
-                        ham = calistir(ad, args)
+                        if control is not None:
+                            control.check_cancelled()
+                            with bound(replace(platform_context, tool_call_id=cagri_id)):
+                                ham = calistir(ad, args)
+                        else:
+                            ham = calistir(ad, args)
                     except Exception as hata:
                         if kosu is not None:
                             try:
@@ -645,6 +684,8 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                     except Exception:
                         logger.warning("arac sonucu deftere yazilamadi",
                                        exc_info=True)
+            if control is not None and _platform_replay is None:
+                control.finish_action(cagri_id, {'net': net, 'raw': ham}, basarili)
             _web_olay(
                 js_callback, "toolDone",
                 id=cagri_id,
@@ -709,6 +750,21 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                 "content": sonuc,
             })
 
+        if control is not None:
+            _platform_checkpoint(None)
+            for _ad, _result, _cid in tur_sonuclari:
+                if _ad == 'alt_ajan_sonuclari':
+                    try:
+                        _wait = json.loads(_result).get('_wait_children', [])
+                    except (ValueError, AttributeError):
+                        _wait = []
+                    if _wait:
+                        control.wait_for_children(_wait)
+            for _steer in control.drain_steering():
+                expanded.append({'role': 'user', 'content': _steer.get('text', ''),
+                                 '_steering_id': _steer.get('id')})
+            _platform_checkpoint(None)
+
         # Sure dolmak uzereyse yeni model turu baslatma; karari kullaniciya
         # birak. Bu tur arac sonuclari handoff'a zaten yazildi.
         if mola_zamani is not None and _zaman.monotonic() >= mola_zamani:
@@ -725,6 +781,8 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
 
         # Tool sonrasi final/tool-call da provider'in gercek stream yolundan.
         try:
+            if control is not None:
+                control.check_cancelled()
             from chat.output_control import akan_ajan_adimi
             _syanit, _skaynak, _sok = akan_ajan_adimi(
                 brain, model, expanded, js_callback, tools,
@@ -748,6 +806,10 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                         run_state.provider_set(_skaynak)
                         emit_run_state(js_callback, run_state)
         except Exception as e:
+            if control is not None:
+                from chat.platform_runtime import LeaseLost
+                if isinstance(e, LeaseLost):
+                    raise
             logger.warning("Arac sonrasi gercek stream acilamadi: %s", e)
 
         if yanit is None:

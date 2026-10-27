@@ -165,6 +165,16 @@ def _guvenli_yolu_coz(yol, base_dir):
         if not yol or not str(yol).strip():
             return False, "Dosya yolu boş olamaz", None
 
+        from chat.platform_context import current, workspace_path
+        if current() is not None:
+            try:
+                scoped = str(workspace_path(yol))
+                if _yasak_mi(scoped):
+                    return False, "Bu dosya hassas bilgi tasir", None
+                return True, "workspace", scoped
+            except (PermissionError, ValueError, OSError) as hata:
+                return False, str(hata), None
+
         # MUTLAK YOL — tum bilgisayar (2026-09-09, Casper karari):
         # Basak, Casper'in gordugu her yeri gorebilir: ev, C:\Projects,
         # knowledge/, research-engine/ VE bunlar disindaki tum suruculer.
@@ -357,6 +367,13 @@ def _yazma_izni_var_mi(mutlak_yol, base_dir):
     try:
         if _yasak_mi(mutlak_yol):
             return False
+        from chat.platform_context import current, workspace_path
+        if current() is not None:
+            try:
+                workspace_path(mutlak_yol)
+                return True
+            except (PermissionError, ValueError, OSError):
+                return False
         mutlak_norm = os.path.normcase(os.path.realpath(mutlak_yol))
         # Dis projeler salt-okunur kalir
         for _ad, _kok in DIS_PROJELER.items():

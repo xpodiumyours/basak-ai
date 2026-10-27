@@ -48,6 +48,14 @@ from chat.freellmapi_yedek import router as _freellmapi_yedek_router  # noqa: E4
 
 app.include_router(_freellmapi_yedek_router)
 
+from chat.platform_api import configure as _platform_api_kur, router as _platform_router  # noqa: E402
+from chat.platform_accounts_api import router as _platform_hesap_router  # noqa: E402
+from chat.platform_identity import authenticate as _platform_kimlik  # noqa: E402
+
+_platform_api_kur(_platform_kimlik)
+app.include_router(_platform_router)
+app.include_router(_platform_hesap_router)
+
 _BEYIN = None
 _TOOLS = None
 _PREVIEW_COOKIE = "basak_preview_oturum"

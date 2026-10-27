@@ -50,6 +50,10 @@ ALAN_SORULARI = {
     # 2026-10-23: takip alani eklendi (takip_baslat/listele/durdur/kontrol,
     # gorev_devret). Kapsam 16 -> 17.
     "takip": "Bir firmayi takibe almam veya takiptekileri listelemem gerekiyor; uygun aracı seç.",
+    # 2026-10-27: ajanlar / baglantilar / bulut_calisma. Kapsam 17 -> 20.
+    "ajanlar": "Mevcut model havuzunu listelemem veya bağımsız bir alt görev oluşturmam gerekiyor; uygun aracı seç.",
+    "baglantilar": "Kullanıcıya ait GitHub, Google, Notion veya MCP bağlantılarını listelemem gerekiyor; uygun aracı seç.",
+    "bulut_calisma": "İzole çalışma alanında bir dosya okumam veya kod çalıştırmam gerekiyor; uygun aracı seç.",
 }
 
 

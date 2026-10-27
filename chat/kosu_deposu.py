@@ -398,6 +398,20 @@ def hazir():
     return _depo() is not None
 
 
+def platform_store():
+    """Aynı defterin kalıcı görev ağacı uzantısı; ikinci bir depo değildir."""
+    from chat.platform_runtime import RuntimeStore, Unavailable
+    depo = _depo()
+    if depo is None:
+        raise Unavailable("Kalıcı görev deposu hazır değil")
+    with _DEPO_KILIT:
+        store = getattr(depo, "_platform_store", None)
+        if store is None:
+            store = RuntimeStore(depo)
+            depo._platform_store = store
+        return store
+
+
 def sifirla():
     """Yalnız testler için: defteri ve uyarı bayrağını sıfırlar."""
     global _DEPO, _UYARI_VERILDI

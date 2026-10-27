@@ -892,6 +892,44 @@ SAYFA_KAYDIR = _arac(
     [],
 )
 
+AJAN_MODELLERI = _arac('ajan_modelleri',
+    'Bu kosuda kullanilabilir ucretsiz saglayici ve model kimliklerini doner.', {}, [])
+ALT_AJAN = _arac('alt_ajan',
+    'Bagimsiz baglamli alt gorevleri kalici kuyruga ekler; gorev kimlikleri ve durumlarini doner.',
+    {'isler': {'type': 'array', 'minItems': 1, 'items': {'type': 'object',
+        'properties': {'gorev': {'type': 'string'}, 'model_ref': {'type': 'string'},
+            'baglam': {'type': 'string'}, 'araclar': {'type': 'array', 'items': {'type': 'string'}},
+            'kabul': {'type': 'array', 'items': {'type': 'object'}},
+            'bagimliliklar': {'type': 'array', 'items': {'type': 'string'}}},
+        'required': ['gorev']}}}, ['isler'])
+ALT_AJAN_SONUCLARI = _arac('alt_ajan_sonuclari',
+    'Bu gorevin alt gorevlerini ve sonuclarini okur; bekle ile yurutmeyi kalici olarak bekletir.',
+    {'bekle': {'type': 'boolean'}}, [])
+BAGLANTI_LISTE = _arac('baglanti_liste',
+    'Bu kullanicinin platform ve MCP baglantilarinin kimliklerini ve durumlarini doner; sir donmez.', {}, [])
+BAGLANTI_ARACLARI = _arac('baglanti_araclari',
+    'Baglantinin gercek arac semalarini ve erisim bilgilerini doner.',
+    {'baglanti_id': {'type': 'string'}}, ['baglanti_id'])
+BAGLANTI_CAGIR = _arac('baglanti_cagir',
+    'Bagli platformun kesfedilmis aracini verilen semaya gore calistirir; metin ve yapilandirilmis sonucu doner.',
+    {'baglanti_id': {'type': 'string'}, 'arac': {'type': 'string'},
+     'argumanlar': {'type': 'object'}}, ['baglanti_id', 'arac', 'argumanlar'])
+KOD_DOSYA = _arac('kod_dosya',
+    'Kullanici calisma alanindaki dosyalari listeler, sayfali okur veya yazar; dosya ozeti doner.',
+    {'islem': {'type': 'string', 'enum': ['liste', 'oku', 'yaz']},
+     'yol': {'type': 'string'}, 'icerik': {'type': 'string'},
+     'baslangic': {'type': 'integer', 'minimum': 0}}, ['islem'])
+KOD_CALISTIR = _arac('kod_calistir',
+    'Python veya Node komutunu izole bulut iscisi icinde calistirir; cikis kodu ve tam gunluk ciktisini doner.',
+    {'ortam': {'type': 'string', 'enum': ['python', 'node']},
+     'komut': {'type': 'array', 'minItems': 1, 'items': {'type': 'string'}},
+     'sure_saniye': {'type': 'integer', 'minimum': 1}}, ['ortam', 'komut'])
+BULUT_TARAYICI = _arac('bulut_tarayici',
+    'Kullaniciya ayrilmis bulut tarayicisinda sayfa ve dosya islemi yapar; gercek sayfa durumu veya ekran ciktisi doner.',
+    {'islem': {'type': 'string', 'enum': ['ac', 'oku', 'tikla', 'yaz', 'tus', 'kaydir',
+        'ekran', 'dogrula', 'yukle', 'indir', 'devral', 'birak']},
+     'argumanlar': {'type': 'object'}}, ['islem', 'argumanlar'])
+
 TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
           KITAP_ARA, DERIN_OKU, SAYFA_OKU, DOSYA_OKU, KLASOR_LISTELE, GIT_DURUM,
          BELGE_ARA, DOSYA_BILGI, GORUNTU_OKU, DOSYA_YAZ,
@@ -910,7 +948,10 @@ TOOLS = [WEB_ARAMA, HABER_ARA, ZAMANLI_ARA, SITE_ARA, GORSEL_ARA,
          KATALOG_FIYAT, KATALOG_ONAYLA, YETKI_BELGESI, URUN_ESLESTIR,
          YAYIN_PAKETI, CIKTI_OKU,
          FREETOOLS_ARA, FREETOOLS_CALISTIR,
-         SAYFA_BAKIS, SAYFA_TIKLA, SAYFA_YAZ, SAYFA_TUS, SAYFA_KAYDIR]
+         SAYFA_BAKIS, SAYFA_TIKLA, SAYFA_YAZ, SAYFA_TUS, SAYFA_KAYDIR,
+         AJAN_MODELLERI, ALT_AJAN, ALT_AJAN_SONUCLARI,
+         BAGLANTI_LISTE, BAGLANTI_ARACLARI, BAGLANTI_CAGIR,
+         KOD_DOSYA, KOD_CALISTIR, BULUT_TARAYICI]
 
 # Beyaz liste: model bu adlarin disinda bir arac uydurursa CALISMAZ.
 # Yetkiyi kod verir, model kendine yetki yazamaz.

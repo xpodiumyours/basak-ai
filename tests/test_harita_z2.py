@@ -317,5 +317,5 @@ class TestAracKilidiDegismedi:
         from tools.capabilities import validate_registry
         s = validate_registry()
         assert s["ok"] is True
-        assert s["tool_count"] == 78
-        assert s["namespace_count"] == 17
+        assert s["tool_count"] == 87
+        assert s["namespace_count"] == 20

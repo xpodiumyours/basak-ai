@@ -19,10 +19,10 @@ def test_62_arac_namespace_metadata_tam_katalogu_kapsar():
     from tools.definitions import TOOLS, TANINMIS_TOOLLAR
     sonuc = validate_registry(TOOLS)
     assert sonuc == {
-        "ok": True, "tool_count": 78, "namespace_count": 17,
+        "ok": True, "tool_count": 87, "namespace_count": 20,
         "missing": [], "unknown": [], "duplicates": [],
     }
-    assert len(TANINMIS_TOOLLAR) == 78
+    assert len(TANINMIS_TOOLLAR) == 87
 
 def test_auto_policy_tam_62_gercek_araci_modele_verir():
     from chat.agent_runtime import capability_surface
@@ -38,7 +38,7 @@ def test_her_yetenek_alani_ondan_az_arac_tasir():
     from tools.definitions import TOOLS
     assert max(len(x) for x in CAPABILITY_NAMESPACES.values()) < 10
     assert len(namespace_schemas("internet_ara", TOOLS)) == 8
-    assert len(capability_surface(TOOLS, "auto")) == 78
+    assert len(capability_surface(TOOLS, "auto")) == 87
 
 def test_ajan_sozlesmesi_kelime_routeri_degildir():
     from chat.agent_runtime import AGENT_CONTRACT
@@ -82,7 +82,7 @@ def test_model_gercek_araci_dogrudan_secer():
             yield
         def cevapla(self, mesajlar, model, tools=None, tool_choice=None, **kwargs):
             assert tool_choice == "auto"
-            assert len(tools) == 78
+            assert len(tools) == 87
             return {"content": "1 gorev var."}, "groq"
     cevap, kosan = arac_dongusu(
         [_call("list_tasks", "{}", "c1")],
@@ -564,8 +564,8 @@ def test_62_aracin_semasi_eksiksiz_ve_tutarlı():
         required = p.get("required") or []
         assert set(required).issubset(set(props)), (ad, required, props)
 
-    assert len(adlar) == 78
-    assert len(set(adlar)) == 78
+    assert len(adlar) == 87
+    assert len(set(adlar)) == 87
 
 
 def test_62_aracin_dispatcher_dali_birebir_var():
@@ -596,16 +596,16 @@ def test_62_aracin_dispatcher_dali_birebir_var():
             dallar.add(sol.value)
 
     assert dallar == set(TANINMIS_TOOLLAR)
-    assert len(dallar) == 78
+    assert len(dallar) == 87
 
 
 def test_16_namespace_62_araci_eksiksiz_tasir():
     from tools.capabilities import CAPABILITY_NAMESPACES
     from tools.definitions import TANINMIS_TOOLLAR
-    assert len(CAPABILITY_NAMESPACES) == 17
+    assert len(CAPABILITY_NAMESPACES) == 20
     duz = [ad for araclar in CAPABILITY_NAMESPACES.values() for ad in araclar]
-    assert len(duz) == 78
-    assert len(set(duz)) == 78
+    assert len(duz) == 87
+    assert len(set(duz)) == 87
     assert set(duz) == set(TANINMIS_TOOLLAR)
 
 def test_gemini3_thought_signature_tool_call_icinde_korunur():

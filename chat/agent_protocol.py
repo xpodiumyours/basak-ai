@@ -65,9 +65,15 @@ YETENEK_ALANLARI = {
     "tarayici": ("sayfa_bakis", "sayfa_tikla", "sayfa_yaz", "sayfa_tus",
                  "sayfa_kaydir"),
     "freetools": ("freetools_ara", "freetools_calistir"),
+    "ajanlar": ("ajan_modelleri", "alt_ajan", "alt_ajan_sonuclari"),
+    "baglantilar": ("baglanti_liste", "baglanti_araclari", "baglanti_cagir"),
+    "bulut_calisma": ("kod_dosya", "kod_calistir", "bulut_tarayici"),
 }
 
 ALAN_ACIKLAMALARI = {
+    "ajanlar": "mevcut model havuzu, bagimsiz alt gorev olusturma ve alt gorev sonuclari",
+    "baglantilar": "kullaniciya ait GitHub, Google, Notion ve MCP baglantilarinin gercek araclari",
+    "bulut_calisma": "izole calisma alani dosyalari, kod komutlari ve bulut tarayicisi",
     "internet_ara": "web, haber, tarihli, site, gorsel, kitap, sirket ve "
                     "hava durumu aramasi",
     "internet_oku": "bilinen bir URL'nin sayfasini okuma veya adresin canli "
