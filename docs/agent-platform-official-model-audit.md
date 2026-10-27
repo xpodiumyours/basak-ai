@@ -43,3 +43,18 @@
 5. Araştırma, kod/GitHub, tarayıcı/belge olmak üzere 3 uçtan uca kabulü geçirmek.
 
 Kapsam koruması: Brain, FreeLLMAPI, mevcut sohbet davranışı ve AGENTS.md değiştirilmedi.
+
+## 27 Ekim — thinking + onay kesintisi düzeltmesi
+DeepSeek resmî belgesi, `tools` içeren sonraki isteklerde önceki
+`reasoning_content` içeriğinin aktarılmasını zorunlu görüyor; eksikliği
+HTTP 400 ile sonuçlanabiliyor. Xiaomi MiMo da çok-adımlı thinking/tool
+akışında bu alanın korunmasını öneriyor.
+
+Başak'ın ortak model geçmişi bunu zaten yapıyordu. Yalnız kalıcı görev
+kuyruğunda, ilk modelin **henüz çalıştırılmamış** araç çağrısı onaya
+takıldığında kontrol noktası yalnız çağrı kimliğini saklıyordu, assistant
+`reasoning_content` ve `content` bilgileri kayboluyordu. Yeni
+`pending_reply` kontrol noktası, kaldığı yerden devamda aynı yanıtı
+modelin son araç çağrısıyla eşleştirerek geri verir. Simüle edilmiş gerçek
+SQLite kayıtları ve iki ayrı işçiyle, DeepSeek/MiMo için ağ kullanmadan
+test edilir. Resmî canlı sağlayıcı doğrulaması yine ayrı kabul koşuludur.

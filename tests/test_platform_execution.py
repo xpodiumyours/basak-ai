@@ -254,3 +254,80 @@ def test_child_model_never_sees_delegation_tool_even_when_parent_allows_it():
     assert job_permissions({'parent_id': 'parent-id', 'allowed_tools': None}) == CLOUD_TOOLS - {'alt_ajan'}
     assert job_permissions({'parent_id': 'parent-id', 'allowed_tools': ['web_search', 'alt_ajan']}) == frozenset({'web_search'})
     assert job_permissions({'parent_id': 'parent-id', 'allowed_tools': []}) == frozenset()
+
+
+@pytest.mark.parametrize("provider", ["deepseek", "mimo"])
+def test_thinking_tool_reply_survives_owner_approval_and_worker_restart(
+        tmp_path, monkeypatch, provider):
+    """Kotasiz fixture: preserve full assistant thinking metadata on replay."""
+    from dataclasses import replace
+    from chat import kosu_deposu
+    from chat.platform_context import ExecutionContext, bound
+    from chat.platform_runtime import RuntimeStore, Control, RunSuspended
+    from chat.tools import arac_dongusu
+    from brain.message_utils import mesajlari_temizle
+    from tools.definitions import TOOLS
+
+    store = RuntimeStore(kosu_deposu._SqliteDepo(str(tmp_path / 'reasoning.db')))
+    job = store.create('alice', 'personal', 'Verify one approved write',
+                       allowed_tools=['baglanti_cagir'])
+    lease = store.claim('first-worker', run_id=job['id'])['lease']
+    ctx = ExecutionContext('alice', 'personal', job['id'],
+                           allowed_tools=frozenset(['baglanti_cagir']),
+                           control=Control(store, lease))
+    args = {'baglanti_id': 'connection-test', 'arac': 'github_write_file',
+            'argumanlar': {'path': 'test.txt'}}
+    import json
+    call = {'id': 'call_once', 'type': 'function',
+            'function': {'name': 'baglanti_cagir',
+                         'arguments': json.dumps(args)}}
+    reply = {'content': 'One approved change requested',
+             'reasoning_content': 'synthetic-thinking-state-for-replay',
+             'tool_calls': [call]}
+    tool = next(t for t in TOOLS if t['function']['name'] == 'baglanti_cagir')
+    monkeypatch.setattr('chat.platform_agents._connection_meta',
+                        lambda *_: {'provider': 'github', 'side_effect': True,
+                                    'requires_approval': True})
+
+    # First process is halted BEFORE executing an unapproved remote mutation.
+    with bound(ctx), pytest.raises(RunSuspended):
+        arac_dongusu([call], [{'role': 'user', 'content': 'update test'}],
+                     SimpleNamespace(), None, lambda *_: None,
+                     lambda *_: pytest.fail('unauthorized external write'),
+                     tools=[tool], yanit=reply, tercih=[provider])
+    saved = store.get('alice', job['id'])['continuation']
+    assert saved['pending_reply']['reasoning_content'] == reply['reasoning_content']
+    assert saved['pending_reply']['content'] == reply['content']
+    assert saved['tool_calls'] == [call]
+    approval = store.get('alice', job['id'])['approvals'][0]
+    store.approve('alice', job['id'], approval['id'], True)
+
+    second_lease = store.claim('new-worker', run_id=job['id'])['lease']
+    replay_ctx = replace(ctx, control=Control(store, second_lease))
+    seen, executed = [], []
+
+    class MockBrain:
+        def cevapla_yayin(self, *a, **k):
+            from brain.yayin import SonHata
+            raise SonHata('test stream disabled')
+            yield
+        def cevapla(self, messages, model, tools=None, **kwargs):
+            seen.extend(messages)
+            return {'content': 'done'}, provider
+
+    with bound(replay_ctx):
+        answer, count = arac_dongusu(saved['tool_calls'], saved['messages'],
+            MockBrain(), None, lambda *_: None,
+            lambda name, params: executed.append(name) or {'result': 'written'},
+            tools=[tool], yanit=saved.get('pending_reply'), tercih=[provider],
+            platform_resume=saved)
+    assert answer == 'done' and count == 1
+    assert executed == ['baglanti_cagir']
+    assistant = next(m for m in seen if m['role'] == 'assistant')
+    assert assistant['reasoning_content'] == reply['reasoning_content']
+    assert assistant['content'] == reply['content']
+    assert assistant['tool_calls'][0]['id'] == 'call_once'
+    assert mesajlari_temizle([assistant], provider=provider)[0][
+        'reasoning_content'] == reply['reasoning_content']
+    assert 'reasoning_content' not in mesajlari_temizle(
+        [assistant], provider='other-provider')[0]

@@ -422,6 +422,12 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
     platform_context = execution_context()
     control = platform_context.control if platform_context is not None else None
     acik_alanlar = list((platform_resume or {}).get('open_areas', []))
+    # A suspended run resumes with exactly the assistant envelope that
+    # requested its pending tools. Thinking-mode providers require
+    # reasoning_content on subsequent tool-bearing requests.
+    pending_reply = yanit if isinstance(yanit, dict) else (
+        (platform_resume or {}).get('pending_reply') or {}
+    )
 
     expanded = list(mesajlar)
     kosan = 0
@@ -448,7 +454,10 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
 
     def _platform_checkpoint(pending):
         if control is not None:
+            reply = ({'content': pending_reply.get('content') or '',
+                      **_muhakeme_al(pending_reply)} if pending else None)
             control.checkpoint({'messages': expanded, 'tool_calls': pending,
+                                'pending_reply': reply,
                                 'open_areas': acik_alanlar, 'provider': list(_tercih_aktif)})
 
     def _beyin_devam(acik_tools, secim=None):
@@ -486,7 +495,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             _tercih_aktif = [yeni]
         return sonuc
 
-    ilk_muhakeme = _muhakeme_al(yanit)
+    ilk_muhakeme = _muhakeme_al(pending_reply)
     if not ilk_muhakeme and mesajlar:
         ilk_muhakeme = _muhakeme_al(mesajlar[-1])
 
@@ -739,7 +748,8 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
 
         # Standart tool-call sirasini koru: assistant tool_calls -> her
         # cagri icin tool sonucu -> modelin bir sonraki karari.
-        _asistan = {"role": "assistant", "content": "",
+        _asistan = {"role": "assistant",
+                    "content": pending_reply.get('content') or '',
                     "tool_calls": tool_calls}
         if _tercih_aktif:
             _asistan["_provider"] = str(_tercih_aktif[0] or "")
@@ -827,6 +837,7 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
         yeni = yanit.get("tool_calls") if isinstance(yanit, dict) else None
         if yeni:
             tool_calls = yeni
+            pending_reply = yanit
             ilk_muhakeme = _muhakeme_al(yanit)
             continue
 

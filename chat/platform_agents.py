@@ -243,7 +243,9 @@ def execute_job(job, control, brain=None):
                 else:
                     answer = ''
             else:
-                response, answer = None, ''
+                # Recover the original assistant turn including reasoning
+                # metadata, rather than replaying tool_calls without it.
+                response, answer = saved.get('pending_reply'), ''
             if pending:
                 answer, _ = arac_dongusu(pending, history, brain, None, callback,
                     calistir, tools=tools, yanit=response, tool_choice='auto',
