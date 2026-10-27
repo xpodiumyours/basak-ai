@@ -10,7 +10,8 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: ${DATABASE_URL:?Use the SAME PostgreSQL database as the target web environment}
+      VERCEL_ENV: preview
+      BASAK_PREVIEW_DATABASE_URL: ${BASAK_PREVIEW_DATABASE_URL:?Use the isolated Preview PostgreSQL database}
       BASAK_STATE_DIR: /home/basak/state
       BASAK_URETIM: "1"
       BASAK_BROWSER_ISOLATED: "1"

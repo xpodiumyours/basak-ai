@@ -7,13 +7,14 @@ import asyncio
 import base64
 import inspect
 import json
+import os
 import re
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from chat.platform_runtime import Conflict, NotFound, RuntimeStore, TERMINAL, Unavailable
+from chat.platform_runtime import Conflict, NotFound, RuntimeStore, TERMINAL, Unavailable, WorkerUnavailable
 from chat.kosu_deposu import platform_store
 import time
 
@@ -106,6 +107,16 @@ async def chat_response(request, user, body, history):
     """Persist an account chat turn; HTTP only observes the existing worker."""
     if not _mutation_origin_ok(request):
         raise HTTPException(403, 'Bu hesap islemi ayni kaynaktan yapilmali')
+    enabled = os.environ.get('BASAK_DURABLE_CHAT_ENABLED', '').strip().lower() == 'true'
+    key = request.headers.get('Idempotency-Key')
+    if not enabled and not key:
+        return None
+    # A database failure cannot prove that a previously submitted write did
+    # not happen. Propagate it; never replay an ambiguous request in legacy.
+    store = _store()
+    previous = _call(store.request_run, user, 'personal', key)
+    if not previous and (body.get('kosu_id') or body.get('yonlendirme_baglami')):
+        return None  # Continue an existing legacy run in its original engine.
     from chat.agent_runtime import normalize_tool_policy
     text = str(body.get('metin') or '').strip()
     if body.get('belge'):
@@ -140,10 +151,20 @@ async def chat_response(request, user, body, history):
     context = {'conversation_id': conversation_id, 'conversation_title': title,
                'display_text': display_text, 'history': history, 'tool_policy': _call(normalize_tool_policy, body.get('tool_policy')),
                'tazele': bool(body.get('tazele')), 'attachment': body.get('ek')}
-    store = _store()
-    run = _call(store.create, user, 'personal', text or 'Bu goruntuyu acikla.',
-                kind='chat', context=context,
-                request_key=request.headers.get('Idempotency-Key'))
+    try:
+        run = store.create(user, 'personal', text or 'Bu goruntuyu acikla.',
+                           kind='chat', context=context, request_key=key,
+                           require_worker=True, allow_legacy=True, durable_enabled=enabled)
+    except WorkerUnavailable:
+        return None  # Transaction rolled back; no durable work has started.
+    except Conflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Unavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+    if run is None:
+        return None
     rid = run['id']
     durable_event = {'istek': rid, 'tur': 'durableRun', 'kosu_id': rid,
                      'conversation_id': conversation_id or rid,
@@ -247,10 +268,13 @@ async def submit(request: Request):
         if key in body and not isinstance(body[key], str):
             raise HTTPException(400, key + " metin olmalı")
     store = _store()
+    if os.environ.get('BASAK_DURABLE_CHAT_ENABLED', '').strip().lower() != 'true':
+        raise HTTPException(503, 'Kalici calisma henuz etkin degil')
     run = _call(store.create, user, body.get("workspace_id", "personal"),
                 body.get("istek", body.get("instruction", "")),
                 model_ref=body.get("model_ref", ""), acceptance=body.get("acceptance"),
-                request_key=request.headers.get("Idempotency-Key") or body.get("request_key"))
+                request_key=request.headers.get("Idempotency-Key") or body.get("request_key"),
+                require_worker=True)
     return _json({"ok": True, "kosu": run}, 202)
 
 

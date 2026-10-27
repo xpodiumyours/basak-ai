@@ -54,6 +54,10 @@ class LeaseLost(RuntimeErrorBase):
     pass
 
 
+class WorkerUnavailable(Unavailable):
+    """Admission failed before any task or external action was created."""
+
+
 class RunSuspended(BaseException):
     """Control-flow signal, deliberately not swallowed by tool error handlers."""
 
@@ -209,6 +213,9 @@ class RuntimeStore:
             "generation INTEGER NOT NULL DEFAULT 0, seq INTEGER NOT NULL DEFAULT 0, "
             "waiting TEXT NOT NULL DEFAULT '[]', "
             "UNIQUE(user_id, workspace_id, request_key))",
+            "CREATE TABLE IF NOT EXISTS basak_platform_chat_route ("
+            "user_id TEXT NOT NULL, workspace_id TEXT NOT NULL, request_key TEXT NOT NULL, "
+            "request_hash TEXT NOT NULL, PRIMARY KEY(user_id,workspace_id,request_key))",
             "CREATE TABLE IF NOT EXISTS basak_platform_dependency ("
             "run_id TEXT NOT NULL REFERENCES basak_platform_run(run_id), "
             "dependency_id TEXT NOT NULL REFERENCES basak_platform_run(run_id), "
@@ -390,7 +397,8 @@ class RuntimeStore:
 
     def create(self, user_id, workspace_id, instruction, *, model_ref="", parent_id=None,
                dependencies=(), allowed_tools=None, acceptance=None, request_key=None,
-               run_id=None, kind="agent", context=None):
+               run_id=None, kind="agent", context=None, require_worker=False,
+               allow_legacy=False, durable_enabled=True):
         user_id, workspace_id = _key(user_id, "user_id"), _key(workspace_id, "workspace_id")
         instruction = str(instruction or "").strip()
         if not instruction:
@@ -415,11 +423,32 @@ class RuntimeStore:
                    "model_ref": model_ref, "kind": kind, **spec}
         with self.transaction() as tx:
             if request_key:
+                if not tx.sqlite:
+                    tx.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",
+                               (_hash([user_id, workspace_id, request_key]),))
                 old = tx.one("SELECT run_id,request_hash FROM basak_platform_run WHERE user_id=%s AND workspace_id=%s AND request_key=%s", (user_id, workspace_id, _key(request_key, "request_key")))
                 if old:
                     if old["request_hash"] != _hash(payload):
                         raise Conflict("Aynı istek kimliği farklı görevle kullanıldı")
                     return self._project(tx, self._require(tx, user_id, old["run_id"]))
+                legacy = tx.one("SELECT request_hash FROM basak_platform_chat_route "
+                                "WHERE user_id=%s AND workspace_id=%s AND request_key=%s",
+                                (user_id, workspace_id, request_key))
+                if legacy:
+                    if legacy['request_hash'] != _hash(payload):
+                        raise Conflict("Ayni istek kimligi farkli sohbetle kullanildi")
+                    return None
+            ready = not require_worker or bool(tx.one(
+                    "SELECT worker_id FROM basak_platform_worker_presence "
+                    "WHERE state='online' AND seen_at>=%s LIMIT 1", (self.clock()-30,)))
+            if allow_legacy and (not durable_enabled or not ready):
+                if request_key:
+                    tx.execute("INSERT INTO basak_platform_chat_route "
+                               "(user_id,workspace_id,request_key,request_hash) VALUES(%s,%s,%s,%s)",
+                               (user_id, workspace_id, request_key, _hash(payload)))
+                return None
+            if not ready:
+                raise WorkerUnavailable("Kalici calisma su anda kullanilamiyor")
             if parent_id:
                 parent = self._require(tx, user_id, parent_id)
                 if parent["workspace_id"] != workspace_id or parent["durum"] in TERMINAL:
@@ -511,6 +540,16 @@ class RuntimeStore:
             params.append(limit)
             return [self._project(tx, self._require(tx, user_id, r["id"])) for r in tx.rows(sql, tuple(params))]
 
+    def request_run(self, user_id, workspace_id, request_key):
+        """Find a receipt before admission; existing tasks never switch engines."""
+        if not request_key:
+            return None
+        with self.transaction() as tx:
+            row = tx.one("SELECT run_id FROM basak_platform_run WHERE user_id=%s "
+                         "AND workspace_id=%s AND request_key=%s",
+                         (user_id, workspace_id, _key(request_key, "request_key")))
+            return self._project(tx, self._require(tx, user_id, row['run_id'])) if row else None
+
     def chat_threads(self, user_id):
         """Rebuild account chat history from durable root turns, including pending ones."""
         with self.transaction() as tx:
@@ -524,12 +563,13 @@ class RuntimeStore:
                 cid = context.get('conversation_id') or run['id']
                 thread = threads.setdefault(cid, {
                     'id': cid, 'title': context.get('conversation_title') or run['istek'],
-                    'messages': list(context.get('history') or []), 'pendingRuns': []})
+                    'messages': list(context.get('history') or []), 'pendingRuns': [], 'runs': []})
                 thread['messages'].append({'role': 'user', 'content': context.get('display_text') or run['istek']})
                 if run['answer']:
                     thread['messages'].append({'role': 'assistant', 'content': run['answer']})
                 if run['durum'] not in TERMINAL:
                     thread['pendingRuns'].append({'id': run['id'], 'state': run['durum']})
+                thread['runs'].append({'id': run['id'], 'state': run['durum']})
                 thread['updatedAt'] = run['guncelleme']
             return list(threads.values())
 

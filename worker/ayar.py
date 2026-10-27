@@ -62,6 +62,9 @@ def _sayi(ortam, ad, varsayilan, alt, ust, tam=False):
 
 
 def _dsn(ortam):
+    if _metin(ortam, "VERCEL_ENV").lower() == "preview":
+        from chat.kosu_deposu import _dsn as preview_dsn
+        return preview_dsn(ortam)
     for ad in ("BASAK_ISCI_DATABASE_URL", "DATABASE_URL", "POSTGRES_URL",
                "NEON_DATABASE_URL"):
         deger = _metin(ortam, ad)

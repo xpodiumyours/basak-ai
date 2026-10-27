@@ -8,7 +8,8 @@ from chat.platform_runtime import RuntimeStore
 
 
 @pytest.fixture
-def api(tmp_path):
+def api(tmp_path, monkeypatch):
+    monkeypatch.setenv("BASAK_DURABLE_CHAT_ENABLED", "true")
     store = RuntimeStore(kosu_deposu._SqliteDepo(str(tmp_path / "api.db")))
     app = FastAPI()
     onceki = (platform_api._principal, platform_api._store_factory)
@@ -21,6 +22,7 @@ def api(tmp_path):
 def test_api_requires_identity_and_does_not_start_execution(api):
     client, store = api
     assert client.post("/api/kosu", json={"istek": "task"}).status_code == 401
+    store.worker_ping("fixture-ready")
     response = client.post("/api/kosu", headers={"X-Test-User": "alice"}, json={"istek": "task"})
     assert response.status_code == 202
     run = response.json()["kosu"]
@@ -115,6 +117,7 @@ def test_cookie_task_mutations_reject_cross_origin_and_missing_origin(api):
     missing = client.post(url, headers={**headers, "Origin": ""}, json=payload)
     assert missing.status_code == 403
     assert store.list("alice") == []
+    store.worker_ping("fixture-ready")
     good = client.post(url, headers={**headers,
                                    "Origin": "http://testserver",
                                    "Sec-Fetch-Site": "same-origin"}, json=payload)
@@ -131,8 +134,10 @@ def test_account_chat_uses_same_identity_and_durable_queue(tmp_path, monkeypatch
     from chat.platform_identity import IdentityService, COOKIE
     from chat.platform_connections import ConnectionStore
     monkeypatch.setenv('BASAK_OTURUM_ANAHTARI', 'local-integration-session-key-' * 2)
+    monkeypatch.setenv('BASAK_DURABLE_CHAT_ENABLED', 'true')
     db = kosu_deposu._SqliteDepo(str(tmp_path / 'account.db'))
     store = RuntimeStore(db)
+    store.worker_ping('fixture-ready')
     accounts = IdentityService(ConnectionStore(db))
     user = accounts.account('github', 'fixture-subject', 'Fixture User')['id']
     monkeypatch.setattr('chat.platform_identity.IdentityService', lambda: accounts)
@@ -211,6 +216,7 @@ def test_account_chat_stream_observes_worker_final_after_commit(api, monkeypatch
     from chat.platform_agents import execute_job
     from chat.platform_runtime import Worker
     _, store = api
+    store.worker_ping('fixture-ready')
     monkeypatch.setattr(host, '_platform_kimlik', lambda request: 'alice')
     monkeypatch.setattr(host, '_kota_kapisi', lambda *args: (True, 10))
     monkeypatch.setattr(platform_api, '_store_factory', lambda: store)

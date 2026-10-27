@@ -50,8 +50,8 @@
     for (const event of (incoming || []).slice().sort((a, b) => Number(a.seq) - Number(b.seq))) {
       const seq = Number(event.seq);
       if (!Number.isSafeInteger(seq) || seq <= next.cursor) continue;
-      const id = String(event.run_id || next.selectedId || "");
       const payload = event.payload && typeof event.payload === "object" ? event.payload : {};
+      const id = String(payload.origin_run_id || event.run_id || next.selectedId || "");
       const previous = next.runs[id] || { id, children: [], artifacts: [], checks: [], approvals: [] };
       const run = { ...previous };
       if (event.type === "status") run.durum = payload.durum || payload.status || run.durum;
@@ -75,6 +75,21 @@
   }
 
   function statusText(value) { return STATUS[value] || "Durum alınamadı"; }
+
+  function mergeMessages(saved, local) {
+    saved = Array.isArray(saved) ? saved : [];
+    local = Array.isArray(local) ? local : [];
+    let shared = 0;
+    while (shared < saved.length && shared < local.length &&
+        saved[shared].role === local[shared].role && saved[shared].content === local[shared].content) shared++;
+    // Legacy turns written while the worker was offline are still local.
+    // A server refresh must not erase them or duplicate a newer durable answer.
+    if (shared === saved.length) return local.slice();
+    if (shared === local.length) return saved.slice();
+    const remaining = local.slice(shared);
+    if (remaining[0]?.role === 'assistant' && saved[shared]?.role === 'assistant') remaining.shift();
+    return saved.concat(remaining);
+  }
 
   // Derived exclusively from persisted task snapshots; never invent progress.
   function childProgress(run) {
@@ -164,7 +179,7 @@
     };
   }
 
-  const exported = { createState, identity, snapshot, events, statusText,
+  const exported = { createState, identity, snapshot, events, statusText, mergeMessages,
     childProgress, evidenceText, approvalDetails, workerStatusText,
     safeHref, previewHref, createClient };
   if (typeof module !== "undefined" && module.exports) module.exports = exported;
@@ -173,15 +188,15 @@
 
   const document = scope.document;
   const byId = (id) => document.getElementById(id);
-  if (!byId("platformTaskForm")) return;
+  if (!byId("platformRunTree")) return;
   const client = createClient(scope.fetch.bind(scope));
   let state = createState("");
   let revision = 0;
   let polling = false;
+  let selectionVersion = 0;
   let previewKind = "outputs";
   let selectedArtifact = null;
   let busy = false;
-  let pendingTaskSubmission = null;
   let pendingChatSubmission = null;
   const expandedEvents = new Set();
   const originalFetch = scope.basakFetch;
@@ -203,9 +218,19 @@
     };
   }
   const durableChats = new Set();
+  let selectedConversation = null;
+  scope.addEventListener('basak:conversation', ({detail}) => {
+    selectedConversation = detail;
+    const id = detail?.runs?.at(-1)?.id;
+    if (id && state.user && state.selectedId !== id) selectRun(id, false).catch(handleError);
+    else if (!id) {
+      selectionVersion += 1; state.selectedId = null; state.log = []; state.cursor = 0;
+      renderRunTree(); renderEvents(); renderPreview();
+    }
+  });
   scope.addEventListener('basak:durable-run', ({detail: event}) => {
     durableChats.add(event.istek);
-    selectRun(event.kosu_id, false).catch(handleError);
+    if (state.selectedId !== event.kosu_id) selectRun(event.kosu_id, false).catch(handleError);
   });
   scope.addEventListener('basak:open-task', ({detail}) => {
     selectRun(detail.id).then(() => switchView('tasks')).catch(handleError);
@@ -236,18 +261,10 @@
     notice.classList.toggle("is-error", !!error);
   }
 
-  function switchView(view) {
-    const taskView = view === "tasks";
-    byId("platformTaskView").hidden = !taskView;
+  function switchView() {
+    byId("platformTaskView").hidden = !currentRun();
     const chat = document.querySelector(".chat-main");
-    if (chat) chat.hidden = taskView;
-    for (const button of document.querySelectorAll("[data-platform-view]")) {
-      button.setAttribute("aria-pressed", String(button.dataset.platformView === view));
-    }
-    if (taskView) {
-      byId("platformTaskInput").focus();
-      refreshRuns();
-    }
+    if (chat) chat.hidden = false;
   }
 
   function showPreview(open) {
@@ -303,7 +320,7 @@
           state = identity(state, null);
           revision += 1;
           selectedArtifact = null;
-          durableChats.clear(); pendingTaskSubmission = null; pendingChatSubmission = null;
+          durableChats.clear(); pendingChatSubmission = null;
           render();
           scope.dispatchEvent(new CustomEvent("basak:platform-account", { detail: null }));
           scope.location.reload(); // Reload chat/history under the new anonymous identity.
@@ -325,31 +342,24 @@
   function renderTaskList() {
     const list = byId("platformTaskList");
     list.replaceChildren();
-    const roots = Object.values(state.runs).filter((run) => !run.parent_id);
+    const roots = Object.values(state.runs).filter((run) => !run.parent_id && run.kind !== "chat");
+    list.closest(".workspace-task-sidebar").hidden = !roots.length;
     byId("platformTaskEmpty").hidden = roots.length > 0;
     byId("platformTaskEmpty").textContent = state.user ? "Henüz bulut görevi yok." : "Görevlerini görmek için giriş yap.";
-    const groups = new Map();
     for (const run of roots) {
-      const workspace = run.workspace_id || "personal";
-      if (!groups.has(workspace)) groups.set(workspace, []);
-      groups.get(workspace).push(run);
-    }
-    for (const [workspace, runs] of groups) {
-      list.append(node("p", "workspace-project-label", workspace === "personal" ? "Kişisel" : workspace));
-      for (const run of runs) {
-        const button = node("button", "workspace-task-link");
-        button.type = "button";
-        button.setAttribute("aria-current", String(state.selectedId === run.id));
-        button.append(node("span", "workspace-task-title", run.istek || "Görev"));
-        button.append(node("small", "workspace-task-status", statusText(run.durum)));
-        button.addEventListener("click", () => selectRun(run.id));
-        list.append(button);
-      }
+      const button = node("button", "workspace-task-link");
+      button.type = "button";
+      button.setAttribute("aria-current", String(state.selectedId === run.id));
+      button.append(node("span", "workspace-task-title", run.istek || "Çalışma"));
+      button.append(node("small", "workspace-task-status", statusText(run.durum)));
+      button.addEventListener("click", () => selectRun(run.id));
+      list.append(button);
     }
   }
 
   function renderRunTree() {
     const root = currentRun();
+    switchView();
     const container = byId("platformRunTree");
     container.replaceChildren();
     byId("platformRunHeader").hidden = !root;
@@ -385,7 +395,28 @@
       for (const check of run.checks || []) {
         row.append(node("p", "workspace-check", (check.ok === true ? "Geçti: " : "Geçmedi: ") + evidenceText(check)));
       }
-      if (run.answer) row.append(node('pre', 'workspace-code', run.answer));
+      if (depth && run.answer) row.append(node('pre', 'workspace-code', run.answer));
+      const activity = state.log.filter(event =>
+        (event.payload?.origin_run_id || event.run_id) === run.id &&
+        ['tool_started', 'tool_done', 'chat'].includes(event.type));
+      const tools = activity.filter(event => event.type !== 'chat' ||
+        ['toolStart', 'toolDone', 'arac'].includes(event.payload?.tur));
+      if (tools.length) {
+        const detail = node('details', 'workspace-agent-tools');
+        detail.append(node('summary', '', 'Araç işlemleri · ' + tools.length));
+        for (const event of tools) {
+          detail.append(node('p', 'workspace-run-reason', eventLabel(event)));
+        }
+        row.append(detail);
+      }
+      for (const artifact of run.artifacts || []) {
+        const button = node('button', 'workspace-button workspace-file', artifact.title || 'Dosya');
+        button.type = 'button';
+        button.addEventListener('click', () => {
+          selectedArtifact = artifact.id; previewKind = 'outputs'; renderPreview(); showPreview(true);
+        });
+        row.append(button);
+      }
       if (run.durum === 'uncertain') {
         const button = node('button', 'workspace-button', 'İşlemi kanıtla uzlaştır');
         button.type = 'button';
@@ -448,7 +479,7 @@
       check: "Kabul kontrolü", tool_started: "Araç çalışıyor", tool_done: "Araç sonucu",
       model: "Model", provider: "Sağlayıcı", status: "Durum" };
     return (labels[event.type] || event.type || "Olay") + " · " + (
-      payload.durum ? statusText(payload.durum) : payload.tool || payload.arac || payload.title || payload.model_ref || payload.provider || "");
+      payload.durum ? statusText(payload.durum) : payload.tool || payload.arac || payload.ad || payload.title || payload.model_ref || payload.provider || "");
   }
 
   function renderEvents() {
@@ -459,7 +490,7 @@
       container.append(node("p", "workspace-muted", currentRun() ? "Görev olayları bekleniyor." : "Bir görev seçtiğinde çalışma adımları burada görünür."));
       return;
     }
-    for (const event of state.log) {
+    for (const event of state.log.filter(event => event.type !== "chat" || !["parca", "token", "delta", "bitir"].includes(event.payload?.tur))) {
       const entry = node("details", "workspace-event");
       entry.open = expandedEvents.has(event.seq);
       entry.addEventListener("toggle", () => {
@@ -649,29 +680,6 @@
 
   function render() { renderAccount(); renderTaskList(); renderRunTree(); renderEvents(); renderPreview(); }
 
-  async function refreshWorkerStatus() {
-    const indicator = byId("platformWorkerStatus");
-    if (!indicator) return;
-    if (!state.user) {
-      indicator.textContent = "Çevrimiçi ajan durumu için hesabınla giriş yap";
-      indicator.dataset.online = "false";
-      return;
-    }
-    const version = revision;
-    try {
-      const data = await client.read("/api/kosu/isciler");
-      if (version === revision) {
-        indicator.textContent = workerStatusText(data);
-        indicator.dataset.online = String(!!data.online);
-      }
-    } catch (error) {
-      if (version === revision) {
-        indicator.textContent = workerStatusText(null);
-        indicator.dataset.online = "false";
-      }
-    }
-  }
-
   async function refreshRuns() {
     if (!state.user) { renderTaskList(); return; }
     const version = revision;
@@ -699,14 +707,15 @@
   async function selectRun(id, reveal = true) {
     if (accountRequired()) return;
     const version = revision;
+    const selection = ++selectionVersion;
     try {
       const data = await client.read("/api/kosu/" + encodeURIComponent(id) + "/agac");
-      if (version !== revision) return;
+      if (version !== revision || selection !== selectionVersion) return;
       state = snapshot(state, data.kosu);
       selectedArtifact = null;
       expandedEvents.clear();
-      if (reveal) switchView("tasks");
       render();
+      if (reveal) byId("platformTaskView").scrollIntoView({block: "nearest"});
       await pollEvents();
     } catch (error) { if (version === revision) handleError(error); }
   }
@@ -751,30 +760,6 @@
     finally { busy = false; render(); }
   }
 
-  byId("platformTaskForm").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (busy || accountRequired()) return;
-    const input = byId("platformTaskInput");
-    if (!input.value.trim()) { input.focus(); return; }
-    busy = true; byId("platformTaskSubmit").disabled = true;
-    const version = revision;
-    message("Görev kaydediliyor…");
-    try {
-      const payload = {istek: input.value.trim(), workspace_id: byId('platformWorkspaceInput').value.trim() || 'personal', model_ref: ''};
-      const signature = state.user.id + ':' + JSON.stringify(payload);
-      if (!pendingTaskSubmission || pendingTaskSubmission.signature !== signature) {
-        pendingTaskSubmission = {signature, key: scope.crypto.randomUUID()};
-      }
-      const data = await client.write('/api/kosu', payload, 'POST', pendingTaskSubmission.key);
-      if (version !== revision) return;
-      pendingTaskSubmission = null;
-      state = snapshot(state, data.kosu);
-      input.value = "";
-      message("Görev kaydedildi. Sunucudaki çalışma durumu izleniyor."); render();
-      await pollEvents();
-    } catch (error) { if (version === revision) handleError(error); }
-    finally { busy = false; byId("platformTaskSubmit").disabled = false; }
-  });
   byId("platformSteerForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const input = byId("platformSteerInput");
@@ -786,12 +771,6 @@
   byId("platformCancel").addEventListener("click", () => perform(state.selectedId, "iptal", {}));
   byId("platformResume").addEventListener("click", () => perform(state.selectedId, "devam", {}));
   byId("platformRefresh").addEventListener("click", () => { refreshRuns(); pollEvents(); });
-  byId("platformNewTask").addEventListener("click", () => {
-    state.selectedId = null; state.log = []; state.cursor = 0; render(); switchView("tasks");
-  });
-  for (const button of document.querySelectorAll("[data-platform-view]")) {
-    button.addEventListener("click", () => switchView(button.dataset.platformView));
-  }
   for (const button of document.querySelectorAll("[data-preview-kind]")) {
     button.addEventListener("click", () => { previewKind = button.dataset.previewKind; renderPreview(); });
     button.addEventListener("keydown", (event) => {
@@ -830,8 +809,9 @@
       state = identity(state, account.authenticated ? account.user : null);
       state.providers = providers.providers || [];
       if (state.user) {
-        await Promise.all([refreshRuns(), refreshConnections(), refreshWorkerStatus()]);
+        await Promise.all([refreshRuns(), refreshConnections()]);
         scope.dispatchEvent(new CustomEvent("basak:platform-account", { detail: state.user }));
+        if (selectedConversation?.runs?.length) await selectRun(selectedConversation.runs.at(-1).id, false);
       }
       render();
     } catch (error) {
@@ -847,10 +827,7 @@
   const poll = scope.setInterval(() => {
     if (!document.hidden) pollEvents();
   }, 3000);
-  const healthPoll = scope.setInterval(() => {
-    if (!document.hidden) refreshWorkerStatus();
-  }, 10000);
   scope.addEventListener("pagehide", () => {
-    scope.clearInterval(poll); scope.clearInterval(healthPoll);
+    scope.clearInterval(poll);
   });
 })(typeof window !== "undefined" ? window : globalThis);

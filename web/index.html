@@ -21,7 +21,7 @@
 <meta name="twitter:title" content="Başak — Türkçe Kişisel Yapay Zekâ Asistanı">
 <meta name="twitter:description" content="Kayıtsız web sohbeti, görsel ve ses desteği, 162 ücretsiz çevrimiçi araç.">
 <link rel="stylesheet" href="/chat.css?v=22">
-<link rel="stylesheet" href="/platform.css?v=1">
+<link rel="stylesheet" href="/platform.css?v=2">
 </head>
 <body>
 <div class="app-shell">
@@ -41,14 +41,9 @@
       <span>Yeni sohbet</span>
     </button>
 
-    <button id="platformNewTask" class="sidebar-new workspace-new-task" type="button">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H5a2 2 0 0 0-2 2v14h14V6a2 2 0 0 0-2-2h-4M9 2h4v5H9ZM7 12h6M7 16h4M20 9v8M16 13h8"/></svg>
-      <span>Yeni bulut görevi</span>
-    </button>
-
     <section class="workspace-task-sidebar" aria-labelledby="platformTasksHeading">
       <div class="history-head workspace-section-heading">
-        <span id="platformTasksHeading">Projeler ve görevler</span>
+        <span id="platformTasksHeading">Diğer çalışmalar</span>
         <button id="platformRefresh" class="workspace-text-button" type="button" aria-label="Görevleri yenile">Yenile</button>
       </div>
       <div id="platformTaskList" class="workspace-task-list"></div>
@@ -113,10 +108,6 @@
         <span id="healthStatus" class="ready-inline health-problem" role="status" hidden><span id="healthDot" class="status-dot"></span><span id="healthText"></span></span>
         <span id="kotaDurum" class="kota-durum" role="status" hidden></span>
       </div>
-      <div class="workspace-view-switch" role="group" aria-label="Çalışma görünümü">
-        <button type="button" data-platform-view="chat" aria-pressed="true">Sohbet</button>
-        <button type="button" data-platform-view="tasks" aria-pressed="false">Görev</button>
-      </div>
       <button id="workspaceToggle" class="workspace-preview-toggle" type="button" aria-label="Çalışma panelini aç veya kapat" aria-controls="workspacePreview" aria-expanded="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16"/></svg>
       </button>
@@ -124,43 +115,6 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.7 8a1.7 1.7 0 0 0-.4-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V2a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1.1Z"/></svg>
       </button>
     </header>
-
-    <section id="platformTaskView" class="workspace-task-view" aria-label="Bulut görevleri" hidden>
-      <div class="workspace-task-scroll">
-        <div class="workspace-task-intro">
-          <span class="workspace-eyebrow">BAŞAK ÇALIŞMA ALANI</span>
-          <h1>Hedefini anlat. Çalışmayı birlikte izle.</h1>
-          <p>Araştırma, kod ve platform işleri tek görevde; adımlar, çıktılar ve doğrulama sonuçları kayıtlı kalır.</p>
-        </div>
-        <form id="platformTaskForm" class="workspace-task-form">
-          <label for="platformTaskInput">Başak neyi tamamlasın?</label>
-          <textarea id="platformTaskInput" name="istek" rows="3" required placeholder="Hedefini, kullanacağı projeyi ve beklediğin sonucu yaz."></textarea>
-          <div class="workspace-task-form-foot">
-            <label for="platformWorkspaceInput">Proje <input id="platformWorkspaceInput" name="workspace" type="text" value="personal" autocomplete="off" aria-describedby="platformWorkspaceHint"></label>
-            <button id="platformTaskSubmit" class="workspace-button workspace-primary" type="submit">Görevi başlat <span aria-hidden="true">↗</span></button>
-          </div>
-          <p id="platformWorkspaceHint" class="workspace-muted">Aynı proje adındaki görevler solda birlikte görünür.</p>
-        </form>
-        <p id="platformMessage" class="workspace-message" role="status" aria-live="polite"></p>
-        <p id="platformWorkerStatus" class="workspace-muted" role="status" aria-live="polite">Ajan işçisi durumu kontrol ediliyor…</p>
-        <section id="platformRunHeader" class="workspace-run-header" aria-labelledby="platformRunTitle" hidden>
-          <div><h2 id="platformRunTitle"></h2><span id="platformRunStatus" class="workspace-status"></span></div>
-          <div class="workspace-run-actions">
-            <button id="platformResume" class="workspace-button" type="button" hidden>Sürdür</button>
-            <button id="platformCancel" class="workspace-button" type="button">Durdur</button>
-          </div>
-        </section>
-        <div id="platformRunTree" class="workspace-run-tree" aria-label="Görev ve alt ajanlar"></div>
-        <form id="platformSteerForm" class="workspace-steer-form" hidden>
-          <label for="platformSteerInput">Çalışan göreve yeni yön ver</label>
-          <div><input id="platformSteerInput" name="metin" required autocomplete="off" placeholder="Görevin devamında ne değişsin?"><button class="workspace-button" type="submit">Gönder</button></div>
-        </form>
-        <section class="workspace-timeline" aria-labelledby="platformEventsTitle">
-          <h2 id="platformEventsTitle">Çalışma kaydı</h2>
-          <div id="platformEvents" class="workspace-events"></div>
-        </section>
-      </div>
-    </section>
 
     <main class="chat-main">
       <section id="chatScroll" class="conversation" aria-label="Başak sohbeti">
@@ -202,6 +156,29 @@
           </section>
 
           <div id="chat" class="messages" aria-live="polite" aria-relevant="additions text"></div>
+    <section id="platformTaskView" class="workspace-inline-work" aria-label="Bu konuşmanın çalışması" hidden>
+      <div class="workspace-inline-content">
+        <p id="platformMessage" class="workspace-message" role="status" aria-live="polite"></p>
+        <section id="platformRunHeader" class="workspace-run-header" aria-labelledby="platformRunTitle" hidden>
+          <div><h2 id="platformRunTitle"></h2><span id="platformRunStatus" class="workspace-status"></span></div>
+          <div class="workspace-run-actions">
+            <button id="platformResume" class="workspace-button" type="button" hidden>Sürdür</button>
+            <button id="platformCancel" class="workspace-button" type="button">Durdur</button>
+          </div>
+        </section>
+        <div id="platformRunTree" class="workspace-run-tree" aria-label="Görev ve alt ajanlar"></div>
+        <form id="platformSteerForm" class="workspace-steer-form" hidden>
+          <label for="platformSteerInput">Çalışan göreve yeni yön ver</label>
+          <div><input id="platformSteerInput" name="metin" required autocomplete="off" placeholder="Görevin devamında ne değişsin?"><button class="workspace-button" type="submit">Gönder</button></div>
+        </form>
+        <section class="workspace-timeline" aria-labelledby="platformEventsTitle">
+          <h2 id="platformEventsTitle">Çalışma kaydı</h2>
+          <div id="platformEvents" class="workspace-events"></div>
+        </section>
+      </div>
+    </section>
+
+
         </div>
       </section>
 
@@ -369,9 +346,9 @@
 </div>
 
 <script src="/common.js?v=8"></script>
-<script src="/app.js?v=30"></script>
+<script src="/app.js?v=31"></script>
 <script src="/panel.js?v=2" defer></script>
-<script src="/platform.js?v=1" defer></script>
+<script src="/platform.js?v=2" defer></script>
 <script src="/olcum.js?v=1" defer></script>
 </body>
 </html>

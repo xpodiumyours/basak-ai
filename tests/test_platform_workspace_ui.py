@@ -1,4 +1,4 @@
-"""Executable workspace behavior checks; no provider calls or browser simulation data.
+"""Workspace checks with explicit HTTP fixtures; no live provider acceptance claims.
 
 The reducer and HTTP controller are the same code loaded by the real page.
 """
@@ -50,6 +50,19 @@ state=ui.identity(state,{id:'bob',name:'Bob'});
 assert.equal(state.principal,'bob'); assert.deepEqual(state.runs,{});
 assert.deepEqual(state.connections,[]); assert.equal(state.selectedId,null);
 state=ui.identity(state,null); assert.equal(state.principal,'');
+""")
+
+
+def test_bubbled_child_status_never_changes_parent_and_offline_turns_survive_refresh():
+    js("""
+let state=ui.snapshot(ui.createState('a'),{id:'root',durum:'running',children:[{id:'child',durum:'running'}]});
+state=ui.events(state,[{seq:1,run_id:'root',type:'status',payload:{origin_run_id:'child',durum:'failed'}}]);
+assert.equal(state.runs.root.durum,'running'); assert.equal(state.runs.child.durum,'failed');
+const user={role:'user',content:'first'}, answer={role:'assistant',content:'answer'};
+const later=[{role:'user',content:'offline follow-up'},{role:'assistant',content:'legacy reply'}];
+assert.deepEqual(ui.mergeMessages([user,answer],[user,answer,...later]),[user,answer,...later]);
+assert.deepEqual(ui.mergeMessages([user,answer],[user]),[user,answer]);
+assert.deepEqual(ui.mergeMessages([user,answer],[user,...later]),[user,answer,...later]);
 """)
 
 
@@ -130,7 +143,7 @@ def test_index_has_unique_labels_and_preserves_chat_entrypoints():
     page.feed((ROOT / "web/index.html").read_text(encoding="utf-8"))
     assert len(page.ids) == len(set(page.ids))
     assert {"chat", "message", "send", "historyList", "platformTaskList",
-            "workspacePreview", "platformTaskForm", "platformAccount"} <= set(page.ids)
+            "workspacePreview", "platformRunTree", "platformAccount"} <= set(page.ids)
     assert any(src.startswith("/platform.js") for src in page.scripts)
 
 
@@ -172,7 +185,7 @@ assert.equal(ui.workerStatusText({online:true,live_workers:3}),
 
 
 @pytest.mark.parametrize('width,height', [(1440, 900), (390, 844)])
-def test_real_chromium_pending_chat_title_reload_and_view_preservation(width, height):
+def test_real_chromium_pending_chat_title_reload_and_view_preservation(width, height, tmp_path):
     import functools
     import threading
     from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -182,12 +195,19 @@ def test_real_chromium_pending_chat_title_reload_and_view_preservation(width, he
             pass
     server = ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Handler, directory=str(ROOT / 'web')))
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    run = {'id': 'durable-test', 'kind': 'chat', 'durum': 'queued', 'istek': 'Long task',
-           'children': [], 'artifacts': [], 'checks': [], 'approvals': [], 'seq': 0}
+    artifact = {'id': 'report-file', 'title': 'Kaynakli rapor.md', 'media_type': 'text/markdown',
+                'href': '/api/kosu/research-child/artifacts/report-file'}
+    run = {'id': 'durable-test', 'kind': 'chat', 'durum': 'waiting_children', 'istek': 'Long task',
+           'children': [{'id': 'research-child', 'parent_id': 'durable-test', 'durum': 'completed',
+                         'istek': 'Resmi kaynaklari incele', 'answer': 'Kaynaklar incelendi.',
+                         'artifacts': [artifact]}],
+           'artifacts': [], 'checks': [], 'approvals': [], 'seq': 1}
+    errors = []
     try:
         with playwright.sync_playwright() as pw:
             browser = pw.chromium.launch()
             page = browser.new_page(viewport={'width': width, 'height': height})
+            page.on('pageerror', lambda error: errors.append(str(error)))
             def api(route):
                 path = route.request.url.split('?', 1)[0]
                 data = {'ok': True}
@@ -198,7 +218,16 @@ def test_real_chromium_pending_chat_title_reload_and_view_preservation(width, he
                 elif path.endswith('/agac'):
                     data['kosu'] = run
                 elif path.endswith('/api/kosu/sohbetler'):
-                    data['chats'] = []
+                    data['chats'] = [{'id': 'saved-thread', 'title': 'Saved title',
+                        'messages': [{'role': 'user', 'content': 'Long task'}],
+                        'runs': [{'id': 'durable-test', 'state': 'waiting_children'}],
+                        'pendingRuns': [{'id': 'durable-test', 'state': 'waiting_children'}]}]
+                elif path.endswith('/olaylar'):
+                    data['olaylar'] = [{'seq': 1, 'run_id': 'durable-test', 'type': 'tool_done',
+                        'payload': {'origin_run_id': 'research-child', 'tool': 'sayfa_oku', 'ok': True}}]
+                elif path.endswith('/artifacts/report-file'):
+                    route.fulfill(status=200, content_type='text/markdown', body='# Kaynakli rapor\nGercek HTTP dosya onizleme testi.')
+                    return
                 else:
                     data.update(kosular=[], olaylar=[], connections=[], providers=[])
                 route.fulfill(status=200, content_type='application/json', body=json.dumps(data))
@@ -215,14 +244,33 @@ def test_real_chromium_pending_chat_title_reload_and_view_preservation(width, he
             }""")
             page.wait_for_function("document.querySelector('#historyList').textContent.includes('Saved title')")
             assert page.locator('.chat-main').is_visible()
-            assert not page.locator('#platformTaskView').is_visible()
+            assert page.locator('#platformTaskView').is_visible()
+            assert page.locator('[data-platform-view]').count() == 0
+            assert page.locator('#platformTaskForm').count() == 0
             assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+            page.evaluate('localStorage.clear()')
             page.reload()
+            page.wait_for_function("window.basakKimlik?.kullanici")
             if page.locator('#sidebarToggle').is_visible():
                 page.locator('#sidebarToggle').click()
             page.get_by_role('button', name='Saved title', exact=True).click()
-            assert page.get_by_role('button', name='Görevi aç', exact=True).is_visible()
+            assert page.get_by_role('button', name='Çalışmayı göster', exact=True).is_visible()
             assert page.locator('#chat').inner_text().startswith('Long task')
+            page.get_by_role('button', name='Çalışmayı göster', exact=True).click()
+            page.locator('#platformRunTree').get_by_text('Resmi kaynaklari incele', exact=True).wait_for()
+            page.locator('#platformRunTree summary').get_by_text('Araç işlemleri · 1', exact=True).wait_for()
+            if width < 760:
+                page.wait_for_function("document.querySelector('#sidebar').getBoundingClientRect().right <= 0")
+            page.screenshot(path=str(tmp_path / ('unified-chat-%d.png' % width)), full_page=True)
+            page.get_by_role('button', name='Kaynakli rapor.md', exact=True).click()
+            page.get_by_text('# Kaynakli rapor', exact=False).wait_for()
+            assert page.locator('#workspacePreview').is_visible()
+            assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+            if width < 1100:
+                assert page.locator('#workspacePreview').get_attribute('aria-modal') == 'true'
+            page.keyboard.press('Escape') if width < 1100 else page.locator('#workspaceClose').click()
+            assert not page.locator('#workspacePreview').is_visible()
+            assert not errors, errors
             browser.close()
     finally:
         server.shutdown()

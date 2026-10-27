@@ -949,7 +949,9 @@ async def sohbet(request: Request):
         if not izin:
             return JSONResponse({'error': 'Gunluk ucretsiz hak doldu', 'kota': True,
                                  'kalan': 0}, status_code=429)
-        return await chat_response(request, account, body, history=_gecmis(body))
+        response = await chat_response(request, account, body, history=_gecmis(body))
+        if response is not None:
+            return response
     try:
         handoff_key = _handoff_anahtari(kid)
     except RuntimeError as e:

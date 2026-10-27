@@ -7,7 +7,19 @@
   --workspace-green:var(--green,#00ff88);
   --workspace-radius:var(--radius,6px);
 }
-.app-shell.workspace-open{grid-template-columns:var(--sidebar) minmax(360px,1fr) var(--workspace-width)}
+.app-shell.workspace-open{grid-template-columns:var(--sidebar) minmax(0,1fr) var(--workspace-width)}
+.workspace-inline-work{margin:20px 0;border:1px solid var(--line);border-radius:12px;background:var(--bg);min-width:0}
+.workspace-inline-content{padding:0 18px 18px}
+.workspace-inline-work .workspace-run-header{border:0;margin-top:0;padding-top:18px}
+.workspace-inline-work .workspace-run-header h2{font-size:14px}
+.workspace-inline-work .workspace-timeline{margin-top:16px}
+.workspace-inline-work .workspace-run-tree{margin:14px 0}
+.workspace-agent-tools{width:100%;min-width:0;font-size:12px;line-height:1.7}
+.workspace-agent-tools summary{cursor:pointer;color:var(--muted)}
+.workspace-file{max-width:100%;overflow-wrap:anywhere;justify-content:flex-start}
+.workspace-run-row>.workspace-code{flex-basis:100%;margin:4px 0}
+.workspace-inline-work .workspace-message:empty{display:none}
+@media(max-width:760px){.workspace-inline-content{padding:0 12px 12px}.workspace-inline-work .workspace-run-actions{flex-wrap:wrap}.workspace-inline-work .workspace-button{min-height:44px}}
 .workspace-new-task{background:var(--ink);color:var(--bg);border-color:var(--ink);box-shadow:none}
 .workspace-new-task:hover{background:var(--ink);transform:none;opacity:.9}
 .workspace-task-sidebar{min-height:0;max-height:34vh;display:flex;flex-direction:column}

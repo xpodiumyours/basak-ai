@@ -413,6 +413,10 @@ function gorselBalonaEkle(b, file) {
 }
 
 function sohbetiCiz() {
+  const current = chats.find((c) => c.id === activeChatId);
+  window.dispatchEvent(new CustomEvent('basak:conversation', {detail: {
+    id: activeChatId, runs: (current && (current.runs || current.pendingRuns)) || []
+  }}));
   chatEl.textContent = "";
   balonlar.clear();
 
@@ -427,7 +431,7 @@ function sohbetiCiz() {
     else if (m.role === "assistant") bubble("assistant", m.content || "");
   }
   const active = chats.find((c) => c.id === activeChatId);
-  for (const run of (active && active.pendingRuns) || []) chatEl.appendChild(kaliciGorevDugmesi(run));
+  for (const run of (active && (active.runs || active.pendingRuns)) || []) chatEl.appendChild(kaliciGorevDugmesi(run));
   sohbetAlta();
 }
 
@@ -1604,7 +1608,7 @@ function kaliciGorevDugmesi(run) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "work-action";
-  button.textContent = "Görevi aç";
+  button.textContent = "Çalışmayı göster";
   button.addEventListener("click", () => window.dispatchEvent(new CustomEvent("basak:open-task", {detail: {id: run.id}})));
   return button;
 }
@@ -1619,7 +1623,8 @@ async function kaliciSohbetleriYukle() {
     for (const incoming of data.chats || []) {
       incoming.updatedAt = Date.parse(incoming.updatedAt) || Date.now();
       const index = chats.findIndex((c) => c.id === incoming.id);
-      if (index >= 0) chats[index] = {...incoming, title: chats[index].title || incoming.title};
+      if (index >= 0) chats[index] = {...incoming, title: chats[index].title || incoming.title,
+        messages: window.BasakWorkspace?.mergeMessages(incoming.messages, chats[index].messages) || incoming.messages};
       else chats.push(incoming);
     }
     chats.sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
@@ -1641,7 +1646,8 @@ function olayiIsle(o) {
     const messages = [...bulutGecmisi, {role: "user", content: o.display_text || "Görev"}];
     const record = {...previous, id: activeChatId,
       title: previous.title || o.conversation_title || sohbetBasligi(messages), messages,
-      pendingRuns: [...(previous.pendingRuns || []), {id: no, state: "queued"}], updatedAt: Date.now()};
+      pendingRuns: [...(previous.pendingRuns || []).filter(run => run.id !== no), {id: no, state: "queued"}],
+      runs: [...(previous.runs || []).filter(run => run.id !== no), {id: no, state: "queued"}], updatedAt: Date.now()};
     if (index >= 0) chats[index] = record; else chats.unshift(record);
     const bubble = balonlar.get(no);
     if (bubble) bubble.closest(".message-row").dataset.durableRun = no;
@@ -1783,7 +1789,7 @@ function olayiIsle(o) {
     if (b && kaliciSohbetler.has(no)) {
       durumuKapat(b);
       b.appendChild(kaliciGorevDugmesi({id: no}));
-      notYaz("Görev kayıtlı. Durumunu Görevi aç ile takip edebilirsin.");
+      notYaz("Çalışma kayıtlı. Adımlar ve dosyalar bu konuşmada güncellenir.");
     } else if (b) calismaMolaVer(b);
     return false;
   }

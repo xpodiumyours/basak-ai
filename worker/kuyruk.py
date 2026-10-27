@@ -93,6 +93,9 @@ def _json_oku(metin, varsayilan=None):
 
 
 def _dsn():
+    if (os.environ.get("VERCEL_ENV") or "").strip().lower() == "preview":
+        from chat.kosu_deposu import _dsn as preview_dsn
+        return preview_dsn()
     for ad in ("BASAK_ISCI_DATABASE_URL", "DATABASE_URL", "POSTGRES_URL",
                "NEON_DATABASE_URL"):
         deger = (os.environ.get(ad) or "").strip()

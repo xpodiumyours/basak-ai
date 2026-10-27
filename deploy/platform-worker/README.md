@@ -1,26 +1,36 @@
 # Başak kalıcı ajan işçisi — kurulum adayı
 
-**Durum:** Sadece geliştirme dalında kurulum ve CI için hazırlanmıştır. **Canlı kurulum yapılmadı.**
+Bu dosya kurulum tarifidir; herhangi bir ortamda çalışan işçi bulunduğunun kanıtı değildir.
 Mevcut `deploy/worker/` eski tarayıcı işçisidir ve **değiştirilmemiştir**.
 
 ## Görev
 
 `python -m worker.platform` bağımsız çalışan bir Python süreçtir. Aynı
-`DATABASE_URL` üzerinden Başak web uygulamasındaki kayıtlı görevleri talep eder,
+Preview için yalnız `BASAK_PREVIEW_DATABASE_URL` üzerinden Başak web uygulamasındaki kayıtlı görevleri talep eder,
 model havuzunu kullanır ve sonuçlarını görev defterine kaydeder.
-`DATABASE_URL` olmadan **başlamaz**; yanlışlıkla ayrı SQLite kuyruğu oluşturmaz.
+Preview DSN olmadan **başlamaz**; yanlışlıkla ayrı SQLite kuyruğu oluşturmaz.
 
 ## Yalnızca izole test ortamında kurulum
 
 1. Temiz bir geliştirme dalı checkout'unda `cd deploy/platform-worker` yap.
 2. `cp environment.example.txt .env` ve `.env` içine **test/Preview** Postgres
-   bağlantısını gir. Canlı veritabanıyla karıştırma.
+   bağlantısını `BASAK_PREVIEW_DATABASE_URL` olarak gir. Compose `VERCEL_ENV=preview`
+   kullanır; genel `DATABASE_URL` veya eski worker DSN ayarına düşmez.
+   Web Preview da aynı ayrılmış DSN kullanmalı. Veritabanı rolünün production
+   kaynaklarına erişemediği gerçek bağlantıyla ayrıca doğrulanmalıdır.
 3. Hesap bağlantıları sınanacaksa web ile **aynı** `BASAK_CONNECTION_KEY` değerini
    sunucu ortam sırrı olarak ayarla. Gerçek şifreleri GitHub'a gönderme.
 4. `docker compose build`; ardından `docker compose up -d`.
 5. `docker compose logs --tail=100 agent` ile bağlantı hatası olmadan görevlere
    eriştiğini doğrula. Aynı test görevini web Preview üzerinden oluştur ve
    tamamlanma kaydını kanıt olarak sakla.
+6. Web için `BASAK_DURABLE_CHAT_ENABLED` varsayılan olarak `false` kalır.
+   Ayrılmış worker ve kimlik ayarları hazır olduktan sonra yalnız hedef Preview
+   ortamında `true` yap; gerçek kabul tamamlanmadan production’da açma.
+   Yeni sohbet, işçi hazır değilse mevcut Python sohbet yolunda çalışır.
+   Önceden kaydedilmiş istek aynı kimlikle gözlenir; işçi yokken başka
+   yürütme yoluna tekrar gönderilmez. Bilinmeyen veritabanı hatası da tekrar
+   yürütme gerekçesi değildir.
 
 Bu dosyalar sunucu sağlamaz ve GitHub'a push etmek **sürekli çalışan bir işçi başlatmaz**.
 Gerçek sunucu kurulumu, gizli değişkenler, maliyet kontrolü ve canlı görev kabulü ayrı aşamadır.

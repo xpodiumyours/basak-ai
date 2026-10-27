@@ -56,14 +56,22 @@ _DEPO_KILIT = threading.Lock()
 _UYARI_VERILDI = False
 
 
-def _dsn():
+def _dsn(ortam=None):
     """Kalıcı defterin DSN'i; yoksa bos metin."""
-    if (os.environ.get("VERCEL_ENV") or "").strip().lower() == "preview":
-        ozel = (os.environ.get("BASAK_PREVIEW_DATABASE_URL") or "").strip()
-        if ozel:
-            return ozel
+    ortam = os.environ if ortam is None else ortam
+    if (ortam.get("VERCEL_ENV") or "").strip().lower() == "preview":
+        ozel = (ortam.get("BASAK_PREVIEW_DATABASE_URL") or "").strip()
+        if not ozel:
+            return ""
+        from memory import _dsn_hedefi
+        hedef = _dsn_hedefi(ozel)
+        if any(hedef == _dsn_hedefi(ortam.get(ad)) for ad in
+               ("DATABASE_URL", "POSTGRES_URL", "NEON_DATABASE_URL", "BASAK_ISCI_DATABASE_URL")
+               if (ortam.get(ad) or "").strip()):
+            raise RuntimeError("Preview veritabani production hedefiyle ayni olamaz")
+        return ozel
     for ad in ("DATABASE_URL", "POSTGRES_URL", "NEON_DATABASE_URL"):
-        deger = (os.environ.get(ad) or "").strip()
+        deger = (ortam.get(ad) or "").strip()
         if deger:
             return deger
     return ""
@@ -371,8 +379,8 @@ def _depo():
     with _DEPO_KILIT:
         if _DEPO is not None:
             return _DEPO
-        dsn = _dsn()
         try:
+            dsn = _dsn()
             if dsn:
                 _DEPO = _PostgresDepo(dsn)
             elif _uretim_mi():
