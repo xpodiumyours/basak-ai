@@ -81,11 +81,15 @@ class PlatformBrowser:
         sid = str((args or {}).get("session_id") or "")
         if sid:
             sess = self._sessions.get(sid)
-            if not sess or sess["user_id"] != ctx.user_id:
+            if (not sess or sess["user_id"] != ctx.user_id
+                    or sess["workspace_id"] != ctx.workspace_id
+                    or sess["run_id"] != ctx.run_id):
                 return None
             return sess
         for sess in self._sessions.values():
-            if sess["user_id"] == ctx.user_id and sess["run_id"] == ctx.run_id:
+            if (sess["user_id"] == ctx.user_id
+                    and sess["workspace_id"] == ctx.workspace_id
+                    and sess["run_id"] == ctx.run_id):
                 return sess
         return None
 

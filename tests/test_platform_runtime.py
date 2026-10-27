@@ -263,6 +263,27 @@ def test_configured_capacity_rejects_without_losing_existing_jobs(store):
     assert store.get("alice", first["id"])["durum"] == "queued"
 
 
+@pytest.mark.parametrize("settled_state", ["blocked", "uncertain"])
+def test_settled_runs_release_capacity_without_replaying_effects(store, settled_state):
+    store.max_queued_per_user = 1
+    old = create(store)
+    lease = store.claim("worker-old", run_id=old["id"])["lease"]
+    if settled_state == "blocked":
+        store.finish(lease, {"status": "blocked", "reason": "Connection unavailable"})
+    else:
+        store.begin_action(lease, "call-1", "external_write", {"value": 1},
+                           side_effect=True)
+        store.cancel("alice", old["id"])
+
+    assert store.get("alice", old["id"])["durum"] == settled_state
+    new = create(store)
+    assert new["durum"] == "queued"
+    with pytest.raises(Conflict):
+        create(store)  # A genuinely queued run still occupies capacity.
+    if settled_state == "uncertain":
+        assert store.claim("worker-new", run_id=old["id"]) is None
+
+
 def test_three_independent_children_claimed_in_parallel(store):
     from chat.platform_runtime import Control, RunSuspended
     parent = create(store)

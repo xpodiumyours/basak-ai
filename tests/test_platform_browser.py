@@ -128,6 +128,22 @@ def test_sessions_are_owned_and_lost_after_restart(tmp_path):
     asyncio.run(run())
 
 
+def test_browser_session_id_is_isolated_between_runs_of_same_user(tmp_path):
+    async def run():
+        browser = service()
+        first = await browser.execute(context(tmp_path, run="run1"), "ac",
+                                      {"url": "https://example.com"})
+        assert first["ok"]
+        other = await browser.execute(context(tmp_path, run="run2"), "oku",
+                                      {"session_id": first["session_id"]})
+        assert not other["ok"] and other["status"] == "session_lost"
+        own = await browser.execute(context(tmp_path, run="run1"), "oku",
+                                    {"session_id": first["session_id"]})
+        assert own["ok"]
+        await browser.kapat()
+    asyncio.run(run())
+
+
 def test_capacity_does_not_evict_existing_session(tmp_path):
     async def run():
         browser = service(max_sessions=1)

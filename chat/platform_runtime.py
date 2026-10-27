@@ -397,7 +397,17 @@ class RuntimeStore:
                         raise Conflict("Alt görev kendi üst görevinin bitmesini bekleyemez")
                     ancestor = self._require(tx, user_id, ancestor)["parent_id"]
             if self.max_queued_per_user is not None:
-                active = tx.one("SELECT COUNT(*) AS n FROM basak_kosu r JOIN basak_platform_run m ON m.run_id=r.id WHERE m.user_id=%s AND r.durum NOT IN ('completed','failed','cancelled','partial')", (user_id,))["n"]
+                # Settled runs do not occupy a worker slot. In particular,
+                # blocked and uncertain runs must not exhaust future capacity.
+                # This does not make uncertain external effects retryable.
+                active = tx.one(
+                    "SELECT COUNT(*) AS n FROM basak_kosu r "
+                    "JOIN basak_platform_run m ON m.run_id=r.id "
+                    "WHERE m.user_id=%s "
+                    "AND r.durum NOT IN ('completed','partial','failed',"
+                    "'cancelled','uncertain','blocked')",
+                    (user_id,),
+                )["n"]
                 if active >= self.max_queued_per_user:
                     raise Conflict("Kullanıcının görev kapasitesi dolu")
             rid = _key(run_id, "run_id") if run_id else uuid.uuid4().hex
