@@ -485,8 +485,10 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
     def _kosu_ac():
         """Ilk arac turunda kalici kosuyu acar; defter kapaliysa None."""
         nonlocal kosu
-        if control is not None:
+        if control is not None and not getattr(control, "inline", False):
             return None  # The lease/action ledger owns this run, not legacy Kosu.
+        if execution is not None and execution.parent_run_id:
+            return None  # Alt gorev: devam defteri yalniz ana sohbetin.
         if kosu is None and not misafir:
             try:
                 kosu = kosu_deposu.ac(

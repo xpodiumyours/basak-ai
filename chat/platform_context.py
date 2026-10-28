@@ -24,13 +24,18 @@ class ExecutionContext:
     allowed_tools: frozenset | None = None
     control: object = field(default=None, compare=False, repr=False)
     brain: object = field(default=None, compare=False, repr=False)
+    # inline: aynı istek içinde koşan ordu zarfı (chat.inline_ordu).
+    # Kalıcı hesap doğrulaması yalnız kalıcı işçi yolu için geçerlidir;
+    # istek içi alt ajan hesap/kayıt gerektirmez.
+    inline: bool = False
 
     def __post_init__(self):
         for value in (self.user_id, self.workspace_id, self.run_id):
             if not isinstance(value, str) or not _ID.fullmatch(value):
                 raise ValueError('Kimlik, calisma alani ve kosu kimligi zorunlu')
-        if self.user_id.startswith(('anon-', 'anonim-')) or re.fullmatch(
-                r'p[0-9a-f]{16}', self.user_id):
+        if not self.inline and (
+                self.user_id.startswith(('anon-', 'anonim-'))
+                or re.fullmatch(r'p[0-9a-f]{16}', self.user_id)):
             raise ValueError('Bu islem kalici hesap oturumu gerektirir')
         if self.workspace_root:
             object.__setattr__(self, 'workspace_root', str(Path(self.workspace_root).resolve()))

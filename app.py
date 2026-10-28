@@ -1189,21 +1189,44 @@ async def sohbet(request: Request):
                     arac_modu=_mod,
                     arac_sayisi=len(tools),
                 )
-                mesaj_isle(
-                    metin,
-                    beyin,
-                    sistem_blogu(kid, misafir=misafir),
-                    kayit,
-                    tools,
+
+                def _altajan_olay(tur, alt_ajan, veri):
+                    # Alt ajan adimlari ana ekrana alt_ajan kimligiyle tasinir.
+                    kayit.olay(tur, alt_ajan=alt_ajan, **veri)
+
+                def _alt_ajan_kota():
+                    """Her alt ajan ana kullanicinin gunluk kotasindan harcar."""
+                    if _token_kimligi(request) is not None:
+                        return True
+                    try:
+                        import kota as kota_modulu
+                        return bool(kota_modulu.kota_ekle(kid)[0])
+                    except Exception:
+                        return True
+
+                from chat.inline_ordu import inline_baglam
+                # Ordu zarfi: alt ajanlar aynı istek içinde paralel koşar;
+                # hesap/ücret gerektirmez, kota isteğin kendisinden sayılır.
+                with inline_baglam(
+                    kid, beyin, olay_verici=_altajan_olay, iptal=iptal,
+                    son_saniye=mola_zamani, kota_harcakci=_alt_ajan_kota,
                     misafir=misafir,
-                    gecmis_override=_gecmis(body or {}),
-                    yonlendirme_baglami=yonlendirme_baglami,
-                    tool_policy=tool_policy,
-                    mola_zamani=mola_zamani,
-                    tercih=tercih,
-                    tazele=tazele,
-                    **_kosu_kw,
-                )
+                ):
+                    mesaj_isle(
+                        metin,
+                        beyin,
+                        sistem_blogu(kid, misafir=misafir),
+                        kayit,
+                        tools,
+                        misafir=misafir,
+                        gecmis_override=_gecmis(body or {}),
+                        yonlendirme_baglami=yonlendirme_baglami,
+                        tool_policy=tool_policy,
+                        mola_zamani=mola_zamani,
+                        tercih=tercih,
+                        tazele=tazele,
+                        **_kosu_kw,
+                    )
             except _AkisIptal:
                 return
             except Exception as e:
