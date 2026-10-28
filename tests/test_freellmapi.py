@@ -87,12 +87,16 @@ def test_yazim_mevcut_dosyayi_ezmez_ve_gizlidir(tmp_path):
         guvenli_yaz(tmp_path / "public.json", veri)
 
 
-def _brain(monkeypatch, gateway):
+def _brain(monkeypatch, gateway, dogrudan=False):
+    """Kismi Brain: yalniz gateway ve (istege bagli) dogrudan Groq.
+
+    2026-10-28 sozlesmesi: ortak baglanti ARTIK ILK TERCIH DEGIL. Dogrudan
+    saglayicilar once denenir, gateway son care olarak zincirde durur.
+    """
     beyin = motor.Brain.__new__(motor.Brain)
     beyin._freellmapi = gateway
     beyin._freellmapi_isteniyor = True
-    # Dogrudan istemci kullanilsa test patlar: tek adresin kaniti.
-    beyin._groq = SimpleNamespace(musait=lambda: pytest.fail("dogrudan Groq cagrildi"))
+    beyin._groq = SimpleNamespace(musait=lambda: bool(dogrudan))
     return beyin
 
 
@@ -101,6 +105,28 @@ def test_ortak_baglanti_bozuksa_dogrudan_saglayiciya_kacmaz(monkeypatch):
     assert beyin._bulut_zinciri() == []
     with pytest.raises(motor.ZincirHatasi):
         beyin.cevapla([{"role": "user", "content": "test"}])
+
+
+def test_dogrudan_saglayici_gatewayden_once_gelir(monkeypatch):
+    """Gateway yapilandirilmis olsa da dogrudan hat once denenir."""
+    giden = []
+
+    def gateway(request):
+        giden.append(request)
+        return httpx.Response(200, json={"id": "c", "created": 1,
+            "model": "auto", "object": "chat.completion", "choices": [{
+                "index": 0, "finish_reason": "stop",
+                "message": {"role": "assistant", "content": "gateway"}}]})
+
+    sdk = openai.OpenAI(api_key="test-unified", base_url="https://gateway.test/v1",
+                        max_retries=0, http_client=httpx.Client(
+                            transport=httpx.MockTransport(gateway)))
+    client = GenelClient.__new__(GenelClient)
+    client.client, client.model = sdk, "auto"
+    beyin = _brain(monkeypatch, client, dogrudan=True)
+    adlar = [ad for ad, _ in beyin._bulut_zinciri()]
+    assert adlar[0] == "groq"
+    assert adlar[-1] == "freellmapi"
 
 
 def test_tek_adres_ortak_bilet_native_arac_sonucu_ve_akis(monkeypatch):

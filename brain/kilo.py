@@ -12,6 +12,7 @@ zincir devam eder.
 
 import json
 import logging
+import time
 
 from openai import OpenAI
 
@@ -52,14 +53,55 @@ YER_TUTUCU_ANAHTAR = "anonymous"
 #   kilo-auto/free yonlendiricisi (2026-09-20 kaniti): zorunlu arac turunda
 #   GERCEK tool_call uretmiyor (metne yaziyor — "[[{"name"...}]]"); bu yuzden
 #   her zaman EN SONDA durur.
-VARSAYILAN_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+VARSAYILAN_MODEL = "nvidia/nemotron-3.5-lightning:free"
 TERCIH_SIRASI = [
-    "nvidia/nemotron-3-super-120b-a12b:free",
     "nvidia/nemotron-3.5-lightning:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
     "stepfun/step-5-preview-free",
     "liquid/lfm-2.5-2.6b:free",
     "kilo-auto/free",
 ]
+
+# 2026-10-28 OLCUMU: nvidia/nemotron-3-super-120b-a12b:free artik
+# "model_not_found" (404) donuyor; 3.5-lightning ayni turda gercek
+# tool_call uretti. Yine de katalog disaridan degistigi icin TEK model
+# varsaymak yetmez: basarili model surec boyunca hatirlanir, 404 alan
+# model 30 dakika denenmez. Boylece her yeni Brain/alt ajan ilk istegi
+# bayat modele harcamaz.
+_SAGLAM_MODEL = None
+_BOZUK_MODELLER = {}
+_BOZUK_SURESI = 1800.0
+
+
+def _saglik_sifirla():
+    global _SAGLAM_MODEL
+    _SAGLAM_MODEL = None
+    _BOZUK_MODELLER.clear()
+
+
+def _bozuk_mu(model_adi):
+    bitis = _BOZUK_MODELLER.get(model_adi)
+    if not bitis:
+        return False
+    if bitis > time.monotonic():
+        return True
+    _BOZUK_MODELLER.pop(model_adi, None)
+    return False
+
+
+def _model_kayboldu_mu(hata):
+    s = str(hata).lower()
+    return ("model not found" in s or "does not exist" in s
+            or "model unavailable" in s or "no endpoints" in s)
+
+
+def _isaretle_bozuk(model_adi, hata):
+    global _SAGLAM_MODEL
+    if not _model_kayboldu_mu(hata):
+        return
+    _BOZUK_MODELLER[model_adi] = time.monotonic() + _BOZUK_SURESI
+    if _SAGLAM_MODEL == model_adi:
+        _SAGLAM_MODEL = None
 
 
 def _kilo_global_kota_mi(hata) -> bool:
@@ -87,7 +129,7 @@ def _model_yedegi_gerekir_mi(hata) -> bool:
     s = str(hata).lower()
     return any(k in s for k in (
         "kilo bos cevap", "model not found", "model unavailable",
-        "model is unavailable", "no endpoints", "upstream",
+        "model is unavailable", "does not exist", "no endpoints", "upstream",
         "timed out", "timeout", "connection reset",
         "tool_choice", "tool choice", "required tool_call yok",
     ))
@@ -153,7 +195,7 @@ class KiloClient:
         """Step 3.7 Flash goruntu girdisi; istege ozel sure siniri alabilir."""
         if not self.client:
             raise RuntimeError("Kilo bağlı değil")
-        return self._tek_model("nvidia/nemotron-3-super-120b-a12b:free", messages, timeout=timeout)
+        return self._tek_model(self.model, messages, timeout=timeout)
 
     def _tek_model(self, model_adi: str, messages: list,
                    tools: list = None, tool_choice=None, timeout=None) -> dict:
@@ -210,12 +252,19 @@ class KiloClient:
         if not self.client:
             raise RuntimeError("Kilo bağlı değil")
 
+        global _SAGLAM_MODEL
         sirali = []
-        if self.model:
-            sirali.append(self.model)
+
+        def _ekle(ad):
+            if ad and ad not in sirali and not _bozuk_mu(ad):
+                sirali.append(ad)
+
+        # Once bu surecte CALISAN model, sonra istemcinin modeli, sonra
+        # katalog sirasi. 404 alan aday 30 dk atlanir (bkz. modul basi).
+        _ekle(_SAGLAM_MODEL)
+        _ekle(self.model)
         for aday in TERCIH_SIRASI:
-            if aday not in sirali:
-                sirali.append(aday)
+            _ekle(aday)
 
         son_hata = None
         for model_adi in sirali:
@@ -228,9 +277,11 @@ class KiloClient:
                                  if isinstance(yanit, dict) else None)):
                     raise RuntimeError("Kilo required tool_call yok")
                 self.model = model_adi
+                _SAGLAM_MODEL = model_adi
                 return yanit
             except Exception as e:
                 son_hata = e
+                _isaretle_bozuk(model_adi, e)
                 if _kilo_global_kota_mi(e):
                     raise
                 if not _model_yedegi_gerekir_mi(e):

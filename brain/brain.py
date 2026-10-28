@@ -494,43 +494,39 @@ class Brain:
                                  exc_info=True)
             return True
         zincir = []
-        # Acikca yapilandirilan ortak baglanti butun sohbet cagrilarini
-        # gateway'e verir. Saglayici/model yedeklemesini gateway yurutur;
-        # ayni kotayi ikinci kez dogrudan denemeyiz. Anahtar/adres yoksa
-        # mevcut kurulumun davranisi korunur.
+        # 2026-10-28: ortak baglanti (FreeLLMAPI) ARTIK ILK TERCIH DEGIL.
+        # Onceki surum gateway yapilandirildiginda dogrudan saglayicilari
+        # tamamen atliyordu: gateway'in kendi yedeklemesi kalitesizlestiginde
+        # elde dogrulanmis Groq/Gemini hatti kullanilmiyordu. Yeni sira:
+        # dogrudan saglayicilar -> gateway -> ozel/ucretli. Gateway hala
+        # zincirde, ama SON care.
         gateway = getattr(self, "_freellmapi", None)
-        if _uygun("freellmapi", gateway):
-            return [("freellmapi", gateway)]
-        if getattr(self, "_freellmapi_isteniyor", False):
-            # Eksik/yanlis ortak baglanti ayarinda saglayicilara sessizce
-            # dogrudan cikma; mevcut acik hata yolu kullanilir.
-            return []
-        if _uygun("groq", self._groq):
-            zincir.append(("groq", self._groq))
-        if _uygun("glm", self._glm):
-            zincir.append(("glm", self._glm))
-        if _uygun("cloudflare", self._cloudflare):
-            zincir.append(("cloudflare", self._cloudflare))
-        if _uygun("cohere", self._cohere):
-            zincir.append(("cohere", self._cohere))
-        if _uygun("nvidia", self._nvidia):
-            zincir.append(("nvidia", self._nvidia))
-        if _uygun("kilo", self._kilo):
-            zincir.append(("kilo", self._kilo))
-        if _uygun("openrouter", self._openrouter):
-            zincir.append(("openrouter", self._openrouter))
+        if _uygun("groq", getattr(self, "_groq", None)):
+            zincir.append(("groq", getattr(self, "_groq", None)))
+        if _uygun("glm", getattr(self, "_glm", None)):
+            zincir.append(("glm", getattr(self, "_glm", None)))
+        if _uygun("cloudflare", getattr(self, "_cloudflare", None)):
+            zincir.append(("cloudflare", getattr(self, "_cloudflare", None)))
+        if _uygun("cohere", getattr(self, "_cohere", None)):
+            zincir.append(("cohere", getattr(self, "_cohere", None)))
+        if _uygun("nvidia", getattr(self, "_nvidia", None)):
+            zincir.append(("nvidia", getattr(self, "_nvidia", None)))
+        if _uygun("kilo", getattr(self, "_kilo", None)):
+            zincir.append(("kilo", getattr(self, "_kilo", None)))
+        if _uygun("openrouter", getattr(self, "_openrouter", None)):
+            zincir.append(("openrouter", getattr(self, "_openrouter", None)))
         # 2026-09-22 (Yol 1): Mistral zincire girer (kart acik); huggingface
         # + chutes kartlari KAPALI oldugu icin _uygun() eler. glhf'nin
         # adaptoru olu oldugu (HTTP 522) icin kaldirildi. Kart acilirsa
         # satirlar hazir durur.
-        if _uygun("mistral", self._mistral):
-            zincir.append(("mistral", self._mistral))
-        if _uygun("huggingface", self._huggingface):
-            zincir.append(("huggingface", self._huggingface))
-        if _uygun("chutes", self._chutes):
-            zincir.append(("chutes", self._chutes))
-        if _uygun("qwen", self._qwen):
-            zincir.append(("qwen", self._qwen))
+        if _uygun("mistral", getattr(self, "_mistral", None)):
+            zincir.append(("mistral", getattr(self, "_mistral", None)))
+        if _uygun("huggingface", getattr(self, "_huggingface", None)):
+            zincir.append(("huggingface", getattr(self, "_huggingface", None)))
+        if _uygun("chutes", getattr(self, "_chutes", None)):
+            zincir.append(("chutes", getattr(self, "_chutes", None)))
+        if _uygun("qwen", getattr(self, "_qwen", None)):
+            zincir.append(("qwen", getattr(self, "_qwen", None)))
         # 2026-10-01: OVH — kart kapali oldugu icin _uygun() su an eler;
         # satir kart acilimina hazir durur (huggingface/chutes ile ayni
         # kalip). getattr: eski kurulumlar/__new__ testleri alani tasmaz.
@@ -547,8 +543,15 @@ class Brain:
         _llm7 = getattr(self, "_llm7", None)
         if _uygun("llm7", _llm7):
             zincir.append(("llm7", _llm7))
-        if _uygun("gemini", self._gemini):
-            zincir.append(("gemini", self._gemini))
+        if _uygun("gemini", getattr(self, "_gemini", None)):
+            zincir.append(("gemini", getattr(self, "_gemini", None)))
+        # Ortak baglanti son care olarak zincire girer; yapilandirilmis ama
+        # kullanilamaz durumdaysa sessizce yok sayilmaz, acik hata yolu
+        # (bulut_musait False) korunur.
+        if _uygun("freellmapi", gateway):
+            zincir.append(("freellmapi", gateway))
+        if getattr(self, "_freellmapi_isteniyor", False) and not zincir:
+            return []
         # Ozel/ucretli saglayici otomatik zincire girmez.
         _genel = getattr(self, "_genel", None)
         if _uygun("genel", _genel):

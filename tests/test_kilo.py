@@ -19,6 +19,15 @@ from brain import registry
 from brain.kilo import KiloClient, VARSAYILAN_MODEL
 
 
+@pytest.fixture(autouse=True)
+def _temiz_model_sagligi():
+    """Surec-geneli saglik onbellegi testler arasinda sizmamali."""
+    from brain import kilo as kilo_modulu
+    kilo_modulu._saglik_sifirla()
+    yield
+    kilo_modulu._saglik_sifirla()
+
+
 def _mesaj(content=None, tool_calls=None, reasoning=None):
     m = types.SimpleNamespace(content=content, tool_calls=tool_calls)
     if reasoning is not None:
@@ -194,10 +203,10 @@ class TestUcretsizModelFallback:
         assert yanit["content"] == "tamam"
         assert cagrilar[:2] == [
             "stepfun/step-3.7-flash:free",
-            "nvidia/nemotron-3-super-120b-a12b:free",
+            VARSAYILAN_MODEL,
         ]
         # Sonraki arac turunda ayni basarili model once kullanilir.
-        assert istemci.model == "nvidia/nemotron-3-super-120b-a12b:free"
+        assert istemci.model == VARSAYILAN_MODEL
 
     def test_ip_geneli_429da_model_degistirip_kota_yakmaz(self):
         from brain.kilo import KiloClient
@@ -259,7 +268,7 @@ class TestUcretsizModelFallback:
         assert yanit["tool_calls"][0]["function"]["name"] == "simdi"
         assert cagrilar[:2] == [
             "stepfun/step-3.7-flash:free",
-            "nvidia/nemotron-3-super-120b-a12b:free",
+            VARSAYILAN_MODEL,
         ]
 
     def test_string_reasoning_details_kilo_istegine_geri_gonderilmez(self):
@@ -270,6 +279,39 @@ class TestUcretsizModelFallback:
             "reasoning_details": "gateway string dondurdu",
         }])
         assert "reasoning_details" not in sahte.son_kwargs["messages"][0]
+
+    def test_404_alan_model_ayni_surecte_yeniden_denenmez(self):
+        """Her yeni Brain/alt ajan bayat modele ilk istegi harcamamali."""
+        cagrilar = []
+        bayat = "nvidia/nemotron-3-super-120b-a12b:free"
+
+        class Comp:
+            def create(self, **kwargs):
+                cagrilar.append(kwargs["model"])
+                if kwargs["model"] == bayat:
+                    raise RuntimeError(
+                        "The requested model does not exist. Please use an "
+                        "exact model id.")
+                msg = types.SimpleNamespace(content="tamam", tool_calls=None)
+                return types.SimpleNamespace(
+                    choices=[types.SimpleNamespace(
+                        message=msg, finish_reason="stop")],
+                    usage=None,
+                )
+
+        def istemci():
+            c = KiloClient.__new__(KiloClient)
+            c.client = types.SimpleNamespace(
+                chat=types.SimpleNamespace(completions=Comp()))
+            c.model = bayat
+            return c
+
+        assert istemci().cevapla([{"role": "user", "content": "a"}])["content"] == "tamam"
+        assert cagrilar[0] == bayat
+
+        cagrilar.clear()
+        assert istemci().cevapla([{"role": "user", "content": "b"}])["content"] == "tamam"
+        assert bayat not in cagrilar
 
     def test_gecersiz_istekte_diger_modeller_bosuna_denenmez(self):
         from brain.kilo import KiloClient
