@@ -50,6 +50,16 @@ def test_stale_worker_cannot_admit_new_work(admission):
     assert store.list('alice') == [] and legacy == ['hello']
 
 
+@pytest.mark.parametrize('enabled',[False,True])
+def test_private_access_never_silently_falls_back_to_request_only_execution(admission,monkeypatch,enabled):
+    client,store,_,legacy=admission
+    monkeypatch.setenv('BASAK_PRIVATE_ACCESS_ONLY','true')
+    monkeypatch.setenv('BASAK_DURABLE_CHAT_ENABLED',str(enabled).lower())
+    result=client.post('/chat',json={'metin':'long work'})
+    assert result.status_code==503
+    assert legacy==[] and store.list('alice')==[]
+
+
 @pytest.mark.parametrize('continuation', [{'kosu_id': 'legacy-run'},
                                          {'yonlendirme_baglami': {'token': 'legacy-handoff'}}])
 def test_existing_legacy_turn_does_not_change_engines(admission, continuation):

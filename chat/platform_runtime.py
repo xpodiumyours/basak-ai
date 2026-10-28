@@ -34,6 +34,15 @@ SETTLED = TERMINAL | {"blocked"}
 PREFIX = "basak_platform_"
 
 
+def delegated_result(run):
+    """Tool-facing results omit private executor checkpoints, not task evidence."""
+    result = {key: value for key, value in run.items()
+              if key not in ('context', 'continuation', 'children')}
+    if 'children' in run:
+        result['children'] = [delegated_result(child) for child in run['children']]
+    return result
+
+
 class RuntimeErrorBase(Exception):
     pass
 
@@ -178,7 +187,7 @@ class RuntimeStore:
         self._schema()
 
     @contextlib.contextmanager
-    def transaction(self):
+    def transaction(self, *, readonly=False):
         # Only metadata transactions serialize. Model/tool execution takes place
         # outside the transaction and may run concurrently on separate workers.
         with self.depo._kilit:
@@ -187,13 +196,16 @@ class RuntimeStore:
             try:
                 if sqlite:
                     conn.execute("PRAGMA foreign_keys=ON")
-                    conn.execute("BEGIN IMMEDIATE")
+                    conn.execute("BEGIN" if readonly else "BEGIN IMMEDIATE")
                     yield _Transaction(conn, True)
                     conn.commit()
                 else:
                     with conn.transaction():
                         tx = _Transaction(conn, False)
-                        tx.execute("SELECT pg_advisory_xact_lock(hashtext('basak_platform_ledger'))")
+                        if readonly:
+                            tx.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+                        else:
+                            tx.execute("SELECT pg_advisory_xact_lock(hashtext('basak_platform_ledger'))")
                         yield tx
             except BaseException:
                 if sqlite:
@@ -282,7 +294,7 @@ class RuntimeStore:
                        (worker_id, self.clock()))
 
     def workspace_files(self, user_id, workspace_id, include_deleted=False):
-        with self.transaction() as tx:
+        with self.transaction(readonly=True) as tx:
             return tx.rows('SELECT path,data_base64,sha256,deleted FROM basak_platform_workspace_file '
                            'WHERE user_id=%s AND workspace_id=%s' + ('' if include_deleted else ' AND deleted=0'),
                            (user_id, workspace_id))
@@ -320,7 +332,7 @@ class RuntimeStore:
         """No health signal means unavailable, never a simulated live worker."""
         stale_seconds = max(1, min(int(stale_seconds), 600))
         now = self.clock()
-        with self.transaction() as tx:
+        with self.transaction(readonly=True) as tx:
             rows = tx.rows("SELECT seen_at FROM basak_platform_worker_presence "
                            "WHERE state='online' AND seen_at>=%s",
                            (now-stale_seconds,))
@@ -339,9 +351,10 @@ class RuntimeStore:
             raise NotFound("Görev bulunamadı")
         return row
 
-    def _lease(self, tx, lease):
-        row = self._require(tx, lease.user_id, lease.run_id)
-        if (row["durum"] != "running" or row["lease_token"] != lease.token
+    def _lease(self, tx, lease, row=None):
+        row = row if row is not None else self._require(tx, lease.user_id, lease.run_id)
+        if (row['id'] != lease.run_id or row['user_id'] != lease.user_id
+                or row["durum"] != "running" or row["lease_token"] != lease.token
                 or row["generation"] != lease.generation or row["worker_id"] != lease.worker_id
                 or float(row["lease_until"] or 0) <= self.clock()):
             raise LeaseLost("Görev yürütme yetkisi sona erdi")
@@ -516,17 +529,17 @@ class RuntimeStore:
             return self._project(tx, self._require(tx, user_id, rid))
 
     def get(self, user_id, run_id):
-        with self.transaction() as tx:
+        with self.transaction(readonly=True) as tx:
             return self._project(tx, self._require(tx, user_id, run_id))
 
     def tree(self, user_id, run_id):
-        with self.transaction() as tx:
+        with self.transaction(readonly=True) as tx:
             return self._project(tx, self._require(tx, user_id, run_id), recursive=True)
 
     def list(self, user_id, *, workspace_id=None, after=None, limit=50):
         _key(user_id, "user_id")
         limit = max(1, min(int(limit), 200))
-        with self.transaction() as tx:
+        with self.transaction(readonly=True) as tx:
             sql = "SELECT r.id FROM basak_kosu r JOIN basak_platform_run m ON r.id=m.run_id WHERE m.user_id=%s AND r.kullanici=%s"
             params = [user_id, user_id]
             if workspace_id is not None:
@@ -544,7 +557,7 @@ class RuntimeStore:
         """Find a receipt before admission; existing tasks never switch engines."""
         if not request_key:
             return None
-        with self.transaction() as tx:
+        with self.transaction(readonly=True) as tx:
             row = tx.one("SELECT run_id FROM basak_platform_run WHERE user_id=%s "
                          "AND workspace_id=%s AND request_key=%s",
                          (user_id, workspace_id, _key(request_key, "request_key")))
@@ -552,7 +565,7 @@ class RuntimeStore:
 
     def chat_threads(self, user_id):
         """Rebuild account chat history from durable root turns, including pending ones."""
-        with self.transaction() as tx:
+        with self.transaction(readonly=True) as tx:
             rows = tx.rows("SELECT r.id FROM basak_kosu r JOIN basak_platform_run m ON r.id=m.run_id "
                            "WHERE m.user_id=%s AND r.kullanici=%s AND m.kind='chat' AND m.parent_id IS NULL "
                            "ORDER BY r.olustu,r.id", (user_id, user_id))
@@ -574,14 +587,18 @@ class RuntimeStore:
             return list(threads.values())
 
     def events(self, user_id, run_id, after=0, limit=200):
-        with self.transaction() as tx:
+        with self.transaction(readonly=True) as tx:
             self._require(tx, user_id, run_id)
             rows = tx.rows("SELECT * FROM basak_platform_event WHERE run_id=%s AND seq>%s ORDER BY seq LIMIT %s", (run_id, max(0, int(after)), max(1, min(int(limit), 1000))))
             return [{**r, "payload": _read(r["payload"], {})} for r in rows]
 
-    def append_event(self, user_id, run_id, type_, payload):
+    def append_event(self, user_id, run_id, type_, payload, *, lease=None):
         with self.transaction() as tx:
-            self._require(tx, user_id, run_id)
+            row = self._require(tx, user_id, run_id)
+            if lease is not None:
+                if row['durum'] in {'cancelled', 'uncertain'}:
+                    raise RunCancelled()
+                self._lease(tx, lease, row=row)
             if type_ == 'provider' and payload.get('provider'):
                 tx.execute('UPDATE basak_kosu SET saglayici=%s WHERE id=%s',
                            (str(payload['provider']), run_id))
@@ -976,15 +993,15 @@ class Control:
         self.store, self.lease = store, lease
 
     def check_cancelled(self):
-        with self.store.transaction() as tx:
+        with self.store.transaction(readonly=True) as tx:
             row = self.store._require(tx, self.lease.user_id, self.lease.run_id)
             if row["durum"] in {"cancelled", "uncertain"}:
                 raise RunCancelled()
-            self.store._lease(tx, self.lease)
+            self.store._lease(tx, self.lease, row=row)
 
     def event(self, type_, payload=None, **kwargs):
-        self.check_cancelled()
-        return self.store.append_event(self.lease.user_id, self.lease.run_id, type_, {**(payload or {}), **kwargs})
+        return self.store.append_event(self.lease.user_id, self.lease.run_id, type_,
+                                       {**(payload or {}), **kwargs}, lease=self.lease)
 
     def checkpoint(self, continuation):
         return self.store.checkpoint(self.lease, continuation)

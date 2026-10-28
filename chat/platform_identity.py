@@ -66,6 +66,10 @@ class IdentityService:
             return None
 
     def revoke_session(self, token):
+        if str(token or '').startswith('p1.'):
+            from chat.private_access import service
+            service().logout(token)
+            return
         sid = str(token or "").split(".")[0]
         self.store._db._calistir("UPDATE basak_account_session SET revoked=1 WHERE id=%s", (hashlib.sha256(sid.encode()).hexdigest(),))
 
@@ -73,6 +77,12 @@ class IdentityService:
 def authenticate(request):
     token = request.cookies.get(COOKIE, "")
     if not token:
+        return None
+    if token.startswith('p1.'):
+        from chat.private_access import service
+        account = service().resolve(token)
+        return account['id'] if account else None
+    if os.environ.get('BASAK_PRIVATE_ACCESS_ONLY', '').lower() == 'true':
         return None
     try:
         account = IdentityService().resolve_session(token)

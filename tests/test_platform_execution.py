@@ -524,6 +524,34 @@ def test_workspace_conflict_never_overwrites_other_worker_output(tmp_path):
     assert restored.read('shared.txt')['content'] == 'first'
 
 
+def test_delegated_acceptance_reaches_existing_flow_as_task_data(tmp_path, monkeypatch):
+    """A goal carried in the parent's acceptance spec cannot disappear."""
+    import json
+    from chat import kosu_deposu
+    from chat.platform_agents import execute_job
+    from chat.platform_runtime import RuntimeStore, Worker
+    monkeypatch.setenv('BASAK_STATE_DIR', str(tmp_path / 'state'))
+    store = RuntimeStore(kosu_deposu._SqliteDepo(str(tmp_path / 'handoff.db')))
+    parent = store.create('alice', 'personal', 'Delegate calculation')
+    criteria = [{'id': 'calculation', 'kind': 'tool_succeeded', 'tool': 'hesapla',
+                 'description': 'Calculate 17 * 19 using the actual tool'}]
+    child = store.create('alice', 'personal', 'hesapla', parent_id=parent['id'],
+                         acceptance=criteria, context={'task_context': 'original context'})
+    captured = []
+    def existing_flow(text, brain, system, callback, **kwargs):
+        captured.append((text, kwargs['gecmis_override']))
+        callback('BasakUI.bitir("Observation only", "test")')
+    monkeypatch.setattr('chat.flow.mesaj_isle', existing_flow)
+    class Brain:
+        def _bulut_zinciri(self, **kwargs): return []
+    Worker(store, lambda job, control: execute_job(job, control, Brain())).tick(child['id'])
+    assert captured[0][0] == 'hesapla'
+    data = json.loads(captured[0][1][0]['content'])
+    assert data['acceptance'] == criteria
+    assert data['task_context'] == 'original context'
+    assert store.get('alice', child['id'])['durum'] != 'completed'
+
+
 def test_plain_account_chat_completes_without_human_approval(tmp_path):
     from chat import kosu_deposu
     from chat.platform_agents import execute_job
@@ -542,6 +570,22 @@ def test_plain_account_chat_completes_without_human_approval(tmp_path):
     assert result['answer'] == 'Merhaba, nasılsın?'
     assert result['approvals'] == []
     assert result['checks'][0]['ok'] is True
+
+
+def test_delegated_results_preserve_answers_without_repeating_internal_model_history():
+    from chat.platform_runtime import delegated_result
+    source={'id':'child','durum':'completed','answer':'Tam sonuç\n🙂',
+        'checks':[{'id':'calculation','ok':True}], 'artifacts':[{'id':'file'}],
+        'context':{'history':[{'content':'private checkpoint context'}]},
+        'continuation':{'messages':[{'content':'private checkpoint context'}]},
+        'children':[{'id':'nested','answer':'Nested full result','continuation':{'messages':['internal']}}]}
+    result=delegated_result(source)
+    assert result['answer']==source['answer']
+    assert result['checks']==source['checks'] and result['artifacts']==source['artifacts']
+    assert result['children'][0]['answer']=='Nested full result'
+    assert 'continuation' not in result and 'context' not in result
+    assert 'continuation' not in result['children'][0]
+    assert 'continuation' in source
 
 
 def test_deleted_workspace_file_stays_deleted_after_restart_and_recreation(tmp_path):

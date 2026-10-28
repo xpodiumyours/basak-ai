@@ -105,6 +105,9 @@ app.include_router(_freellmapi_yedek_router)
 from chat.platform_api import configure as _platform_api_kur, router as _platform_router  # noqa: E402
 from chat.platform_accounts_api import router as _platform_hesap_router  # noqa: E402
 from chat.platform_identity import authenticate as _platform_kimlik  # noqa: E402
+from chat.private_access_api import router as _private_router, private_only as _private_only  # noqa: E402
+
+app.include_router(_private_router)
 
 _platform_api_kur(_platform_kimlik)
 app.include_router(_platform_router)
@@ -289,6 +292,9 @@ def _kimlik(request: Request):
     if account:
         kullanici_kur(account)
         return account
+
+    if _private_only():
+        return _token_kimligi(request)
 
     if _preview_mi():
         kid = _preview_kimligi(request)
@@ -779,6 +785,10 @@ async def kimlik_hazirla(request: Request):
                              'basak_id': account, 'kayit_gerekli': False},
                             headers={'Cache-Control': 'no-store'})
 
+    if _private_only():
+        return JSONResponse({'error':'Başak’ı sana verilen özel bağlantıyla açmalısın'},
+                            status_code=401,headers={'Cache-Control':'no-store'})
+
     if _preview_mi():
         kid = _preview_kimligi(request) or ("p" + uuid.uuid4().hex[:16])
         kullanici_kur(kid)
@@ -1059,6 +1069,8 @@ async def sohbet(request: Request):
         return JSONResponse({'error': 'Istek bir JSON nesnesi olmali'}, status_code=400)
     metin = str((body or {}).get("metin") or "").strip()
     account = _platform_kimlik(request)
+    if _private_only() and body.get('misafir'):
+        return JSONResponse({'error': 'Ozel baglanti kalici gorevlerle calisir. Misafir modunu kapatin.'}, status_code=400)
     if account and not (body or {}).get('misafir'):
         from chat.platform_api import chat_response, _mutation_origin_ok
         if not _mutation_origin_ok(request):

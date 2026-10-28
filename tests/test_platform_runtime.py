@@ -32,6 +32,24 @@ def test_tenant_isolation_in_every_read_and_mutation(store):
     assert store.list("bob") == []
 
 
+def test_events_are_fenced_at_the_same_transaction_that_writes_them(store):
+    from chat.platform_runtime import Control, RunCancelled
+    now=[1000.0]
+    store.clock=lambda:now[0]
+    run=create(store)
+    old=store.claim('old',lease_seconds=10)['lease']
+    now[0]+=11
+    current=store.claim('new',lease_seconds=60)['lease']
+    with pytest.raises(LeaseLost):
+        store.append_event('alice',run['id'],'late',{'text':'stale output'},lease=old)
+    assert not any(e['type']=='late' for e in store.events('alice',run['id']))
+    Control(store,current).event('current',{'text':'full output'})
+    assert store.events('alice',run['id'])[-1]['type']=='current'
+    store.cancel('alice',run['id'])
+    with pytest.raises(RunCancelled):
+        Control(store,current).event('late',{'text':'after cancellation'})
+
+
 def test_idempotent_submit_rejects_changed_payload(store):
     first = create(store, request_key="r1")
     assert create(store, request_key="r1")["id"] == first["id"]
@@ -416,13 +434,17 @@ def test_only_three_siblings_run_at_once_and_queued_fourth_resumes(store):
     leases = [store.claim("worker-%d" % i) for i in range(4)]
     assert sum(job is not None for job in leases) == 3
     assert len({job["id"] for job in leases if job}) == 3
-    assert store.get("alice", children[3]["id"])["durum"] == "queued"
+    # Jobs with the same creation timestamp are ordered by ID, not by the
+    # order of this Python list. Verify the remaining job, whichever ID it has.
+    queued = [child for child in children
+              if store.get("alice", child["id"])["durum"] == "queued"]
+    assert len(queued) == 1
     first = next(job for job in leases if job)
     store.record_check(first["lease"], "result_verified", True, {"id": "ok"})
     store.finish(first["lease"], {"answer": "done"})
     resumed = store.claim("next")
     assert resumed is not None
-    assert resumed["id"] == children[3]["id"]
+    assert resumed["id"] == queued[0]["id"]
 
 
 def test_subagent_can_delegate_without_expanding_owner_tools(store):
@@ -465,12 +487,15 @@ def test_three_independent_worker_handlers_run_concurrently_without_fourth(store
                        for i in range(3)]
             for _ in range(3):
                 assert started.acquire(timeout=8), "Three workers did not begin concurrently"
-            assert store.claim("fourth-worker", run_id=children[3]["id"]) is None
+            queued = [child for child in children
+                      if store.get("alice", child["id"])["durum"] == "queued"]
+            assert len(queued) == 1
+            assert store.claim("fourth-worker", run_id=queued[0]["id"]) is None
             assert sum(store.get("alice", r["id"])["durum"] == "running" for r in children) == 3
             release.set()
             assert all(f.result(timeout=10) for f in futures)
-        last = store.claim("fourth-worker", run_id=children[3]["id"])
-        assert last is not None and last["id"] == children[3]["id"]
+        last = store.claim("fourth-worker", run_id=queued[0]["id"])
+        assert last is not None and last["id"] == queued[0]["id"]
     finally:
         release.set()
 

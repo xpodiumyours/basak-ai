@@ -125,17 +125,23 @@ def _json(value, status=200):
 
 async def chat_response(request, user, body, history):
     """Persist an account chat turn; HTTP only observes the existing worker."""
+    from chat.private_access_api import private_only
+    strict = private_only()
     if not _mutation_origin_ok(request):
         raise HTTPException(403, 'Bu hesap islemi ayni kaynaktan yapilmali')
     enabled = _durable_acik()
     key = request.headers.get('Idempotency-Key')
     if not enabled and not key:
+        if strict:
+            raise HTTPException(503, 'Kalici gorev sistemi kapali; is baslatilmadi')
         return None
     # A database failure cannot prove that a previously submitted write did
     # not happen. Propagate it; never replay an ambiguous request in legacy.
     store = _store()
     previous = _call(store.request_run, user, 'personal', key)
     if not previous and (body.get('kosu_id') or body.get('yonlendirme_baglami')):
+        if strict:
+            raise HTTPException(409, 'Bu eski gorev otomatik yeniden baslatilamaz; onceki sonucu kontrol edin')
         return None  # Continue an existing legacy run in its original engine.
     from chat.agent_runtime import normalize_tool_policy
     text = str(body.get('metin') or '').strip()
@@ -174,8 +180,10 @@ async def chat_response(request, user, body, history):
     try:
         run = store.create(user, 'personal', text or 'Bu goruntuyu acikla.',
                            kind='chat', context=context, request_key=key,
-                           require_worker=True, allow_legacy=True, durable_enabled=enabled)
+                           require_worker=True, allow_legacy=not strict, durable_enabled=enabled)
     except WorkerUnavailable:
+        if strict:
+            raise HTTPException(503, 'Gorev iscisine ulasilamiyor; is baslatilmadi')
         return None  # Transaction rolled back; no durable work has started.
     except Conflict as exc:
         raise HTTPException(409, str(exc)) from exc
@@ -184,6 +192,8 @@ async def chat_response(request, user, body, history):
     except Unavailable as exc:
         raise HTTPException(503, str(exc)) from exc
     if run is None:
+        if strict:
+            raise HTTPException(503, 'Kalici gorev baslatilamadi')
         return None
     rid = run['id']
     durable_event = {'istek': rid, 'tur': 'durableRun', 'kosu_id': rid,

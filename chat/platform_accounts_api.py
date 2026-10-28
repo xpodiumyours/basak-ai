@@ -85,7 +85,9 @@ async def account_status(request: Request):
 
 @router.post("/api/hesap/cikis")
 async def account_logout(request: Request):
-    if not _origin_ok(request):
+    from chat.platform_api import _mutation_origin_ok
+    private = (request.cookies.get(COOKIE) or '').startswith('p1.')
+    if not (_mutation_origin_ok(request) if private else _origin_ok(request)):
         return _error("Istek kaynagi gecersiz", 403)
     try:
         token = request.cookies.get(COOKIE)

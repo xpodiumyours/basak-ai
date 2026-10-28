@@ -5,6 +5,8 @@ use the same Brain, native tool protocol and ``arac_dongusu`` as normal chat.
 https://www.kimi.com/code/docs/en/kimi-code-cli/customization/agents.html
 """
 import json
+import time
+import copy
 
 from chat.platform_context import ExecutionContext, bound
 
@@ -29,6 +31,19 @@ CLOUD_TOOLS = READ_TOOLS | frozenset((
     'write_file_tool', 'add_task', 'complete_task', 'update_task_status',
     'hatirlatma_kur', 'hatirlatma_sil',
 ))
+
+
+def execution_catalog(permissions):
+    """Expose real callable tool names in the delegated-tool parameter schema."""
+    from tools import TOOLS
+    catalog = [copy.deepcopy(t) for t in TOOLS if t['function']['name'] in permissions]
+    names = sorted(t['function']['name'] for t in catalog)
+    for declaration in catalog:
+        if declaration['function']['name'] == 'alt_ajan':
+            fields = declaration['function']['parameters']['properties']['isler']['items']['properties']
+            fields['araclar']['items']['enum'] = names
+            fields['kabul']['items']['properties']['tool']['enum'] = names
+    return catalog
 
 
 def _connection_meta(args, ctx):
@@ -114,16 +129,43 @@ class _Events:
     def __init__(self, control):
         self.control, self.istek = control, control.lease.run_id
         self.answer, self.provider, self.error = '', '', ''
+        self._pieces, self._piece_size = [], 0
+        self._piece_started = None
+        self._cancel_checked = None
+
+    def _check_text_cancel(self):
+        now = time.monotonic()
+        if self._cancel_checked is None or now - self._cancel_checked >= 0.25:
+            self.control.check_cancelled()
+            self._cancel_checked = time.monotonic()
+
+    def flush(self):
+        if not self._pieces:
+            return
+        self.control.check_cancelled()
+        self._cancel_checked = time.monotonic()
+        self.control.event('chat', {'tur': 'parca', 'metin': ''.join(self._pieces)})
+        self._pieces, self._piece_size, self._piece_started = [], 0, None
 
     def __call__(self, javascript):
         # Existing core UI emissions are parsed as data; never evaluated.
-        self.control.check_cancelled()
         if not isinstance(javascript, str):
             return
         if not javascript.startswith('BasakUI.') or not javascript.endswith(')'):
             return
         name, raw = javascript[8:-1].split('(', 1)
         values = json.loads('[' + raw + ']')
+        if name == 'parca' and len(values) == 1 and isinstance(values[0], str):
+            self._check_text_cancel()
+            if self._piece_started is None:
+                self._piece_started = time.monotonic()
+            self._pieces.append(values[0])
+            self._piece_size += len(values[0])
+            if self._piece_size >= 1024 or time.monotonic() - self._piece_started >= 0.15:
+                self.flush()
+            return
+        self.flush()
+        self.control.check_cancelled()
         payload = {'tur': name}
         if name == 'bitir':
             self.answer = values[0] if values else ''
@@ -137,6 +179,8 @@ class _Events:
         self.control.event('chat', payload)
 
     def olay(self, type_, **payload):
+        self.flush()
+        self.control.check_cancelled()
         payload.pop('_handoff', None)
         self.control.event(type_, payload)
         if type_ == 'runState' and payload.get('provider'):
@@ -249,7 +293,7 @@ def execute_job(job, control, brain=None):
         return {'status': 'blocked', 'reason': str(exc)}
     with bound(ctx), model_selection(provider, model):
         control.check_cancelled()
-        catalog = [t for t in TOOLS if t['function']['name'] in permissions]
+        catalog = execution_catalog(permissions)
         saved = job.get('continuation') or {}
         callback = _Events(control)
         context = job.get('context') or {}
@@ -258,14 +302,21 @@ def execute_job(job, control, brain=None):
             # Child history is explicit and independent from the owner's chat.
             history = context.get('history', [] if job.get('parent_id') else None)
             task_context = context.get('task_context')
+            if job.get('parent_id') and job.get('acceptance'):
+                # These are the parent's actual delegated requirements, not
+                # instructions invented by the executor. Preserve all fields.
+                task_context = json.dumps({'task_context': task_context,
+                                           'acceptance': job['acceptance']},
+                                          ensure_ascii=False)
             if task_context and not saved.get('messages'):
                 history = [*(history or []), {'role': 'user', 'content': str(task_context)}]
             children = control.store.tree(user, job['id']).get('children', [])
             if children and saved.get('messages') and not saved.get('tool_calls'):
+                from chat.platform_runtime import delegated_result
                 saved = {**saved, 'messages': [dict(m) for m in saved['messages']]}
                 for message in reversed(saved['messages']):
                     if message.get('role') == 'tool' and message.get('name') == 'alt_ajan_sonuclari':
-                        message['content'] = json.dumps({'children': children}, ensure_ascii=False)
+                        message['content'] = json.dumps({'children': [delegated_result(child) for child in children]}, ensure_ascii=False)
                         break
             instruction = job['istek']
             attachment = context.get('attachment')
@@ -296,6 +347,7 @@ def execute_job(job, control, brain=None):
                        tool_policy=context.get('tool_policy', 'auto'),
                        tercih=saved.get('provider') or ([provider] if provider else None),
                        tazele=bool(context.get('tazele')))
+            callback.flush()
             if callback.error:
                 return {'status': 'failed', 'reason': callback.error}
             control.artifact('answer', title='Basak sonucu', content=callback.answer,
