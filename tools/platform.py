@@ -1,8 +1,11 @@
 """Model-selected cloud tools bound to an authenticated durable run."""
 import json
+import logging
 import os
 
 from chat.platform_context import require
+
+logger = logging.getLogger(__name__)
 
 NAMES = frozenset(('ajan_modelleri', 'alt_ajan', 'alt_ajan_sonuclari',
                    'baglanti_liste', 'baglanti_araclari', 'baglanti_cagir',
@@ -24,8 +27,36 @@ def models(brain):
 
 
 def selection(brain, ref):
-    ref = str(ref or 'primary')
-    found = next((m for m in models(brain) if m['id'] == ref), None)
+    """Model referansini (saglayici, model) ciftine cevirir.
+
+    Roller ortam degiskeniyle tanimlanir; kod hangi modelin "iyi"
+    olduguna karar vermez:
+      BASAK_KOMUTAN_MODEL=groq:llama-...  (kok gorev / sohbet)
+      BASAK_ISCI_MODEL=groq:gpt-oss-...   (alt ajanlar)
+    Tanimli degilse ucretsiz havuzun varsayilan secimi kullanilir.
+    """
+    ref = str(ref or 'primary').strip()
+    # Serbest modeller model adini kendi uydurur ("default", "auto"). Bunlar
+    # "ozel model secilmedi" demektir; gecersiz sayip alt ajani kilitlemek
+    # yerine havuzun varsayilan secimine donulur. Eslesme disinda model
+    # kimliginin harf duyarliligi KORUNUR.
+    if ref.lower() in ('', 'primary', 'default', 'auto', 'automatic',
+                       'otomatik', 'varsayilan', 'varsayılan'):
+        ref = 'primary'
+    rol = {'komutan': 'BASAK_KOMUTAN_MODEL', 'isci': 'BASAK_ISCI_MODEL'}.get(ref)
+    if rol:
+        ham = (os.environ.get(rol) or '').strip()
+        if not ham:
+            return ('', '')
+        ref = ham
+    mevcut = models(brain)
+    found = next((m for m in mevcut if m['id'] == ref), None)
+    if found is None and rol:
+        # Rol tanimli ama havuzda yok: yanlis yazilmis ortam degiskeni tum
+        # alt ajanlari kilitlemesin. Sessiz degil — uyari loglanir.
+        logger.warning("%s gecersiz (%r); varsayilan secime donuluyor",
+                       rol, ref)
+        return ('', '')
     if found is None:
         raise ValueError('Model secimi kullanilabilir ucretsiz havuzda yok')
     return ('', '') if ref == 'primary' else (found['provider'], found['model'] if ':' in ref else '')
@@ -64,7 +95,7 @@ def execute(name, args):
         for job in jobs:
             if not isinstance(job, dict) or not str(job.get('gorev') or '').strip():
                 raise ValueError('Her alt gorev aciklamasi gerekli')
-            selection(ctx.brain, job.get('model_ref', 'primary'))
+            selection(ctx.brain, job.get('model_ref', 'isci'))
             allowed = job.get('araclar')
             if allowed is not None and (not isinstance(allowed, list) or not all(
                     isinstance(t, str) for t in allowed)):
@@ -75,9 +106,9 @@ def execute(name, args):
         for i, job in enumerate(jobs):
             request_key = '%s:%s:%s' % (ctx.run_id, ctx.tool_call_id, i)
             created.append(store.create(ctx.user_id, ctx.workspace_id, job['gorev'],
-                parent_id=ctx.run_id, model_ref=job.get('model_ref', 'primary'),
+                parent_id=ctx.run_id, model_ref=job.get('model_ref', 'isci'),
                 dependencies=job.get('bagimliliklar', []),
-                allowed_tools=job.get('araclar'), acceptance=job.get('kabul'),
+                allowed_tools=job.get('araclar'), acceptance=job.get('kabul') or None,
                 context={'task_context': job.get('baglam', '')}, request_key=request_key))
         return {'result': [{'id': j['id'], 'durum': j['durum']} for j in created]}
     if name == 'alt_ajan_sonuclari':

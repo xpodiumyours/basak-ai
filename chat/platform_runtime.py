@@ -603,6 +603,17 @@ class RuntimeStore:
             deps = [self._require(tx, meta["user_id"], rid) for rid in _read(meta["waiting"], [])]
             if deps and all(d["durum"] in SETTLED for d in deps):
                 self._status(tx, self._require(tx, meta["user_id"], meta["run_id"]), "queued")
+        # Cocuklari hala calisirken biten ust gorev `verifying`te kalir.
+        # Cocuklar kapandiginda burada yeniden degerlendirilir; aksi halde
+        # kosu kalici olarak yarim gorunur ve UI "surdurulebilir" der.
+        verifying = tx.rows(
+            "SELECT m.run_id,m.user_id FROM basak_platform_run m "
+            "JOIN basak_kosu r ON r.id=m.run_id WHERE r.durum='verifying'")
+        for meta in verifying:
+            row = self._require(tx, meta["user_id"], meta["run_id"])
+            state = self._otomatik_durum(tx, row, str(row.get("cevap") or ""))
+            if state != "verifying":
+                self._status(tx, row, state, "")
 
     def claim(self, worker_id, lease_seconds=60, run_id=None):
         worker_id = _key(worker_id, "worker_id")
@@ -778,6 +789,37 @@ class RuntimeStore:
                 raise NotFound("Çıktı bulunamadı")
             return _read(found["data"], {})
 
+    def _otomatik_durum(self, tx, row, answer):
+        """Kabul kosullari ve alt gorevlere gore nihai durumu hesaplar.
+
+        `finish` ve `_recover` ayni kurali kullanir: bir ust gorev, alt
+        gorevleri hala calisirken biterse `verifying`te kalir; cocuklar
+        kapandiginda yeniden degerlendirilmeden sonsuza kadar orada
+        kalirdi.
+        """
+        required = {c["id"] for c in _read(row["spec"], {}).get("acceptance", [])}
+        checks = {r["check_id"]: bool(r["ok"]) for r in tx.rows(
+            "SELECT check_id,ok FROM basak_platform_check WHERE run_id=%s", (row["id"],))}
+        actions = tx.rows("SELECT status,ok FROM basak_platform_action WHERE run_id=%s",
+                          (row["id"],))
+        children = tx.rows("SELECT r.durum FROM basak_platform_run m "
+                           "JOIN basak_kosu r ON r.id=m.run_id WHERE m.parent_id=%s",
+                           (row["id"],))
+        if any(a["status"] == "uncertain" for a in actions):
+            return "uncertain"
+        if any(a["status"] != "completed" for a in actions):
+            return "verifying"
+        if (any(not a["ok"] for a in actions)
+                or any(not value for value in checks.values())
+                or any(c["durum"] in SETTLED - {"completed"} for c in children)):
+            return "partial"
+        if children and any(c["durum"] != "completed" for c in children):
+            return "verifying"
+        if answer and required and required.issubset(checks) and all(
+                checks[x] for x in required):
+            return "completed"
+        return "verifying"
+
     def finish(self, lease, outcome):
         with self.transaction() as tx:
             row = self._lease(tx, lease)
@@ -791,21 +833,7 @@ class RuntimeStore:
             elif requested in {"awaiting_connection", "blocked", "paused", "failed", "partial"}:
                 state = requested
             else:
-                required = {c["id"] for c in _read(row["spec"], {}).get("acceptance", [])}
-                checks = {r["check_id"]: bool(r["ok"]) for r in tx.rows("SELECT check_id,ok FROM basak_platform_check WHERE run_id=%s", (lease.run_id,))}
-                children = tx.rows("SELECT r.durum FROM basak_platform_run m JOIN basak_kosu r ON r.id=m.run_id WHERE m.parent_id=%s", (lease.run_id,))
-                if any(a["status"] == "uncertain" for a in actions):
-                    state = "uncertain"
-                elif any(a["status"] != "completed" for a in actions):
-                    state = "verifying"
-                elif any(not a["ok"] for a in actions) or any(not value for value in checks.values()) or any(c["durum"] in SETTLED - {"completed"} for c in children):
-                    state = "partial"
-                elif children and any(c["durum"] != "completed" for c in children):
-                    state = "verifying"
-                elif answer and required and required.issubset(checks) and all(checks[x] for x in required):
-                    state = "completed"
-                else:
-                    state = "verifying"
+                state = self._otomatik_durum(tx, row, answer)
             self._status(tx, row, state, str(outcome.get("reason") or ""))
             return self._project(tx, self._require(tx, lease.user_id, lease.run_id))
 

@@ -170,7 +170,11 @@ def validate_acceptance(job, control, workspace):
             answers = [a for a in artifacts if a.get('kind') == 'answer' and a.get('size', 0)]
             evidence = {'call_ids': [r['call_id'] for r in completed],
                         'artifacts': [a['id'] for a in answers]}
-            ok = bool(answers) and (bool(completed) or kind == 'message_recorded') and all(
+            # Arac kullanmayan bir alt gorev de gecerli olabilir: yanit
+            # kaydi varsa ve kaydedilmis hicbir eylem basarisiz degilse
+            # "gozlemlendi" sayilir. Arac beklentisi varsa model bunu
+            # tool_succeeded gibi ayri bir kabul kosuluyla belirtir.
+            ok = bool(answers) and all(
                 r['status'] == 'completed' and r['ok'] for r in rows)
         elif kind == 'file_exists':
             try:
@@ -235,7 +239,12 @@ def execute_job(job, control, brain=None):
                            workspace_root=str(workspace.path), allowed_tools=permissions,
                            control=control, brain=brain)
     try:
-        provider, model = selection(brain, job.get('model_ref'))
+        # Rol -> model eslemesi ortamdan gelir (BASAK_KOMUTAN_MODEL /
+        # BASAK_ISCI_MODEL). Bos model_ref "otomatik" demektir; alt ajanlar
+        # isci rolune, kok gorevler komutan rolune duser.
+        ref = job.get('model_ref') or ('isci' if job.get('parent_id')
+                                       else 'komutan')
+        provider, model = selection(brain, ref)
     except ValueError as exc:
         return {'status': 'blocked', 'reason': str(exc)}
     with bound(ctx), model_selection(provider, model):

@@ -99,6 +99,26 @@ def _call(fn, *args, **kwargs):
         raise HTTPException(503, str(exc)) from exc
 
 
+def _durable_acik():
+    """Kalici sohbet varsayilan olarak acik mi?
+
+    Once yalniz `BASAK_DURABLE_CHAT_ENABLED=true` ile aciliyordu; sonuc:
+    Postgres varken bile sahip hesabi her zaman eski (ExecutionContext'suz)
+    yola dusuyor, `alt_ajan` bu yuzden hic calismiyordu. Artik karar
+    ortamdan degil, kalici deponun GERCEKTEN hazir olmasindan gelir;
+    acikca "false" yazilirsa kapatilir. Isci yoksa `allow_legacy` ayni
+    istegi eski yola dondurur (davranis degismez, is kaybolmaz).
+    """
+    ham = os.environ.get('BASAK_DURABLE_CHAT_ENABLED')
+    if ham is not None:
+        return ham.strip().lower() == 'true'
+    try:
+        from chat import veritabani
+        return veritabani.hazir()
+    except Exception:
+        return False
+
+
 def _json(value, status=200):
     return JSONResponse(value, status_code=status, headers={"Cache-Control": "no-store"})
 
@@ -107,7 +127,7 @@ async def chat_response(request, user, body, history):
     """Persist an account chat turn; HTTP only observes the existing worker."""
     if not _mutation_origin_ok(request):
         raise HTTPException(403, 'Bu hesap islemi ayni kaynaktan yapilmali')
-    enabled = os.environ.get('BASAK_DURABLE_CHAT_ENABLED', '').strip().lower() == 'true'
+    enabled = _durable_acik()
     key = request.headers.get('Idempotency-Key')
     if not enabled and not key:
         return None
@@ -268,7 +288,7 @@ async def submit(request: Request):
         if key in body and not isinstance(body[key], str):
             raise HTTPException(400, key + " metin olmalı")
     store = _store()
-    if os.environ.get('BASAK_DURABLE_CHAT_ENABLED', '').strip().lower() != 'true':
+    if not _durable_acik():
         raise HTTPException(503, 'Kalici calisma henuz etkin degil')
     run = _call(store.create, user, body.get("workspace_id", "personal"),
                 body.get("istek", body.get("instruction", "")),

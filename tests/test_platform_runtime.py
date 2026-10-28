@@ -306,6 +306,30 @@ def test_three_independent_children_claimed_in_parallel(store):
     assert parent["id"] not in claimed
 
 
+def test_parent_verifying_settles_when_children_finish(store):
+    """Ust gorev cocuk bitmeden biterse `verifying`te kilitli kalmamali."""
+    parent = create(store)
+    child = create(store, parent_id=parent["id"])
+    parent_lease = store.claim("parent", run_id=parent["id"])["lease"]
+    store.add_artifact("alice", parent["id"], {
+        "kind": "answer", "title": "yanit", "content": "parent answer"})
+    store.record_check(parent_lease, "result_verified", True,
+                       {"artifact_id": "answer"})
+    store.finish(parent_lease, {"answer": "parent answer"})
+    assert store.get("alice", parent["id"])["durum"] == "verifying"
+
+    child_lease = store.claim("child", run_id=child["id"])["lease"]
+    store.add_artifact("alice", child["id"], {
+        "kind": "answer", "title": "yanit", "content": "child answer"})
+    store.record_check(child_lease, "result_verified", True,
+                       {"artifact_id": "answer"})
+    store.finish(child_lease, {"answer": "child answer"})
+    assert store.get("alice", child["id"])["durum"] == "completed"
+
+    assert store.claim("idle") is None  # Herhangi bir claim kurtarmayi tetikler.
+    assert store.get("alice", parent["id"])["durum"] == "completed"
+
+
 def test_failed_sibling_keeps_other_child_artifact(store):
     parent = create(store)
     ok_child = create(store, parent_id=parent["id"])
