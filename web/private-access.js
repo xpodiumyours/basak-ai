@@ -88,6 +88,7 @@
         try { await api("/ac",{code}); location.replace(location.pathname+location.search); }
         catch(e) {
           help(e.message || "Bağlantı açılamadı. Özel bağlantını yeniden açabilirsin.");
+          throw e;
         }
       }
       await redeem(); return;
@@ -100,7 +101,7 @@
     finally { delete document.documentElement.dataset.privatePending; }
   }
   scope.addEventListener("hashchange", () => {
-    if (new URLSearchParams(location.hash.slice(1)).has("davet")) start();
+    if (new URLSearchParams(location.hash.slice(1)).has("davet")) start().catch(() => {});
   });
   controller.ready = start();
 })(typeof window!=="undefined" ? window : globalThis);
