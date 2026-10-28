@@ -10,6 +10,7 @@ KOK = Path(__file__).resolve().parents[1]
 SETUP = (KOK / 'deploy' / 'oracle' / 'setup.sh').read_text(encoding='utf-8')
 ISCI = (KOK / 'deploy' / 'oracle' / 'basak-isci.service').read_text(encoding='utf-8')
 ENV = (KOK / 'deploy' / 'oracle' / 'basak.env.ornek').read_text(encoding='utf-8')
+UZAK = (KOK / 'deploy' / 'oracle' / 'uzaktan-kur.sh').read_text(encoding='utf-8')
 
 
 def test_dal_sabit_kodlanmaz_ve_varsayilan_main():
@@ -36,3 +37,9 @@ def test_iscinin_ortak_veritabani_gereksinimi_belgelenir():
     assert 'DATABASE_URL=' in ENV
     assert 'platform_isciler' in SETUP
     assert 'DATABASE_URL bos' in SETUP
+
+
+def test_uzaktan_kurulum_dali_ve_kurulumu_iletir():
+    assert 'git reset --hard "origin/$DAL"' in UZAK
+    assert 'deploy/oracle/setup.sh' in UZAK
+    assert 'StrictHostKeyChecking=accept-new' in UZAK

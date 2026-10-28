@@ -106,7 +106,8 @@ senaryo içindir ve varsayılan Oracle kurulumunda kullanılmaz.
 Dağıtım dosyaları: `deploy/oracle/{setup.sh, basak.service, basak-isci.service, Caddyfile, basak.env.ornek}`.
 Güncelleme = sunucuda `sudo bash /opt/basak/deploy/oracle/setup.sh`
 (fetch + reset --hard + pip + restart) — CD yok, elle tetiklenir. Dal
-`BASAK_BRANCH` ile değiştirilebilir; varsayılan `main`.
+`BASAK_BRANCH` ile değiştirilebilir; varsayılan `main`. Uzak makineden
+tek komut: `bash deploy/oracle/uzaktan-kur.sh ubuntu@SUNUCU_IP [anahtar]`.
 
 ## 5. Aşamalar
 
