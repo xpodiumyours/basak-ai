@@ -758,16 +758,23 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
                         if control is not None:
                             control.check_cancelled()
                             with bound(replace(platform_context, tool_call_id=cagri_id)):
-                                from tools.platform import _workspace
-                                workspace = _workspace(platform_context)
-                                workspace.restore(control.store, platform_context.user_id, platform_context.workspace_id)
-                                before_files = workspace.snapshot()
-                                execution_args = args
-                                if ad == 'image_analyze':
-                                    from chat.platform_context import workspace_path
-                                    execution_args = {**args, 'path': str(workspace_path(args.get('path', '')))}
-                                ham = calistir(ad, execution_args)
-                                workspace.publish(platform_context, before_files)
+                                if not platform_context.workspace_root:
+                                    # Ayni-istek (inline) ordu yolu: kalici
+                                    # calisma alani yok, disa dosya kaldirimi
+                                    # yok. Araç aynen calisir; kalici yazim
+                                    # yayinimi yalniz workspace_root'lu zarfta.
+                                    ham = calistir(ad, args)
+                                else:
+                                    from tools.platform import _workspace
+                                    workspace = _workspace(platform_context)
+                                    workspace.restore(control.store, platform_context.user_id, platform_context.workspace_id)
+                                    before_files = workspace.snapshot()
+                                    execution_args = args
+                                    if ad == 'image_analyze':
+                                        from chat.platform_context import workspace_path
+                                        execution_args = {**args, 'path': str(workspace_path(args.get('path', '')))}
+                                    ham = calistir(ad, execution_args)
+                                    workspace.publish(platform_context, before_files)
                         else:
                             ham = calistir(ad, args)
                     except Exception as hata:
