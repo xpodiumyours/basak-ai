@@ -131,3 +131,25 @@ closed until those conditions are met.
 
 Production must remain unmodified until all gates pass; a Vercel READY
 deployment by itself is never a release-acceptance result.
+
+## Oracle 1 GB: systemd ile hafif işçi (varsayılan yol)
+
+Oracle Always Free A1 (1 OCPU / 1 GB) için Docker ve Chromium gerekmez.
+`deploy/oracle/setup.sh` iki systemd servisi kurar:
+
+- `basak.service` — web (uvicorn, 700 MB tavan)
+- `basak-isci.service` — `python -m worker.platform`, 400 MB tavan
+
+İşçi yuvası RAM'e göre seçilir (1 GB → 1, 2 GB → 2, 4 GB → 3). İşçi
+`DATABASE_URL` yoksa başlamaz; bu yüzden `/etc/basak/basak.env` içindeki
+DSN **Vercel Production ile aynı Neon dalını** göstermelidir. Preview DSN'i
+üretim işçisine yazılmaz.
+
+Kabul kanıtı `systemctl is-active` değil, veritabanı kalp atışıdır:
+`/api/durum` → `platform_isciler.canli >= 1` ve `checkpoint_resume: true`.
+Ardından web'den gerçek bir alt ajan görevi açılır, tarayıcı kapatılır ve
+görevin işçi tarafından tamamlandığı görülür.
+
+Bu kurulumda Playwright/Chromium yoktur; `bulut_tarayici` kapalı kalır.
+Tarayıcılı işler `compose.production.yaml` ile ayrı ve daha büyük bir
+işçi sunucusunda çalıştırılır.

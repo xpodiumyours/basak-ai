@@ -1,6 +1,6 @@
 # ORACLE ALWAYS FREE'E TAŞINMA PLANI
 
-Tarih: 2026-09-29 · Durum: **Aşama 0B tamam — Casper'ın Oracle kaydı bekleniyor**
+Tarih: 2026-09-29 · Güncelleme: 2026-10-28 · Durum: **Aşama 0B tamam — kurulum betiği web + kalıcı görev işçisini birlikte kurar; gerçek sunucu bağlantısı bekleniyor**
 Dayanak: `arastirma/gelir-kurallari.md` (yayın sırası 1. adım) + hosting
 araştırması; bu plan `KOYEB-TASINMA-PLANI.md`'nin yerini alır (Koyeb, soğuk
 başlangıç reddi üzerine elendi).
@@ -79,14 +79,34 @@ kriteri yalnız A1'e uygulanır).
 ```
 internet → Caddy :80 (ters vekil, domain gelince otomatik TLS)
          → uvicorn 127.0.0.1:8000 (systemd: basak.service, Restart=always)
-         → /opt/basak (GitHub clone: feat/freetools-koprosu)
+         → /opt/basak (GitHub clone: main)
          → /etc/basak/basak.env (mod 600, sır dosyası — git'e girmez)
          → Neon (dış servis, aynen kalır)
+
+basak-isci.service → python -m worker.platform (ayrı süreç, web'den bağımsız)
+         → aynı DATABASE_URL (Vercel Production ile AYNI Neon dalı)
+         → görev kuyruğu, alt ajanlar, kalp atışı (basak_platform_worker_presence)
 ```
 
-Dağıtım dosyaları: `deploy/oracle/{setup.sh, basak.service, Caddyfile, basak.env.ornek}`.
+**Neden ayrı işçi:** Vercel istek ömürlüdür; uzun süren alt ajan zinciri
+istek bitince ölür. `basak-isci.service` web'den bağımsız çalıştığı için
+görevler tarayıcı kapansa da devam eder. İşçi, Vercel Production ile **aynı
+Neon veritabanını** kullanmalıdır; aksi halde web'e düşen görevleri görmez.
+
+`basak.service` 700 MB, `basak-isci.service` 400 MB tavanla çalışır; 1 GB
+A1'de 2 GB swap emniyet payı verir. İşçi OOM'da önce feda edilir; görev
+kirası dolunca başka bir yuva işi yeniden teslim alır. İşçi yuvası RAM'e
+göre seçilir: 1 GB → 1, 2 GB → 2, 4 GB → 3.
+
+Bu sunucuda Playwright/Chromium **kurulmaz** (1 GB'a sığmaz). `bulut_tarayici`
+aracı bu yüzden kapalı kalır; tarayıcılı işler için ayrı ve daha büyük bir
+işçi gerekir. `deploy/platform-worker/compose.production.yaml` bu ayrı
+senaryo içindir ve varsayılan Oracle kurulumunda kullanılmaz.
+
+Dağıtım dosyaları: `deploy/oracle/{setup.sh, basak.service, basak-isci.service, Caddyfile, basak.env.ornek}`.
 Güncelleme = sunucuda `sudo bash /opt/basak/deploy/oracle/setup.sh`
-(fetch + reset --hard + pip + restart) — CD yok, elle tetiklenir.
+(fetch + reset --hard + pip + restart) — CD yok, elle tetiklenir. Dal
+`BASAK_BRANCH` ile değiştirilebilir; varsayılan `main`.
 
 ## 5. Aşamalar
 
@@ -111,10 +131,12 @@ ARM wheel doğrulaması (48/48); şekil kararı (A1 1/1); SSH anahtarı üretild
 3. Instance public IP bana iletilir.
 
 **Aşama 2 — Kurulum (ben, SSH):**
-`deploy/oracle/` + `setup.sh` çalışır; `/etc/basak/basak.env` doldurulur
+`deploy/oracle/setup.sh` çalışır; `/etc/basak/basak.env` doldurulur
 (`vercel env pull` ile mevcut production değerleri) → `/api/durum` 200 +
-Caddy `http://IP/` 200. **Öncesinde commit izni istenecek** (uvicorn +
-`deploy/` + docs — bekleyenler).
+Caddy `http://IP/` 200. `basak-isci.service` de kurulur; `DATABASE_URL`
+Vercel Production ile aynı olmalıdır. Kabul: `/api/durum` içinde
+`platform_isciler.canli >= 1` ve `checkpoint_resume: true`. Sonra gerçek
+bir alt ajan görevi web'den açılır, tarayıcı kapatılır, işçi tamamlar.
 
 **Aşama 3 — Canlı doğrulama (ben):**
 Aynı 10 madde yayın testi (özet/ucu açık); **soğuk başlangıç ölçümü YOK**

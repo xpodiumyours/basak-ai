@@ -1,0 +1,29 @@
+[Unit]
+Description=Basak kalici gorev iscisi (platform worker)
+Documentation=https://github.com/xpodiumyours/basak-ai/tree/main/deploy/platform-worker
+After=network-online.target
+Wants=network-online.target
+# Web servisi yeniden baslasa da isci bagimsiz calismaya devam eder.
+
+[Service]
+Type=simple
+User=basak
+Group=basak
+WorkingDirectory=/opt/basak
+EnvironmentFile=/etc/basak/basak.env
+# 1 GB A1 icin tek yuva; daha buyuk sunucuda setup.sh bunu yukseltir.
+ExecStart=/opt/basak/.venv/bin/python -m worker.platform --concurrency 1 --poll-seconds 2 --lease-seconds 90
+Restart=always
+RestartSec=10
+# Isci web'den once feda edilsin: is kirasi zaten yeniden teslim edilir.
+OOMScoreAdjust=200
+MemoryMax=400M
+MemoryHigh=320M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/opt/basak/data
+
+[Install]
+WantedBy=multi-user.target

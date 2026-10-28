@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
 # Basak — Oracle Always Free kurulum/guncelleme betigi
-# Hedef: Ubuntu 24.04 (aarch64), VM.Standard.A1.Flex 1 OCPU / 1 GB
+# Hedef: Ubuntu 24.04 (aarch64), VM.Standard.A1.Flex
 # Kullanim:  sudo bash setup.sh
 # Idempotent: tekrar calistirmak guvenlidir (kod guncellemesi de boyle yapilir).
+#
+# Iki servis kurar:
+#   basak.service       -> web (uvicorn)
+#   basak-isci.service  -> kalici gorev iscisi (worker.platform)
+# Isci, web'in istek omrunden bagimsiz calisir; orduyu ayakta tutan parca budur.
 
 set -euo pipefail
 
 APP_DIR=/opt/basak
 APP_USER=basak
 REPO=https://github.com/xpodiumyours/basak-ai.git
-BRANCH=feat/freetools-koprosu
+# Dal artik ortamdan degistirilebilir; varsayilan uretim dali.
+BRANCH="${BASAK_BRANCH:-main}"
 ENV_SRC="$APP_DIR/deploy/oracle/basak.env.ornek"
 ENV_DST=/etc/basak/basak.env
 
@@ -46,7 +52,7 @@ mkdir -p /etc/basak
 if [ ! -f "$ENV_DST" ]; then
   install -m 600 "$ENV_SRC" "$ENV_DST"
   echo "DIKKAT: $ENV_DST ornekten kopyalandi." >&2
-  echo "  Sirlari doldurun, sonra:  systemctl restart basak" >&2
+  echo "  Sirlari doldurun, sonra:  systemctl restart basak basak-isci" >&2
 fi
 
 # ── 5) Kalici state dizini + yetkiler ───────────────────────────────
@@ -65,10 +71,27 @@ fi
 
 # ── 7) Servisler (systemd + Caddy ters vekili) ──────────────────────
 install -m 644 "$APP_DIR/deploy/oracle/basak.service" /etc/systemd/system/basak.service
+install -m 644 "$APP_DIR/deploy/oracle/basak-isci.service" /etc/systemd/system/basak-isci.service
 install -m 644 "$APP_DIR/deploy/oracle/Caddyfile" /etc/caddy/Caddyfile
+
+# Isci yuvasi sunucunun gercek belleğine gore secilir. 1 GB A1'de 1 yuva;
+# 2 GB ve uzerinde 2 yuva (her yuva ayri bir gorev calistirir).
+MEM_MB=$(awk '/^MemTotal:/{print int($2/1024)}' /proc/meminfo)
+GOREV_YUVASI=1
+if [ "$MEM_MB" -ge 1800 ]; then GOREV_YUVASI=2; fi
+if [ "$MEM_MB" -ge 3600 ]; then GOREV_YUVASI=3; fi
+install -d -m 755 /etc/systemd/system/basak-isci.service.d
+cat > /etc/systemd/system/basak-isci.service.d/yuva.conf <<EOF
+[Service]
+ExecStart=
+ExecStart=$APP_DIR/.venv/bin/python -m worker.platform --concurrency $GOREV_YUVASI --poll-seconds 2 --lease-seconds 90
+EOF
+echo "gorev iscisi: ${MEM_MB} MB RAM -> $GOREV_YUVASI eszamanli yuva"
+
 systemctl daemon-reload
-systemctl enable --now basak caddy unattended-upgrades
+systemctl enable --now basak caddy unattended-upgrades basak-isci
 systemctl restart basak caddy
+systemctl restart basak-isci
 
 # ── 8) Canli dogrulama ──────────────────────────────────────────────
 echo "-- bekleniyor (import ~5-15 sn) --"
@@ -78,4 +101,24 @@ for _ in $(seq 1 40); do
 done
 echo "uvicorn :8000/api/durum -> $(curl -fsS -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/durum || echo YOK)"
 echo "caddy   :80/            -> $(curl -fsS -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1/ || echo YOK)"
-echo "gunluk: journalctl -u basak -f"
+
+# Isci kalp atisi: veritabanina yazan gercek kanit. Kalp atisi 10 sn'de bir,
+# esik 30 sn; bu yuzden en az 12 sn beklenir.
+sleep 12
+echo "isci servisi            -> $(systemctl is-active basak-isci || true)"
+TOKEN=$(sed -n 's/^BASAK_WEB_TOKEN=//p' "$ENV_DST" | tail -1)
+if [ -n "$TOKEN" ]; then
+  curl -fsS -m 5 -H "X-Basak-Token: $TOKEN" http://127.0.0.1:8000/api/durum \
+    | "$APP_DIR/.venv/bin/python" -c \
+      'import json,sys; d=json.load(sys.stdin); p=d.get("platform_isciler") or {}; print("platform iscisi canli ->", p.get("canli"), "| checkpoint_resume ->", d.get("checkpoint_resume"))' \
+    || echo "isci durumu okunamadi (web kapisi kapali olabilir)"
+else
+  echo "BASAK_WEB_TOKEN bos: isci durumu API'den okunamaz." >&2
+fi
+
+if ! grep -q '^DATABASE_URL=.\+' "$ENV_DST"; then
+  echo "UYARI: DATABASE_URL bos. Isci ortak Postgres olmadan BASLAMAZ." >&2
+  echo "  Vercel Production ile AYNI DSN yazilmali; yoksa gorevler kuyrukta kalir." >&2
+fi
+
+echo "gunluk: journalctl -u basak -f  |  journalctl -u basak-isci -f"
