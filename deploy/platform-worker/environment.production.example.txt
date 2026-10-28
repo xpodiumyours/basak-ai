@@ -1,0 +1,16 @@
+# Copy to .env.production on the worker host. Never commit the real file.
+# Invoke with: docker compose --env-file .env.production -f compose.production.yaml config
+# Then, ONLY AFTER actual Production readiness approval, build/up.
+#
+# Must match the existing Vercel Production database TARGET exactly.
+# Never copy a Preview DSN here; verify host/database/Neon branch and role.
+BASAK_PRODUCTION_DATABASE_URL=
+# Must match the Vercel Production connection encryption key byte for byte.
+BASAK_CONNECTION_KEY=
+# Only provider credentials that are approved for the Production worker.
+GROQ_API_KEY=
+GEMINI_API_KEY=
+OPENROUTER_API_KEY=
+# Existing gateway remains optional and unchanged.
+FREELLMAPI_URL=
+FREELLMAPI_API_KEY=

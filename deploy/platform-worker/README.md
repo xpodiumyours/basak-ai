@@ -85,3 +85,49 @@ kalıcı olarak yarım görünmez.
 GitHub CI testi, farklı PostgreSQL bağlantılarından işçi kaydının
 görüldüğünü doğrular. Bu, **uzak sunucuya gerçek işçi kurulduğunun
 kanıtı değildir**: Preview görev kabulünde ayrı canlı kanıt aranır.
+
+## Production worker candidate (not yet deployed)
+
+Do **not** reuse the Preview Compose command for Production. The separate
+`compose.production.yaml` uses the `basak-agent-production` Compose project,
+an independent state volume, `VERCEL_ENV=production`, and a required explicit
+`BASAK_PRODUCTION_DATABASE_URL`. No public worker port or Docker socket is
+exposed. It does not deploy itself or enable persistent web chat.
+
+Before touching a server:
+
+1. Verify the **actual existing Oracle** instance CPU, memory, architecture
+   and OS, plus authorized SSH/console access. The Compose default requests
+   2 CPUs and 3 GB RAM; do not assume an Always Free instance can satisfy it.
+2. Verify the existing Production Vercel database target and Neon branch
+   against the Production worker target (including endpoint, database and
+   least-privilege role). Make sure Preview and Production are distinct.
+3. Run full CI, OAuth/login, a real Chromium/subagent task, file artifact,
+   refresh and restart/resume acceptance **on isolated Preview first**.
+4. After those succeed, create the real worker host's `.env.production` from
+   `environment.production.example.txt`, using an approved secrets channel.
+   Never put credentials in Git, chat, shell history or terminal screenshots.
+5. The Production candidate may be inspected without launching it:
+   `docker compose --env-file .env.production -f compose.production.yaml config --quiet`.
+   For sensitive settings, do not print the expanded config.
+6. Run the read-only preflight *inside the configured worker container* only
+   when infrastructure approval is complete:
+   `docker compose --env-file .env.production -f compose.production.yaml run --rm --entrypoint python agent -m tools.platform_release_preflight --environment production --role worker`.
+   This runs SELECT queries and requires a recent worker heartbeat; a newly
+   created stopped worker naturally fails that check. **It is a verification,
+   not an install or startup command.**
+7. Only after explicit rollout authorization, start the worker, repeat the
+   read-only preflight and authenticated end-to-end acceptance. Enable
+   `BASAK_DURABLE_CHAT_ENABLED=true` in Vercel Production **last**. Rebuild
+   Production with the intended environment, run post-release checks and
+   retain the previous working deployment for rollback.
+
+The preflight's exit code zero is **not** proof of the three required real
+user journeys. The script checks configuration, table existence and a real
+worker heartbeat without logging DSNs or secrets. Run it with
+`--environment preview --role web` in a securely configured Preview web
+environment when the preview worker/login/feature flag are ready. It fails
+closed until those conditions are met.
+
+Production must remain unmodified until all gates pass; a Vercel READY
+deployment by itself is never a release-acceptance result.

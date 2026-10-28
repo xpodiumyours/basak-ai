@@ -1,0 +1,39 @@
+# Production-only worker candidate. Do not apply until Preview E2E acceptance passes.
+# Separate Compose project, env file and volume prevent Preview/Production overlap.
+name: basak-agent-production
+
+services:
+  agent:
+    build:
+      context: ../..
+      dockerfile: deploy/platform-worker/Dockerfile
+    image: basak-agent-platform:production
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env.production
+    environment:
+      VERCEL_ENV: "production"
+      # Do not inherit any Preview DSN, even if host environment has one.
+      BASAK_PREVIEW_DATABASE_URL: ""
+      # Require an explicit, separately verified Production database URL.
+      DATABASE_URL: ${BASAK_PRODUCTION_DATABASE_URL:?Production Neon database URL must be set}
+      BASAK_STATE_DIR: /home/basak/state
+      BASAK_URETIM: "1"
+      BASAK_BROWSER_ISOLATED: "1"
+    volumes:
+      - agent-state-production:/home/basak/state
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=512m
+    shm_size: "1gb"
+    mem_limit: 3g
+    cpus: 2
+    stop_grace_period: 60s
+
+volumes:
+  agent-state-production:
