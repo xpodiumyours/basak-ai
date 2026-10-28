@@ -114,20 +114,14 @@
       }
       await redeem(); return;
     }
-    let progress = null;
-    const progressTimer = setTimeout(() => {
-      progress = help("Erişim kontrol ediliyor…");
-    }, 650);
+    // Do not turn the private-access notice into a blocking landing screen.
+    // Authentication and private-link enforcement remain unchanged.
     try {
       profile=await api("");
-      if (profile.enabled && !profile.authenticated) help();
       scope.dispatchEvent(new Event("basak:private-ready"));
     } catch {
       unavailable = true;
-      help("Başak’a şu anda ulaşılamıyor. Bağlantını kontrol edip sayfayı yenile.");
     } finally {
-      clearTimeout(progressTimer);
-      if (progress) { progress.close(); progress.remove(); }
       delete document.documentElement.dataset.privatePending;
     }
   }
