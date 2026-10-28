@@ -84,21 +84,7 @@ async function kimlikHazirla(zorla = false) {
     throw e;
   }
 }
-// Private-link startup must settle before asking for a session identity.
-// Locked or in-flight invitations are handled by private-access.js, not an
-// anonymous identity request which the server correctly rejects with 401.
-window.basakKimlikHazir = (async () => {
-  const access = window.BasakPrivateAccess;
-  if (access && access.ready) {
-    await access.ready;
-    if (document.documentElement.dataset.privatePending === "true" ||
-        access.unavailable || (access.enabled && !access.authenticated)) {
-      // The modal handles access and retries; a redeemed invite reloads.
-      return new Promise(() => {});
-    }
-  }
-  return kimlikHazirla();
-})();
+window.basakKimlikHazir = kimlikHazirla();
 
 window.basakFetch = async (yol, secenek = {}) => {
   if (yol !== "/api/kimlik") await window.basakKimlikHazir;

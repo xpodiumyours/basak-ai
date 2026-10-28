@@ -2,25 +2,16 @@
   "use strict";
   if (typeof document === "undefined") return;
   let profile = { enabled: false, authenticated: false, owner: false };
-  let unavailable = false;
   const element = (tag, text) => { const n = document.createElement(tag); if (text) n.textContent = text; return n; };
   async function api(path, body) {
-    const abort = new AbortController();
-    const timeout = setTimeout(() => abort.abort(), 12000);
-    try {
-      const r = await fetch("/api/ozel-erisim" + path, {
-        method: body === undefined ? "GET" : "POST", credentials: "same-origin",
-        headers: body === undefined ? {} : {"Content-Type":"application/json"},
-        body: body === undefined ? undefined : JSON.stringify(body), cache:"no-store",
-        signal: abort.signal
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || data.detail || "İşlem tamamlanamadı.");
-      return data;
-    } catch (e) {
-      if (e && e.name === "AbortError") throw new Error("Bağlantı zaman aşımına uğradı. Yeniden dene.");
-      throw e;
-    } finally { clearTimeout(timeout); }
+    const r = await fetch("/api/ozel-erisim" + path, {
+      method: body === undefined ? "GET" : "POST", credentials: "same-origin",
+      headers: body === undefined ? {} : {"Content-Type":"application/json"},
+      body: body === undefined ? undefined : JSON.stringify(body), cache:"no-store"
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || data.detail || "İşlem tamamlanamadı.");
+    return data;
   }
   function dialog(title, locked) {
     const box = element("dialog"); box.className = "private-dialog";
@@ -79,9 +70,7 @@
     });
     try { await refresh(); input.focus(); } catch(e) { feedback.textContent=e.message; }
   }
-  const controller={get enabled(){return profile.enabled;},
-    get authenticated(){return profile.authenticated;},
-    get unavailable(){return unavailable;}, openHelp:help,
+  const controller={get enabled(){return profile.enabled;}, openHelp:help,
     decorate(container) {
       if (profile.owner) {
         const button=element("button", "Paylaştığım kişiler"); button.type="button"; button.className="workspace-text-button";
@@ -100,13 +89,7 @@
       history.replaceState(null,"",location.pathname+location.search);
       const box=help("Özel bağlantın açılıyor…");
       async function redeem() {
-        try {
-          await api("/ac",{code});
-          // Check that the mobile browser actually retained the session.
-          const session = await api("");
-          if (!session.authenticated) throw new Error("Oturum doğrulanamadı. Tarayıcında çerezlere izin verip tekrar dene.");
-          location.replace(location.pathname+location.search);
-        }
+        try { await api("/ac",{code}); location.replace(location.pathname+location.search); }
         catch(e) {
           box.replaceChildren(element("h2","Bağlantı açılamadı"),element("p",e.message));
           const retry=element("button","Tekrar dene"); retry.addEventListener("click",redeem); box.append(retry);
@@ -114,16 +97,12 @@
       }
       await redeem(); return;
     }
-    // Do not turn the private-access notice into a blocking landing screen.
-    // Authentication and private-link enforcement remain unchanged.
     try {
       profile=await api("");
+      if (profile.enabled && !profile.authenticated) help();
       scope.dispatchEvent(new Event("basak:private-ready"));
-    } catch {
-      unavailable = true;
-    } finally {
-      delete document.documentElement.dataset.privatePending;
-    }
+    } catch { help("Başak’a şu anda ulaşılamıyor. Biraz sonra sayfayı yenileyebilirsin."); }
+    finally { delete document.documentElement.dataset.privatePending; }
   }
   scope.addEventListener("hashchange", () => {
     if (new URLSearchParams(location.hash.slice(1)).has("davet")) start();
