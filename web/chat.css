@@ -904,3 +904,12 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   .panel-sil{width:36px;height:36px}
   .eylem-dugme{min-height:40px;padding:9px 15px}
 }
+
+/* Private-link dialog: narrow/mobile viewports and iOS keyboard zoom. */
+@media(max-width:760px){
+  .private-dialog{width:calc(100vw - 24px);max-width:500px;max-height:calc(100dvh - 24px);padding:18px}
+  .private-dialog h2{font-size:20px}
+  .private-dialog input{font-size:16px;min-width:0}
+  .private-dialog p,.private-person{overflow-wrap:anywhere}
+  .private-person{flex-wrap:wrap}
+}
