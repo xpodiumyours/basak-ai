@@ -548,6 +548,61 @@ def test_stream_generator_kapaninca_worker_iptal_bayragi_set_edilir():
     assert asyncio.run(senaryo()) is True
 
 
+def _akis_cerceveleri(olaylar):
+    """Verilen olaylar akildan sonra uretilen NDJSON cerceveleri."""
+    async def senaryo():
+        kuyruk = asyncio.Queue()
+        gorev = asyncio.get_running_loop().create_future()
+        akis = app_modulu._canli_olaylar(kuyruk, gorev, "istek-1")
+        for o in olaylar:
+            kuyruk.put_nowait(dict(o, istek="istek-1"))
+        gorev.set_result(None)
+        cerceveler = []
+        async for cerceve in akis:
+            cerceveler.append(json.loads(cerceve))
+        return cerceveler
+
+    return asyncio.run(senaryo())
+
+
+def test_mola_sonrasi_biten_kosu_yalan_hata_yollamaz():
+    """Mola (checkpoint) kasitli duraklamadir; 'tamamlanmadan bitti' DEGILDIR.
+
+    2026-10-28 OLcUMu: uzun ordu kosusunda 180. saniyede mola vurdu, akis
+    'Basak yaniti tamamlanmadan bitti' hatasi yolladi; web/app.js error
+    olayinda calisma SATIRINI SILIP 'Devam et' kartini yok ediyor. Mola
+    sonrasi biten kosu hata uretmez — kart ayakta kalir.
+    """
+    cerceveler = _akis_cerceveleri([
+        {"tur": "toolDone", "arac": "ajanlar"},
+        {"tur": "checkpoint", "adim": 3},
+        {"tur": "runState", "status": "paused"},
+    ])
+    turler = [c.get("tur") for c in cerceveler]
+    assert turler == ["toolDone", "checkpoint", "runState"], turler
+
+
+def test_mola_olmadan_biten_kosu_hata_ile_biter():
+    """Gerçek kesilme (mola isareti yok) davranisi degismez: acik hata."""
+    cerceveler = _akis_cerceveleri([
+        {"tur": "toolDone", "arac": "ajanlar"},
+    ])
+    turler = [c.get("tur") for c in cerceveler]
+    assert turler == ["toolDone", "error"], turler
+    assert cerceveler[-1]["metin"] == "Basak yaniti tamamlanmadan bitti."
+
+
+def test_bitmis_kosuda_moladan_sonra_ek_hata_yok():
+    """Checkpoint gelse de model sonunda cevap verdiyse akis temiz biter."""
+    cerceveler = _akis_cerceveleri([
+        {"tur": "checkpoint", "adim": 3},
+        {"tur": "bitir", "cevap": "Ozet burada.", "kaynak": "groq"},
+    ])
+    turler = [c.get("tur") for c in cerceveler]
+    assert turler == ["checkpoint", "bitir"], turler
+
+
+
 def test_preview_mobil_dokunmatik_duzen_ve_cache_surumu():
     stil = open("web/chat.css", encoding="utf-8").read()
     html = open("web/index.html", encoding="utf-8").read()

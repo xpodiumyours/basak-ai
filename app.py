@@ -491,6 +491,7 @@ async def _canli_olaylar(kuyruk, gorev, istek, iptal=None):
     """
     gorev.add_done_callback(lambda _g: kuyruk.put_nowait(_AKIS_SON))
     terminal_goruldu = False
+    mola_goruldu = False
 
     try:
         while True:
@@ -507,7 +508,11 @@ async def _canli_olaylar(kuyruk, gorev, istek, iptal=None):
                 continue
 
             if olay is _AKIS_SON:
-                if not terminal_goruldu:
+                # Mola (checkpoint) KASITLI duraklamadir: istemci "Devam
+                # et" kartini olayin kendisiyle zaten gosterdi. Biten
+                # worker icin sahte hata yollanirsa istemci calisma
+                # satirini siler ve kart kaybolur — mola bozulur.
+                if not terminal_goruldu and not mola_goruldu:
                     yield json.dumps(
                         {
                             "istek": istek,
@@ -519,8 +524,11 @@ async def _canli_olaylar(kuyruk, gorev, istek, iptal=None):
                     ) + "\n"
                 return
 
-            if isinstance(olay, dict) and olay.get("tur") in ("bitir", "error"):
-                terminal_goruldu = True
+            if isinstance(olay, dict):
+                if olay.get("tur") in ("bitir", "error"):
+                    terminal_goruldu = True
+                elif olay.get("tur") == "checkpoint":
+                    mola_goruldu = True
 
             yield json.dumps(
                 olay, ensure_ascii=False, separators=(",", ":")
