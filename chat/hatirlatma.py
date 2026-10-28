@@ -132,6 +132,104 @@ def _temiz(kayit):
     }
 
 
+# ── kalici depo (Postgres) ─────────────────────────────────────────────
+#
+# Vercel'de state dizini /tmp'dir; hatirlatma ornek yenilenince kaybolurdu.
+# DSN varsa hatirlatma Postgres'te tutulur; yoksa (masaustu) dosya yolu
+# aynen calisir. Dosya kilitleri yalniz tek sureci kapsadigi icin birden
+# fazla ornekte "ayni bildirim iki kez" riski de bu yolla kalkar.
+
+TABLO = "basak_hatirlatma"
+
+
+def _db_aktif():
+    from chat import veritabani
+    if not veritabani.hazir():
+        return False
+    return veritabani.hazirla()
+
+
+def _db_kayit(satir):
+    return {"id": satir[0], "metin": satir[1], "zaman": satir[2],
+            "olusturma": satir[3], "gonderildi": bool(satir[4]),
+            "goruldu": bool(satir[5])}
+
+
+def _db_ekle(kid, kayit):
+    from chat import veritabani
+    with veritabani.baglanti() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO %s (id, kullanici, metin, zaman, olusturma, "
+                "gonderildi, goruldu) VALUES (%%s,%%s,%%s,%%s,%%s,FALSE,FALSE)"
+                % TABLO,
+                (kayit["id"], kid, kayit["metin"], kayit["zaman"],
+                 kayit["olusturma"]))
+    return True
+
+
+def _db_listele(kid, simdi):
+    from chat import veritabani
+    with veritabani.baglanti() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, metin, zaman, olusturma, gonderildi, goruldu "
+                "FROM %s WHERE kullanici=%%s ORDER BY zaman" % TABLO,
+                (kid,))
+            satirlar = [_db_kayit(s) for s in cur.fetchall()]
+    bekleyen = sorted(
+        (k for k in satirlar
+         if float(k["zaman"]) > simdi and not k["gonderildi"]),
+        key=lambda k: k["zaman"])
+    gelen = sorted(
+        (k for k in satirlar
+         if float(k["zaman"]) <= simdi and not k["goruldu"]),
+        key=lambda k: k["zaman"])
+    return {"simdi": simdi,
+            "bekleyen": [_temiz(k) for k in bekleyen],
+            "gelen": [_temiz(k) for k in gelen]}
+
+
+def _db_degistir(kid, hatirlatma_id, alanlar):
+    if not alanlar or set(alanlar) - {"goruldu", "gonderildi"}:
+        raise ValueError("Desteklenmeyen hatirlatma alani")
+    from chat import veritabani
+    parcalar = ", ".join("%s = %%s" % ad for ad in alanlar)
+    degerler = [bool(v) for v in alanlar.values()] + [kid, hatirlatma_id]
+    with veritabani.baglanti() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE %s SET %s WHERE kullanici=%%s AND id=%%s"
+                % (TABLO, parcalar), tuple(degerler))
+            return bool(cur.rowcount)
+
+
+def _db_sil(kid, hatirlatma_id):
+    from chat import veritabani
+    with veritabani.baglanti() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM %s WHERE kullanici=%%s AND id=%%s"
+                        % TABLO, (kid, hatirlatma_id))
+            return bool(cur.rowcount)
+
+
+def _db_tetikle(simdi):
+    from chat import veritabani
+    with veritabani.baglanti() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE %s SET gonderildi = TRUE "
+                "WHERE zaman <= %%s AND gonderildi = FALSE "
+                "RETURNING kullanici, id, zaman" % TABLO,
+                (simdi,))
+            return [{"kid": satir[0], "id": satir[1], "zaman": satir[2]}
+                    for satir in cur.fetchall()]
+
+
+def _db_hatasi(e):
+    logger.warning("Kalici hatirlatma deposu kullanilamadi: %s", e)
+
+
 # ── işlemler ───────────────────────────────────────────────────────────
 
 def ekle(kid, metin, zaman):
@@ -150,6 +248,12 @@ def ekle(kid, metin, zaman):
         "gonderildi": False,
         "goruldu": False,
     }
+    if _db_aktif():
+        try:
+            _db_ekle(kid, kayit)
+            return _temiz(kayit)
+        except Exception as e:
+            _db_hatasi(e)
     with _KILIT:
         yol = _yol(kid)
         kayitlar = _oku(yol)
@@ -164,6 +268,11 @@ def listele(kid, simdi=None):
 
     kid = slugla(kid)
     simdi = float(simdi or time.time())
+    if _db_aktif():
+        try:
+            return _db_listele(kid, simdi)
+        except Exception as e:
+            _db_hatasi(e)
     hepsi = _oku(_yol(kid))
     bekleyen = [k for k in hepsi
                 if float(k.get("zaman") or 0) > simdi
@@ -182,6 +291,11 @@ def _degistir(kid, hatirlatma_id, alanlar):
     from chat.kimlik import slugla
 
     kid = slugla(kid)
+    if _db_aktif():
+        try:
+            return _db_degistir(kid, hatirlatma_id, alanlar)
+        except Exception as e:
+            _db_hatasi(e)
     with _KILIT:
         yol = _yol(kid)
         kayitlar = _oku(yol)
@@ -200,6 +314,11 @@ def sil(kid, hatirlatma_id):
     from chat.kimlik import slugla
 
     kid = slugla(kid)
+    if _db_aktif():
+        try:
+            return _db_sil(kid, hatirlatma_id)
+        except Exception as e:
+            _db_hatasi(e)
     with _KILIT:
         yol = _yol(kid)
         kayitlar = _oku(yol)
@@ -222,6 +341,14 @@ def tetikle(simdi=None):
     tekrar dönmez.
     """
     simdi = float(simdi or time.time())
+    if _db_aktif():
+        try:
+            isaretlenen = _db_tetikle(simdi)
+            if isaretlenen:
+                logger.info("Hatirlatma tetiklendi: %d", len(isaretlenen))
+            return isaretlenen
+        except Exception as e:
+            _db_hatasi(e)
     from chat.kimlik import state_kok
 
     kok = state_kok()

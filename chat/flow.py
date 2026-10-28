@@ -145,6 +145,17 @@ def _kaydet(text, cevap, kaynak, gecmis, js_callback, konusmaci,
         # Gecmis yazilamasa da ekran bitmeli (2026-09-15 checkup).
         logger.warning("Gecmis yazilamadi (ekran etkilenmez): %s", e)
 
+    # Kalici gecmis (Postgres): /tmp'ye bagli kalmayan tek kayit. Yerelde
+    # DSN yoksa sessizce atlanir; dosya yolu yukarida zaten yazildi.
+    try:
+        from chat import gecmis as _gecmis_deposu
+        _gecmis_deposu.ekle(aktif_kullanici(), [
+            {"role": "user", "content": text, "oturum": ctx.OTURUM_ID},
+            {"role": "assistant", "content": cevap, "oturum": ctx.OTURUM_ID},
+        ])
+    except Exception as e:
+        logger.warning("Kalici gecmis yazilamadi: %s", e)
+
     try:
         from chat import oturum
         oturum.kaydet_cift(text, cevap)

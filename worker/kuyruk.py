@@ -39,6 +39,36 @@ NONCE_TABLO = "basak_isci_nonce"
 
 DURUMLAR = ("bekliyor", "calisiyor", "bitti", "hata", "supheli")
 
+# Postgres semasi TEK yerde: web (chat.veritabani) ve isci ayni DDL'i
+# uygular. Onceki surumde bu ifadeler yalniz isci surecinde kosuyordu;
+# hic isci cikmamis bir kurulumda kuyruk tablolari yoktu ve arayuz
+# "isci kuyrugu kapali" diyordu.
+POSTGRES_DDL = (
+    "CREATE TABLE IF NOT EXISTS %s ("
+    "id TEXT PRIMARY KEY, kosu_id TEXT NOT NULL, "
+    "adim_id TEXT NOT NULL, eylem TEXT NOT NULL, "
+    "token TEXT NOT NULL, url TEXT NOT NULL, "
+    "durum TEXT NOT NULL DEFAULT 'bekliyor', isci TEXT, "
+    "deneme INTEGER NOT NULL DEFAULT 0, sonuc TEXT, "
+    "hata TEXT NOT NULL DEFAULT '', "
+    "olustu DOUBLE PRECISION NOT NULL, "
+    "guncelleme DOUBLE PRECISION NOT NULL, "
+    "bitis DOUBLE PRECISION, "
+    "UNIQUE (kosu_id, adim_id))" % IS_TABLO,
+    "CREATE INDEX IF NOT EXISTS basak_isci_is_durum "
+    "ON %s (durum, olustu)" % IS_TABLO,
+    "CREATE TABLE IF NOT EXISTS %s ("
+    "isci TEXT PRIMARY KEY, "
+    "basladi DOUBLE PRECISION NOT NULL, "
+    "son DOUBLE PRECISION NOT NULL, "
+    "durum TEXT NOT NULL DEFAULT '', "
+    "surum TEXT NOT NULL DEFAULT '', "
+    "is_id TEXT NOT NULL DEFAULT '')" % KALP_TABLO,
+    "CREATE TABLE IF NOT EXISTS %s ("
+    "nonce TEXT PRIMARY KEY, "
+    "bitis DOUBLE PRECISION NOT NULL)" % NONCE_TABLO,
+)
+
 _EN_FAZLA_KIMLIK = 96
 _EN_FAZLA_TOKEN = 4_096
 _EN_FAZLA_EYLEM = 200_000
@@ -366,33 +396,8 @@ class _PostgresDepo(_KuyrukDepo):
     def _hazirla(self):
         with self._baglan() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    "CREATE TABLE IF NOT EXISTS %s ("
-                    "id TEXT PRIMARY KEY, kosu_id TEXT NOT NULL, "
-                    "adim_id TEXT NOT NULL, eylem TEXT NOT NULL, "
-                    "token TEXT NOT NULL, url TEXT NOT NULL, "
-                    "durum TEXT NOT NULL DEFAULT 'bekliyor', isci TEXT, "
-                    "deneme INTEGER NOT NULL DEFAULT 0, sonuc TEXT, "
-                    "hata TEXT NOT NULL DEFAULT '', "
-                    "olustu DOUBLE PRECISION NOT NULL, "
-                    "guncelleme DOUBLE PRECISION NOT NULL, "
-                    "bitis DOUBLE PRECISION, "
-                    "UNIQUE (kosu_id, adim_id))" % IS_TABLO)
-                cur.execute(
-                    "CREATE INDEX IF NOT EXISTS basak_isci_is_durum "
-                    "ON %s (durum, olustu)" % IS_TABLO)
-                cur.execute(
-                    "CREATE TABLE IF NOT EXISTS %s ("
-                    "isci TEXT PRIMARY KEY, "
-                    "basladi DOUBLE PRECISION NOT NULL, "
-                    "son DOUBLE PRECISION NOT NULL, "
-                    "durum TEXT NOT NULL DEFAULT '', "
-                    "surum TEXT NOT NULL DEFAULT '', "
-                    "is_id TEXT NOT NULL DEFAULT '')" % KALP_TABLO)
-                cur.execute(
-                    "CREATE TABLE IF NOT EXISTS %s ("
-                    "nonce TEXT PRIMARY KEY, "
-                    "bitis DOUBLE PRECISION NOT NULL)" % NONCE_TABLO)
+                for ifade in POSTGRES_DDL:
+                    cur.execute(ifade)
 
     def _calistir(self, sql, params=()):
         with self._kilit, self._baglan() as conn:
