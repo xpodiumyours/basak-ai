@@ -17,6 +17,7 @@ import tempfile
 import threading
 import time
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -36,7 +37,60 @@ if os.environ.get("VERCEL"):
         "BASAK_STATE_DIR", os.path.join(tempfile.gettempdir(), "basak")
     )
 
-app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+def _sema_hazirla():
+    """Surumlu semayi + isci kuyrugu tablolarini bir kez uygular.
+
+    Kuyruk tablolari once yalnizca isci surecinde aciliyordu; isci hic
+    cikmamis uretimde arayuz "kuyruk kapali" diyor ve alt ajan isi
+    birakamiyordu. Web de ayni semayi uygular (idempotent, advisory lock).
+    """
+    try:
+        from chat import veritabani
+        if not veritabani.hazirla():
+            return False
+        try:
+            from worker.kuyruk import Kuyruk
+            Kuyruk()
+        except Exception:
+            logger.warning("Isci kuyrugu semasi hazirlanamadi", exc_info=True)
+        return True
+    except Exception:
+        logger.warning("Sema hazirlanamadi", exc_info=True)
+        return False
+
+
+def _sema_durumu():
+    try:
+        from chat import veritabani
+        return veritabani.surum_bilgisi()
+    except Exception:
+        return {"hazir": False, "uygulanan": [], "bekleyen": []}
+
+
+@asynccontextmanager
+async def _yasam(_app):
+    # Sema/kuyruk hazirligi ag erisimi gerektirir; istek yolunu bloklamaz.
+    threading.Thread(target=_sema_hazirla, name="sema-hazirla",
+                     daemon=True).start()
+    yield
+
+
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None,
+              lifespan=_yasam)
+
+
+def _arac_modu_durum(kid):
+    from chat.capabilities import arac_modu
+    return arac_modu(kid)
+
+
+def _kalici_sohbet_acik():
+    try:
+        from chat.platform_api import _durable_acik
+        return bool(_durable_acik())
+    except Exception:
+        return False
+
 
 # Tarayici eklentisinin BULUT kanali: /api/eklenti (WebSocket).
 # Tek beyin kurali korunur — kanal yalniz tasiyicidir (chat/eklenti_ws.py).
@@ -579,6 +633,23 @@ class _OlayToplayici:
             return
 
 
+def _basarisiz_araclar(olaylar):
+    """Kosudaki basarisiz arac cagrilarinin kaydi (adan -> son hata)."""
+    kayit = []
+    for olay in olaylar or []:
+        if not isinstance(olay, dict) or olay.get("tur") != "toolDone":
+            continue
+        if olay.get("ok"):
+            continue
+        kayit.append({
+            "arac": str(olay.get("arac") or ""),
+            "id": str(olay.get("id") or ""),
+            "baslik": str(olay.get("baslik") or ""),
+            **({"hata": str(olay.get("hata"))[:300]} if olay.get("hata") else {}),
+        })
+    return kayit
+
+
 def _tekrar_tercihi(haric):
     """Taze denemede begenilmeyen saglayiciyi en sona alir.
 
@@ -595,6 +666,23 @@ def _tekrar_tercihi(haric):
 
 
 def _gecmis(body):
+    # Istemci gecmis gondermediyse kalici deptan (Postgres) okunur; /tmp
+    # kaybi artik sohbeti sifirlamaz. Istemci ACIKCA bos liste gonderirse
+    # "yeni sohbet" kastedilmistir, deptan okunmaz.
+    if body.get("gecmis") is None:
+        try:
+            from chat import gecmis as _gecmis_deposu
+            from chat.kimlik import aktif_kullanici
+            kalici = _gecmis_deposu.oku(aktif_kullanici())
+        except Exception:
+            kalici = []
+        if kalici:
+            return [
+                {"role": m.get("role"), "content": m.get("content")}
+                for m in kalici
+                if m.get("role") in ("user", "assistant")
+                and isinstance(m.get("content"), str)
+            ]
     sonuc = []
     for m in body.get("gecmis") or []:
         if not isinstance(m, dict):
@@ -738,7 +826,8 @@ async def durum(request: Request):
     # commit sha ve arac sayisi tokensiz okunabiliyordu. Canlidaki eski
     # surum (a98ee76) bu ucu koruyordu; kisi-hafiza commit'inde koruma
     # dustu. Olculdu ve geri konuldu.
-    if _kimlik(request) is None:
+    kid = _kimlik(request)
+    if kid is None:
         return _giris_engeli()
     beyin, tools = _cekirdek()
     try:
@@ -818,6 +907,29 @@ async def durum(request: Request):
             "kuyruk": {}, "neden": "okunamadi",
         }
 
+    # Gorev (platform) iscisi ayri bir defterdir: kalici kosu kayitlarini
+    # ``worker.platform`` yurutur, tarayici eylem kuyrugunu degil. Ekranin
+    # "canli isci" satiri iki kaynagi birlikte gostermeli; yoksa orduyu
+    # calistiran isci gorunmez kalir.
+    try:
+        from chat.platform_runtime import RuntimeStore
+        _platform_saglik = RuntimeStore().worker_health()
+        platform_isciler = {
+            "hazir": True,
+            "canli": int(_platform_saglik.get("live_workers") or 0),
+            "isciler": [],
+            "son_kalp_yas_sn": _platform_saglik.get("last_seen_age_seconds"),
+            "esik_sn": _platform_saglik.get("freshness_seconds", 30),
+            "neden": "",
+        }
+    except Exception:
+        logger.debug("gorev iscisi durumu okunamadi", exc_info=True)
+        platform_isciler = {
+            "hazir": False, "canli": 0, "isciler": [],
+            "son_kalp_yas_sn": None, "esik_sn": 30,
+            "neden": "gorev deposu kapali",
+        }
+
     return {
         "ok": bool(zincir),
         "runtime": "vercel",
@@ -835,8 +947,14 @@ async def durum(request: Request):
         "agent_runtime": "p2-provider-neutral-v3",
         "kosu_defteri": bool(kosu_defteri),
         "isciler": isci_durumu,
+        "platform_isciler": platform_isciler,
         "checkpoint_resume": bool(
-            kosu_defteri and int(isci_durumu.get("canli") or 0) > 0),
+            kosu_defteri and (
+                int(isci_durumu.get("canli") or 0) > 0
+                or int(platform_isciler.get("canli") or 0) > 0)),
+        "sema": _sema_durumu(),
+        "kalici_sohbet": _kalici_sohbet_acik(),
+        "arac_modu": _arac_modu_durum(kid),
     }
 
 
@@ -1013,6 +1131,11 @@ async def sohbet(request: Request):
             }, status_code=429, headers={"Retry-After": "3600"})
 
         beyin, tools = _cekirdek()
+        # Yetenek siniri: kalici sahip olmayan kimlik yalniz salt-okunur
+        # dis araclarini gorur. Karar metne degil kimlige baglidir.
+        from chat.capabilities import arac_modu as _arac_modu, katalog_sec
+        tools = katalog_sec(kid, tools)
+        _mod = _arac_modu(kid)
         from chat.agent_runtime import normalize_tool_policy
         tool_policy = normalize_tool_policy(
             (body or {}).get("tool_policy", "auto")
@@ -1063,6 +1186,8 @@ async def sohbet(request: Request):
                 kayit.olay(
                     "runContext",
                     _handoff={"metin": metin, "tool_policy": tool_policy},
+                    arac_modu=_mod,
+                    arac_sayisi=len(tools),
                 )
                 mesaj_isle(
                     metin,
@@ -1128,6 +1253,11 @@ async def sohbet(request: Request):
             "cevap": kayit.cevap,
             "kaynak": kayit.kaynak,
             "olaylar": kayit.olaylar,
+            "arac_modu": _mod,
+            # Basarisiz arac cagrilari GIZLENMEZ: istemci "yapildi" ile
+            # "denedim ama olmadi" ayrimini cevabin metninden degil,
+            # kosunun kaydindan okur.
+            "basarisiz_araclar": _basarisiz_araclar(kayit.olaylar),
         }
         if kota_kalan is not None:
             yanit["kota_kalan"] = kota_kalan
@@ -1185,6 +1315,14 @@ async def yeni(request: Request):
         # gecmis diskte kalir ve bir sonraki yuklemede geri gelir.
         logger.warning("Yeni sohbette gecmis dosyasi temizlenemedi: %s",
                        exc_info=True)
+    # Kalici gecmis de sifirlanir; aksi halde istemci gecmis gondermedigi
+    # ilk mesajda eski sohbet geri gelirdi.
+    try:
+        from chat import gecmis as _gecmis_deposu
+        from chat.kimlik import aktif_kullanici
+        _gecmis_deposu.temizle(aktif_kullanici())
+    except Exception:
+        logger.warning("Kalici gecmis sifirlanamadi", exc_info=True)
     return {"ok": True, "oturum": sid}
 
 

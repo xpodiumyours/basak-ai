@@ -44,8 +44,17 @@ class TestSeciciTarafsiz:
 
 
 class TestDonguOzgur:
-    def test_otuz_tur_durmaz_arac_kapanmaz(self):
+    def test_tur_tavani_acik_ve_yapilandirilabilir(self, monkeypatch):
+        """Tur tavani artik VAR ve ACIK; sinira kadar arac kapanmaz.
+
+        2026-10-28: sinirsiz `while tool_calls:` dongusu kaldirildi.
+        Varsayilan 12 turdur; `BASAK_MAX_TOOL_TURU` ile buyutulur ve
+        sinirda kosu sessizce kesilmez, `limit` olayiyla duraklatilir
+        (bkz. tests/test_yetenek_siniri.py). Burada tavan 31'e cekilerek
+        "tavan altinda arac yuzeyi kapanmaz" kurali korunur.
+        """
         from chat.tools import arac_dongusu
+        monkeypatch.setenv("BASAK_MAX_TOOL_TURU", "31")
 
         gorulen_araclar = []
         kalan = {"n": 30}

@@ -25,15 +25,23 @@ def test_finish_reason_merkezi_tasinir():
     assert y["_finish_reason"] == "length"
 
 
-def test_context_modelden_mesaj_saklamaz():
+def test_context_modelden_sessiz_mesaj_saklamaz():
+    """Butce asilirsa kirpma SESSIZ olmaz: sayi ve compact raporlanir."""
     from chat import context as ctx
     g = [{"role": "user", "content": "x" * 5000} for _ in range(20)]
     asli = json.loads(json.dumps(g))
-    pencere, bilgi = ctx.gecmis_model_penceresi(g)
+    pencere, bilgi = ctx.gecmis_model_penceresi(g, butce=0)
     assert pencere == g
     assert bilgi["compact"] is False
     assert bilgi["atlanan_mesaj"] == 0
     assert g == asli
+
+    pencere, bilgi = ctx.gecmis_model_penceresi(g, butce=12000)
+    assert g == asli                      # giris listesi degismez
+    assert bilgi["compact"] is True
+    assert bilgi["atlanan_mesaj"] > 0
+    assert pencere and pencere[-1] == g[-1]
+    assert len(pencere) + bilgi["atlanan_mesaj"] == len(g)
 
 
 def test_sayfa_cursor_semasi_var():

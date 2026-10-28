@@ -71,6 +71,7 @@ Basak/
 # Python
 __pycache__/
 *.pyc
+.venv/
 
 # Ayri bir git deposu (embedded repo — burada takip edilmez)
 research-engine/

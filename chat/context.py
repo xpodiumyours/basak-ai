@@ -78,19 +78,83 @@ def gecmis_pencere(gecmis):
     return list(gecmis or [])
 
 
-def gecmis_model_penceresi(gecmis):
-    """Modele tam geçmişi verir; sessiz kırpma yapmaz.
+def _mesaj_bayti(mesaj):
+    try:
+        return len(json.dumps(mesaj, ensure_ascii=False).encode("utf-8"))
+    except (TypeError, ValueError):
+        return len(str(mesaj).encode("utf-8"))
 
-    Sağlayıcı bağlamı kabul etmezse hata görünür olur; uygulama eski
-    mesajları gizlice düşürmez.
+
+def baglam_butcesi():
+    """Modele giden gecmisin bayt tavani (0 = sinirsiz, varsayilan 32 KB).
+
+    `BASAK_BAGLAM_BAYT=0` eski "tam gecmis" davranisini acikca secer.
+    """
+    try:
+        deger = int(os.environ.get("BASAK_BAGLAM_BAYT", "32000"))
+    except (TypeError, ValueError):
+        deger = 32000
+    return max(0, deger)
+
+
+def _blokla(mesajlar):
+    """Araç çağrısı + sonuçlarını tek blok yapar: blok ortadan kesilmez."""
+    bloklar = []
+    for mesaj in mesajlar:
+        if (isinstance(mesaj, dict) and mesaj.get("role") == "tool"
+                and bloklar):
+            bloklar[-1].append(mesaj)
+        elif (isinstance(mesaj, dict) and mesaj.get("role") == "assistant"
+              and mesaj.get("tool_calls")):
+            bloklar.append([mesaj])
+        else:
+            bloklar.append([mesaj])
+    return bloklar
+
+
+def gecmis_model_penceresi(gecmis, butce=None):
+    """Modele giden geçmişi açık bütçeyle seçer; sessiz kırpma yapmaz.
+
+    Politika: en YENİ bloklar korunur, en eski bloklardan düşülür. Düşen
+    mesaj sayısı `atlanan_mesaj` olarak DÖNER ve `compact=True` işaretlenir;
+    çağıran katman bunu `contextStatus` olayıyla ekrana yazar. Giriş
+    listesi ASLA değiştirilmez.
+
+    `butce == 0` tam geçmişi verir (eski davranış, açık tercih).
     """
     liste = list(gecmis or [])
-    return liste, {
+    sinir = baglam_butcesi() if butce is None else max(0, int(butce))
+    toplam = sum(_mesaj_bayti(m) for m in liste)
+    bilgi = {
         "compact": False,
         "toplam_token": None,
         "modele_giden_token": None,
         "atlanan_mesaj": 0,
+        "butce_bayt": sinir,
+        "toplam_bayt": toplam,
+        "giden_bayt": toplam,
     }
+    if not sinir or toplam <= sinir or not liste:
+        return liste, bilgi
+
+    bloklar = _blokla(liste)
+    secilen, giden = [], 0
+    for blok in reversed(bloklar):
+        boyut = sum(_mesaj_bayti(m) for m in blok)
+        if secilen and giden + boyut > sinir:
+            break
+        secilen = blok + secilen
+        giden += boyut
+    atlanan = len(liste) - len(secilen)
+    bilgi.update({
+        "compact": atlanan > 0,
+        "atlanan_mesaj": atlanan,
+        "giden_bayt": giden,
+        # Kaba tahmin (4 bayt ~ 1 token); saglayici sayaci degildir.
+        "toplam_token": toplam // 4,
+        "modele_giden_token": giden // 4,
+    })
+    return secilen, bilgi
 
 
 def temizle_history(gecmis):

@@ -266,6 +266,21 @@ kendine yetki yazamaz.
 | `data/audit/audit.log` | Her beyin çağrısının denetim kaydı |
 | `tools/saglik_raporu.py` | Sayaçlar + denetim özeti (araç olarak da koşar) |
 
+### 7a. Davranışı değiştiren ortam değişkenleri
+
+| Değişken | Varsayılan | Etki |
+|---|---|---|
+| `BASAK_SAHIP_KIMLIKLERI` | boş | Virgülle ayrılmış sahip kimlikleri. `casper` ve `u<uuid-hex>` zaten sahiptir; diğer kimlikler yalnız `PUBLIC_TOOLS` görür. |
+| `BASAK_MAX_TOOL_TURU` | 12 | Bir koşudaki en fazla model↔araç turu. Aşılırsa `limit` olayı yayınlanır ve koşu duraklar. |
+| `BASAK_MAX_TUR_CAGRISI` | 16 | Tek turda çalıştırılabilecek en fazla araç çağrısı. |
+| `BASAK_MAX_TOOL_CAGRISI` | 40 | Koşu başına toplam araç çağrısı (`yetenek_ac` hariç). |
+| `BASAK_BAGLAM_BAYT` | 32000 | Modele giden geçmiş için bayt bütçesi; `0` sınırsız. Eski turlar sessizce değil, sayılarıyla birlikte kırpılır. |
+| `BASAK_KOMUTAN_MODEL` | boş | Kök görev/sohbet için `saglayici:model` çifti. Boşsa ücretsiz havuzun oto seçimi. |
+| `BASAK_ISCI_MODEL` | boş (`isci` rolü) | Alt ajanlar için `saglayici:model` çifti. Geçersiz değer loglanır ve oto seçime dönülür. |
+| `BASAK_DURABLE_CHAT_ENABLED` | depo hazırsa açık | `false` yazılırsa eski sohbet yolu kullanılır. |
+| `BASAK_TEST_DSN` | boş | Postgres'e bağlı testleri (`test_kalici_depo.py`, `test_postgres_*`) etkinleştirir. |
+
+
 ## 8. Testler
 
 ```powershell

@@ -92,7 +92,9 @@
           : "Bu sürümde akış tek parça.");
 
     var isciDurumu = (d.isciler && typeof d.isciler === "object") ? d.isciler : {};
-    var canliIsci = Number(isciDurumu.canli || 0);
+    var gorevIsci = (d.platform_isciler && typeof d.platform_isciler === "object")
+      ? d.platform_isciler : {};
+    var canliIsci = Number(isciDurumu.canli || 0) + Number(gorevIsci.canli || 0);
     var defterVar = !!d.kosu_defteri;
     var kuyruk = isciDurumu.kuyruk || {};
     var bekleyen = Number(kuyruk.bekliyor || 0);
@@ -100,9 +102,10 @@
 
     if (canliIsci > 0) {
       yaz("isci", "pass", canliIsci + " canlı işçi",
-          "Kalp atışı son " + Number(isciDurumu.esik_sn || 90) + " sn içinde · " +
-          bekleyen + " bekleyen, " + calisan + " çalışan iş.");
-    } else if (isciDurumu.hazir) {
+          "Görev işçisi: " + Number(gorevIsci.canli || 0) +
+          " · Eylem kuyruğu: " + Number(isciDurumu.canli || 0) +
+          " (" + bekleyen + " bekleyen, " + calisan + " çalışan iş).");
+    } else if (isciDurumu.hazir || gorevIsci.hazir) {
       yaz("isci", "waiting", "Canlı işçi yok",
           "Kuyruk açık (" + bekleyen + " bekleyen iş), ama işi alacak işçi kalp atmıyor.");
     } else {

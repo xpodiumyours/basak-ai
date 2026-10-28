@@ -24,13 +24,15 @@ Preview DSN olmadan **başlamaz**; yanlışlıkla ayrı SQLite kuyruğu oluştur
 5. `docker compose logs --tail=100 agent` ile bağlantı hatası olmadan görevlere
    eriştiğini doğrula. Aynı test görevini web Preview üzerinden oluştur ve
    tamamlanma kaydını kanıt olarak sakla.
-6. Web için `BASAK_DURABLE_CHAT_ENABLED` varsayılan olarak `false` kalır.
-   Ayrılmış worker ve kimlik ayarları hazır olduktan sonra yalnız hedef Preview
-   ortamında `true` yap; gerçek kabul tamamlanmadan production’da açma.
-   Yeni sohbet, işçi hazır değilse mevcut Python sohbet yolunda çalışır.
-   Önceden kaydedilmiş istek aynı kimlikle gözlenir; işçi yokken başka
-   yürütme yoluna tekrar gönderilmez. Bilinmeyen veritabanı hatası da tekrar
-   yürütme gerekçesi değildir.
+6. `BASAK_DURABLE_CHAT_ENABLED` artık **varsayılan olarak açıktır**: ortam
+   değişkeni tanımlı değilse karar kalıcı deponun gerçekten hazır olmasından
+   gelir (`chat.veritabani.hazir()`). Açıkça `false` yazılırsa eski sohbet
+   yolu kullanılır. Yeni sohbet, işçi yoksa `allow_legacy` ile mevcut Python
+   sohbet yoluna döner; iş kaybolmaz. Önceden kaydedilmiş istek aynı kimlikle
+   gözlenir; işçi yokken başka bir yürütme yoluna tekrar gönderilmez.
+   Bilinmeyen veritabanı hatası da tekrar yürütme gerekçesi değildir.
+   Kalıcı yolu **kapatmak** için yalnız hedef ortamda `BASAK_DURABLE_CHAT_ENABLED=false`
+   tanımla; üretimde kapatmadan önce işçi ve kimlik ayarlarının hazır olduğunu doğrula.
 
 Bu dosyalar sunucu sağlamaz ve GitHub'a push etmek **sürekli çalışan bir işçi başlatmaz**.
 Gerçek sunucu kurulumu, gizli değişkenler, maliyet kontrolü ve canlı görev kabulü ayrı aşamadır.
@@ -67,6 +69,18 @@ son 30 saniye içinde kalp atışı olan işçi sayısını ve çevrimiçi durum
 gösterir. İşçi kapanınca çevrimdışı işaretlenir; beklenmedik çökmede
 kalp atışı 30 saniyede eskir. Arayüz işçi yoksa çalışıyormuş gibi
 davranmaz.
+
+`GET /api/durum` iki işçi kaynağını ayrı raporlar: `isciler` tarayıcı
+eylem kuyruğunun (`basak_isci_kalp`) kalp atışı, `platform_isciler` ise
+kalıcı görev işçisinin (`basak_platform_worker_presence`) canlı sayısı.
+`checkpoint_resume` bu iki kaynaktan **biri** canlıysa ve koşu defteri
+açıksa `true` olur; önceki sürüm yalnız eylem kuyruğuna baktığı için
+orduyu çalıştıran işçi görünmüyordu.
+
+Çocuk görevleri hâlâ çalışırken biten bir üst görev `verifying` durumunda
+bekler. Çocuklar kapandığında `RuntimeStore._recover` üst görevi yeniden
+değerlendirir ve `completed`/`partial` durumuna geçirir; böylece koşu
+kalıcı olarak yarım görünmez.
 
 GitHub CI testi, farklı PostgreSQL bağlantılarından işçi kaydının
 görüldüğünü doğrular. Bu, **uzak sunucuya gerçek işçi kurulduğunun
