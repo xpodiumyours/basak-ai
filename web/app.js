@@ -1171,7 +1171,7 @@ function autoResize() {
 
 function gonderimDurumu() {
   const dolu = !!msgEl.value.trim() || !!seciliGorsel || !!seciliBelge;
-  sendEl.disabled = gonderiliyor || !dolu;
+  sendEl.disabled = !window.basakKimlik || gonderiliyor || !dolu;
 }
 
 function notYaz(metin) {
@@ -2045,6 +2045,12 @@ for (const id of ["yeni", "yeniSide"]) {
 }
 
 async function send(secenek = {}) {
+  try { await window.basakKimlikHazir; }
+  catch (e) {
+    notYaz(e.message || "Başak’a ulaşılamadı.");
+    gonderimDurumu();
+    return;
+  }
   if (secenek && typeof secenek.preventDefault === "function") secenek = {};
   const text = typeof secenek.text === "string"
     ? secenek.text.trim()
@@ -2413,7 +2419,7 @@ async function baslat() {
     notYaz(UYARI_NOTU);
     msgEl.focus();
   } catch (e) {
-    notYaz("Başak kimliği oluşturulamadı. Sayfayı yenileyin.");
+    notYaz(e.message || "Başak’a ulaşılamadı. Sayfayı yenileyebilirsin.");
     sendEl.disabled = true;
   }
 }

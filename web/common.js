@@ -84,7 +84,10 @@ async function kimlikHazirla(zorla = false) {
     throw e;
   }
 }
-window.basakKimlikHazir = kimlikHazirla();
+window.basakKimlikHazir = (async () => {
+  if (window.BasakPrivateAccess) await window.BasakPrivateAccess.ready;
+  return kimlikHazirla();
+})();
 
 window.basakFetch = async (yol, secenek = {}) => {
   if (yol !== "/api/kimlik") await window.basakKimlikHazir;
@@ -152,6 +155,6 @@ window.basakKimlikHazir
     setInterval(basakHealth, 30000);
     return window.basakFetch("/api/sohbetler", { cache: "no-store" });
   })
-  .catch(() => {
-    saglikGoster("Kimlik oluşturulamadı");
+  .catch((e) => {
+    saglikGoster(e.message || "Başak’a ulaşılamadı.");
   });

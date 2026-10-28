@@ -13,24 +13,20 @@
     if (!r.ok) throw new Error(data.error || data.detail || "İşlem tamamlanamadı.");
     return data;
   }
-  function dialog(title, locked) {
+  function dialog(title) {
     const box = element("dialog"); box.className = "private-dialog";
     const heading = element("h2", title); heading.id = "private-title-" + Date.now();
     box.setAttribute("aria-labelledby", heading.id); box.append(heading);
-    if (locked) box.addEventListener("cancel", e => e.preventDefault());
-    else {
-      const close = element("button", "Kapat"); close.type="button";
-      close.addEventListener("click", () => { box.close(); box.remove(); }); box.append(close);
-    }
+    const close = element("button", "Kapat"); close.type="button";
+    close.addEventListener("click", () => { box.close(); box.remove(); }); box.append(close);
     document.body.append(box); box.showModal(); return box;
   }
   function help(message) {
-    const box=dialog("Başak sana özel", true);
-    box.append(element("p", message || "Bu alan davetlilere açık. Sana gönderilen özel bağlantıyı açman yeterli; hesap veya e-posta doğrulaması gerekmiyor."));
-    return box;
+    const note=document.getElementById("composerNote");
+    if (note) note.textContent=message || "Başak’ı sana verilen özel bağlantıyla açabilirsin.";
   }
   async function people() {
-    const box=dialog("Paylaştığın kişiler", false);
+    const box=dialog("Paylaştığın kişiler");
     const intro=element("p", "Her kişinin konuşmaları ayrı kalır. Yeni bağlantıyı yalnız o kişiyle paylaş.");
     const list=element("div"), form=element("form"), label=element("label", "Kişinin adı");
     const input=element("input"); input.required=true; input.maxLength=100; input.id="private-person-name"; label.htmlFor=input.id;
@@ -87,12 +83,11 @@
       document.querySelectorAll('.private-dialog').forEach(box => { box.close(); box.remove(); });
       // Fragments are never sent to the server; remove the bearer link before other navigation.
       history.replaceState(null,"",location.pathname+location.search);
-      const box=help("Özel bağlantın açılıyor…");
+      help("Özel bağlantın açılıyor…");
       async function redeem() {
         try { await api("/ac",{code}); location.replace(location.pathname+location.search); }
         catch(e) {
-          box.replaceChildren(element("h2","Bağlantı açılamadı"),element("p",e.message));
-          const retry=element("button","Tekrar dene"); retry.addEventListener("click",redeem); box.append(retry);
+          help(e.message || "Bağlantı açılamadı. Özel bağlantını yeniden açabilirsin.");
         }
       }
       await redeem(); return;
