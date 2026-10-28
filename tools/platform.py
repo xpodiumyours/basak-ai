@@ -112,8 +112,9 @@ def execute(name, args):
                 context={'task_context': job.get('baglam', '')}, request_key=request_key))
         return {'result': [{'id': j['id'], 'durum': j['durum']} for j in created]}
     if name == 'alt_ajan_sonuclari':
+        from chat.platform_runtime import delegated_result
         tree = control.store.tree(ctx.user_id, ctx.run_id)
-        children = tree.get('children', [])
+        children = [delegated_result(child) for child in tree.get('children', [])]
         pending = [c['id'] for c in children if c['durum'] not in (
             'completed', 'partial', 'failed', 'cancelled', 'uncertain', 'blocked')]
         result = {'children': children}

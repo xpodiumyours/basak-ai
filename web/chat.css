@@ -12,6 +12,16 @@
   --shadow:0 16px 48px rgba(20,20,24,.08);
   --shadow-soft:0 8px 28px rgba(20,20,24,.055);
 }
+html[data-private-pending] .app-shell{visibility:hidden}
+.private-dialog{color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:26px;width:min(92vw,500px);max-height:85dvh;overflow:auto;box-shadow:var(--shadow)}
+.private-dialog::backdrop{background:rgba(20,20,24,.35);backdrop-filter:blur(4px)}
+.private-dialog h2{font-size:22px;margin:0 0 14px}
+.private-dialog p{color:var(--muted);line-height:1.6}
+.private-dialog form,.private-dialog [role=status]{display:grid;gap:10px;margin:20px 0}
+.private-dialog input{width:100%;min-height:44px;border:1px solid var(--line);border-radius:9px;padding:10px;background:var(--bg);color:var(--ink)}
+.private-dialog button{min-height:44px;padding:10px 14px;border:1px solid var(--line);border-radius:9px;background:var(--soft);color:var(--ink)}
+.private-dialog :focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.private-person{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
 *{box-sizing:border-box}
 /* Kod bir ogeyi gizlediginde (hidden) hicbir display kurali onu geri
    gostermesin. Eskiden .work-current/.work-redirect-form kurallari bunu

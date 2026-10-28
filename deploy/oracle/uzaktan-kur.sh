@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Basak — mevcut Oracle sunucusunu uzaktan guncelle/kur.
 # Kullanim:
-#   bash deploy/oracle/uzaktan-kur.sh ubuntu@SUNUCU_IP [ozel_anahtar]
-#   BASAK_SSH_KEY=/yol/anahtar bash deploy/oracle/uzaktan-kur.sh ubuntu@SUNUCU_IP
+#   bash deploy/oracle/uzaktan-kur.sh opc@SUNUCU_IP [ozel_anahtar]
+#   BASAK_SSH_KEY=/yol/anahtar bash deploy/oracle/uzaktan-kur.sh opc@SUNUCU_IP
 #
 # Sunucuda yaptigi: depoyu main'e getirir, sonra setup.sh'i calistirir.
 # setup.sh idempotenttir: web + basak-isci servislerini kurar/gunceller.
@@ -32,10 +32,15 @@ cd /opt/basak
 \$SUDO git fetch origin "$DAL"
 \$SUDO git checkout -f "$DAL"
 \$SUDO git reset --hard "origin/$DAL"
+SETUP=deploy/oracle/setup.sh
+. /etc/os-release
+if [ "\${ID:-}" = ol ]; then
+  SETUP=deploy/oracle/setup-ol9.sh
+fi
 if [ -n "\$SUDO" ]; then
-  \$SUDO env BASAK_BRANCH="$DAL" bash deploy/oracle/setup.sh
+  \$SUDO env BASAK_BRANCH="$DAL" bash "\$SETUP"
 else
-  BASAK_BRANCH="$DAL" bash deploy/oracle/setup.sh
+  BASAK_BRANCH="$DAL" bash "\$SETUP"
 fi
 EOF
 )

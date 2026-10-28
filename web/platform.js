@@ -288,7 +288,7 @@
 
   function accountRequired() {
     if (state.user) return false;
-    message("Bulut görevleri ve bağlantılar için hesabınla giriş yap.", false);
+    message("Bulut görevleri ve bağlantılar için sana verilen özel bağlantıyı aç.", false);
     previewKind = "connections";
     renderPreview();
     showPreview(true);
@@ -330,14 +330,17 @@
       container.append(logout);
     } else {
       container.append(node("span", "workspace-muted", "Kişisel çalışma alanı"));
-      const button = node("button", "workspace-text-button", "Giriş yap");
+      const button = node("button", "workspace-text-button", "Özel bağlantınla aç");
       button.type = "button";
       button.addEventListener("click", () => {
-        previewKind = "connections"; renderPreview(); showPreview(true);
+        if (scope.BasakPrivateAccess) scope.BasakPrivateAccess.openHelp();
+        else { previewKind = "connections"; renderPreview(); showPreview(true); }
       });
       container.append(button);
     }
+    if (scope.BasakPrivateAccess) scope.BasakPrivateAccess.decorate(container);
   }
+  scope.addEventListener("basak:private-ready", renderAccount);
 
   function renderTaskList() {
     const list = byId("platformTaskList");
@@ -345,7 +348,7 @@
     const roots = Object.values(state.runs).filter((run) => !run.parent_id && run.kind !== "chat");
     list.closest(".workspace-task-sidebar").hidden = !roots.length;
     byId("platformTaskEmpty").hidden = roots.length > 0;
-    byId("platformTaskEmpty").textContent = state.user ? "Henüz bulut görevi yok." : "Görevlerini görmek için giriş yap.";
+    byId("platformTaskEmpty").textContent = state.user ? "Henüz bulut görevi yok." : "Görevlerini görmek için özel bağlantını aç.";
     for (const run of roots) {
       const button = node("button", "workspace-task-link");
       button.type = "button";
@@ -506,8 +509,8 @@
   }
 
   function renderConnections(container) {
-    container.append(node("h2", "workspace-panel-title", "Hesaplar ve bağlantılar"));
-    if (!state.user) container.append(node("p", "workspace-muted", "Sohbeti kayıtsız kullanabilirsin. Bulut görevleri ve kişisel bağlantılar için giriş yap."));
+    container.append(node("h2", "workspace-panel-title", "Bağlantılar"));
+    if (!state.user) container.append(node("p", "workspace-muted", "Başak’ı sana verilen özel bağlantıyla açabilirsin; hesap oluşturman gerekmiyor."));
     for (const provider of state.providers) {
       const card = node("section", "workspace-connection");
       card.append(node("strong", "", provider.label || provider.id));

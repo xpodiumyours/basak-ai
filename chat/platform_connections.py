@@ -11,9 +11,12 @@ import os
 import secrets
 import time
 import uuid
+import threading
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+_SCHEMA_LOCK = threading.Lock()
 
 
 def _key():
@@ -60,7 +63,12 @@ class ConnectionStore:
         if db is None:
             raise RuntimeError("Kalici hesap deposu kullanilamiyor")
         self._db = db
-        self._prepare()
+        # Account/credential data is never cached. Only unchanged table setup
+        # is shared by stores using this process's same database backend.
+        with _SCHEMA_LOCK:
+            if not getattr(db, '_connections_schema_ready', False):
+                self._prepare()
+                db._connections_schema_ready = True
 
     def _prepare(self):
         for sql in (

@@ -60,7 +60,7 @@ def test_uyari_tek_satirda_durust_ve_linkli():
 
 
 def test_surum_kilidi_yukseltildi():
-    assert "/chat.css?v=22" in INDEX
+    assert "/chat.css?v=23" in INDEX
     assert "/app.js?v=31" in INDEX
 
 
