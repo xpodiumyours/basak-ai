@@ -230,7 +230,7 @@ def test_gateway_is_first_choice_in_streamed_chat(monkeypatch):
                  "choices": [{"index": 0, "delta": {"content": "Akilli cevap"},
                               "finish_reason": "stop"}]}
         return httpx.Response(200, headers={"Content-Type": "text/event-stream"},
-                              text="data: " + json.dumps(chunk) + "\\n\\ndata: [DONE]\\n\\n")
+                              text="data: " + json.dumps(chunk) + "\n\ndata: [DONE]\n\n")
     sdk = openai.OpenAI(api_key="unified-test", base_url="https://gateway.test/v1",
                         max_retries=0, http_client=httpx.Client(
                             transport=httpx.MockTransport(gateway)))
