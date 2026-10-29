@@ -50,7 +50,7 @@ class CikisKesildi(Exception):
         self.kaynak = str(kaynak or "")
 
 
-def akit(openai_client, model, messages, tools=None):
+def akit(openai_client, model, messages, tools=None, provider=None):
     """OpenAI-uyumlu istemciden metin parcasi uretir (generator).
 
     Yields: str parcalar. Arac cagrisi gorurse AracIstegi firlatir.
@@ -75,7 +75,14 @@ stream=True,
     _arac_parcalar = {}  # index -> {"id","name","arguments"}
     _muhakeme_parcalar = []
     _bitis_nedeni = ""
+    _model_reported = False
     for chunk in stream:
+        if provider and not _model_reported:
+            reported = getattr(chunk, "model", None)
+            if reported:
+                from brain.provider_observation import record
+                record("modelReported", provider, model=reported)
+                _model_reported = True
         try:
             secim = chunk.choices[0]
             _fr = getattr(secim, "finish_reason", None)
