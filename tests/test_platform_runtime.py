@@ -85,11 +85,25 @@ def test_concurrent_claim_has_one_owner(store):
     assert next(x for x in leases if x)["id"] == run["id"]
 
 
-def test_foreground_chat_does_not_enter_oracle_queue(store):
-    run = create(store, kind="chat", foreground_worker_id="web-1")
-    assert run["durum"] == "running"
-    assert run["lease"].worker_id == "web-1"
-    assert store.claim("oracle") is None
+def test_foreground_chat_claims_only_its_run_while_old_jobs_wait(store):
+    older = create(store)
+    chat = create(store, kind="chat")
+    def handler(job, control):
+        assert job["id"] == chat["id"]
+        control.record_check("response_recorded", True, {"observed": True})
+        return {"answer": "Direct response"}
+    assert Worker(store, handler, worker_id="web").tick(run_id=chat["id"])
+    assert store.get("alice", chat["id"])["durum"] == "completed"
+    assert store.get("alice", chat["id"])["answer"] == "Direct response"
+    assert store.get("alice", older["id"])["durum"] == "queued"
+
+
+def test_foreground_chat_claim_is_exclusive_and_retry_safe(store):
+    chat = create(store, kind="chat", request_key="same-turn")
+    first = store.claim("web", run_id=chat["id"])
+    assert first["id"] == chat["id"]
+    assert store.claim("oracle", run_id=chat["id"]) is None
+    assert create(store, kind="chat", request_key="same-turn")["id"] == chat["id"]
 
 
 def test_restart_retains_events_and_continuation(store):
