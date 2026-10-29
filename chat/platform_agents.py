@@ -132,6 +132,7 @@ class _Events:
         self._pieces, self._piece_size = [], 0
         self._piece_started = None
         self._cancel_checked = None
+        self._first_text_flushed = False
 
     def _check_text_cancel(self):
         now = time.monotonic()
@@ -161,7 +162,12 @@ class _Events:
                 self._piece_started = time.monotonic()
             self._pieces.append(values[0])
             self._piece_size += len(values[0])
-            if self._piece_size >= 1024 or time.monotonic() - self._piece_started >= 0.15:
+            if values[0] and not self._first_text_flushed:
+                # A single short token may be followed by a provider pause.
+                # Never hold the first visible text waiting for another token.
+                self.flush()
+                self._first_text_flushed = True
+            elif self._piece_size >= 1024 or time.monotonic() - self._piece_started >= 0.15:
                 self.flush()
             return
         self.flush()
