@@ -25,7 +25,7 @@ SHEETS_WRITE = "https://www.googleapis.com/auth/spreadsheets"
 
 PROVIDERS = {
     "google": {"label": "Google Drive / Docs / Sheets", "authorize": "https://accounts.google.com/o/oauth2/v2/auth", "token": "https://oauth2.googleapis.com/token", "identity": "https://openidconnect.googleapis.com/v1/userinfo", "scopes": ["openid", "email", "profile", DRIVE_READ, DOCS_WRITE, SHEETS_WRITE], "login_scopes": ["openid", "email", "profile"]},
-    "github": {"label": "GitHub", "authorize": "https://github.com/login/oauth/authorize", "token": "https://github.com/login/oauth/access_token", "identity": "https://api.github.com/user", "scopes": ["public_repo"], "login_scopes": []},
+    "github": {"label": "GitHub", "authorize": "https://github.com/login/oauth/authorize", "token": "https://github.com/login/oauth/access_token", "identity": "https://api.github.com/user", "scopes": ["repo"], "login_scopes": []},
     "notion": {"label": "Notion", "authorize": "https://api.notion.com/v1/oauth/authorize", "token": "https://api.notion.com/v1/oauth/token", "scopes": [], "login_scopes": []},
 }
 
@@ -94,7 +94,9 @@ OBJ = {"type": "object"}
 A = {"type": "array"}
 TOOLS = {
     "github": [
-        _schema("github_list_repositories", "Lists repositories visible to the connected GitHub user."),
+        _schema("github_list_repositories", "Lists repositories visible to the connected GitHub user; page selects the result page.", {"page": {"type": "integer", "minimum": 1}}),
+        _schema("github_get_repository", "Reads repository metadata including default branch and permissions.", {"repository": S}, ["repository"]),
+        _schema("github_get_branch", "Reads a repository branch including its current commit SHA and protection status.", {"repository": S, "branch": S}, ["repository", "branch"]),
         _schema("github_read_file", "Reads a repository file or directory at a ref.", {"repository": S, "path": S, "ref": S}, ["repository", "path"]),
         _schema("github_list_prs", "Lists repository pull requests.", {"repository": S, "state": {"type": "string", "enum": ["open", "closed", "all"]}}, ["repository"]),
         _schema("github_get_pr", "Reads pull request details.", {"repository": S, "number": {"type": "integer", "minimum": 1}}, ["repository", "number"]),
@@ -225,11 +227,15 @@ class ConnectorService:
         if provider == "github":
             root = "https://api.github.com"
             if tool == "github_list_repositories":
-                return "GET", root + "/user/repos", {"per_page": 100, "sort": "updated"}, None
+                return "GET", root + "/user/repos", {"per_page": 100, "sort": "updated", **a}, None
             repo = a.pop("repository")
             if repo not in connection["metadata"].get("repositories", []):
                 raise ConnectorError("Depo bu baglantiya verilen yetkiler arasinda degil")
             root += "/repos/" + "/".join(quote(x, safe="") for x in repo.split("/"))
+            if tool == "github_get_repository":
+                return "GET", root, None, None
+            if tool == "github_get_branch":
+                return "GET", root + "/branches/" + quote(a["branch"], safe=""), None, None
             if tool == "github_read_file":
                 path = a.pop("path")
                 return "GET", root + "/contents/" + quote(path, safe="/"), a, None

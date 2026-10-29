@@ -265,16 +265,16 @@ def test_mcp_permission_update_checks_discovered_names(api, store):
     assert store.get("alice", cid)["metadata"]["allowed_tools"] == ["read"]
 
 
-def test_github_oauth_connect_requests_public_repo_but_login_does_not(api):
+def test_github_oauth_connect_requests_repo_but_login_does_not(api):
     from chat.platform_connectors import PROVIDERS
     from urllib.parse import urlsplit, parse_qs
-    assert PROVIDERS["github"]["scopes"] == ["public_repo"]
+    assert PROVIDERS["github"]["scopes"] == ["repo"]
     login = api.get("/api/baglantilar/oauth/github/baslat?purpose=login",
                     follow_redirects=False)
     connect = api.get("/api/baglantilar/oauth/github/baslat?purpose=connect",
                       headers={"x-test-user": "alice"}, follow_redirects=False)
     assert "scope" not in parse_qs(urlsplit(login.headers["location"]).query)
-    assert parse_qs(urlsplit(connect.headers["location"]).query)["scope"] == ["public_repo"]
+    assert parse_qs(urlsplit(connect.headers["location"]).query)["scope"] == ["repo"]
 
 
 def test_github_public_repo_write_requires_scope_even_with_approved_tool(store):
@@ -350,3 +350,58 @@ def test_mcp_tool_cannot_impersonate_native_provider_observation(monkeypatch):
     with pytest.raises(module.ConnectorError, match='yerel saglayici'):
         module.observe_uncertain_action('alice', {'tool': 'baglanti_cagir', 'arguments': {
             'baglanti_id': 'mcp-1', 'arac': 'github_write_file', 'argumanlar': {}}})
+
+
+def test_github_repository_metadata_uses_connected_owner_and_fixed_origin(store):
+    import httpx
+    from chat.platform_connectors import ConnectorService
+    calls = []
+    def transport(request):
+        calls.append(request)
+        return httpx.Response(200, json={"default_branch": "develop", "permissions": {"push": True}})
+    cid = store.save("alice", "github", {"access_token": "test-token"}, ["repo"], {"repositories": ["a/b"]})["id"]
+    service = ConnectorService(store, transport=httpx.MockTransport(transport))
+    result = service.execute("alice", cid, "github_get_repository", {"repository": "a/b"})
+    assert result["structuredContent"]["default_branch"] == "develop"
+    assert str(calls[0].url) == "https://api.github.com/repos/a/b"
+    with pytest.raises(PermissionError):
+        service.execute("bob", cid, "github_get_repository", {"repository": "a/b"})
+
+
+def test_github_branch_commit_and_repository_pagination(store):
+    import httpx
+    from chat.platform_connectors import ConnectorService
+    calls = []
+    def transport(request):
+        calls.append(request)
+        return httpx.Response(200, json={"commit": {"sha": "a" * 40}})
+    cid = store.save("alice", "github", {"access_token": "fixture"}, ["repo"],
+                     {"repositories": ["a/b"]})["id"]
+    service = ConnectorService(store, transport=httpx.MockTransport(transport))
+    result = service.execute("alice", cid, "github_get_branch", {"repository": "a/b", "branch": "feat/start"})
+    assert result["structuredContent"]["commit"]["sha"] == "a" * 40
+    assert calls[-1].url.raw_path == b"/repos/a/b/branches/feat%2Fstart"
+    service.execute("alice", cid, "github_list_repositories", {"page": 2})
+    assert calls[-1].url.params["page"] == "2"
+    assert calls[-1].url.params["per_page"] == "100"
+
+
+@pytest.mark.parametrize("scope,status", [("public_repo", 403), ("", 403), ("repo", 303)])
+def test_github_connect_verifies_granted_repository_scope(api, store, monkeypatch, scope, status):
+    import httpx
+    from urllib.parse import parse_qs, urlsplit
+    from chat import platform_accounts_api as module
+    def upstream(request):
+        if request.url.host == "github.com":
+            return httpx.Response(200, json={"access_token": "fixture", "scope": scope})
+        if request.url.path == "/user":
+            return httpx.Response(200, json={"id": 42, "login": "alice"})
+        return httpx.Response(200, json=[{"full_name": "a/b"}])
+    monkeypatch.setattr(module, "_transport", httpx.MockTransport(upstream))
+    start = api.get("/api/baglantilar/oauth/github/baslat?purpose=connect",
+                    headers={"x-test-user": "alice"}, follow_redirects=False)
+    state = parse_qs(urlsplit(start.headers["location"]).query)["state"][0]
+    result = api.get("/api/baglantilar/oauth/github/callback", params={"state": state, "code": "fixture"},
+                     headers={"x-test-user": "alice"}, follow_redirects=False)
+    assert result.status_code == status
+    assert bool(store.list("alice")) is (status == 303)
