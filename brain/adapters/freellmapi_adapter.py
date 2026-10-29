@@ -43,7 +43,9 @@ class _FreeLLMAPIAdapter:
         if not url or not key:
             raise ValueError("FreeLLMAPI adresi ve ortak anahtari birlikte gerekli")
         try:
-            return GenelClient(key, gateway_adresi(url), model)
+            client = GenelClient(key, gateway_adresi(url), model)
+            client.provider_name = "freellmapi"
+            return client
         except (ValueError, RuntimeError):
             # URL veya anahtar hata metnine girebilir: sirli istisnayi loglama.
             logger.warning("FreeLLMAPI baglantisi baslatilamadi; adres ve ortak anahtari kontrol edin")
