@@ -667,6 +667,7 @@ class Brain:
             sirali, gerekce = secici.sec(mevcutlar=mevcutlar)
             sirali, gerekce = _kota_ongorulu_sira(sirali, model_stats_al(state_dir()))
 
+        from brain.provider_observation import record as _observe
         istemciler = dict(zincir)
         hatalar = []
         turler = {}
@@ -695,6 +696,7 @@ class Brain:
                 continue
 
             t0 = time.time()
+            _observe("providerAttempt", ad)
             # FAZ 1.1: yapi istenmisse ve saglayici daha once kirmamissa
             # sozlesme tasınır; kirtilmis saglayicida yapi hic gonderilmez.
             yapi_bu = yapi if (yapi and _YAPI_DENEME.get(ad, True)) else None
@@ -751,10 +753,16 @@ class Brain:
                     ad, sure, basarili=True, tools=bool(tools),
                     token_in=(kullanim or {}).get("giris", 0),
                     token_out=(kullanim or {}).get("cikis", 0))
+                # No response/prompt text enters durable observation.
+                _observe("providerResult", ad, outcome=(
+                    "tool_call" if araclar else "success"),
+                    duration_ms=(time.time() - t0) * 1000)
                 # Secim gorunur olsun: hangi saglayici cevapladysa adi tasinir.
                 return yanit, ad
             except Exception as e:
                 sure = time.time() - t0
+                _observe("providerResult", ad, outcome="error",
+                         duration_ms=sure * 1000)
                 logger.warning("%s hatasi, siradaki deneniyor: %s", ad, e)
                 hatalar.append("%s: %s" % (ad, str(e)))
                 turler[ad] = hata_turu(e)
@@ -801,6 +809,7 @@ class Brain:
             sirali, gerekce = _secici.sec(mevcutlar=mevcutlar)
             sirali, gerekce = _kota_ongorulu_sira(sirali, model_stats_al(state_dir()))
 
+        from brain.provider_observation import record as _observe
         istemciler = dict(zincir)
         hatalar = []
         for ad in sirali:
@@ -833,7 +842,9 @@ class Brain:
                 # reddediyordu (P2 onizleme kaydi, 2026-09-25).
                 giden = (messages if ad == "cohere"
                          else mesajlari_temizle(messages, provider=ad))
-                uretici = akit(ham, model, giden, tools=tools)
+                t0 = time.monotonic()
+                _observe("providerAttempt", ad)
+                uretici = akit(ham, model, giden, tools=tools, provider=ad)
                 token_out = 0
                 for parca in uretici:
                     metin = (parca if isinstance(parca, str)
@@ -852,12 +863,18 @@ class Brain:
                 # Akis basarisi + yaklasik cikis token'i yaz (butce).
                 istat.kaydet(ad, 0.0, basarili=True, tools=bool(tools),
                              token_in=0, token_out=token_out)
+                _observe("providerResult", ad, outcome="success",
+                         duration_ms=(time.monotonic() - t0) * 1000)
                 _audit("OK kaynak=%s | akis | %s" % (ad, gerekce))
                 return
             except _Arac as e:
+                _observe("providerResult", ad, outcome="tool_call",
+                         duration_ms=(time.monotonic() - t0) * 1000)
                 e.kaynak = ad
                 raise
             except CikisKesildi as e:
+                _observe("providerResult", ad, outcome="error",
+                         duration_ms=(time.monotonic() - t0) * 1000)
                 if not gorunen:
                     # Kesik yanit metin tasimiyorsa basari degildir
                     # (dusunme jetonlari bitip content bos kalabilir):
@@ -867,6 +884,9 @@ class Brain:
                 e.kaynak = ad
                 raise
             except Exception as e:
+                if 't0' in locals():
+                    _observe("providerResult", ad, outcome="error",
+                             duration_ms=(time.monotonic() - t0) * 1000)
                 hata = str(e)
                 _hata_sonrasi_beklet(ad, e)
                 # Akis ORTASINDA kopma: UI'da yari metin var, baska
