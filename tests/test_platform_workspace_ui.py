@@ -28,6 +28,8 @@ def test_chat_protocol_records_are_not_user_work_and_epoch_seconds_are_correct()
     js("""
 const chat={id:'r',kind:'chat',artifacts:[{id:'answer'}],checks:[{id:'response_recorded',ok:true}]};
 assert.equal(ui.hasWork(chat),false);
+assert.equal(ui.hasWork({...chat,artifacts:[{id:'generated-id',kind:'answer'}]}),false);
+assert.equal(ui.activityEvent({type:'artifact',payload:{id:'generated-id',kind:'answer'}}),false);
 assert.equal(ui.hasWork({...chat,has_work:true}),true);
 assert.equal(ui.hasWork({...chat,children:[{id:'child'}]}),true);
 assert.equal(ui.hasWork({...chat,artifacts:[{id:'report.pdf'}]}),true);
@@ -308,7 +310,7 @@ def test_real_chromium_pending_chat_title_reload_and_view_preservation(width, he
             assert not errors, errors
             # An ordinary reply keeps its durable history but exposes no task UI.
             run.update(durum='completed', answer='Merhaba!', children=[],
-                       artifacts=[{'id': 'answer', 'title': 'Basak sonucu'}],
+                       artifacts=[{'id': 'generated-answer-id', 'kind': 'answer', 'title': 'Basak sonucu'}],
                        checks=[{'id': 'response_recorded', 'ok': True}])
             page.reload()
             page.wait_for_function("window.basakKimlik?.kullanici")

@@ -13,13 +13,15 @@
   const TERMINAL = new Set(["completed", "partial", "blocked", "failed", "cancelled", "uncertain"]);
   const ACTIONS = new Set(["iptal", "devam", "yon", "onay", "kabul", "uzlastir"]);
 
+  function workArtifact(artifact) { return artifact.id !== "answer" && artifact.kind !== "answer"; }
+
   // Protocol bookkeeping is retained on the server, but is not user work.
   function activityEvent(event) {
     const p = event.payload || {};
     const tool = p.tool || p.arac || p.ad;
     if (["yetenek_ac", "son_cevap"].includes(tool)) return false;
     if (event.type === "chat") return ["toolStart", "toolDone", "arac"].includes(p.tur);
-    if (event.type === "artifact") return (p.artifact || p).id !== "answer";
+    if (event.type === "artifact") return workArtifact(p.artifact || p);
     if (event.type === "check") return (p.check || p).id !== "response_recorded";
     return ["tool_started", "tool_done", "approval", "steering"].includes(event.type);
   }
@@ -27,7 +29,7 @@
   function hasWork(run) {
     if (!run) return false;
     return !!(run.has_work || (run.kind && run.kind !== "chat") ||
-      run.children?.length || run.artifacts?.some(a => a.id !== "answer") ||
+      run.children?.length || run.artifacts?.some(workArtifact) ||
       run.approvals?.some(a => a.status === "pending") ||
       ["awaiting_approval", "awaiting_connection", "uncertain"].includes(run.durum));
   }
@@ -463,7 +465,7 @@
         row.append(detail);
       }
       for (const artifact of run.artifacts || []) {
-        if (artifact.id === "answer") continue;
+        if (!workArtifact(artifact)) continue;
         const button = node('button', 'workspace-button workspace-file', artifact.title || 'Dosya');
         button.type = 'button';
         button.addEventListener('click', () => {

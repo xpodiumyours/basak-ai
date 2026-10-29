@@ -397,7 +397,7 @@ class RuntimeStore:
         child_ids = tx.rows("SELECT run_id FROM basak_platform_run WHERE parent_id=%s AND user_id=%s ORDER BY run_id", (row["id"], row["user_id"]))
         children = [self._project(tx, self._require(tx, row["user_id"], x["run_id"]), recursive=True)
                     for x in child_ids] if recursive else [x["run_id"] for x in child_ids]
-        has_work = bool(child_ids or any(a['id'] != 'answer' for a in artifacts) or
+        has_work = bool(child_ids or any(a['id'] != 'answer' and a.get('kind') != 'answer' for a in artifacts) or
                         any(a['status'] == 'pending' for a in approvals) or
                         tx.one("SELECT call_id FROM basak_platform_action WHERE run_id=%s "
                                "AND tool NOT IN ('yetenek_ac','son_cevap') LIMIT 1", (row['id'],)))

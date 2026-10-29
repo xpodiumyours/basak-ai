@@ -20,6 +20,8 @@ def create(store, user="alice", **kw):
 
 def test_chat_work_flag_uses_actions_and_children_not_message_text(store):
     run = create(store, kind='chat')
+    answer_id = store.add_artifact('alice', run['id'], {'kind': 'answer', 'title': 'Basak sonucu', 'content': 'Merhaba'})
+    assert answer_id != 'answer'
     assert store.tree('alice', run['id'])['has_work'] is False
     assert store.chat_threads('alice')[0]['runs'][0]['has_work'] is False
     create(store, parent_id=run['id'])
