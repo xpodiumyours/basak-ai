@@ -292,8 +292,11 @@ def execute_job(job, control, brain=None):
         # Rol -> model eslemesi ortamdan gelir (BASAK_KOMUTAN_MODEL /
         # BASAK_ISCI_MODEL). Bos model_ref "otomatik" demektir; alt ajanlar
         # isci rolune, kok gorevler komutan rolune duser.
-        ref = job.get('model_ref') or ('isci' if job.get('parent_id')
-                                       else 'komutan')
+        # Ordinary chat stays on the free chain. Only an explicit root
+        # agent run uses the optional paid commander; children stay free.
+        ref = job.get('model_ref') or (
+            'isci' if job.get('parent_id') else
+            'komutan' if job.get('kind') == 'agent' else 'primary')
         provider, model = selection(brain, ref)
     except ValueError as exc:
         return {'status': 'blocked', 'reason': str(exc)}
