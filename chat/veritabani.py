@@ -128,9 +128,20 @@ def hazirla(zorla=False):
         try:
             with baglanti() as conn:
                 with conn.cursor() as cur:
-                    cur.execute(
-                        "SELECT pg_advisory_lock(hashtext('basak.sema.v1'))")
-                    try:
+                    # An already deployed schema must not wait behind an old
+                    # session lock on a transaction-pooled serverless endpoint.
+                    if not zorla:
+                        cur.execute('SELECT to_regclass(%s)', (SURUM_TABLO,))
+                        if cur.fetchone()[0] is not None:
+                            cur.execute('SELECT surum FROM %s' % SURUM_TABLO)
+                            done = {int(row[0]) for row in cur.fetchall()}
+                            if all(version in done for version, _ in MIGRASYONLAR):
+                                _HAZIR, _SON_HATA = True, 0.0
+                                return True
+                    # Session locks cannot be paired safely across PgBouncer
+                    # transactions. Bind both the lock and DDL to this transaction.
+                    with conn.transaction():
+                        cur.execute("SELECT pg_advisory_xact_lock(hashtext('basak.sema.v1'))")
                         cur.execute(
                             "CREATE TABLE IF NOT EXISTS %s ("
                             "surum INTEGER PRIMARY KEY, "
@@ -148,10 +159,6 @@ def hazirla(zorla=False):
                                 "ON CONFLICT (surum) DO NOTHING" % SURUM_TABLO,
                                 (surum,))
                             logger.info("Sema surumu uygulandi: %s", surum)
-                    finally:
-                        cur.execute(
-                            "SELECT pg_advisory_unlock("
-                            "hashtext('basak.sema.v1'))")
             _HAZIR = True
             _SON_HATA = 0.0
             return True

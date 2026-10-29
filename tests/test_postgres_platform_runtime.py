@@ -46,6 +46,28 @@ def test_identity_schema_and_legacy_queries_return_connections_to_pool(postgres_
         db.close()
 
 
+def test_ready_schema_does_not_wait_for_stale_session_lock(postgres_url, monkeypatch):
+    import psycopg
+    from chat import veritabani
+    monkeypatch.setenv('DATABASE_URL', postgres_url)
+    monkeypatch.delenv('VERCEL_ENV', raising=False)
+    monkeypatch.setattr(veritabani, '_HAZIR', False)
+    monkeypatch.setattr(veritabani, '_SON_HATA', 0.0)
+    assert veritabani.hazirla(zorla=True)
+    def connect():
+        conn = psycopg.connect(postgres_url, autocommit=True)
+        conn.execute("SET statement_timeout='200ms'")
+        return conn
+    monkeypatch.setattr(veritabani, 'baglanti', connect)
+    monkeypatch.setattr(veritabani, '_HAZIR', False)
+    with psycopg.connect(postgres_url, autocommit=True) as blocker:
+        blocker.execute("SELECT pg_advisory_lock(hashtext('basak.sema.v1'))")
+        try:
+            assert veritabani.hazirla() is True
+        finally:
+            blocker.execute("SELECT pg_advisory_unlock(hashtext('basak.sema.v1'))")
+
+
 def new_user():
     return "pg-ci-" + uuid.uuid4().hex
 
