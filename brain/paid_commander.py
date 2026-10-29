@@ -26,6 +26,14 @@ def configured_model():
     return model if not model.endswith(":free") else ""
 
 
+def authorized_commander(job):
+    """Only an explicitly designated owner can run a paid root agent task."""
+    owner = os.environ.get("BASAK_PAID_COMMANDER_OWNER_ID", "").strip()
+    return bool(owner and job.get("user_id") == owner
+                and job.get("kind") == "agent"
+                and not job.get("parent_id") and configured_model())
+
+
 def scoped_model():
     """Only the explicit commander context may spend; subagents remain free."""
     from brain.model_havuzu import _SELECTION
