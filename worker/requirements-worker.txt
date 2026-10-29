@@ -7,4 +7,5 @@
 playwright==1.63.0
 # Kalıcı iş kuyruğu Postgres'e bağlanır; sürüm kök requirements ile aynı.
 psycopg[binary]==3.3.6
+psycopg-pool==3.3.3
 pytest==9.1.1
