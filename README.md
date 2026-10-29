@@ -10,6 +10,36 @@ ve fatura fotoğrafından satış kataloğu üreten bir hat içerir.
 
 ---
 
+## Canlı ürün kabul sözleşmesi: Manus 2.0 Lite referansı (29 Ekim 2026)
+
+**Hedef, arayüz kopyalamak değil, çalışır ajan deneyimidir.** Başak gerçek
+görevi alır; yapay zekâ modeli araç/alt ajan kararını verir; yalnız gerçekten
+yapılan işlemler görünür ve kaynaklı sonuç teslim edilir. Kod beyin değildir;
+görev metni anahtar sözcüklerle sınıflandırılmaz ve model yanıtı değiştirilmez.
+Yeni ücretli API veya anahtar gerekmez.
+
+**Referans görev:** www.vixrex.com'u incele; esnafa ve tüketiciye
+avantajlarını, güçlü ve zayıf yönlerini kaynaklarla değerlendir.
+
+**Beş kabul şartı (her biri gerçek oturumda kanıtlanmalı):**
+
+1. Model/ilk yanıt: Gerçek sağlayıcı ve ilk metin gecikmesi ölçülür.
+   Tek seçim modunda seri sağlayıcı/model kuyruğu ve gizli tekrar yoktur.
+2. Araştırma: Gerçek web sayfaları araçla okunur; esnaf/tüketici bulguları
+   ve doğrulanabilir kaynak bağlantıları teslim edilir.
+3. Görünür çalışma: Yalnız gerçek model bağlantısı, tool_started, tool_done
+   ve alt ajan olayları gösterilir; sahte iş adımı bulunmaz.
+4. Tam ajan: Model yetenek_ac ile tarayıcı, GitHub, bağlı platformlar,
+   çalışma ortamı ve alt ajanlara erişebilir. Dış sistemlere yazma yalnız
+   kullanıcı yetkisi ve gerekli onayla gerçekleşir.
+5. Sonuç: Başarısız, kısmi veya kesintili görevler completed ilan edilmez;
+   sonuç, kaynaklar ve görev bitişi aynı çalışmanın kanıtlarına dayanır.
+
+**Yayın kapısı:** Her parçada CI + Preview + gerçek model/araç ile uçtan uca
+kabul kaydı aranır. Yeşil test, Vercel READY veya açık ana sayfa tek başına
+ürün kabulü değildir. Eksik kanıt açıkça raporlanır; önceki deployment ve
+ayarlar geri dönüş için saklanır. AGENTS.md değiştirilemez.
+
 ## 1. Ne yapar
 
 | Yetenek | Durum |
@@ -46,8 +76,13 @@ Sağlayıcı anahtarları Vercel projesinin sunucu ortam değişkenlerinde tutul
 tarayıcıya aktarılmaz. Yeni anahtarlar önce geliştirme dalının Preview
 ortamında denenir; canlı yayın ayrı onayla yapılır.
 
-Başak'ın Python çekirdeği mevcut ücretsiz sağlayıcılar arasında otomatik
-yedekleme yapar. `429`, zaman aşımı veya `5xx` hatasında sıradaki uygun
+Varsayılan `legacy` modda mevcut ücretsiz sağlayıcılar arasında
+geriye uyumlu yedekleme yapılır. `BASAK_MODEL_ROUTING_MODE=single`
+modunda teknik kota ve sağlık verilerinden tek bir uygun sağlayıcı
+ve model seçilir; aynı istek için seri model kuyruğu yoktur. Hata
+açıkça bildirilir. Diğer ücretsiz modeller bağlı kalır ve sonraki
+görevlerde kullanılabilir. `legacy` değeri geri alma seçeneğidir.
+Eski modda `429`, zaman aşımı veya `5xx` hatasında sıradaki uygun
 sağlayıcı denenir. `Retry-After` saniye veya HTTP tarihi olarak okunur;
 başlık yoksa `429`/`5xx` için 20 saniye, bağlantı/zaman aşımı için 300
 saniye bekleme uygulanır. Mevcut süre ayrıştırıcısının sınırı 1–86.400
