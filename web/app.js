@@ -431,7 +431,9 @@ function sohbetiCiz() {
     else if (m.role === "assistant") bubble("assistant", m.content || "");
   }
   const active = chats.find((c) => c.id === activeChatId);
-  for (const run of (active && (active.runs || active.pendingRuns)) || []) chatEl.appendChild(kaliciGorevDugmesi(run));
+  for (const run of (active && (active.runs || active.pendingRuns)) || []) {
+    if (run.has_work) chatEl.appendChild(kaliciGorevDugmesi(run));
+  }
   sohbetAlta();
 }
 
@@ -1788,7 +1790,8 @@ function olayiIsle(o) {
     const b = balonlar.get(no);
     if (b && kaliciSohbetler.has(no)) {
       durumuKapat(b);
-      b.appendChild(kaliciGorevDugmesi({id: no}));
+      const run = chats.find(c => c.id === activeChatId)?.runs?.find(r => r.id === no);
+      if (run?.has_work) b.appendChild(kaliciGorevDugmesi(run));
       notYaz("Çalışma kayıtlı. Adımlar ve dosyalar bu konuşmada güncellenir.");
     } else if (b) calismaMolaVer(b);
     return false;
@@ -1893,6 +1896,7 @@ async function canliYanitiOku(r, baslangicBalonu) {
   const baslangic = Date.now();
   let tampon = "";
   let sonuc = { ok: false, cevap: "", kaynak: "", hata: "" };
+  let kaliciRun = "";
 
   // Sunucu (vercel.json maxDuration: 300 sn) isi yarida durdurunca akis
   // bitir/error gelmeden kapanir. Kullaniciya gercek sebebi soyle.
@@ -1917,6 +1921,7 @@ async function canliYanitiOku(r, baslangicBalonu) {
       throw new Error("Başak canlı akışında geçersiz veri alındı.");
     }
     if (o.tur === "ping") return;
+    if (o.tur === "durableRun") kaliciRun = o.kosu_id || o.istek;
     olayiBaslangicBalonunaBagla(o, baslangicBalonu);
     const uiSonuc = olayiIsle(o);
     if (uiSonuc && typeof uiSonuc.then === "function") {
@@ -1941,6 +1946,17 @@ async function canliYanitiOku(r, baslangicBalonu) {
     }
   };
 
+  const kayittanDevam = async () => {
+    notYaz("Bağlantı yenileniyor; Başak’ın kayıtlı yanıtı bekleniyor.");
+    const event = await window.BasakWorkspace.observeRun(kaliciRun, async (path, signal) => {
+      const response = await fetch(path, {credentials: "same-origin", signal});
+      if (!response.ok) throw new Error(response.status === 401 ? "Hesap oturumu sona erdi." : "Kayıtlı çalışmaya ulaşılamadı.");
+      return response.json();
+    }, aktifIstekDenetleyici?.signal);
+    await satiriIsle(JSON.stringify(event));
+    return sonuc;
+  };
+
   while (true) {
     let okuma;
     try {
@@ -1951,6 +1967,7 @@ async function canliYanitiOku(r, baslangicBalonu) {
       if (sonuc.ok || sonuc.hata || sonuc.mola) break;
       // Durdur/Yönlendir kasıtlı keser; o yol kendi davranışını korur.
       if (e && e.name === "AbortError") throw e;
+      if (kaliciRun) return kayittanDevam();
       throw kesilmeHatasi();
     }
     const { value, done } = okuma;
@@ -1976,6 +1993,7 @@ async function canliYanitiOku(r, baslangicBalonu) {
   }
 
   if (!sonuc.ok && !sonuc.hata && !sonuc.mola) {
+    if (kaliciRun) return kayittanDevam();
     throw kesilmeHatasi();
   }
   return sonuc;
@@ -2425,6 +2443,13 @@ async function baslat() {
 }
 window.addEventListener("basak:platform-account", (event) => { if (event.detail) kaliciSohbetleriYukle(); });
 window.addEventListener("basak:durable-update", kaliciSohbetleriYukle);
+window.addEventListener("basak:work-activity", (event) => {
+  const {id, has_work} = event.detail || {};
+  for (const chat of chats) {
+    const run = chat.runs?.find(r => r.id === id);
+    if (run) run.has_work = !!has_work;
+  }
+});
 baslat();
 
 // ── karşılama kartları: boş ekran yerine doğrudan iş ────────────────

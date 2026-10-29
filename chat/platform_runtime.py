@@ -397,9 +397,13 @@ class RuntimeStore:
         child_ids = tx.rows("SELECT run_id FROM basak_platform_run WHERE parent_id=%s AND user_id=%s ORDER BY run_id", (row["id"], row["user_id"]))
         children = [self._project(tx, self._require(tx, row["user_id"], x["run_id"]), recursive=True)
                     for x in child_ids] if recursive else [x["run_id"] for x in child_ids]
+        has_work = bool(child_ids or any(a['id'] != 'answer' for a in artifacts) or
+                        any(a['status'] == 'pending' for a in approvals) or
+                        tx.one("SELECT call_id FROM basak_platform_action WHERE run_id=%s "
+                               "AND tool NOT IN ('yetenek_ac','son_cevap') LIMIT 1", (row['id'],)))
         return {"id": row["id"], "kosu_id": row["id"], "user_id": row["user_id"],
                 "workspace_id": row["workspace_id"], "parent_id": row["parent_id"],
-                "kind": row["kind"], "model_ref": row["model_ref"], "durum": row["durum"],
+                "kind": row["kind"], "has_work": has_work, "model_ref": row["model_ref"], "durum": row["durum"],
                 "istek": row["istek"], "answer": row.get("cevap") or "", "cevap": row.get("cevap") or "",
                 "hata": row.get("hata") or "", "provider": row.get("saglayici") or "",
                 "seq": row["seq"], "olustu": str(row["olustu"]), "guncelleme": str(row["guncelleme"]),
@@ -582,7 +586,7 @@ class RuntimeStore:
                     thread['messages'].append({'role': 'assistant', 'content': run['answer']})
                 if run['durum'] not in TERMINAL:
                     thread['pendingRuns'].append({'id': run['id'], 'state': run['durum']})
-                thread['runs'].append({'id': run['id'], 'state': run['durum']})
+                thread['runs'].append({'id': run['id'], 'state': run['durum'], 'has_work': run['has_work']})
                 thread['updatedAt'] = run['guncelleme']
             return list(threads.values())
 

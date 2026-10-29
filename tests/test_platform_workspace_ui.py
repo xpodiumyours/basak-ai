@@ -24,6 +24,41 @@ def js(body):
     return proc.stdout
 
 
+def test_chat_protocol_records_are_not_user_work_and_epoch_seconds_are_correct():
+    js("""
+const chat={id:'r',kind:'chat',artifacts:[{id:'answer'}],checks:[{id:'response_recorded',ok:true}]};
+assert.equal(ui.hasWork(chat),false);
+assert.equal(ui.hasWork({...chat,has_work:true}),true);
+assert.equal(ui.hasWork({...chat,children:[{id:'child'}]}),true);
+assert.equal(ui.hasWork({...chat,artifacts:[{id:'report.pdf'}]}),true);
+assert.equal(ui.hasWork({...chat,approvals:[{status:'pending'}]}),true);
+assert.equal(ui.hasWork({...chat,kind:'agent'}),true);
+assert.equal(ui.activityEvent({type:'checkpoint'}),false);
+assert.equal(ui.activityEvent({type:'chat',payload:{tur:'runState'}}),false);
+assert.equal(ui.activityEvent({type:'tool_started',payload:{tool:'hesapla'}}),true);
+assert.equal(ui.activityEvent({type:'tool_started',payload:{tool:'son_cevap'}}),false);
+assert.equal(ui.eventTime(1793260800),ui.eventTime(1793260800000));
+assert.equal(ui.eventTime('invalid'),'');
+""")
+
+
+def test_disconnected_observer_reads_same_run_without_resubmitting_and_respects_stop():
+    js("""
+(async () => {
+ let reads=0;
+ const result=await ui.observeRun('same-run',async path => {
+   assert.equal(path,'/api/kosu/same-run/agac'); reads++;
+   return {kosu:{id:'same-run',durum:reads===1?'running':'completed',answer:reads===1?'':'Yanıt'}};
+ },null,async()=>{});
+ assert.equal(reads,2); assert.equal(result.tur,'bitir'); assert.equal(result.cevap,'Yanıt');
+ const stopped=new AbortController(); stopped.abort();
+ await assert.rejects(ui.observeRun('same-run',()=>{throw Error('must not read');},stopped.signal),{name:'AbortError'});
+ const failed=await ui.observeRun('same-run',async()=>({kosu:{id:'same-run',durum:'failed',hata:'Gerçek hata'}}));
+ assert.equal(failed.tur,'error'); assert.equal(failed.metin,'Gerçek hata');
+})().catch(error=>{console.error(error);process.exitCode=1;});
+""")
+
+
 def test_event_replay_is_ordered_and_idempotent():
     js("""
 let state=ui.createState('alice');
@@ -220,7 +255,7 @@ def test_real_chromium_pending_chat_title_reload_and_view_preservation(width, he
                 elif path.endswith('/api/kosu/sohbetler'):
                     data['chats'] = [{'id': 'saved-thread', 'title': 'Saved title',
                         'messages': [{'role': 'user', 'content': 'Long task'}],
-                        'runs': [{'id': 'durable-test', 'state': 'waiting_children'}],
+                        'runs': [{'id': 'durable-test', 'state': run['durum'], 'has_work': bool(run['children'])}],
                         'pendingRuns': [{'id': 'durable-test', 'state': 'waiting_children'}]}]
                 elif path.endswith('/olaylar'):
                     data['olaylar'] = [{'seq': 1, 'run_id': 'durable-test', 'type': 'tool_done',
@@ -271,6 +306,30 @@ def test_real_chromium_pending_chat_title_reload_and_view_preservation(width, he
             page.keyboard.press('Escape') if width < 1100 else page.locator('#workspaceClose').click()
             assert not page.locator('#workspacePreview').is_visible()
             assert not errors, errors
+            # An ordinary reply keeps its durable history but exposes no task UI.
+            run.update(durum='completed', answer='Merhaba!', children=[],
+                       artifacts=[{'id': 'answer', 'title': 'Basak sonucu'}],
+                       checks=[{'id': 'response_recorded', 'ok': True}])
+            page.reload()
+            page.wait_for_function("window.basakKimlik?.kullanici")
+            if page.locator('#sidebarToggle').is_visible():
+                page.locator('#sidebarToggle').click()
+            page.get_by_role('button', name='Saved title', exact=True).click()
+            page.wait_for_timeout(1200)
+            assert not page.locator('#platformTaskView').is_visible()
+            assert page.get_by_role('button', name='Çalışmayı göster', exact=True).count() == 0
+            assert 'response_recorded' not in page.locator('body').inner_text()
+            # The real app's stream reader reconnects through GET for the same run.
+            recovered = page.evaluate("""async () => {
+                const b=bubble('assistant',''); balonlar.set('durable-test',b);
+                const bytes=new TextEncoder().encode(JSON.stringify({tur:'durableRun',
+                  istek:'durable-test',kosu_id:'durable-test',conversation_id:'saved-thread',display_text:'Merhaba'})+'\\n');
+                const stream=new ReadableStream({start(c){c.enqueue(bytes);c.close();}});
+                return await canliYanitiOku(new Response(stream),b);
+            }""")
+            assert recovered['ok'] is True and recovered['cevap'] == 'Merhaba!'
+            assert not page.locator('#platformTaskView').is_visible()
+            page.screenshot(path=str(tmp_path / ('ordinary-chat-%d.png' % width)), full_page=True)
             browser.close()
     finally:
         server.shutdown()

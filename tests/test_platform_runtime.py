@@ -18,6 +18,24 @@ def create(store, user="alice", **kw):
     return store.create(user, "personal", "Do the actual task", **kw)
 
 
+def test_chat_work_flag_uses_actions_and_children_not_message_text(store):
+    run = create(store, kind='chat')
+    assert store.tree('alice', run['id'])['has_work'] is False
+    assert store.chat_threads('alice')[0]['runs'][0]['has_work'] is False
+    create(store, parent_id=run['id'])
+    assert store.tree('alice', run['id'])['has_work'] is True
+    assert store.chat_threads('alice')[0]['runs'][0]['has_work'] is True
+
+
+def test_chat_work_flag_records_real_tool_execution(store):
+    run = create(store, kind='chat')
+    lease = store.claim('worker')['lease']
+    store.begin_action(lease, 'protocol', 'son_cevap', {})
+    assert store.get('alice', run['id'])['has_work'] is False
+    store.begin_action(lease, 'calculation', 'hesapla', {'ifade': '2+2'})
+    assert store.get('alice', run['id'])['has_work'] is True
+
+
 def test_tenant_isolation_in_every_read_and_mutation(store):
     run = create(store)
     for operation in (

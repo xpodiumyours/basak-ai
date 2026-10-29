@@ -13,6 +13,51 @@
   const TERMINAL = new Set(["completed", "partial", "blocked", "failed", "cancelled", "uncertain"]);
   const ACTIONS = new Set(["iptal", "devam", "yon", "onay", "kabul", "uzlastir"]);
 
+  // Protocol bookkeeping is retained on the server, but is not user work.
+  function activityEvent(event) {
+    const p = event.payload || {};
+    const tool = p.tool || p.arac || p.ad;
+    if (["yetenek_ac", "son_cevap"].includes(tool)) return false;
+    if (event.type === "chat") return ["toolStart", "toolDone", "arac"].includes(p.tur);
+    if (event.type === "artifact") return (p.artifact || p).id !== "answer";
+    if (event.type === "check") return (p.check || p).id !== "response_recorded";
+    return ["tool_started", "tool_done", "approval", "steering"].includes(event.type);
+  }
+
+  function hasWork(run) {
+    if (!run) return false;
+    return !!(run.has_work || (run.kind && run.kind !== "chat") ||
+      run.children?.length || run.artifacts?.some(a => a.id !== "answer") ||
+      run.approvals?.some(a => a.status === "pending") ||
+      ["awaiting_approval", "awaiting_connection", "uncertain"].includes(run.durum));
+  }
+
+  function eventTime(value) {
+    if (value == null || value === "") return "";
+    const numeric = Number(value);
+    const date = new Date(Number.isFinite(numeric) ?
+      (Math.abs(numeric) < 1e12 ? numeric * 1000 : numeric) : value);
+    return Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString("tr-TR");
+  }
+
+  async function observeRun(id, read, signal, wait) {
+    const terminal = new Set([...TERMINAL, "verifying", "awaiting_approval", "awaiting_connection", "paused"]);
+    const delay = wait || (() => new Promise(resolve => setTimeout(resolve, 1000)));
+    while (true) {
+      if (signal?.aborted) throw new DOMException("İzleme durduruldu", "AbortError");
+      const data = await read("/api/kosu/" + encodeURIComponent(id) + "/agac", signal);
+      if (signal?.aborted) throw new DOMException("İzleme durduruldu", "AbortError");
+      const run = data.kosu;
+      if (!run || run.id !== id) throw new Error("Kayıtlı çalışma okunamadı.");
+      if (terminal.has(run.durum)) {
+        if (run.answer) return {istek: id, tur: "bitir", cevap: run.answer, kaynak: run.provider || ""};
+        if (TERMINAL.has(run.durum)) return {istek: id, tur: "error", metin: run.hata || statusText(run.durum)};
+        return {istek: id, tur: "checkpoint", kosu_id: id};
+      }
+      await delay();
+    }
+  }
+
   function createState(principal) {
     return { principal: String(principal || ""), user: null, runs: {}, selectedId: null,
       cursor: 0, log: [], connections: [], providers: [] };
@@ -180,7 +225,7 @@
   }
 
   const exported = { createState, identity, snapshot, events, statusText, mergeMessages,
-    childProgress, evidenceText, approvalDetails, workerStatusText,
+    childProgress, evidenceText, approvalDetails, workerStatusText, hasWork, activityEvent, eventTime, observeRun,
     safeHref, previewHref, createClient };
   if (typeof module !== "undefined" && module.exports) module.exports = exported;
   if (!scope.document) return;
@@ -265,7 +310,7 @@
   }
 
   function switchView() {
-    byId("platformTaskView").hidden = !currentRun();
+    byId("platformTaskView").hidden = !hasWork(currentRun());
     const chat = document.querySelector(".chat-main");
     if (chat) chat.hidden = false;
   }
@@ -376,6 +421,7 @@
     status.textContent = statusText(root.durum);
     status.dataset.status = root.durum || "unknown";
     byId("platformCancel").disabled = busy || TERMINAL.has(root.durum);
+    byId("platformCancel").hidden = TERMINAL.has(root.durum);
     byId("platformResume").hidden = !["paused", "blocked", "awaiting_connection", "partial", "failed", "verifying"].includes(root.durum);
     byId("platformResume").disabled = busy;
     const progress = childProgress(root);
@@ -399,14 +445,15 @@
       if (model) row.append(node("small", "workspace-muted", model));
       if (run.hata || run.reason || run.blocked_reason) row.append(node("p", "workspace-run-reason", run.hata || run.reason || run.blocked_reason));
       for (const check of run.checks || []) {
+        if (check.id === "response_recorded") continue;
         row.append(node("p", "workspace-check", (check.ok === true ? "Geçti: " : "Geçmedi: ") + evidenceText(check)));
       }
       if (depth && run.answer) row.append(node('pre', 'workspace-code', run.answer));
       const activity = state.log.filter(event =>
         (event.payload?.origin_run_id || event.run_id) === run.id &&
         ['tool_started', 'tool_done', 'chat'].includes(event.type));
-      const tools = activity.filter(event => event.type !== 'chat' ||
-        ['toolStart', 'toolDone', 'arac'].includes(event.payload?.tur));
+      const tools = activity.filter(event => activityEvent(event) && (event.type !== 'chat' ||
+        ['toolStart', 'toolDone', 'arac'].includes(event.payload?.tur)));
       if (tools.length) {
         const detail = node('details', 'workspace-agent-tools');
         detail.append(node('summary', '', 'Araç işlemleri · ' + tools.length));
@@ -416,6 +463,7 @@
         row.append(detail);
       }
       for (const artifact of run.artifacts || []) {
+        if (artifact.id === "answer") continue;
         const button = node('button', 'workspace-button workspace-file', artifact.title || 'Dosya');
         button.type = 'button';
         button.addEventListener('click', () => {
@@ -483,7 +531,7 @@
     const payload = event.payload || {};
     const labels = { steering: "Yeni yön alındı", approval: "Onay durumu", artifact: "Çıktı kaydedildi",
       check: "Kabul kontrolü", tool_started: "Araç çalışıyor", tool_done: "Araç sonucu",
-      model: "Model", provider: "Sağlayıcı", status: "Durum" };
+      model: "Model", provider: "Sağlayıcı", status: "Durum", chat: "Araç işlemi" };
     return (labels[event.type] || event.type || "Olay") + " · " + (
       payload.durum ? statusText(payload.durum) : payload.tool || payload.arac || payload.ad || payload.title || payload.model_ref || payload.provider || "");
   }
@@ -496,14 +544,14 @@
       container.append(node("p", "workspace-muted", currentRun() ? "Görev olayları bekleniyor." : "Bir görev seçtiğinde çalışma adımları burada görünür."));
       return;
     }
-    for (const event of state.log.filter(event => event.type !== "chat" || !["parca", "token", "delta", "bitir"].includes(event.payload?.tur))) {
+    for (const event of state.log.filter(activityEvent)) {
       const entry = node("details", "workspace-event");
       entry.open = expandedEvents.has(event.seq);
       entry.addEventListener("toggle", () => {
         if (entry.open) expandedEvents.add(event.seq); else expandedEvents.delete(event.seq);
       });
       const summary = node("summary", "", eventLabel(event));
-      const stamp = event.created_at ? new Date(event.created_at).toLocaleTimeString("tr-TR") : "";
+      const stamp = eventTime(event.created_at);
       summary.append(node("small", "workspace-event-time", stamp));
       entry.append(summary, node("pre", "workspace-code", JSON.stringify(event.payload || {}, null, 2)));
       container.append(entry);
@@ -739,6 +787,7 @@
       if (version !== revision || id !== state.selectedId) return;
       const previous = state.runs[id];
       state = snapshot(state, tree.kosu);
+      scope.dispatchEvent(new CustomEvent('basak:work-activity', {detail: {id, has_work: hasWork(tree.kosu)}}));
       if (!previous || previous.durum !== tree.kosu.durum || previous.answer !== tree.kosu.answer) {
         scope.dispatchEvent(new CustomEvent('basak:durable-update'));
       }
