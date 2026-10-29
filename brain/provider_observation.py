@@ -14,7 +14,7 @@ _PROVIDER = re.compile(r"^[a-z][a-z0-9_-]{0,39}$")
 
 def record(kind, provider, *, duration_ms=None, outcome=None, model=None):
     """Append a small metadata-only event; telemetry must never fail a chat."""
-    if kind not in ("providerAttempt", "providerResult", "modelResolved"):
+    if kind not in ("providerAttempt", "providerResult", "modelReported"):
         return
     if not isinstance(provider, str) or not _PROVIDER.fullmatch(provider):
         return
@@ -25,7 +25,7 @@ def record(kind, provider, *, duration_ms=None, outcome=None, model=None):
         payload["outcome"] = outcome
         if isinstance(duration_ms, (int, float)) and 0 <= duration_ms < 86_400_000:
             payload["duration_ms"] = int(duration_ms)
-    if kind == "modelResolved":
+    if kind == "modelReported":
         if not isinstance(model, str) or not _MODEL_ID.fullmatch(model):
             return
         payload["model"] = model
