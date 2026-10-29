@@ -74,7 +74,32 @@ Başak; düşük gecikmeli, modelin araç seçtiği, ücretsiz kaynakları ölç
 - Vercel 2026-10-15 itibarıyla Python GA; Workflow Python ve Daemons yeni/beta seçeneklerdir. Resmî fiyat/plan/erişim koşulları doğrulanmadan ücretsiz sürekli çalışma varsayılmaz.
 - Depodaki docs/ORACLE-TASINMA-PLANI.md mevcut bir aday ve kurulum planıdır, çalışır üretim worker'ının kanıtı değildir. Sağlayıcı hesabı, compute, kalıcılık, elektrik/limit, tenant izolasyonu ve maliyet gerçek testte değerlendirilir.
 
-## 7. Karar kaydı, canlı kapısı ve geri alma
+## 7. Bulut envanteri: Oracle + Render + Vercel
+
+**Kritik ayrım:** Kullanıcı Oracle ve Render bağlantılarının kurulduğunu belirtti. Bağlantı bilgisi operasyonel sağlık testi değildir. Bu oturumdaki erişilebilir araçlar yalnız Vercel deployment durumunu doğruladı; Oracle ve Render hesaplarındaki çalışan servis/işçi listesine doğrudan erişilemedi. GitHub'da Oracle kurulum betikleri var; Render için çalışır servis veya deployment yapılandırması bu taramada bulunmadı. Bu nedenle Oracle/Render **bağlantı beyanı mevcut**, **canlı çalışma kanıtı bekleniyor** durumundadır.
+
+| Platform | Bugün kanıtlanan | Resmî ücretsiz sınır | Hedef rol / test |
+|---|---|---|---|
+| Vercel | Production a167e6d READY, geliştirme Preview READY, Hobby planı | Fluid Compute Hobby HTTP üst süresi 300 sn. Sürekli background worker kabulü değildir. | Web/API ve kısa sohbet, gerçek TTFT; ticari plan şartları ayrıca kontrol |
+| Oracle Cloud | docs/ORACLE-TASINMA-PLANI.md ve deploy/oracle/{setup.sh,setup-ol9.sh,*.service} var; gerçek VM/servis durumu bu oturumda okunamadı | OCI Always Free A1 için 1.500 OCPU-saat ve 9.000 GB-saat/ay; kapasite, hesap ve kota şartlarına tabi | Bağımsız uzun görev işçisi adayı; VM heartbeat, restart ve dış eylem idempotansı test edilmeden 'çalışıyor' denmez |
+| Render | Kullanıcı bağlantıyı bildirdi; bu oturumda Render API/servis kimliği bulunamadı | Free web servisleri 15 dk isteksizlikte uyur; tekrar açılması yaklaşık 1 dk; yerel dosya geçicidir. Sürekli Background Worker ücretsiz değildir | Önizleme, demo, ölçümlü failover adayı; sürekli ücretsiz işçi olarak varsayılmaz |
+
+**Kontrol kanıtları:** 
+- Vercel: Vercel deployment API, production SHA ve preview hazır durumu 2026-10-29.
+- Oracle resmi: https://docs.oracle.com/iaas/Content/FreeTier/freetier.htm ve https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm
+- Render resmi: https://render.com/docs/free ve https://render.com/docs/your-first-deploy ve https://render.com/docs/background-workers
+- Vercel resmi: https://vercel.com/docs/functions/limitations
+
+**Gerçek bağlantı kabul listesi (hiçbiri henüz Oracle/Render için bu oturumda tamamlanmadı):**
+1. Sağlayıcı kontrol panelinden servis kimliği, tipi, planı, bölgesi ve canlı deployment SHA kanıtı.
+2. Servis health, işçi heartbeat, veri tabanı bağlantısı, isteğin doğru kullanıcıya ait olması.
+3. 5 dakikalık/1 saatlik görev + web bağlantısı koparma, sunucu/işçi yeniden başlatma, ikinci işçi yarışı.
+4. Kaldığı yerden tamamlama, çift dış eylem sıfır, kullanıcıya olay akışı ve teslim edilebilir artefakt.
+5. Toplam maliyetin ve kullanım izinlerinin resmî plandan doğrulanması; ücretli yol kullanıcı onayı olmadan etkinleşmez.
+
+**Karar yasağı:** Render bağlı diye sürekli ücretsiz işlem gücü varsayılmaz; Oracle betiği var diye VM çalışıyor denmez; Vercel READY diye gerçek sohbet gecikmesi kanıtlanmış sayılmaz.
+
+## 8. Karar kaydı, canlı kapısı ve geri alma
 
 Her karar: problem → mevcut kanıt → en az iki teknik seçenek → performans/maliyet/güvenlik farkı → seçilen yöntem → ölçüm sonucunu barındırır. İlk karar: P0'ı ölçmeden normal sohbet için yeni orkestrasyon eklenmez; P2'de ise yürütme motoru yeniden yazımına tamamen açıktır.
 
