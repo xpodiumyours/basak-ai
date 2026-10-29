@@ -15,6 +15,7 @@ from email.utils import parsedate_to_datetime
 from brain.groq import MODELLER, GroqClient  # MODELLER sabiti + anahtar yenileme
 from brain.stats import model_stats_al
 from brain import secici, registry
+from brain.model_route import single_route, one_eligible
 
 logger = logging.getLogger(__name__)
 
@@ -667,6 +668,12 @@ class Brain:
             sirali, gerekce = secici.sec(mevcutlar=mevcutlar)
             sirali, gerekce = _kota_ongorulu_sira(sirali, model_stats_al(state_dir()))
 
+        if single_route():
+            # One real provider, selected by technical health/capacity only.
+            # A failing provider cannot start a nine-request serial queue.
+            sirali = one_eligible(sirali, model_stats_al(state_dir()),
+                                  _yerel_kota_doldu, _cooldown_kaldi)
+            gerekce = "tek teknik model secimi (kuyruk yok)"
         istemciler = dict(zincir)
         hatalar = []
         turler = {}
@@ -694,6 +701,7 @@ class Brain:
                            "siradaki beyin deneniyor" % ad)
                 continue
 
+            _durum_ver(durum, "Model baglantisi: %s" % ad)
             t0 = time.time()
             # FAZ 1.1: yapi istenmisse ve saglayici daha once kirmamissa
             # sozlesme tasınır; kirtilmis saglayicida yapi hic gonderilmez.
@@ -801,6 +809,12 @@ class Brain:
             sirali, gerekce = _secici.sec(mevcutlar=mevcutlar)
             sirali, gerekce = _kota_ongorulu_sira(sirali, model_stats_al(state_dir()))
 
+        if single_route():
+            # One real provider, selected by technical health/capacity only.
+            # A failing provider cannot start a nine-request serial queue.
+            sirali = one_eligible(sirali, model_stats_al(state_dir()),
+                                  _yerel_kota_doldu, _cooldown_kaldi)
+            gerekce = "tek teknik model secimi (kuyruk yok)"
         istemciler = dict(zincir)
         hatalar = []
         for ad in sirali:
@@ -820,6 +834,7 @@ class Brain:
                 _durum_ver(durum, "%s atlandi (kisa sure once hata aldi) — "
                            "siradaki beyin deneniyor" % ad)
                 continue
+            _durum_ver(durum, "Model baglantisi: %s" % ad)
             gorunen = 0  # ekrana ulasan karakter sayisi (bos akis denetimi)
             try:
                 ham = getattr(istemci, "client", None)
