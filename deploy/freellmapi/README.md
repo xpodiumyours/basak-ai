@@ -2,11 +2,11 @@
 
 ## Teslimin durumu
 
-Bu dizin kurulum icindir; canli kurulumun yapildigi anlamina gelmez.
-Vercel ortam degiskenlerine yetkili erisim ve kalici diskin oldugu bir
-FreeLLMAPI sunucusu olmadan anahtar aktarimi ve canli kabul tamamlanamaz.
-Kullanicinin bilgisayarina kurulum gerekmez. Bulut sunucusu mevcut
-Vercel Functions ortamina eklenmis veya baska bir hesapta acilmis degildir.
+2026-10-29 production incelemesi: Vercel'de FREELLMAPI_URL,
+FREELLMAPI_API_KEY ve FREELLMAPI_MODEL yapilandirilmis; Neon'da sifreli
+yedek kaydi vardir. Bunlar gateway'in her an calistiginin veya paneldeki
+modellerin erisilebilirliginin tek basina kaniti degildir. Gateway servisi
+ayri kalici sunucuda yasamali; Vercel Functions'a SQLite eklenmez.
 
 ## 1. Mevcut anahtarlari tek seferde toplama
 
@@ -66,15 +66,19 @@ tanimlanir:
 |---|---|
 | `FREELLMAPI_URL` | Kendi gateway'inin guvenilen HTTPS adresi |
 | `FREELLMAPI_API_KEY` | Kendi panelinden uretilen ortak anahtar (Secret) |
-| `FREELLMAPI_MODEL` | `auto` veya gateway'de dogrulanan ucretsiz zincir/model |
+| `FREELLMAPI_MODEL` | Var olan gateway profil/model tercihi (korunur) |
+| `BASAK_FREELLMAPI_ROUTING_MODEL` | Opsiyonel rollout secimi; `auto:smart` (rollback icin silinir) |
 
-Adres ve anahtar verildiginde Basak'in sohbet zinciri yalniz FreeLLMAPI
-uzerinden calisir. Normal yanit, native arac cagrisi ve final metin akisi
-ayni baglantiyi kullanir. Model secimi ve saglayici yedeklemesi gateway'de
-yapilir. Ayar var ama baglanti kurulamamissa Basak saglayicilara sessizce
-dogrudan cikmaz; hata verir. Ayarlar hic yoksa eski kurulum devam eder.
-Goruntu okuma gibi ayri ozelliklerin dogrudan entegrasyonlari bu sohbet
-degisikligiyle tasinmaz; onlarin anahtarlarini kaldirmayin.
+Adres ve anahtar mevcutsa Basak once FreeLLMAPI'ye yonlenir.
+`auto:smart` gateway'in kurulu ve etkin modellerden kendi olcumleriyle
+secim yapmasini saglar; Basak kodu istege gore model siniflandirmaz.
+Native arac cagrisi ve akiskan yanit ayni gateway uzerinden gecer.
+Gateway gercek API hatasi veya kota engeli verirse Basak'in dokuz dogrudan
+ucretsiz saglayici hatti bagimsiz teknik yedek olarak korunur. Acikca
+secilen saglayici/model tercihlerine dokunulmaz. Gateway'in guvenilir
+calisimi ve gercek model adi FreeLLMAPI panelinden dogrulanmalidir.
+Goruntu okuma gibi ayri dogrudan entegrasyonlar korunur; mevcut anahtarlari
+kaldirmayin.
 
 ## 4. Canli kabul
 
@@ -88,6 +92,8 @@ Preview'da gercek sohbet, native arac cagrisi -> arac sonucu -> final
 yanit ve streaming olculmeden production'a gecilmez. Bu kabul bu
 calisma ortaminda henuz yapilamadi. Ana dal merge/yayin onayi ayridir.
 
-Geri alma: yeni deployment'ta uc `FREELLMAPI_*` ayarini kaldirip onceki
-dogrudan baglantilari kullanin; veritabani volume'unu ve sifreleme
-anahtarini silmeyin. Onayli onceki Vercel deployment'ina donus de mumkundur.
+Geri alma: production'a ozel `BASAK_FREELLMAPI_ROUTING_MODEL`
+degiskenini kaldirin ve onceki onayli Vercel deployment'ina donun.
+Var olan `FREELLMAPI_URL`, `FREELLMAPI_API_KEY`, `FREELLMAPI_MODEL`,
+dogrudan dokuz saglayici anahtari, gateway sifreleme anahtari ve
+veritabani volume'u korunur.
