@@ -76,7 +76,7 @@ def test_single_route_keeps_native_tools_and_reports_real_provider(monkeypatch):
     assert source == "groq"
     assert answer["tool_calls"][0]["function"]["name"] == "yetenek_ac"
     assert calls[0][1] is tools
-    assert status == ["Model baglantisi: groq"]
+    assert status == ["Model bağlantısı: groq"]
 
 
 def test_stream_failure_does_not_start_second_provider(monkeypatch):
