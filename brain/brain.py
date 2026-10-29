@@ -494,12 +494,10 @@ class Brain:
                                  exc_info=True)
             return True
         zincir = []
-        # 2026-10-28: ortak baglanti (FreeLLMAPI) ARTIK ILK TERCIH DEGIL.
-        # Onceki surum gateway yapilandirildiginda dogrudan saglayicilari
-        # tamamen atliyordu: gateway'in kendi yedeklemesi kalitesizlestiginde
-        # elde dogrulanmis Groq/Gemini hatti kullanilmiyordu. Yeni sira:
-        # dogrudan saglayicilar -> gateway -> ozel/ucretli. Gateway hala
-        # zincirde, ama SON care.
+        # FreeLLMAPI already selects a suitable real model from enabled
+        # providers (auto:smart). Prefer that gateway when configured;
+        # preserve *all* direct providers as independent technical fallbacks.
+        # No task/keyword classification or model intelligence in Başak.
         gateway = getattr(self, "_freellmapi", None)
         if _uygun("groq", getattr(self, "_groq", None)):
             zincir.append(("groq", getattr(self, "_groq", None)))
@@ -549,7 +547,7 @@ class Brain:
         # kullanilamaz durumdaysa sessizce yok sayilmaz, acik hata yolu
         # (bulut_musait False) korunur.
         if _uygun("freellmapi", gateway):
-            zincir.append(("freellmapi", gateway))
+            zincir.insert(0, ("freellmapi", gateway))
         if getattr(self, "_freellmapi_isteniyor", False) and not zincir:
             return []
         # Ozel/ucretli saglayici otomatik zincire girmez.
@@ -666,6 +664,10 @@ class Brain:
             # TABANDIR; kota/hiz ongorusuyle olcum verisine gore dizilir.
             sirali, gerekce = secici.sec(mevcutlar=mevcutlar)
             sirali, gerekce = _kota_ongorulu_sira(sirali, model_stats_al(state_dir()))
+            # Provider-native smart routing is the sole model selector when
+            # available. Other providers remain fallback on a real API error.
+            if "freellmapi" in sirali:
+                sirali = ["freellmapi", *[x for x in sirali if x != "freellmapi"]]
 
         istemciler = dict(zincir)
         hatalar = []
@@ -800,6 +802,10 @@ class Brain:
         else:
             sirali, gerekce = _secici.sec(mevcutlar=mevcutlar)
             sirali, gerekce = _kota_ongorulu_sira(sirali, model_stats_al(state_dir()))
+            # Provider-native smart routing is the sole model selector when
+            # available. Other providers remain fallback on a real API error.
+            if "freellmapi" in sirali:
+                sirali = ["freellmapi", *[x for x in sirali if x != "freellmapi"]]
 
         istemciler = dict(zincir)
         hatalar = []
