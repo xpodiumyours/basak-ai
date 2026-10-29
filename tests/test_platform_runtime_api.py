@@ -209,6 +209,7 @@ def test_legacy_mime_artifact_is_downloaded_as_real_image(api):
 
 
 def test_account_chat_stream_observes_worker_final_after_commit(api, monkeypatch):
+    monkeypatch.setenv('BASAK_FOREGROUND_CHAT', 'false')
     import threading
     import time
     import json
@@ -249,6 +250,36 @@ def test_account_chat_stream_observes_worker_final_after_commit(api, monkeypatch
     assert [e['cevap'] for e in events if e['tur'] == 'bitir'] == ['Durable response']
     assert store.get('alice', rid)['durum'] == 'completed'
     assert not any(e['tur'] in ('checkpoint', 'error') for e in events)
+
+
+def test_account_stream_runs_on_web_without_oracle_worker(api, monkeypatch):
+    import json
+    import app as host
+    from chat import platform_agents
+    client, store = api
+    monkeypatch.setenv('BASAK_FOREGROUND_CHAT', 'true')
+    monkeypatch.setattr(host, '_platform_kimlik', lambda request: 'alice')
+    monkeypatch.setattr(host, '_kota_kapisi', lambda *args: (True, 10))
+    monkeypatch.setattr(platform_api, '_store_factory', lambda: store)
+    executed = []
+    def direct(job, control):
+        executed.append(job['id'])
+        control.record_check('response_recorded', True, {'observed': True})
+        return {'answer': 'Direct response'}
+    monkeypatch.setattr(platform_agents, 'execute_job', direct)
+    response = TestClient(host.app).post('/api/sohbet',
+        json={'metin': 'hello', 'conversation_id': 'thread-direct'},
+        headers={'Origin': 'http://testserver', 'X-Test-User': 'alice',
+                 'Accept': 'application/x-ndjson',
+                 'Idempotency-Key': 'direct-turn'})
+    assert response.status_code == 200
+    rid = response.headers['X-Basak-Run-ID']
+    events = [json.loads(line) for line in response.text.splitlines()]
+    assert executed == [rid]
+    assert [e['cevap'] for e in events if e['tur'] == 'bitir'] == ['Direct response']
+    assert store.get('alice', rid)['durum'] == 'completed'
+    assert store.chat_threads('alice')[0]['messages'][-1]['content'] == 'Direct response'
+    assert store.worker_health()['live_workers'] == 0
 
 
 def test_chat_threads_restore_title_pending_turn_and_tenant_boundary(api):
