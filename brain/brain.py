@@ -701,7 +701,7 @@ class Brain:
                            "siradaki beyin deneniyor" % ad)
                 continue
 
-            _durum_ver(durum, "Model baglantisi: %s" % ad)
+            _durum_ver(durum, "Model bağlantısı: %s" % ad)
             t0 = time.time()
             # FAZ 1.1: yapi istenmisse ve saglayici daha once kirmamissa
             # sozlesme tasınır; kirtilmis saglayicida yapi hic gonderilmez.
@@ -834,7 +834,7 @@ class Brain:
                 _durum_ver(durum, "%s atlandi (kisa sure once hata aldi) — "
                            "siradaki beyin deneniyor" % ad)
                 continue
-            _durum_ver(durum, "Model baglantisi: %s" % ad)
+            _durum_ver(durum, "Model bağlantısı: %s" % ad)
             gorunen = 0  # ekrana ulasan karakter sayisi (bos akis denetimi)
             try:
                 ham = getattr(istemci, "client", None)
