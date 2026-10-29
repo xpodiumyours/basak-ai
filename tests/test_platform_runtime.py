@@ -70,6 +70,37 @@ def test_events_are_fenced_at_the_same_transaction_that_writes_them(store):
         Control(store,current).event('late',{'text':'after cancellation'})
 
 
+def test_chat_observer_has_tenant_isolation_cursor_and_terminal_state(store):
+    chat = create(store, kind='chat')
+    rid = chat['id']
+    with pytest.raises(NotFound):
+        store.observe_chat('bob', rid)
+    initial, state = store.observe_chat('alice', rid)
+    assert state == {'durum': 'queued', 'answer': '', 'hata': '', 'provider': ''}
+    assert initial[-1]['type'] == 'status'
+
+    lease = store.claim('foreground', run_id=rid)['lease']
+    store.append_event('alice', rid, 'chat',
+                       {'tur': 'parca', 'metin': 'İlk'}, lease=lease)
+    new_events, running = store.observe_chat('alice', rid,
+                                              after=initial[-1]['seq'])
+    assert running['durum'] == 'running'
+    assert any(event['payload'].get('metin') == 'İlk'
+               for event in new_events)
+    assert [event['seq'] for event in new_events] == sorted(
+        event['seq'] for event in new_events)
+
+    store.record_check(lease, 'response_recorded', True, {'observed': True})
+    store.finish(lease, {'answer': 'İlk cevap'})
+    finished_events, finished = store.observe_chat(
+        'alice', rid, after=new_events[-1]['seq'])
+    assert finished['durum'] == 'completed'
+    assert finished['answer'] == 'İlk cevap'
+    assert finished_events
+    assert store.observe_chat('alice', rid,
+                              after=finished_events[-1]['seq'])[0] == []
+
+
 def test_idempotent_submit_rejects_changed_payload(store):
     first = create(store, request_key="r1")
     assert create(store, request_key="r1")["id"] == first["id"]
