@@ -33,7 +33,7 @@ CLOUD_TOOLS = READ_TOOLS | frozenset((
 ))
 
 
-def execution_catalog(permissions):
+def execution_catalog(permissions, model_refs=None):
     """Expose real callable tool names in the delegated-tool parameter schema."""
     from tools import TOOLS
     catalog = [copy.deepcopy(t) for t in TOOLS if t['function']['name'] in permissions]
@@ -43,6 +43,8 @@ def execution_catalog(permissions):
             fields = declaration['function']['parameters']['properties']['isler']['items']['properties']
             fields['araclar']['items']['enum'] = names
             fields['kabul']['items']['properties']['tool']['enum'] = names
+            if model_refs is not None:
+                fields['model_ref']['enum'] = sorted(set(model_refs) | {'primary', 'komutan', 'isci'})
     return catalog
 
 
@@ -282,7 +284,7 @@ def execute_job(job, control, brain=None):
     from chat.flow import mesaj_isle
     from chat.ayar import sistem_blogu
     from tools import TOOLS
-    from tools.platform import selection
+    from tools.platform import models, selection
     from worker.platform_execution import Workspace, ExecutionUnavailable
     from chat.kimlik import state_kok
 
@@ -308,7 +310,7 @@ def execute_job(job, control, brain=None):
         return {'status': 'blocked', 'reason': str(exc)}
     with bound(ctx), model_selection(provider, model):
         control.check_cancelled()
-        catalog = execution_catalog(permissions)
+        catalog = execution_catalog(permissions, [m['id'] for m in models(brain)])
         saved = job.get('continuation') or {}
         callback = _Events(control)
         context = job.get('context') or {}
