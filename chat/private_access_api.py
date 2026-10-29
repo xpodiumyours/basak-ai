@@ -11,6 +11,9 @@ router = APIRouter(prefix='/api/ozel-erisim')
 
 
 def private_only():
+    from chat.platform_identity import browser_access_enabled
+    if browser_access_enabled():
+        return False
     return os.environ.get('BASAK_PRIVATE_ACCESS_ONLY', '').lower() == 'true'
 
 

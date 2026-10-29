@@ -126,7 +126,8 @@ def _json(value, status=200):
 async def chat_response(request, user, body, history):
     """Persist an account chat turn; HTTP only observes the existing worker."""
     from chat.private_access_api import private_only
-    strict = private_only()
+    from chat.platform_identity import browser_access_enabled
+    strict = private_only() or browser_access_enabled()
     if not _mutation_origin_ok(request):
         raise HTTPException(403, 'Bu hesap islemi ayni kaynaktan yapilmali')
     enabled = _durable_acik()

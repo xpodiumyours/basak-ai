@@ -202,8 +202,11 @@
   const originalFetch = scope.basakFetch;
   if (typeof originalFetch === 'function') {
     scope.basakFetch = async function (path, options = {}) {
-      if (path !== '/api/sohbet' || !state.user) return originalFetch(path, options);
-      const signature = state.user.id + ':' + String(options.body || '');
+      if (path !== '/api/sohbet') return originalFetch(path, options);
+      if (scope.basakKimlikHazir) await scope.basakKimlikHazir;
+      const userId=state.user?.id || scope.basakKimlik?.kullanici;
+      if (!userId || scope.basakLegacyBridge) return originalFetch(path, options);
+      const signature = userId + ':' + String(options.body || '');
       const previous = pendingChatSubmission && state.runs[pendingChatSubmission.run];
       if (!pendingChatSubmission || pendingChatSubmission.signature !== signature ||
           (previous && TERMINAL.has(previous.durum))) {
@@ -806,6 +809,7 @@
 
   async function start() {
     try {
+      if (scope.basakKimlikHazir) await scope.basakKimlikHazir;
       const [account, providers] = await Promise.all([
         client.read("/api/hesap"), client.read("/api/baglantilar/saglayicilar"),
       ]);

@@ -778,6 +778,28 @@ async def kimlik_hazirla(request: Request):
     import kullanici as kullanici_modulu
     from chat.kimlik import kullanici_kur
 
+    from chat.platform_identity import browser_access_enabled, IdentityService, COOKIE
+    if browser_access_enabled():
+        from chat.platform_api import _mutation_origin_ok
+        if not _mutation_origin_ok(request):
+            return JSONResponse({'error':'İstek kaynağı geçersiz'},status_code=403)
+        try:
+            account=_platform_kimlik(request)
+            token=None
+            if not account:
+                account,token=IdentityService().open_browser()
+            kullanici_kur(account)
+            response=JSONResponse({'ok':True,'kullanici':account,'basak_id':account,
+                                   'kayit_gerekli':False},headers={'Cache-Control':'no-store'})
+            if token:
+                response.set_cookie(COOKIE,token,max_age=90*24*3600,path='/',httponly=True,
+                    secure=request.url.scheme=='https' or bool(os.environ.get('VERCEL')),samesite='lax')
+            return response
+        except Exception:
+            logger.exception('Tarayici oturumu acilamadi')
+            return JSONResponse({'error':'Başak oturumu açılamadı. Yeniden deneyebilirsin.'},
+                                status_code=503,headers={'Cache-Control':'no-store'})
+
     account = _platform_kimlik(request)
     if account:
         kullanici_kur(account)

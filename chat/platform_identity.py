@@ -10,11 +10,18 @@ import os
 import secrets
 import time
 import uuid
+import re
 
 from chat.platform_connections import ConnectionStore
 
 COOKIE = "basak_platform_session"
 SESSION_SECONDS = 7 * 24 * 3600
+
+
+def browser_access_enabled():
+    """The public web address opens a browser-owned durable account."""
+    return (os.environ.get('VERCEL_ENV') == 'production'
+            or os.environ.get('BASAK_PUBLIC_ACCESS_ENABLED', '').lower() == 'true')
 
 
 def _session_key():
@@ -45,6 +52,17 @@ class IdentityService:
         rows = self.store._db._sorgu("SELECT id,provider,name FROM basak_account WHERE id=%s", (user_id,))
         return rows[0] if rows else None
 
+    def open_browser(self):
+        uid='u'+uuid.uuid4().hex[:30]
+        self.store._db._calistir(
+            'INSERT INTO basak_account (id,provider,subject,name,email,created_at) VALUES (%s,%s,%s,%s,%s,%s)',
+            (uid,'browser',uid,'Başak kullanıcısı','',time.time()))
+        sid=secrets.token_urlsafe(32)
+        self.store._db._calistir(
+            'INSERT INTO basak_account_session (id,user_id,expires_at,revoked) VALUES (%s,%s,%s,0)',
+            (hashlib.sha256(sid.encode()).hexdigest(),uid,time.time()+90*24*3600))
+        return uid,'b1.'+sid
+
     def issue_session(self, user_id):
         if not self.get(user_id):
             raise PermissionError("Hesap bulunamadi")
@@ -56,6 +74,11 @@ class IdentityService:
         return token
 
     def resolve_session(self, token):
+        if isinstance(token,str) and re.fullmatch(r'b1\.[A-Za-z0-9_-]{43}',token):
+            rows=self.store._db._sorgu(
+                'SELECT user_id FROM basak_account_session WHERE id=%s AND revoked=0 AND expires_at>%s',
+                (hashlib.sha256(token[3:].encode()).hexdigest(),time.time()))
+            return self.get(rows[0]['user_id']) if rows else None
         try:
             sid, expiry, sig = token.split(".")
             if int(expiry) <= time.time() or not hmac.compare_digest(sig, _signature(sid + "." + expiry)):
@@ -70,7 +93,7 @@ class IdentityService:
             from chat.private_access import service
             service().logout(token)
             return
-        sid = str(token or "").split(".")[0]
+        sid = token[3:] if str(token or '').startswith('b1.') else str(token or "").split(".")[0]
         self.store._db._calistir("UPDATE basak_account_session SET revoked=1 WHERE id=%s", (hashlib.sha256(sid.encode()).hexdigest(),))
 
 
@@ -82,7 +105,7 @@ def authenticate(request):
         from chat.private_access import service
         account = service().resolve(token)
         return account['id'] if account else None
-    if os.environ.get('BASAK_PRIVATE_ACCESS_ONLY', '').lower() == 'true':
+    if not browser_access_enabled() and os.environ.get('BASAK_PRIVATE_ACCESS_ONLY', '').lower() == 'true':
         return None
     try:
         account = IdentityService().resolve_session(token)

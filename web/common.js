@@ -93,10 +93,10 @@ window.basakFetch = async (yol, secenek = {}) => {
   if (yol !== "/api/kimlik") await window.basakKimlikHazir;
 
   const kos = () => {
-    const basliklar = { ...(secenek.headers || {}) };
+    const basliklar = new Headers(secenek.headers || {});
     if (window.basakLegacyBridge) {
       const t = window.basakToken();
-      if (t) basliklar["X-Basak-Token"] = t;
+      if (t) basliklar.set("X-Basak-Token", t);
     }
     return fetch(yol, { credentials: "same-origin", ...secenek, headers: basliklar });
   };

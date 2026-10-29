@@ -179,9 +179,12 @@ def test_production_preview_kuralindan_etkilenmez(monkeypatch, tmp_path):
     monkeypatch.setattr(app, "_hafizayi_bir_kez_sifirla", lambda: True)
 
     with TestClient(app.app, base_url="https://prod.test") as c:
-        r = c.post("/api/kimlik", json={})
+        r = c.post("/api/kimlik", json={}, headers={"Origin":"https://prod.test"})
         assert r.status_code == 503
-        assert "BASAK_OTURUM_ANAHTARI" in r.json()["error"]
+        # Public browser sessions use the durable store, never a Preview
+        # identity or a fallback to the owner's account when it is missing.
+        assert "oturumu açılamadı" in r.json()["error"]
+        assert "set-cookie" not in r.headers
 
 
 def test_preview_hafizasi_production_postgrese_gitmez(monkeypatch, tmp_path):
