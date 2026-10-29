@@ -830,6 +830,7 @@ class Brain:
                            "siradaki beyin deneniyor" % ad)
                 continue
             gorunen = 0  # ekrana ulasan karakter sayisi (bos akis denetimi)
+            t0 = None
             try:
                 ham = getattr(istemci, "client", None)
                 model = getattr(istemci, "model", None)
@@ -884,7 +885,7 @@ class Brain:
                 e.kaynak = ad
                 raise
             except Exception as e:
-                if 't0' in locals():
+                if t0 is not None:
                     _observe("providerResult", ad, outcome="error",
                              duration_ms=(time.monotonic() - t0) * 1000)
                 hata = str(e)
