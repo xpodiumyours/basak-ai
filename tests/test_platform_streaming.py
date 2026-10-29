@@ -101,3 +101,15 @@ def test_delegation_schema_uses_real_authorized_tool_names_without_mutating_regi
     assert fields['kabul']['items']['properties']['tool']['enum']==['alt_ajan','hesapla']
     assert json.dumps(TOOLS,sort_keys=True)==original
     assert 'hesap' not in fields['araclar']['items']['enum']
+
+
+def test_delegation_schema_exposes_actual_model_references_without_selecting_one():
+    from chat.platform_agents import execution_catalog
+    from tools import TOOLS
+    original = json.dumps(TOOLS, sort_keys=True)
+    refs = ['primary', 'groq', 'groq:openai/gpt-oss-120b', 'glm']
+    catalog = execution_catalog({'alt_ajan', 'hesapla'}, refs)
+    delegate = next(t for t in catalog if t['function']['name'] == 'alt_ajan')
+    field = delegate['function']['parameters']['properties']['isler']['items']['properties']['model_ref']
+    assert set(field['enum']) == set(refs) | {'komutan', 'isci'}
+    assert json.dumps(TOOLS, sort_keys=True) == original

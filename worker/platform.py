@@ -11,6 +11,26 @@ import uuid
 
 from chat.platform_runtime import RuntimeStore, Worker
 
+_provider_clients = threading.local()
+
+
+def reused_brain():
+    """HTTP foreground jobs also retain clients on their execution thread."""
+    if not hasattr(_provider_clients, 'brain'):
+        from brain import Brain
+        _provider_clients.brain = Brain()
+    return _provider_clients.brain
+
+
+def thread_handler(execute, brain_factory):
+    """Reuse provider clients on each worker thread; jobs keep their own context."""
+    state = threading.local()
+    def handle(job, control):
+        if not hasattr(state, 'brain'):
+            state.brain = brain_factory()
+        return execute(job, control, brain=state.brain)
+    return handle
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Başak kalıcı görev işçisi")
@@ -31,13 +51,15 @@ def main(argv=None):
                      "yerel SQLite yalniz --allow-local-sqlite ile test edilir")
     logging.basicConfig(level=logging.INFO)
     from chat.platform_agents import execute_job
+    from brain import Brain
+    handler = thread_handler(execute_job, Brain)
     store = RuntimeStore()
     identity = args.worker_id or ('platform-' + uuid.uuid4().hex[:12])
-    worker = Worker(store, execute_job, worker_id=identity,
+    worker = Worker(store, handler, worker_id=identity,
                     lease_seconds=args.lease_seconds)
     workers = [worker]
     if not args.once:
-        workers.extend(Worker(store, execute_job, worker_id=identity + '-' + str(i),
+        workers.extend(Worker(store, handler, worker_id=identity + '-' + str(i),
                               lease_seconds=args.lease_seconds) for i in range(1, args.concurrency))
     stop = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):

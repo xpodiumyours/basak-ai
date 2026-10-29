@@ -160,3 +160,58 @@ def test_katalog_anahtar_sunucu_ve_bagimli_model_icermez():
     for models in data.values():
         assert len({m["id"] for m in models}) == len(models)
         assert all(set(m) == {"id", "tools"} for m in models)
+
+
+def test_rate_limited_model_is_not_retried_on_next_tool_turn(monkeypatch):
+    import brain.model_havuzu as module
+    clock = [100.0]
+    monkeypatch.setattr(module.time, 'monotonic', lambda: clock[0])
+    calls = []
+    def create(**kwargs):
+        calls.append(kwargs['model'])
+        if kwargs['model'] == 'large':
+            raise ApiHatasi(429)
+        return 'ok'
+    pool = ModelHavuzuSDK(sdk(create), MODELS)
+    options = {'model': 'large', 'messages': [], 'tools': [{}]}
+    assert pool.chat.completions.create(**options) == 'ok'
+    assert pool.chat.completions.create(**options) == 'ok'
+    assert calls == ['large', 'backup', 'backup']
+    clock[0] += 61
+    assert pool.chat.completions.create(**options) == 'ok'
+    assert calls[-2:] == ['large', 'backup']
+
+
+def test_router_owns_retry_instead_of_nested_sdk_retry(monkeypatch):
+    options = []
+    class SDK:
+        api_key = 'test'
+        base_url = 'https://fixture.invalid'
+        chat = SimpleNamespace(completions=SimpleNamespace(create=lambda **kw: 'ok'))
+        def with_options(self, **kwargs):
+            options.append(kwargs)
+            return self
+    monkeypatch.delenv('GROQ_MODEL', raising=False)
+    client = SimpleNamespace(model='large', client=SDK())
+    bagla('groq', client, {})
+    assert options == [{'max_retries': 0}]
+
+
+def test_retry_after_is_shared_by_account_but_not_other_accounts(monkeypatch):
+    import brain.model_havuzu as module
+    monkeypatch.setattr(module.time, 'monotonic', lambda: 100.0)
+    def native(key):
+        client = sdk(lambda **kwargs: 'ok')
+        client.api_key = key
+        client.base_url = 'https://quota.invalid'
+        return client
+    first = ModelHavuzuSDK(native('a'), MODELS, provider='fixture')
+    same = ModelHavuzuSDK(native('a'), MODELS, provider='fixture')
+    other = ModelHavuzuSDK(native('b'), MODELS, provider='fixture')
+    error = ApiHatasi(429)
+    error.response = SimpleNamespace(headers={'Retry-After': '120'})
+    first._note_failure('large', error)
+    first._note_failure('large', ApiHatasi(429))
+    assert first._availability['large'][0] == 220.0
+    assert same.adaylar({'tools': [{}]}) == ['backup']
+    assert other.adaylar({'tools': [{}]}) == ['large', 'backup']

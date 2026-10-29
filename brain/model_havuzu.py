@@ -5,12 +5,17 @@ metni incelenmez; native yanit, arac imzalari ve akisin parcasi korunur.
 """
 
 import json
+import hashlib
+import threading
+import time
 from contextvars import ContextVar
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
 _SELECTION = ContextVar('basak_model_selection', default=None)
+_AVAILABILITY = {}
+_AVAILABILITY_LOCK = threading.RLock()
 
 
 @contextmanager
@@ -57,11 +62,23 @@ class _Chat:
 
 
 class ModelHavuzuSDK:
-    def __init__(self, sdk, modeller, ortak_kota=False, provider=''):
+    def __init__(self, sdk, modeller, ortak_kota=False, provider='', availability=None):
         self._sdk = sdk
         self.modeller = tuple(modeller)
         self.ortak_kota = ortak_kota
         self.provider = provider
+        if availability is None:
+            # Share model cooldowns across this process's provider clients,
+            # keeping independent accounts and endpoints separate.
+            key = getattr(sdk, 'api_key', None)
+            if provider and isinstance(key, str) and key:
+                scope = (provider, str(getattr(sdk, 'base_url', '')),
+                         hashlib.sha256(key.encode()).hexdigest())
+                with _AVAILABILITY_LOCK:
+                    availability = _AVAILABILITY.setdefault(scope, {})
+            else:
+                availability = {}
+        self._availability = availability
         self._son_model = ContextVar("basak_son_model", default=None)
         self.chat = _Chat(self)
 
@@ -74,7 +91,18 @@ class ModelHavuzuSDK:
 
     def with_options(self, **kwargs):
         return ModelHavuzuSDK(self._sdk.with_options(**kwargs), self.modeller,
-                             ortak_kota=self.ortak_kota, provider=self.provider)
+                             ortak_kota=self.ortak_kota, provider=self.provider,
+                             availability=(None if {'api_key', 'base_url'} & kwargs.keys()
+                                           else self._availability))
+
+    def _note_failure(self, model, error):
+        if not _yeniden_denenebilir(error):
+            return
+        from brain.brain import _bekleme_suresi, _COOLDOWN_SURE
+        until = time.monotonic() + (_bekleme_suresi(error) or _COOLDOWN_SURE)
+        with _AVAILABILITY_LOCK:
+            if until > self._availability.get(model, (0, None))[0]:
+                self._availability[model] = (until, error)
 
     def adaylar(self, kwargs):
         aracli = bool(kwargs.get("tools"))
@@ -89,7 +117,14 @@ class ModelHavuzuSDK:
             uygun.insert(0, istenen)
         if not uygun:
             raise RuntimeError("Ucretsiz katalogda bu protokole uygun model yok")
-        return uygun
+        with _AVAILABILITY_LOCK:
+            available = [m for m in uygun if
+                         self._availability.get(m, (0, None))[0] <= time.monotonic()]
+            if not available:
+                # Return the real provider error to the existing cross-provider
+                # fallback, instead of sleeping or probing every exhausted model.
+                raise self._availability[uygun[0]][1]
+        return available
 
     def cagir(self, fonksiyon, kwargs):
         if kwargs.get("stream"):
@@ -98,6 +133,7 @@ class ModelHavuzuSDK:
             try:
                 yanit = fonksiyon(**dict(kwargs, model=model))
             except Exception as hata:
+                self._note_failure(model, hata)
                 if self.ortak_kota and getattr(hata, "status_code", None) == 429:
                     raise
                 if not _yeniden_denenebilir(hata):
@@ -123,6 +159,7 @@ class ModelHavuzuSDK:
                     raise RuntimeError("Model bos akis dondurdu")
                 return
             except Exception as hata:
+                self._note_failure(model, hata)
                 if self.ortak_kota and getattr(hata, "status_code", None) == 429:
                     raise
                 if basladi or (str(hata) != "Model bos akis dondurdu"
@@ -156,6 +193,10 @@ def bagla(ad, istemci, ayar):
     else:
         istemci.model = modeller[0]["id"]
     istemci.model_havuzu = modeller
+    # This router already performs model/provider failover. Avoid the SDK's
+    # nested retries delaying each attempt before the next model is reached.
+    if hasattr(sdk.chat, 'completions') and callable(getattr(sdk, 'with_options', None)):
+        sdk = sdk.with_options(max_retries=0)
     istemci.client = ModelHavuzuSDK(
         sdk, modeller, ortak_kota=ad in ("mistral", "cohere", "cloudflare"), provider=ad)
     return istemci

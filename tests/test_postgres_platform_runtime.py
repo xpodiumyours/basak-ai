@@ -31,8 +31,57 @@ def new_store(url, *, clock=None):
     return RuntimeStore(kosu_deposu._PostgresDepo(url), clock=clock)
 
 
+def test_identity_schema_and_legacy_queries_return_connections_to_pool(postgres_url):
+    """Identity setup executes more statements than the pool's capacity."""
+    from chat.platform_connections import ConnectionStore
+    db = kosu_deposu._PostgresDepo(postgres_url)
+    db._pool.timeout = 0.2
+    try:
+        ConnectionStore(db)
+        for _ in range(12):
+            assert db._sorgu('SELECT 1 AS value')[0]['value'] == 1
+            db._calistir('SELECT 1')
+        assert db._pool.get_stats()['requests_waiting'] == 0
+    finally:
+        db.close()
+
+
 def new_user():
     return "pg-ci-" + uuid.uuid4().hex
+
+
+def test_ledger_reuses_connection_and_rolls_back_before_reuse(postgres_url):
+    store = new_store(postgres_url)
+    pids = []
+    with store.transaction(readonly=True) as tx:
+        pids.append(tx.one('SELECT pg_backend_pid() AS pid')['pid'])
+    with pytest.raises(RuntimeError, match='rollback probe'):
+        with store.transaction() as tx:
+            pids.append(tx.one('SELECT pg_backend_pid() AS pid')['pid'])
+            tx.execute('CREATE TEMP TABLE rollback_probe(value INTEGER)')
+            raise RuntimeError('rollback probe')
+    # A pool may alternate between several healthy connections. Check reuse
+    # and rollback across enough checkouts to revisit every pooled connection.
+    for _ in range(12):
+        with store.transaction(readonly=True) as tx:
+            pids.append(tx.one('SELECT pg_backend_pid() AS pid')['pid'])
+            assert tx.one("SELECT to_regclass('pg_temp.rollback_probe') AS relation")['relation'] is None
+    assert len(set(pids)) <= store.depo._pool.max_size
+    assert len(set(pids)) < len(pids)
+    store.depo.close()
+
+
+def test_stale_pooled_connection_is_replaced_before_query(postgres_url):
+    store = new_store(postgres_url)
+    # Simulate an idle socket closed by the server, without replaying a write.
+    conn = store.depo._baglan()
+    stale = conn.info.backend_pid
+    conn.pgconn.finish()
+    conn.close()
+    for _ in range(12):
+        with store.transaction(readonly=True) as tx:
+            assert tx.one('SELECT pg_backend_pid() AS pid')['pid'] != stale
+    store.depo.close()
 
 
 def test_three_siblings_claim_across_independent_postgres_workers(postgres_url):

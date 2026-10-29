@@ -33,7 +33,7 @@ CLOUD_TOOLS = READ_TOOLS | frozenset((
 ))
 
 
-def execution_catalog(permissions):
+def execution_catalog(permissions, model_refs=None):
     """Expose real callable tool names in the delegated-tool parameter schema."""
     from tools import TOOLS
     catalog = [copy.deepcopy(t) for t in TOOLS if t['function']['name'] in permissions]
@@ -43,6 +43,8 @@ def execution_catalog(permissions):
             fields = declaration['function']['parameters']['properties']['isler']['items']['properties']
             fields['araclar']['items']['enum'] = names
             fields['kabul']['items']['properties']['tool']['enum'] = names
+            if model_refs is not None:
+                fields['model_ref']['enum'] = sorted(set(model_refs) | {'primary', 'komutan', 'isci'})
     return catalog
 
 
@@ -134,6 +136,16 @@ class _Events:
         self._cancel_checked = None
         self._first_text_flushed = False
 
+    def _emit(self, events):
+        emit = getattr(self.control, 'events', None)
+        if callable(emit):
+            emit(events)  # The durable write itself checks cancellation and lease.
+        else:
+            self.control.check_cancelled()
+            for kind, payload in events:
+                self.control.event(kind, payload)
+        self._cancel_checked = time.monotonic()
+
     def _check_text_cancel(self):
         now = time.monotonic()
         if self._cancel_checked is None or now - self._cancel_checked >= 0.25:
@@ -143,9 +155,7 @@ class _Events:
     def flush(self):
         if not self._pieces:
             return
-        self.control.check_cancelled()
-        self._cancel_checked = time.monotonic()
-        self.control.event('chat', {'tur': 'parca', 'metin': ''.join(self._pieces)})
+        self._emit([('chat', {'tur': 'parca', 'metin': ''.join(self._pieces)})])
         self._pieces, self._piece_size, self._piece_started = [], 0, None
 
     def __call__(self, javascript):
@@ -171,26 +181,27 @@ class _Events:
                 self.flush()
             return
         self.flush()
-        self.control.check_cancelled()
         payload = {'tur': name}
+        events = []
         if name == 'bitir':
             self.answer = values[0] if values else ''
             self.provider = values[1] if len(values) > 1 else ''
             payload.update(cevap=self.answer, kaynak=self.provider)
-            self.control.event('provider', {'provider': self.provider})
+            events.append(('provider', {'provider': self.provider}))
         elif values:
             payload['metin'] = values[0]
             if name == 'error':
                 self.error = str(values[0])
-        self.control.event('chat', payload)
+        events.append(('chat', payload))
+        self._emit(events)
 
     def olay(self, type_, **payload):
         self.flush()
-        self.control.check_cancelled()
         payload.pop('_handoff', None)
-        self.control.event(type_, payload)
+        events = [(type_, payload)]
         if type_ == 'runState' and payload.get('provider'):
-            self.control.event('provider', {'provider': payload['provider']})
+            events.append(('provider', {'provider': payload['provider']}))
+        self._emit(events)
 
 
 def _path_value(value, field):
@@ -268,19 +279,19 @@ def validate_acceptance(job, control, workspace):
 
 def execute_job(job, control, brain=None):
     """Execute or resume one leased task through the shared native core loop."""
-    from brain import Brain
+    from worker.platform import reused_brain
     from brain.model_havuzu import model_selection
     from chat.flow import mesaj_isle
     from chat.ayar import sistem_blogu
     from tools import TOOLS
-    from tools.platform import selection
+    from tools.platform import models, selection
     from worker.platform_execution import Workspace, ExecutionUnavailable
     from chat.kimlik import state_kok
 
     user = job['user_id']
     workspace = Workspace(state_kok(), user, job['workspace_id'], job['id'])
     workspace.restore(control.store, user, job['workspace_id'])
-    brain = brain or Brain()
+    brain = brain or reused_brain()
     permissions = job_permissions(job)
     if not permissions.issubset(CLOUD_TOOLS):
         return {'status': 'blocked', 'reason': 'Bu araclar bulut kullanici izolasyonunda desteklenmiyor'}
@@ -299,7 +310,7 @@ def execute_job(job, control, brain=None):
         return {'status': 'blocked', 'reason': str(exc)}
     with bound(ctx), model_selection(provider, model):
         control.check_cancelled()
-        catalog = execution_catalog(permissions)
+        catalog = execution_catalog(permissions, [m['id'] for m in models(brain)])
         saved = job.get('continuation') or {}
         callback = _Events(control)
         context = job.get('context') or {}
@@ -356,6 +367,11 @@ def execute_job(job, control, brain=None):
             callback.flush()
             if callback.error:
                 return {'status': 'failed', 'reason': callback.error}
+            if all(c.get('kind') in {'message_recorded', 'execution_observed'}
+                   for c in job.get('acceptance', [])):
+                return {'answer': callback.answer, 'record_answer': True,
+                        **({'status': 'partial', 'reason': state.truncated_reason}
+                           if state.truncated_reason else {})}
             control.artifact('answer', title='Basak sonucu', content=callback.answer,
                              media_type='text/markdown')
             validate_acceptance(job, control, workspace)

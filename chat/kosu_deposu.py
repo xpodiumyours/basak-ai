@@ -310,24 +310,32 @@ class _PostgresDepo(_Depo):
     def __init__(self, dsn):
         try:
             import psycopg
+            from psycopg_pool import ConnectionPool
         except ImportError as e:
-            raise RuntimeError("psycopg kurulu degil") from e
+            raise RuntimeError("psycopg/psycopg-pool kurulu degil") from e
         self._psycopg = psycopg
         self._dsn = dsn
-        super().__init__()
+        # Existing callers use close()/connection contexts. close_returns keeps
+        # that contract while returning clean connections to the bounded pool.
+        self._pool = ConnectionPool(
+            dsn, min_size=1, max_size=4, num_workers=1, open=True,
+            close_returns=True, check=ConnectionPool.check_connection,
+            kwargs={'autocommit': True, 'connect_timeout': 10,
+                    'prepare_threshold': None})
+        try:
+            super().__init__()
+        except BaseException:
+            self._pool.close()
+            raise
 
     def _baglan(self):
-        conn = self._psycopg.connect(
-            self._dsn, autocommit=True, connect_timeout=10)
-        try:
-            conn.prepare_threshold = None
-        except Exception:
-            logger.debug("kosu defteri prepare_threshold ayarlanamadi",
-                         exc_info=True)
-        return conn
+        return self._pool.getconn()
+
+    def close(self):
+        self._pool.close()
 
     def _hazirla(self):
-        with self._baglan() as conn:
+        with self._pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "CREATE TABLE IF NOT EXISTS %s ("
@@ -360,13 +368,13 @@ class _PostgresDepo(_Depo):
                     "ON %s (kullanici, guncelleme DESC)" % KOSU_TABLO)
 
     def _calistir(self, sql, params=()):
-        with self._kilit, self._baglan() as conn:
+        with self._kilit, self._pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
                 return cur.rowcount
 
     def _sorgu(self, sql, params=()):
-        with self._kilit, self._baglan() as conn:
+        with self._kilit, self._pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
                 adlar = [d[0] for d in (cur.description or ())]
@@ -424,6 +432,8 @@ def sifirla():
     """Yalnız testler için: defteri ve uyarı bayrağını sıfırlar."""
     global _DEPO, _UYARI_VERILDI
     with _DEPO_KILIT:
+        if _DEPO is not None and hasattr(_DEPO, 'close'):
+            _DEPO.close()
         _DEPO = None
         _UYARI_VERILDI = False
 
