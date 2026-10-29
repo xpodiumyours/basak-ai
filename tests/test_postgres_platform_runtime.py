@@ -31,6 +31,21 @@ def new_store(url, *, clock=None):
     return RuntimeStore(kosu_deposu._PostgresDepo(url), clock=clock)
 
 
+def test_identity_schema_and_legacy_queries_return_connections_to_pool(postgres_url):
+    """Identity setup executes more statements than the pool's capacity."""
+    from chat.platform_connections import ConnectionStore
+    db = kosu_deposu._PostgresDepo(postgres_url)
+    db._pool.timeout = 0.2
+    try:
+        ConnectionStore(db)
+        for _ in range(12):
+            assert db._sorgu('SELECT 1 AS value')[0]['value'] == 1
+            db._calistir('SELECT 1')
+        assert db._pool.get_stats()['requests_waiting'] == 0
+    finally:
+        db.close()
+
+
 def new_user():
     return "pg-ci-" + uuid.uuid4().hex
 

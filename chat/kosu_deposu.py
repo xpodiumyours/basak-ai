@@ -335,7 +335,7 @@ class _PostgresDepo(_Depo):
         self._pool.close()
 
     def _hazirla(self):
-        with self._baglan() as conn:
+        with self._pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "CREATE TABLE IF NOT EXISTS %s ("
@@ -368,13 +368,13 @@ class _PostgresDepo(_Depo):
                     "ON %s (kullanici, guncelleme DESC)" % KOSU_TABLO)
 
     def _calistir(self, sql, params=()):
-        with self._kilit, self._baglan() as conn:
+        with self._kilit, self._pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
                 return cur.rowcount
 
     def _sorgu(self, sql, params=()):
-        with self._kilit, self._baglan() as conn:
+        with self._kilit, self._pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
                 adlar = [d[0] for d in (cur.description or ())]
