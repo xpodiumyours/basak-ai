@@ -556,6 +556,13 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 brain, model, mesajlar, js_callback, ajan_tools,
                 tercih=_tercih,
             )
+            if isinstance(yanit, dict) and yanit.get("_route_error"):
+                # One selected model may fail, but a second hidden request
+                # is not allowed in single-route mode.
+                state.fail()
+                js_callback("BasakUI.error(" + _j(
+                    "Model bağlantısı başarısız. Yeni bir denemede başka uygun model seçilebilir.") + ")")
+                return
 
         try:
             if yanit is None:
@@ -744,6 +751,12 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
                 return
             logger.info("Model arac istedi — tam yola dusuluyor")
         except SonHata as e:
+            from brain.model_route import single_route
+            if single_route():
+                state.fail()
+                js_callback("BasakUI.error(" + _j(
+                    "Model bağlantısı başarısız. Yeni bir denemede başka uygun model seçilebilir.") + ")")
+                return
             logger.info("Akis acilamadi (%s) — tek seferlik yol", e.ozet)
             _durum = durum_gozlemcisi(js_callback)
             if _durum:
