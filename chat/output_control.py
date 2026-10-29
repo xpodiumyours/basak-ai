@@ -154,4 +154,9 @@ def akan_ajan_adimi(brain, model, mesajlar, js_callback, tools,
         }, kaynak, True
     except SonHata as e:
         logger.info("Optional ajan stream acilamadi: %s", e.ozet)
+        from brain.model_route import single_route
+        if single_route():
+            # The old fallback to a second non-streaming request could call
+            # the same slow model twice. Surface failure; never fake success.
+            return {"_route_error": str(e.ozet)}, "", False
         return None, "", False
