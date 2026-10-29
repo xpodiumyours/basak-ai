@@ -92,7 +92,8 @@ class ModelHavuzuSDK:
     def with_options(self, **kwargs):
         return ModelHavuzuSDK(self._sdk.with_options(**kwargs), self.modeller,
                              ortak_kota=self.ortak_kota, provider=self.provider,
-                             availability=self._availability)
+                             availability=(None if {'api_key', 'base_url'} & kwargs.keys()
+                                           else self._availability))
 
     def _note_failure(self, model, error):
         if not _yeniden_denenebilir(error):
@@ -100,7 +101,8 @@ class ModelHavuzuSDK:
         from brain.brain import _bekleme_suresi, _COOLDOWN_SURE
         until = time.monotonic() + (_bekleme_suresi(error) or _COOLDOWN_SURE)
         with _AVAILABILITY_LOCK:
-            self._availability[model] = (until, error)
+            if until > self._availability.get(model, (0, None))[0]:
+                self._availability[model] = (until, error)
 
     def adaylar(self, kwargs):
         aracli = bool(kwargs.get("tools"))

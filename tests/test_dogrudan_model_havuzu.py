@@ -195,3 +195,23 @@ def test_router_owns_retry_instead_of_nested_sdk_retry(monkeypatch):
     client = SimpleNamespace(model='large', client=SDK())
     bagla('groq', client, {})
     assert options == [{'max_retries': 0}]
+
+
+def test_retry_after_is_shared_by_account_but_not_other_accounts(monkeypatch):
+    import brain.model_havuzu as module
+    monkeypatch.setattr(module.time, 'monotonic', lambda: 100.0)
+    def native(key):
+        client = sdk(lambda **kwargs: 'ok')
+        client.api_key = key
+        client.base_url = 'https://quota.invalid'
+        return client
+    first = ModelHavuzuSDK(native('a'), MODELS, provider='fixture')
+    same = ModelHavuzuSDK(native('a'), MODELS, provider='fixture')
+    other = ModelHavuzuSDK(native('b'), MODELS, provider='fixture')
+    error = ApiHatasi(429)
+    error.response = SimpleNamespace(headers={'Retry-After': '120'})
+    first._note_failure('large', error)
+    first._note_failure('large', ApiHatasi(429))
+    assert first._availability['large'][0] == 220.0
+    assert same.adaylar({'tools': [{}]}) == ['backup']
+    assert other.adaylar({'tools': [{}]}) == ['large', 'backup']
