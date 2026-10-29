@@ -28,3 +28,20 @@ def test_jobs_reuse_brain_per_thread_and_keep_job_context_separate():
     assert results[0] is not results[1]
     assert all(result is not created[0] for result in results)
     assert len(created) == 3
+
+
+def test_foreground_jobs_reuse_clients_without_sharing_context(monkeypatch):
+    import worker.platform as module
+    import brain
+    created = []
+    def factory():
+        result = object()
+        created.append(result)
+        return result
+    monkeypatch.setattr(brain, 'Brain', factory)
+    monkeypatch.setattr(module, '_provider_clients', threading.local())
+    assert module.reused_brain() is module.reused_brain()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        other = pool.submit(module.reused_brain).result()
+    assert other is not module.reused_brain()
+    assert len(created) == 2

@@ -11,6 +11,16 @@ import uuid
 
 from chat.platform_runtime import RuntimeStore, Worker
 
+_provider_clients = threading.local()
+
+
+def reused_brain():
+    """HTTP foreground jobs also retain clients on their execution thread."""
+    if not hasattr(_provider_clients, 'brain'):
+        from brain import Brain
+        _provider_clients.brain = Brain()
+    return _provider_clients.brain
+
 
 def thread_handler(execute, brain_factory):
     """Reuse provider clients on each worker thread; jobs keep their own context."""

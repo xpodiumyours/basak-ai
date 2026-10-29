@@ -617,16 +617,23 @@ class RuntimeStore:
             return events, state
 
     def append_event(self, user_id, run_id, type_, payload, *, lease=None):
+        return self.append_events(user_id, run_id, [(type_, payload)], lease=lease)[0]
+
+    def append_events(self, user_id, run_id, events, *, lease=None):
+        """Commit related UI events with one ownership/lease check."""
         with self.transaction() as tx:
             row = self._require(tx, user_id, run_id)
             if lease is not None:
                 if row['durum'] in {'cancelled', 'uncertain'}:
                     raise RunCancelled()
                 self._lease(tx, lease, row=row)
-            if type_ == 'provider' and payload.get('provider'):
-                tx.execute('UPDATE basak_kosu SET saglayici=%s WHERE id=%s',
-                           (str(payload['provider']), run_id))
-            return self._event(tx, run_id, str(type_), dict(payload or {}))
+            result = []
+            for type_, payload in events:
+                if type_ == 'provider' and payload.get('provider'):
+                    tx.execute('UPDATE basak_kosu SET saglayici=%s WHERE id=%s',
+                               (str(payload['provider']), run_id))
+                result.append(self._event(tx, run_id, str(type_), dict(payload or {})))
+            return result
 
     def _recover(self, tx):
         expired = tx.rows("SELECT m.run_id,m.user_id FROM basak_platform_run m JOIN basak_kosu r ON r.id=m.run_id WHERE r.durum='running' AND m.lease_until<=%s", (self.clock(),))
@@ -798,6 +805,11 @@ class RuntimeStore:
             self._event(tx, lease.run_id, "check", {"id": check_id, "ok": ok, "evidence": evidence})
 
     def add_artifact(self, user_id, run_id, artifact):
+        with self.transaction() as tx:
+            self._require(tx, user_id, run_id)
+            return self._add_artifact(tx, run_id, artifact)
+
+    def _add_artifact(self, tx, run_id, artifact):
         item = dict(artifact)
         legacy_media = item.pop('mime_type', None)
         item['media_type'] = item.get('media_type') or legacy_media or 'application/octet-stream'
@@ -813,13 +825,11 @@ class RuntimeStore:
             if item.get("sha256") and item["sha256"] != actual:
                 raise ValueError("Çıktı özeti içeriğe uymuyor")
             item.update(sha256=actual, size=len(data))
-        with self.transaction() as tx:
-            self._require(tx, user_id, run_id)
-            old = tx.one("SELECT data FROM basak_platform_artifact WHERE run_id=%s AND artifact_id=%s", (run_id, aid))
-            if old and old["data"] != _json(item):
-                raise Conflict("Çıktı kimliği farklı içerikle kullanıldı")
-            tx.execute("INSERT INTO basak_platform_artifact(run_id,artifact_id,data) VALUES(%s,%s,%s) ON CONFLICT(run_id,artifact_id) DO NOTHING", (run_id, aid, _json(item)))
-            self._event(tx, run_id, "artifact", {"id": aid, "kind": item.get("kind"), "title": item.get("title", "")})
+        old = tx.one("SELECT data FROM basak_platform_artifact WHERE run_id=%s AND artifact_id=%s", (run_id, aid))
+        if old and old["data"] != _json(item):
+            raise Conflict("Çıktı kimliği farklı içerikle kullanıldı")
+        tx.execute("INSERT INTO basak_platform_artifact(run_id,artifact_id,data) VALUES(%s,%s,%s) ON CONFLICT(run_id,artifact_id) DO NOTHING", (run_id, aid, _json(item)))
+        self._event(tx, run_id, "artifact", {"id": aid, "kind": item.get("kind"), "title": item.get("title", "")})
         return aid
 
     def artifact(self, user_id, run_id, artifact_id):
@@ -867,7 +877,24 @@ class RuntimeStore:
             requested = outcome.get("status")
             answer = str(outcome.get("answer") or "")
             tx.execute("UPDATE basak_kosu SET cevap=%s WHERE id=%s", (answer, lease.run_id))
-            actions = tx.rows("SELECT status,ok,side_effect FROM basak_platform_action WHERE run_id=%s", (lease.run_id,))
+            actions = tx.rows("SELECT call_id,status,ok,side_effect FROM basak_platform_action WHERE run_id=%s", (lease.run_id,))
+            if outcome.get('record_answer'):
+                aid = self._add_artifact(tx, lease.run_id, {
+                    'kind': 'answer', 'title': 'Basak sonucu',
+                    'content': answer, 'media_type': 'text/markdown'})
+                # Only these observations can be satisfied by the answer record.
+                # Tool/file/human acceptance still requires its own validator.
+                ok = bool(answer.encode('utf-8')) and all(
+                    a['status'] == 'completed' and a['ok'] for a in actions)
+                evidence = {'artifacts': [aid], 'call_ids': [
+                    a['call_id'] for a in actions if a['status'] == 'completed' and a['ok']]}
+                for criterion in _read(row['spec'], {}).get('acceptance', []):
+                    if criterion.get('kind') not in {'message_recorded', 'execution_observed'}:
+                        continue
+                    tx.execute("INSERT INTO basak_platform_check(run_id,check_id,ok,evidence,created_at) VALUES(%s,%s,%s,%s,%s) ON CONFLICT(run_id,check_id) DO UPDATE SET ok=excluded.ok,evidence=excluded.evidence,created_at=excluded.created_at",
+                               (lease.run_id, criterion['id'], int(ok), _json(evidence), self.clock()))
+                    self._event(tx, lease.run_id, 'check', {
+                        'id': criterion['id'], 'ok': bool(ok), 'evidence': evidence})
             if any(a["status"] == "uncertain" or (a["status"] == "running" and a["side_effect"]) for a in actions):
                 tx.execute("UPDATE basak_platform_action SET status='uncertain' WHERE run_id=%s AND status='running' AND side_effect=1", (lease.run_id,))
                 state = "uncertain"
@@ -1026,6 +1053,10 @@ class Control:
     def event(self, type_, payload=None, **kwargs):
         return self.store.append_event(self.lease.user_id, self.lease.run_id, type_,
                                        {**(payload or {}), **kwargs}, lease=self.lease)
+
+    def events(self, events):
+        return self.store.append_events(self.lease.user_id, self.lease.run_id,
+                                        events, lease=self.lease)
 
     def checkpoint(self, continuation):
         return self.store.checkpoint(self.lease, continuation)
