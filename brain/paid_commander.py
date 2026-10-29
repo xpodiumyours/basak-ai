@@ -23,7 +23,7 @@ def configured_model():
     model = value[len("openrouter:"):]
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", model):
         return ""
-    return model if not model.endswith(":free") else ""
+    return model if model != "openrouter/free" and not model.endswith(":free") else ""
 
 
 def authorized_commander(job):
