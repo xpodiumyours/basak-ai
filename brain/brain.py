@@ -650,6 +650,8 @@ class Brain:
             # Eski/ajan-disi yolun cagri imzasi aynen korunur. Test doubles
             # ve harici kullanimlar yeni kwarg bilmek zorunda degildir.
             zincir = self._bulut_zinciri(tools=bool(tools))
+        from brain.paid_commander import prepend_commander
+        zincir = prepend_commander(zincir)
         mevcutlar = [ad for ad, _ in zincir]
 
         if tercih:
@@ -667,6 +669,8 @@ class Brain:
             sirali, gerekce = secici.sec(mevcutlar=mevcutlar)
             sirali, gerekce = _kota_ongorulu_sira(sirali, model_stats_al(state_dir()))
 
+        if 'openrouter_paid' in mevcutlar:
+            sirali = ['openrouter_paid'] + [ad for ad in sirali if ad != 'openrouter_paid']
         istemciler = dict(zincir)
         hatalar = []
         turler = {}
@@ -789,6 +793,8 @@ class Brain:
         from brain import secici as _secici
 
         zincir = self._bulut_zinciri(tools=bool(tools))
+        from brain.paid_commander import prepend_commander
+        zincir = prepend_commander(zincir)
         mevcutlar = [ad for ad, _ in zincir]
         if tercih:
             one_alinan = sorted(
@@ -801,6 +807,8 @@ class Brain:
             sirali, gerekce = _secici.sec(mevcutlar=mevcutlar)
             sirali, gerekce = _kota_ongorulu_sira(sirali, model_stats_al(state_dir()))
 
+        if 'openrouter_paid' in mevcutlar:
+            sirali = ['openrouter_paid'] + [ad for ad in sirali if ad != 'openrouter_paid']
         istemciler = dict(zincir)
         hatalar = []
         for ad in sirali:
