@@ -210,9 +210,11 @@ async def chat_response(request, user, body, history):
 
     async def observe():
         cursor, started = 0, time.monotonic()
-        if foreground and not previous:
-            # Claim ONLY this chat. Existing RuntimeStore.claim is atomic and
-            # prevents Oracle or retries from running the job twice.
+        # A previous submission can persist the run and lose the HTTP stream
+        # before the generator starts. Replaying the same Idempotency-Key must
+        # still start that queued run. Atomic claim(run_id) prevents doubles;
+        # a running/completed run is only observed, never re-executed.
+        if foreground and run['durum'] == 'queued':
             from chat.platform_agents import execute_job
             from chat.platform_runtime import Worker
             worker = Worker(store, execute_job, worker_id='web-' + rid,
