@@ -297,6 +297,11 @@ def execute_job(job, control, brain=None):
         ref = job.get('model_ref') or (
             'isci' if job.get('parent_id') else
             'komutan' if job.get('kind') == 'agent' else 'primary')
+        from brain.paid_commander import configured_model, authorized_commander
+        if ref == 'komutan' and configured_model() and not authorized_commander(job):
+            # An ordinary account, chat or delegated child must never consume
+            # the owner's paid allowance, even if a model asks for this role.
+            ref = 'primary'
         provider, model = selection(brain, ref)
     except ValueError as exc:
         return {'status': 'blocked', 'reason': str(exc)}
