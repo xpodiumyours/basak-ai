@@ -41,6 +41,18 @@ def test_many_native_text_fragments_do_not_block_on_one_database_write_each():
     assert control.checks <= 3
 
 
+def test_first_model_text_is_persisted_immediately_without_next_token():
+    control = Control()
+    callback = _Events(control)
+    emit(callback, 'İlk sözcük')
+    assert control.events == [('chat', {'tur': 'parca', 'metin': 'İlk sözcük'})]
+    emit(callback, ' devam ediyor')
+    # Later fragments remain batched to avoid one DB write per token.
+    assert len(control.events) == 1
+    callback.flush()
+    assert control.events[-1] == ('chat', {'tur': 'parca', 'metin': ' devam ediyor'})
+
+
 def test_tool_boundary_flushes_text_before_activity():
     control = Control()
     callback = _Events(control)
@@ -71,7 +83,10 @@ def test_final_answer_retains_exact_text_and_flush_order():
     emit(callback, 'b')
     callback('BasakUI.bitir("a\\nb", "native")')
     assert callback.answer == 'a\nb'
-    assert control.events[0] == ('chat', {'tur': 'parca', 'metin': 'a\nb'})
+    assert [(k, p) for k, p in control.events if k == 'chat' and p['tur'] == 'parca'] == [
+        ('chat', {'tur': 'parca', 'metin': 'a\n'}),
+        ('chat', {'tur': 'parca', 'metin': 'b'}),
+    ]
 
 
 def test_delegation_schema_uses_real_authorized_tool_names_without_mutating_registry():
