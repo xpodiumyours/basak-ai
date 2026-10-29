@@ -1,12 +1,13 @@
 """Authenticated HTTP observer for the durable Python task runtime.
 
-The app supplies its principal resolver. Routes never start an in-request
-execution thread; ``python -m worker.platform`` consumes the persisted queue.
+The app supplies its principal resolver. Streamed chats may be claimed
+by the HTTP host; persistent subagents remain on independent workers.
 """
 import asyncio
 import base64
 import inspect
 import json
+import logging
 import os
 import re
 from urllib.parse import urlsplit
@@ -131,6 +132,10 @@ async def chat_response(request, user, body, history):
     if not _mutation_origin_ok(request):
         raise HTTPException(403, 'Bu hesap islemi ayni kaynaktan yapilmali')
     enabled = _durable_acik()
+    # Transport only, never text or model-name classification.
+    foreground = (enabled
+                  and 'application/x-ndjson' in request.headers.get('accept', '')
+                  and os.environ.get('BASAK_FOREGROUND_CHAT', 'true').lower() != 'false')
     key = request.headers.get('Idempotency-Key')
     if not enabled and not key:
         if strict:
@@ -181,7 +186,9 @@ async def chat_response(request, user, body, history):
     try:
         run = store.create(user, 'personal', text or 'Bu goruntuyu acikla.',
                            kind='chat', context=context, request_key=key,
-                           require_worker=True, allow_legacy=not strict, durable_enabled=enabled)
+                           require_worker=not foreground,
+                           allow_legacy=not strict and not foreground,
+                           durable_enabled=enabled)
     except WorkerUnavailable:
         if strict:
             raise HTTPException(503, 'Gorev iscisine ulasilamiyor; is baslatilmadi')
@@ -203,6 +210,23 @@ async def chat_response(request, user, body, history):
 
     async def observe():
         cursor, started = 0, time.monotonic()
+        # A previous submission can persist the run and lose the HTTP stream
+        # before the generator starts. Replaying the same Idempotency-Key must
+        # still start that queued run. Atomic claim(run_id) prevents doubles;
+        # a running/completed run is only observed, never re-executed.
+        if foreground and run['durum'] == 'queued':
+            from chat.platform_agents import execute_job
+            from chat.platform_runtime import Worker
+            worker = Worker(store, execute_job, worker_id='web-' + rid,
+                            lease_seconds=90)
+            running = asyncio.create_task(
+                asyncio.to_thread(worker.tick, rid))
+            def completed(task):
+                try:
+                    task.result()
+                except Exception:
+                    logging.getLogger(__name__).exception('Web sohbet calismasi hata verdi')
+            running.add_done_callback(completed)
         yield json.dumps(durable_event, ensure_ascii=False) + '\n'
         while not await request.is_disconnected():
             try:
@@ -211,7 +235,8 @@ async def chat_response(request, user, body, history):
             except HTTPException:
                 yield json.dumps({'istek': rid, 'tur': 'error', 'metin': 'Hesap oturumu sona erdi'}) + '\n'
                 break
-            batch = await asyncio.to_thread(store.events, user, rid, after=cursor)
+            batch, current = await asyncio.to_thread(
+                store.observe_chat, user, rid, after=cursor)
             for event in batch:
                 cursor = event['seq']
                 # Only root chat emissions belong in this conversation.
@@ -223,7 +248,6 @@ async def chat_response(request, user, body, history):
                     yield json.dumps({'istek': rid, **event['payload']}, ensure_ascii=False) + '\n'
                 elif event['type'] not in {'status', 'checkpoint', 'artifact', 'provider'}:
                     yield json.dumps({'istek': rid, 'tur': event['type'], **event['payload']}, ensure_ascii=False) + '\n'
-            current = await asyncio.to_thread(store.get, user, rid)
             state = current['durum']
             if state in TERMINAL or state == 'verifying':
                 if current['answer']:

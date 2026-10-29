@@ -70,6 +70,37 @@ def test_events_are_fenced_at_the_same_transaction_that_writes_them(store):
         Control(store,current).event('late',{'text':'after cancellation'})
 
 
+def test_chat_observer_has_tenant_isolation_cursor_and_terminal_state(store):
+    chat = create(store, kind='chat')
+    rid = chat['id']
+    with pytest.raises(NotFound):
+        store.observe_chat('bob', rid)
+    initial, state = store.observe_chat('alice', rid)
+    assert state == {'durum': 'queued', 'answer': '', 'hata': '', 'provider': ''}
+    assert initial[-1]['type'] == 'status'
+
+    lease = store.claim('foreground', run_id=rid)['lease']
+    store.append_event('alice', rid, 'chat',
+                       {'tur': 'parca', 'metin': 'İlk'}, lease=lease)
+    new_events, running = store.observe_chat('alice', rid,
+                                              after=initial[-1]['seq'])
+    assert running['durum'] == 'running'
+    assert any(event['payload'].get('metin') == 'İlk'
+               for event in new_events)
+    assert [event['seq'] for event in new_events] == sorted(
+        event['seq'] for event in new_events)
+
+    store.record_check(lease, 'response_recorded', True, {'observed': True})
+    store.finish(lease, {'answer': 'İlk cevap'})
+    finished_events, finished = store.observe_chat(
+        'alice', rid, after=new_events[-1]['seq'])
+    assert finished['durum'] == 'completed'
+    assert finished['answer'] == 'İlk cevap'
+    assert finished_events
+    assert store.observe_chat('alice', rid,
+                              after=finished_events[-1]['seq'])[0] == []
+
+
 def test_idempotent_submit_rejects_changed_payload(store):
     first = create(store, request_key="r1")
     assert create(store, request_key="r1")["id"] == first["id"]
@@ -83,6 +114,27 @@ def test_concurrent_claim_has_one_owner(store):
         leases = list(pool.map(lambda i: store.claim("w%d" % i), range(8)))
     assert sum(x is not None for x in leases) == 1
     assert next(x for x in leases if x)["id"] == run["id"]
+
+
+def test_foreground_chat_claims_only_its_run_while_old_jobs_wait(store):
+    older = create(store)
+    chat = create(store, kind="chat")
+    def handler(job, control):
+        assert job["id"] == chat["id"]
+        control.record_check("response_recorded", True, {"observed": True})
+        return {"answer": "Direct response"}
+    assert Worker(store, handler, worker_id="web").tick(run_id=chat["id"])
+    assert store.get("alice", chat["id"])["durum"] == "completed"
+    assert store.get("alice", chat["id"])["answer"] == "Direct response"
+    assert store.get("alice", older["id"])["durum"] == "queued"
+
+
+def test_foreground_chat_claim_is_exclusive_and_retry_safe(store):
+    chat = create(store, kind="chat", request_key="same-turn")
+    first = store.claim("web", run_id=chat["id"])
+    assert first["id"] == chat["id"]
+    assert store.claim("oracle", run_id=chat["id"]) is None
+    assert create(store, kind="chat", request_key="same-turn")["id"] == chat["id"]
 
 
 def test_restart_retains_events_and_continuation(store):

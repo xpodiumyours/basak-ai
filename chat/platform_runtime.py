@@ -596,6 +596,26 @@ class RuntimeStore:
             rows = tx.rows("SELECT * FROM basak_platform_event WHERE run_id=%s AND seq>%s ORDER BY seq LIMIT %s", (run_id, max(0, int(after)), max(1, min(int(limit), 1000))))
             return [{**r, "payload": _read(r["payload"], {})} for r in rows]
 
+    def observe_chat(self, user_id, run_id, after=0, limit=200):
+        """Read newly committed chat events and minimal run status together.
+
+        Observers do not need the full run projection (artifacts, approvals,
+        children and checks) on every poll. Preserve the tenant boundary and
+        event cursor while avoiding two transactions per observation.
+        """
+        with self.transaction(readonly=True) as tx:
+            row = self._require(tx, user_id, run_id)
+            rows = tx.rows(
+                "SELECT * FROM basak_platform_event "
+                "WHERE run_id=%s AND seq>%s ORDER BY seq LIMIT %s",
+                (run_id, max(0, int(after)), max(1, min(int(limit), 1000))))
+            events = [{**event, "payload": _read(event["payload"], {})}
+                      for event in rows]
+            state = {"durum": row["durum"], "answer": row.get("cevap") or "",
+                     "hata": row.get("hata") or "",
+                     "provider": row.get("saglayici") or ""}
+            return events, state
+
     def append_event(self, user_id, run_id, type_, payload, *, lease=None):
         with self.transaction() as tx:
             row = self._require(tx, user_id, run_id)
