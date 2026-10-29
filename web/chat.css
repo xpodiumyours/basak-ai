@@ -885,7 +885,21 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 }
 
 /* ── Cevap eylemleri: Kopyala · Markdown · Sesli oku ─────────────── */
-.cevap-eylem{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 2px}
+.cevap-eylem{position:relative;width:fit-content;margin:6px 0 0;color:var(--muted)}
+.cevap-eylem>summary{
+  display:grid;place-items:center;width:32px;height:32px;border-radius:6px;
+  list-style:none;cursor:pointer;font-size:22px;line-height:1;
+}
+.cevap-eylem>summary::-webkit-details-marker{display:none}
+.cevap-eylem>summary:hover,.cevap-eylem[open]>summary{background:var(--soft);color:var(--ink)}
+.cevap-eylem>summary:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.cevap-eylem-menu{
+  position:absolute;left:0;bottom:calc(100% + 4px);z-index:10;display:grid;
+  min-width:170px;padding:4px;border:1px solid var(--line);border-radius:10px;
+  background:var(--surface,#fff);box-shadow:0 8px 24px rgba(0,0,0,.10);
+}
+.cevap-eylem .eylem-dugme{border:0;border-radius:6px;text-align:left;font-weight:500}
+.cevap-eylem .eylem-dugme:hover{background:var(--soft);transform:none}
 .eylem-dugme{
   min-height:32px;padding:6px 13px;border:1px solid var(--line);border-radius:999px;
   background:#fff;color:#52525a;font-size:12px;font-weight:650;
@@ -903,4 +917,5 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   .panel-dugme{min-height:42px}
   .panel-sil{width:36px;height:36px}
   .eylem-dugme{min-height:40px;padding:9px 15px}
+  .cevap-eylem>summary{width:44px;height:44px}
 }

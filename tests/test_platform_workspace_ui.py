@@ -331,6 +331,28 @@ def test_real_chromium_pending_chat_title_reload_and_view_preservation(width, he
             }""")
             assert recovered['ok'] is True and recovered['cevap'] == 'Merhaba!'
             assert not page.locator('#platformTaskView').is_visible()
+            assert page.locator('.topbar #workspaceToggle').count() == 0
+            assert page.locator('.sidebar #workspaceToggle').count() == 1
+            actions = page.locator('.cevap-eylem').last
+            assert not actions.get_by_role('button', name='Kopyala', exact=True).is_visible()
+            actions.locator('summary').click()
+            assert actions.get_by_role('button', name='Kopyala', exact=True).is_visible()
+            page.keyboard.press('Escape')
+            assert not actions.get_by_role('button', name='Kopyala', exact=True).is_visible()
+            assert actions.locator('summary').evaluate('(e)=>e===document.activeElement')
+            actions.locator('summary').press('Enter')
+            with page.expect_download() as downloaded:
+                actions.get_by_role('button', name='Markdown', exact=True).click()
+            assert Path(downloaded.value.path()).read_text(encoding='utf-8') == 'Merhaba!'
+            page.keyboard.press('Escape')
+            if page.locator('#sidebarToggle').is_visible():
+                page.locator('#sidebarToggle').click()
+            page.locator('#workspaceToggle').click()
+            assert page.locator('#workspacePreview').is_visible()
+            page.locator('#workspaceClose').click()
+            assert not page.locator('#workspacePreview').is_visible()
+            if page.locator('#sidebarToggle').is_visible():
+                page.mouse.click(width - 12, height / 2)
             page.screenshot(path=str(tmp_path / ('ordinary-chat-%d.png' % width)), full_page=True)
             browser.close()
     finally:

@@ -333,7 +333,10 @@
       byId("workspacePreview").removeAttribute("aria-modal");
     }
     if (open) byId("workspaceClose").focus();
-    else byId("workspaceToggle").focus();
+    else {
+      const toggle = byId("workspaceToggle");
+      (toggle.getBoundingClientRect().right > 0 ? toggle : byId("sidebarToggle")).focus();
+    }
   }
 
   function accountRequired() {

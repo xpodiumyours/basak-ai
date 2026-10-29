@@ -1324,9 +1324,22 @@ async function panoyaKopyala(metin) {
 let konusanDugme = null;
 
 function cevapEylemleri(b) {
-  const satir = document.createElement("div");
+  const satir = document.createElement("details");
   satir.className = "cevap-eylem";
   satir.dataset.arac = "1";
+  const ac = document.createElement("summary");
+  ac.setAttribute("aria-label", "Yanıt işlemleri");
+  ac.title = "Yanıt işlemleri";
+  ac.textContent = "…";
+  const islemler = document.createElement("div");
+  islemler.className = "cevap-eylem-menu";
+  satir.append(ac, islemler);
+  satir.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") { satir.open = false; ac.focus(); event.stopPropagation(); }
+  });
+  satir.addEventListener("focusout", (event) => {
+    if (!satir.contains(event.relatedTarget)) satir.open = false;
+  });
 
   const kopyala = document.createElement("button");
   kopyala.type = "button";
@@ -1387,9 +1400,7 @@ function cevapEylemleri(b) {
     window.speechSynthesis.speak(soylev);
   });
 
-  satir.appendChild(kopyala);
-  satir.appendChild(indir);
-  satir.appendChild(oku);
+  islemler.append(kopyala, indir, oku);
   b.appendChild(satir);
 }
 
