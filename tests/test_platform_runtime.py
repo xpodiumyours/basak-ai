@@ -85,6 +85,13 @@ def test_concurrent_claim_has_one_owner(store):
     assert next(x for x in leases if x)["id"] == run["id"]
 
 
+def test_foreground_chat_does_not_enter_oracle_queue(store):
+    run = create(store, kind="chat", foreground_worker_id="web-1")
+    assert run["durum"] == "running"
+    assert run["lease"].worker_id == "web-1"
+    assert store.claim("oracle") is None
+
+
 def test_restart_retains_events_and_continuation(store):
     run = create(store)
     job = store.claim("w1")
