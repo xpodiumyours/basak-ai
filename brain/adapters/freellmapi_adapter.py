@@ -37,11 +37,7 @@ class _FreeLLMAPIAdapter:
         ayar = ayar or {}
         url = (os.environ.get("FREELLMAPI_URL") or ayar.get("freellmapi_url") or "").strip()
         key = (os.environ.get("FREELLMAPI_API_KEY") or ayar.get("freellmapi_key") or "").strip()
-        # Deployment-scoped smart-routing override; the existing gateway
-        # model configuration stays intact for instant rollback.
-        model = (os.environ.get("BASAK_FREELLMAPI_ROUTING_MODEL")
-                 or os.environ.get("FREELLMAPI_MODEL")
-                 or ayar.get("freellmapi_model") or "auto:smart").strip()
+        model = (os.environ.get("FREELLMAPI_MODEL") or ayar.get("freellmapi_model") or "auto").strip()
         if not url and not key:
             return None
         if not url or not key:
