@@ -235,7 +235,8 @@ async def chat_response(request, user, body, history):
             except HTTPException:
                 yield json.dumps({'istek': rid, 'tur': 'error', 'metin': 'Hesap oturumu sona erdi'}) + '\n'
                 break
-            batch = await asyncio.to_thread(store.events, user, rid, after=cursor)
+            batch, current = await asyncio.to_thread(
+                store.observe_chat, user, rid, after=cursor)
             for event in batch:
                 cursor = event['seq']
                 # Only root chat emissions belong in this conversation.
@@ -247,7 +248,6 @@ async def chat_response(request, user, body, history):
                     yield json.dumps({'istek': rid, **event['payload']}, ensure_ascii=False) + '\n'
                 elif event['type'] not in {'status', 'checkpoint', 'artifact', 'provider'}:
                     yield json.dumps({'istek': rid, 'tur': event['type'], **event['payload']}, ensure_ascii=False) + '\n'
-            current = await asyncio.to_thread(store.get, user, rid)
             state = current['durum']
             if state in TERMINAL or state == 'verifying':
                 if current['answer']:
