@@ -83,6 +83,10 @@ class GenelClient:
             kwargs["response_format"] = {"type": "json_object"}
 
         resp = self.client.chat.completions.create(**kwargs)
+        provider = getattr(self, "provider_name", "")
+        if provider:
+            from brain.provider_observation import record
+            record("modelReported", provider, model=getattr(resp, "model", None))
         msg = resp.choices[0].message
         try:
             from brain.message_utils import reasoning_ayikla as _r
