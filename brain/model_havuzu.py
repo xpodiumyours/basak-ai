@@ -89,7 +89,10 @@ class ModelHavuzuSDK:
             uygun.insert(0, istenen)
         if not uygun:
             raise RuntimeError("Ucretsiz katalogda bu protokole uygun model yok")
-        return uygun
+        from brain.model_route import single_route
+        # Provider-level queues also count: do not silently try a chain of
+        # models under a single provider label in single-route mode.
+        return uygun[:1] if single_route() else uygun
 
     def cagir(self, fonksiyon, kwargs):
         if kwargs.get("stream"):
