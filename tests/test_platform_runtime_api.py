@@ -282,6 +282,58 @@ def test_account_stream_runs_on_web_without_oracle_worker(api, monkeypatch):
     assert store.worker_health()['live_workers'] == 0
 
 
+def test_foreground_retry_claims_persisted_queued_chat_once(api, monkeypatch):
+    """Retry after HTTP stream vanished before observe() starts must run."""
+    import json
+    import app as host
+    from chat import platform_agents
+
+    _, store = api
+    monkeypatch.setenv('BASAK_FOREGROUND_CHAT', 'true')
+    monkeypatch.setattr(host, '_platform_kimlik', lambda request: 'alice')
+    monkeypatch.setattr(host, '_kota_kapisi', lambda *args: (True, 10))
+    monkeypatch.setattr(host, '_gecmis', lambda body: [])
+    monkeypatch.setattr(platform_api, '_store_factory', lambda: store)
+
+    # Simulate the first POST committing its run but losing the connection
+    # before StreamingResponse begins iterating observe(). No worker exists.
+    context = {
+        'conversation_id': 'thread-replay',
+        'conversation_title': None,
+        'display_text': 'hello',
+        'history': [],
+        'tool_policy': 'auto',
+        'tazele': False,
+        'attachment': None,
+    }
+    run = store.create('alice', 'personal', 'hello', kind='chat',
+                       context=context, request_key='replay-turn',
+                       require_worker=False)
+    assert run['durum'] == 'queued'
+
+    executed = []
+    def direct(job, control):
+        executed.append(job['id'])
+        control.record_check('response_recorded', True, {'observed': True})
+        return {'answer': 'Recovered response'}
+    monkeypatch.setattr(platform_agents, 'execute_job', direct)
+
+    headers = {
+        'Origin': 'http://testserver', 'X-Test-User': 'alice',
+        'Accept': 'application/x-ndjson', 'Idempotency-Key': 'replay-turn',
+    }
+    client = TestClient(host.app)
+    payload = {'metin': 'hello', 'conversation_id': 'thread-replay'}
+    for _ in range(2):
+        response = client.post('/api/sohbet', json=payload, headers=headers)
+        assert response.status_code == 200
+        assert response.headers['X-Basak-Run-ID'] == run['id']
+        events = [json.loads(line) for line in response.text.splitlines()]
+        assert [e['cevap'] for e in events if e['tur'] == 'bitir'] == ['Recovered response']
+    assert executed == [run['id']]
+    assert store.get('alice', run['id'])['durum'] == 'completed'
+
+
 def test_chat_threads_restore_title_pending_turn_and_tenant_boundary(api):
     client, store = api
     context = {'conversation_id': 'thread-1', 'conversation_title': 'Original title',
