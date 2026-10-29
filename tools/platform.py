@@ -43,6 +43,13 @@ def selection(brain, ref):
     if ref.lower() in ('', 'primary', 'default', 'auto', 'automatic',
                        'otomatik', 'varsayilan', 'varsayılan'):
         ref = 'primary'
+    # The paid route is available only to the explicit commander role.
+    # Workers still use their ordinary free model selection.
+    if ref == 'komutan':
+        from brain.paid_commander import configured_model
+        paid_model = configured_model()
+        if paid_model:
+            return ('openrouter_paid', paid_model)
     rol = {'komutan': 'BASAK_KOMUTAN_MODEL', 'isci': 'BASAK_ISCI_MODEL'}.get(ref)
     if rol:
         ham = (os.environ.get(rol) or '').strip()
