@@ -365,6 +365,8 @@ async def oauth_callback(provider: str, request: Request, state: str = "", code:
             data_scopes = {s for s in cfg["scopes"] if s.startswith("https://")}
             if provider == "google" and not data_scopes.issubset(set(scopes)):
                 return _error("Istenen Google Drive, Docs ve Sheets yetkileri tam verilmedi", 403)
+            if provider == "github" and not set(cfg["scopes"]).issubset(set(scopes)):
+                return _error("Istenen GitHub depo okuma ve yazma yetkileri tam verilmedi", 403)
             label = cfg["label"] + " — " + str(profile.get("name") or profile.get("login") or "Hesap")
             store.save(uid, provider, token, scopes, {**metadata, "label": label, "account_id": str(profile.get("sub") or profile.get("id") or "")})
         response.delete_cookie(BROWSER_COOKIE, path="/api/baglantilar", secure=_secure(request), httponly=True, samesite="lax")
