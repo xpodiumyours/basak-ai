@@ -17,7 +17,8 @@ from scripts.freellmapi_kurulum import guvenli_yaz, yapilandirma
 
 @pytest.fixture(autouse=True)
 def temiz(monkeypatch, tmp_path):
-    for ad in ("FREELLMAPI_URL", "FREELLMAPI_API_KEY", "FREELLMAPI_MODEL", "VERCEL", "BASAK_URETIM"):
+    for ad in ("FREELLMAPI_URL", "FREELLMAPI_API_KEY", "FREELLMAPI_MODEL",
+               "BASAK_FREELLMAPI_ROUTING_MODEL", "VERCEL", "BASAK_URETIM"):
         monkeypatch.delenv(ad, raising=False)
     monkeypatch.setattr(motor, "_COOLDOWN", {})
     monkeypatch.setattr(motor, "STATE_DIR", str(tmp_path))
@@ -177,6 +178,10 @@ def test_yeni_gateway_v2_modeli_akilli_secim_varsayilani(monkeypatch):
     assert gateway_adapter.create({}).model == "auto:smart"
     assert captured == [("unified-test", "https://gateway.test/v1", "auto:smart")]
     monkeypatch.setenv("FREELLMAPI_MODEL", "auto:reliable")
+    assert gateway_adapter.create({}).model == "auto:reliable"
+    monkeypatch.setenv("BASAK_FREELLMAPI_ROUTING_MODEL", "auto:smart")
+    assert gateway_adapter.create({}).model == "auto:smart"
+    monkeypatch.delenv("BASAK_FREELLMAPI_ROUTING_MODEL")
     assert gateway_adapter.create({}).model == "auto:reliable"
 
 
