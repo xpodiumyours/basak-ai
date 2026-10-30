@@ -198,12 +198,21 @@ class MCPService:
         if credentials.get("expires_at") and float(credentials["expires_at"]) <= time.time() + 30:
             credentials = await asyncio.to_thread(self._refresh, user_id, connection, credentials)
         headers = {}
-        if credentials.get("access_token"):
+        if metadata.get("composio_session_id"):
+            # The key never goes into a user record, API JSON, or a user URL.
+            # An explicit, fixed vendor origin prevents a malicious MCP
+            # endpoint from receiving the project-wide credential.
+            from chat.platform_composio import mcp_headers
+            if credentials.get("access_token"):
+                raise PermissionError("Composio baglantisinda kullanici tokeni olmamali")
+            headers = mcp_headers(url)
+        elif credentials.get("access_token"):
             headers["Authorization"] = "Bearer " + credentials["access_token"]
 
         async def guard(request):
             validate_endpoint(str(request.url))
-            if urlsplit(str(request.url)).hostname != urlsplit(url).hostname:
+            source, target = urlsplit(url), urlsplit(str(request.url))
+            if target.scheme != source.scheme or target.netloc != source.netloc:
                 raise PermissionError("MCP kaynagi degistirilemez")
 
         async with httpx.AsyncClient(headers=headers, follow_redirects=False, timeout=60,
