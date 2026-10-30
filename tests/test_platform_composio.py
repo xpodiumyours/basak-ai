@@ -321,3 +321,41 @@ def test_instant_must_remain_disabled_when_reloading_session(gateway, monkeypatc
     with pytest.raises(gateway.ComposioError, match="Instant"):
         gateway.finish_session("alice", {
             "session_id": "trs_fixture99", "url": url, "toolkit": "github"})
+
+
+def test_pinned_account_is_not_switchable_by_another_composio_account(gateway, monkeypatch):
+    call, requests, url = _fake_api(gateway)
+    monkeypatch.setattr(gateway, "_request", call)
+    meta = gateway.finish_session("alice", {
+        "session_id": "trs_fixture99", "url": url, "toolkit": "github"})
+    assert meta["composio_account_id"] == "ca_fixture"
+    wrong = dict(meta, composio_account_id="ca_other_account")
+    with pytest.raises(gateway.ComposioError):
+        gateway.session_execute("alice", {"metadata": wrong},
+                                "GITHUB_GET_REPO", {"repository": "owner/repo"})
+    assert not any(path.endswith("/execute") for _, path, _, _ in requests)
+    with pytest.raises(gateway.ComposioError):
+        gateway.disconnect("alice", {"metadata": wrong})
+    assert not any(method == "DELETE" for method, _, _, _ in requests)
+
+
+def test_verified_auth_creates_account_pinned_session(gateway, monkeypatch):
+    call, requests, url = _fake_api(gateway)
+    monkeypatch.setattr(gateway, "_request", call)
+    meta = gateway.complete_verified_auth("alice", "uri_fixture_123456")
+    assert meta["composio_account_id"] == "ca_fixture"
+    create = [data for method, path, data, _ in requests
+              if method == "POST" and path == "/api/v3.1/tool_router/session"]
+    assert create[-1]["connected_accounts"] == {"github": ["ca_fixture"]}
+    assert create[-1]["instant"] is False
+
+
+def test_missing_or_changed_pinned_account_disables_execution(gateway, monkeypatch):
+    call, requests, url = _fake_api(gateway)
+    monkeypatch.setattr(gateway, "_request", call)
+    with pytest.raises(gateway.ComposioError):
+        gateway.session_execute("alice", {"metadata": {
+            "composio_session_id": "trs_fixture99", "composio_toolkit": "github",
+            "url": url
+        }}, "GITHUB_GET_REPO", {"repository": "owner/repo"})
+    assert not any(path.endswith("/execute") for _, path, _, _ in requests)
