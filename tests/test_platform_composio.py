@@ -70,7 +70,7 @@ def _fake_api(gateway, user="alice", connected=True):
                                    "repository": {"type": "string", "required": True}
                                }}], "next_cursor": None}
         if method == "POST" and path.endswith("/execute"):
-            return {"result_type": "success", "data": {"ok": True, "repository": data["arguments"]["repository"]}}
+            return {"result_type": "completed", "data": {"ok": True, "repository": data["arguments"]["repository"]}}
         if method == "DELETE":
             return {}
         raise AssertionError((method, path))
