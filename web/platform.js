@@ -620,14 +620,13 @@
           detail.append(node("strong", "", toolkit.label));
           if (toolkit.description) detail.append(node("p", "workspace-muted", toolkit.description));
           item.append(detail);
-          const linked = connected.some((connection) => connection.metadata?.composio_toolkit === toolkit.id);
-          if (linked) item.append(node("span", "workspace-toolkit-connected", "Bağlı"));
-          else {
-            const link = node("a", "workspace-button", "Bağlan");
-            link.href = "/api/baglantilar/composio/baslat?toolkit=" + encodeURIComponent(toolkit.id);
-            link.setAttribute("aria-label", toolkit.label + " hesabını bağla");
-            item.append(link);
-          }
+          const count = connected.filter((connection) =>
+            connection.metadata?.composio_toolkit === toolkit.id).length;
+          if (count) item.append(node("span", "workspace-toolkit-connected", count + " bağlı"));
+          const link = node("a", "workspace-button", count ? "Hesap ekle" : "Bağlan");
+          link.href = "/api/baglantilar/composio/baslat?toolkit=" + encodeURIComponent(toolkit.id);
+          link.setAttribute("aria-label", toolkit.label + (count ? " için başka hesap ekle" : " hesabını bağla"));
+          item.append(link);
           card.append(item);
         }
         if (state.composioCatalog.next_cursor && !state.composioLoading) {
