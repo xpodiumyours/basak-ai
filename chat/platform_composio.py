@@ -285,6 +285,19 @@ def finish_session(user_id, data):
     }
 
 
+def _bound_account(sid, toolkit, user_id, meta):
+    expected = _account_id(meta.get("composio_account_id"))
+    actual = _connected_account(sid, toolkit, user_id)
+    if actual != expected:
+        raise ComposioError("Composio bagli hesap kimligi degisti")
+    details = _request("GET", "/api/v3.1/connected_accounts/" + expected)
+    if (details.get("id") != expected or details.get("user_id") != _user_id(user_id)
+            or details.get("status") != "ACTIVE"
+            or (details.get("toolkit") or {}).get("slug") != toolkit):
+        raise ComposioError("Composio hesap sahipligi dogrulanamadi")
+    return expected
+
+
 def disconnect(user_id, connection):
     """Remove provider-side account before revoking the local permission."""
     meta = connection.get("metadata") or {}
