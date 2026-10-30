@@ -277,6 +277,24 @@ def test_callback_rejects_cross_user_connected_account(gateway, monkeypatch):
     assert not any(path == "/api/v3.1/tool_router/session" for _, path, _, _ in calls)
 
 
+
+def test_documented_execute_response_without_result_type_succeeds(gateway, monkeypatch):
+    call, _, url = _fake_api(gateway)
+    def documented(method, path, *, data=None, params=None):
+        result = call(method, path, data=data, params=params)
+        if method == "POST" and path.endswith("/execute"):
+            return {"data": result["data"], "error": None,
+                    "log_id": "log_accepted"}
+        return result
+    monkeypatch.setattr(gateway, "_request", documented)
+    result = gateway.session_execute("alice", {"metadata": {
+        "composio_toolkit": "github", "composio_session_id": "trs_fixture99",
+        "url": url
+    }}, "GITHUB_GET_REPO", {"repository": "owner/repo"})
+    assert result["isError"] is False
+    assert result["structuredContent"]["repository"] == "owner/repo"
+
+
 def test_failed_execute_response_never_reports_success(gateway, monkeypatch):
     call, requests, url = _fake_api(gateway)
     def failed(method, path, *, data=None, params=None):
