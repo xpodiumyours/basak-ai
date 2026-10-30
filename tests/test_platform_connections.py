@@ -9,10 +9,23 @@ import pytest
 def store(monkeypatch, tmp_path):
     from chat import kosu_deposu
     monkeypatch.setattr(kosu_deposu, "_DEPO", None)
+    monkeypatch.setenv("BASAK_GITHUB_APP_ID", "1")
+    monkeypatch.setenv("BASAK_GITHUB_APP_SLUG", "basak-fixture")
     monkeypatch.setenv("BASAK_CONNECTION_KEY", base64.urlsafe_b64encode(b"k" * 32).decode())
     monkeypatch.setenv("BASAK_OTURUM_ANAHTARI", "test-session-secret-which-is-over-32-bytes")
     from chat.platform_connections import ConnectionStore
     return ConnectionStore(kosu_deposu._SqliteDepo(str(tmp_path / "accounts.db")))
+
+
+def _github_connection(store, repository="a/b", user="alice", token=None, metadata=None):
+    from chat.platform_github_app import AUTH_TYPE, PERMISSIONS
+    details = {"auth_type": AUTH_TYPE, "repositories": [repository], "repository_ids": [3],
+               "github_app_id": 1, "account_id": "42",
+               "installations": [2],
+               "writable_repositories": [repository], "permissions": dict(PERMISSIONS)}
+    details.update(metadata or {})
+    return store.save(user, "github", token or {"access_token": "ghu_fixture", "auth_type": AUTH_TYPE},
+                      [], details)["id"]
 
 
 def test_tokens_encrypted_and_tenant_scoped(store):
@@ -97,15 +110,21 @@ def test_github_call_owner_and_safe_fixed_host(store):
 
     def transport(req):
         calls.append(req)
+        if req.method == "GET" and req.url.path == "/repos/a/b":
+            return httpx.Response(200, json={"default_branch": "main", "permissions": {"push": True}})
+        if req.method == "GET" and "/branches/" in req.url.path:
+            return httpx.Response(200, json={"protected": False})
         return httpx.Response(200, json={"number": 1, "html_url": "https://github.com/a/b/pull/1"})
 
-    cid = store.save("alice", "github", {"access_token": "x"}, ["public_repo"],
-                     {"repositories": ["a/b"]})["id"]
+    cid = _github_connection(store)
     svc = ConnectorService(store, transport=httpx.MockTransport(transport))
     result = svc.execute("alice", cid, "github_create_pr", {
-        "repository": "a/b", "title": "Change", "head": "feat/x", "base": "main", "body": "Evidence"})
+        "repository": "a/b", "title": "Change", "head": "basak/" + cid[:12] + "/change",
+        "base": "main", "body": "Evidence"})
     assert result["structuredContent"]["number"] == 1
-    assert str(calls[0].url) == "https://api.github.com/repos/a/b/pulls"
+    assert [req.method for req in calls] == ["GET", "GET", "POST"]
+    assert str(calls[-1].url) == "https://api.github.com/repos/a/b/pulls"
+    assert json.loads(calls[-1].content)["draft"] is True
     with pytest.raises(PermissionError):
         svc.execute("bob", cid, "github_create_pr", {"repository": "a/b"})
 
@@ -143,11 +162,13 @@ def api(store, monkeypatch):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from chat import platform_accounts_api as api
+    from chat import platform_github_app
     monkeypatch.setenv("BASAK_PUBLIC_URL", "https://basak.example")
     monkeypatch.setenv("BASAK_GITHUB_CLIENT_ID", "client")
     monkeypatch.setenv("BASAK_GITHUB_CLIENT_SECRET", "client-secret")
     monkeypatch.setattr(api, "_store_factory", lambda: store)
     monkeypatch.setattr(api, "_authenticate", lambda request: request.headers.get("x-test-user"))
+    monkeypatch.setattr(platform_github_app, "configured", lambda: True)
     app = FastAPI()
     app.include_router(api.router)
     return TestClient(app, base_url="https://basak.example")
@@ -265,52 +286,41 @@ def test_mcp_permission_update_checks_discovered_names(api, store):
     assert store.get("alice", cid)["metadata"]["allowed_tools"] == ["read"]
 
 
-def test_github_oauth_connect_requests_repo_but_login_does_not(api):
+def test_github_app_oauth_never_requests_account_repository_scopes(api):
     from chat.platform_connectors import PROVIDERS
     from urllib.parse import urlsplit, parse_qs
-    assert PROVIDERS["github"]["scopes"] == ["repo"]
-    login = api.get("/api/baglantilar/oauth/github/baslat?purpose=login",
-                    follow_redirects=False)
-    connect = api.get("/api/baglantilar/oauth/github/baslat?purpose=connect",
-                      headers={"x-test-user": "alice"}, follow_redirects=False)
-    assert "scope" not in parse_qs(urlsplit(login.headers["location"]).query)
-    assert parse_qs(urlsplit(connect.headers["location"]).query)["scope"] == ["repo"]
+    assert PROVIDERS["github"]["scopes"] == []
+    for purpose in ("login", "connect"):
+        response = api.get("/api/baglantilar/oauth/github/baslat?purpose=" + purpose,
+                           headers={"x-test-user": "alice"}, follow_redirects=False)
+        assert response.status_code == 302
+        assert "scope" not in parse_qs(urlsplit(response.headers["location"]).query)
 
 
-def test_github_public_repo_write_requires_scope_even_with_approved_tool(store):
-    import httpx
+@pytest.mark.parametrize("scopes", [[], ["repo"], ["public_repo"]])
+def test_legacy_github_oauth_connection_cannot_list_or_execute_tools(store, monkeypatch, scopes):
     from chat.platform_connectors import ConnectorService, ConnectorError
-    requests = []
-
-    def fake(request):
-        requests.append(request)
-        return httpx.Response(201, json={"ref": "refs/heads/feat/test"})
-
-    basic = store.save("alice", "github", {"access_token": "basic"}, [],
-                       {"repositories": ["a/b"]})["id"]
-    private = store.save("alice", "github", {"access_token": "private"}, ["repo"],
-                         {"repositories": ["a/b"]})["id"]
-    public = store.save("alice", "github", {"access_token": "public"}, ["public_repo"],
-                        {"repositories": ["a/b"]})["id"]
-    service = ConnectorService(store, transport=httpx.MockTransport(fake))
-    writes = {"github_create_branch", "github_write_file", "github_create_pr", "github_dispatch_workflow"}
-    assert writes.isdisjoint({t["name"] for t in service.tools("alice", basic)})
-    assert {"github_read_file"}.issubset({t["name"] for t in service.tools("alice", basic)})
-    arguments = {"repository": "a/b", "branch": "feat/test", "sha": "a"*40}
-    with pytest.raises(ConnectorError, match="yetki"):
-        service.execute("alice", basic, "github_create_branch", arguments)
-    assert requests == [], "Write without GitHub scope reached network"
-    assert writes.issubset({t["name"] for t in service.tools("alice", private)})
-    assert writes.issubset({t["name"] for t in service.tools("alice", public)})
-    service.execute("alice", public, "github_create_branch", arguments)
-    assert len(requests) == 1
+    cid = store.save("alice", "github", {"access_token": "legacy"}, scopes,
+                     {"repositories": ["a/b"]})["id"]
+    service = ConnectorService(store)
+    assert service.tools("alice", cid) == []
+    def forbidden(*args, **kwargs):
+        pytest.fail("Legacy OAuth must be rejected before credential or network access")
+    monkeypatch.setattr(store, "credentials", forbidden)
+    monkeypatch.setattr(service, "_request", forbidden)
+    for tool, args in (
+        ("github_read_file", {"repository": "a/b", "path": "README.md"}),
+        ("github_create_branch", {"repository": "a/b", "branch": "feat/task", "sha": "a" * 40}),
+        ("github_dispatch_workflow", {"repository": "a/b", "workflow": "release.yml", "ref": "main"}),
+    ):
+        with pytest.raises(ConnectorError, match="yetki"):
+            service.execute("alice", cid, tool, args)
 
 
 @pytest.mark.parametrize('observed,should_match', [(b'expected', True), (b'wrong', False)])
 def test_uncertain_github_write_uses_only_read_of_original_target(store, monkeypatch, observed, should_match):
     from chat import platform_connectors as module
-    cid = store.save('alice', 'github', {'access_token': 'fixture'}, ['repo'],
-                     {'repositories': ['owner/repo']})['id']
+    cid = _github_connection(store, repository='owner/repo')
     monkeypatch.setattr(module, 'ConnectionStore', lambda: store)
     requests = []
     def get(self, method, url, token, **kwargs):
@@ -359,7 +369,7 @@ def test_github_repository_metadata_uses_connected_owner_and_fixed_origin(store)
     def transport(request):
         calls.append(request)
         return httpx.Response(200, json={"default_branch": "develop", "permissions": {"push": True}})
-    cid = store.save("alice", "github", {"access_token": "test-token"}, ["repo"], {"repositories": ["a/b"]})["id"]
+    cid = _github_connection(store)
     service = ConnectorService(store, transport=httpx.MockTransport(transport))
     result = service.execute("alice", cid, "github_get_repository", {"repository": "a/b"})
     assert result["structuredContent"]["default_branch"] == "develop"
@@ -375,33 +385,288 @@ def test_github_branch_commit_and_repository_pagination(store):
     def transport(request):
         calls.append(request)
         return httpx.Response(200, json={"commit": {"sha": "a" * 40}})
-    cid = store.save("alice", "github", {"access_token": "fixture"}, ["repo"],
-                     {"repositories": ["a/b"]})["id"]
+    cid = _github_connection(store)
     service = ConnectorService(store, transport=httpx.MockTransport(transport))
     result = service.execute("alice", cid, "github_get_branch", {"repository": "a/b", "branch": "feat/start"})
     assert result["structuredContent"]["commit"]["sha"] == "a" * 40
     assert calls[-1].url.raw_path == b"/repos/a/b/branches/feat%2Fstart"
-    service.execute("alice", cid, "github_list_repositories", {"page": 2})
-    assert calls[-1].url.params["page"] == "2"
-    assert calls[-1].url.params["per_page"] == "100"
+    result = service.execute("alice", cid, "github_list_repositories", {"page": 1})
+    assert result["structuredContent"]["repositories"] == [{"full_name": "a/b", "writable": True}]
+    assert result["structuredContent"]["total_count"] == 1
+    result = service.execute("alice", cid, "github_list_repositories", {"page": 2})
+    assert result["structuredContent"]["repositories"] == []
+    assert len(calls) == 1, "Repository listing must use only revalidated connection selection"
 
 
-@pytest.mark.parametrize("scope,status", [("public_repo", 403), ("", 403), ("repo", 303)])
-def test_github_connect_verifies_granted_repository_scope(api, store, monkeypatch, scope, status):
+@pytest.mark.parametrize("discovery_fails", [False, True])
+def test_github_connect_stores_verified_app_user_credential_and_refresh(api, store, monkeypatch, discovery_fails):
     import httpx
     from urllib.parse import parse_qs, urlsplit
-    from chat import platform_accounts_api as module
+    from chat import platform_accounts_api as module, platform_github_app as github
+    discovery = []
     def upstream(request):
         if request.url.host == "github.com":
-            return httpx.Response(200, json={"access_token": "fixture", "scope": scope})
-        if request.url.path == "/user":
-            return httpx.Response(200, json={"id": 42, "login": "alice"})
-        return httpx.Response(200, json=[{"full_name": "a/b"}])
+            return httpx.Response(200, json={"access_token": "ghu_userfixture", "refresh_token": "ghr_refreshfixture", "scope": ""})
+        assert request.url.path == "/user", "Repository discovery belongs to the verified GitHub App helper"
+        return httpx.Response(200, json={"id": 42, "login": "alice"})
+    def discover(user_token, profile, transport=None):
+        discovery.append((dict(user_token), profile))
+        if discovery_fails:
+            raise github.GitHubAppError("Installation permissions do not match")
+        return ({**user_token, "auth_type": github.AUTH_TYPE},
+                {"auth_type": github.AUTH_TYPE, "github_app_id": 1,
+                 "installations": [2],
+                 "repositories": ["a/b"], "repository_ids": [3], "writable_repositories": ["a/b"],
+                 "permissions": dict(github.PERMISSIONS)})
     monkeypatch.setattr(module, "_transport", httpx.MockTransport(upstream))
+    monkeypatch.setattr(github, "discover_connection", discover)
     start = api.get("/api/baglantilar/oauth/github/baslat?purpose=connect",
                     headers={"x-test-user": "alice"}, follow_redirects=False)
     state = parse_qs(urlsplit(start.headers["location"]).query)["state"][0]
     result = api.get("/api/baglantilar/oauth/github/callback", params={"state": state, "code": "fixture"},
                      headers={"x-test-user": "alice"}, follow_redirects=False)
-    assert result.status_code == status
-    assert bool(store.list("alice")) is (status == 303)
+    assert discovery == [({"access_token": "ghu_userfixture", "refresh_token": "ghr_refreshfixture", "scope": ""},
+                          {"id": 42, "login": "alice"})]
+    rows = store.list("alice")
+    if discovery_fails:
+        assert result.status_code == 503
+        assert rows == []
+    else:
+        assert result.status_code == 303
+        assert len(rows) == 1
+        assert rows[0]["metadata"]["repositories"] == ["a/b"]
+        assert rows[0]["metadata"]["permissions"] == github.PERMISSIONS
+        assert store.credentials("alice", rows[0]["id"]) == {
+            "access_token": "ghu_userfixture", "refresh_token": "ghr_refreshfixture", "scope": "",
+            "auth_type": github.AUTH_TYPE}
+        assert "ghu_userfixture" not in json.dumps(rows) + result.text
+
+
+@pytest.mark.parametrize("tool,path", [
+    ("github_read_file", "../collaborators/example-user"),
+    ("github_write_file", "../../other/contents/result.md"),
+    ("github_write_file", "%252e%252e/collaborators/example-user"),
+    ("github_read_file", ".env.production"),
+    ("github_write_file", "config/secret.pem"),
+    ("github_write_file", ".github/workflows/release.yml"),
+    ("github_write_file", "AGENTS.md"),
+    ("github_write_file", "chat/platform_connectors.py"),
+    ("github_write_file", "deploy/oracle/setup.sh"),
+])
+def test_github_unsafe_paths_are_rejected_before_credentials_or_network(store, monkeypatch, tool, path):
+    from chat.platform_connectors import ConnectorService
+    cid = _github_connection(store)
+    service = ConnectorService(store)
+    def forbidden(*args, **kwargs):
+        pytest.fail("Unsafe GitHub path reached credentials or transport")
+    monkeypatch.setattr(service, "_token", forbidden)
+    monkeypatch.setattr(service, "_request", forbidden)
+    args = {"repository": "a/b", "path": path}
+    if tool == "github_write_file":
+        args.update(branch="basak/" + cid[:12] + "/change", message="Change", content="eA==")
+    with pytest.raises(ValueError):
+        service.execute("alice", cid, tool, args)
+
+
+def test_github_selected_repository_is_enforced_before_credentials(store, monkeypatch):
+    from chat.platform_connectors import ConnectorService, ConnectorError
+    cid = _github_connection(store)
+    service = ConnectorService(store)
+    def forbidden(*args, **kwargs):
+        pytest.fail("Other repository reached credentials or transport")
+    monkeypatch.setattr(service, "_token", forbidden)
+    monkeypatch.setattr(service, "_request", forbidden)
+    with pytest.raises(ConnectorError, match="Depo"):
+        service.execute("alice", cid, "github_read_file", {"repository": "a/other", "path": "README.md"})
+
+
+def test_github_actions_are_denied_even_when_cost_guard_would_allow(store, monkeypatch):
+    from chat.platform_connectors import ConnectorService, ConnectorError
+    cid = _github_connection(store)
+    service = ConnectorService(store, cost_guard=lambda *args: True)
+    assert not any(t["name"].startswith(("github_get_run", "github_list_run", "github_list_artifact", "github_dispatch"))
+                   for t in service.tools("alice", cid))
+    def forbidden(*args, **kwargs):
+        pytest.fail("Actions reached credentials or transport despite connection scope")
+    monkeypatch.setattr(service, "_token", forbidden)
+    monkeypatch.setattr(service, "_request", forbidden)
+    with pytest.raises(ConnectorError, match="yetki"):
+        service.execute("alice", cid, "github_dispatch_workflow",
+                        {"repository": "a/b", "workflow": "release.yml", "ref": "main"})
+
+
+@pytest.mark.parametrize("tool", ["github_create_branch", "github_write_file", "github_create_pr"])
+def test_github_writes_require_connection_owned_branch_even_for_direct_call(store, monkeypatch, tool):
+    from chat.platform_connectors import ConnectorService, ConnectorError
+    cid = _github_connection(store)
+    service = ConnectorService(store)
+    def forbidden(*args, **kwargs):
+        pytest.fail("Foreign branch reached credentials or transport")
+    monkeypatch.setattr(service, "_token", forbidden)
+    monkeypatch.setattr(service, "_request", forbidden)
+    if tool == "github_create_branch":
+        args = {"branch": "basak/another-owner/change", "sha": "a" * 40}
+    elif tool == "github_write_file":
+        args = {"branch": "main", "path": "README.md", "message": "Change", "content": "eA=="}
+    else:
+        args = {"head": "basak/another-owner/change", "base": "main", "title": "Change"}
+    with pytest.raises(ConnectorError, match="gelistirme"):
+        service.execute("alice", cid, tool, {"repository": "a/b", **args})
+
+
+@pytest.mark.parametrize("protected", [True, None])
+def test_github_protected_or_unknown_branch_never_receives_write(store, protected):
+    import httpx
+    from chat.platform_connectors import ConnectorService, ConnectorError
+    cid = _github_connection(store)
+    calls = []
+    def transport(request):
+        calls.append(request)
+        assert request.method == "GET", "Protected branch received a mutation"
+        return httpx.Response(200, json={"protected": protected} if "/branches/" in request.url.path
+                              else {"default_branch": "main", "permissions": {"push": True}})
+    service = ConnectorService(store, transport=httpx.MockTransport(transport))
+    with pytest.raises(ConnectorError, match="Korunan"):
+        service.execute("alice", cid, "github_write_file", {"repository": "a/b", "path": "README.md",
+                        "branch": "basak/" + cid[:12] + "/change", "message": "Change", "content": "eA=="})
+    assert len(calls) == 2
+
+
+def test_github_custom_default_branch_cannot_be_written_even_in_owned_namespace(store):
+    import httpx
+    from chat.platform_connectors import ConnectorService, ConnectorError
+    cid = _github_connection(store)
+    branch = "basak/" + cid[:12] + "/default"
+    calls = []
+    def transport(request):
+        calls.append(request)
+        assert request.method == "GET"
+        return httpx.Response(200, json={"default_branch": branch, "permissions": {"push": True}})
+    service = ConnectorService(store, transport=httpx.MockTransport(transport))
+    with pytest.raises(ConnectorError, match="Varsayilan"):
+        service.execute("alice", cid, "github_write_file", {"repository": "a/b", "path": "README.md",
+                        "branch": branch, "message": "Change", "content": "eA=="})
+    assert len(calls) == 1
+
+
+def test_github_new_branch_uses_owned_prefix_and_read_only_default_branch_preflight(store):
+    import httpx
+    from chat.platform_connectors import ConnectorService
+    cid = _github_connection(store)
+    branch = "basak/" + cid[:12] + "/change"
+    calls = []
+    def transport(request):
+        calls.append(request)
+        return httpx.Response(200 if request.method == "GET" else 201,
+                              json={"default_branch": "main", "permissions": {"push": True}} if request.method == "GET"
+                              else {"ref": "refs/heads/" + branch})
+    service = ConnectorService(store, transport=httpx.MockTransport(transport))
+    result = service.execute("alice", cid, "github_create_branch",
+                             {"repository": "a/b", "branch": branch, "sha": "a" * 40})
+    assert result["structuredContent"]["ref"] == "refs/heads/" + branch
+    assert [r.method for r in calls] == ["GET", "POST"]
+    assert calls[-1].url.path == "/repos/a/b/git/refs"
+    assert json.loads(calls[-1].content) == {"ref": "refs/heads/" + branch, "sha": "a" * 40}
+
+
+def test_github_non_draft_pr_is_denied_before_credentials(store, monkeypatch):
+    from chat.platform_connectors import ConnectorService, ConnectorError
+    cid = _github_connection(store)
+    service = ConnectorService(store)
+    def forbidden(*args, **kwargs):
+        pytest.fail("Non-draft PR reached credentials or transport")
+    monkeypatch.setattr(service, "_token", forbidden)
+    monkeypatch.setattr(service, "_request", forbidden)
+    with pytest.raises(ConnectorError, match="taslak"):
+        service.execute("alice", cid, "github_create_pr", {"repository": "a/b", "title": "Change",
+                        "head": "basak/" + cid[:12] + "/change", "base": "main", "draft": False})
+
+
+def test_github_pr_must_target_verified_default_branch(store):
+    import httpx
+    from chat.platform_connectors import ConnectorService, ConnectorError
+    cid = _github_connection(store)
+    calls = []
+    def transport(request):
+        calls.append(request)
+        assert request.method == "GET"
+        return httpx.Response(200, json={"default_branch": "main", "permissions": {"push": True}})
+    service = ConnectorService(store, transport=httpx.MockTransport(transport))
+    with pytest.raises(ConnectorError, match="varsayilan"):
+        service.execute("alice", cid, "github_create_pr", {"repository": "a/b", "title": "Change",
+                        "head": "basak/" + cid[:12] + "/change", "base": "production"})
+    assert len(calls) == 1
+
+
+def test_github_app_metadata_cannot_make_a_legacy_token_usable(store, monkeypatch):
+    from chat.platform_connectors import ConnectorService, ConnectorError
+    cid = _github_connection(store, token={"access_token": "legacy"})
+    service = ConnectorService(store)
+    def forbidden(*args, **kwargs):
+        pytest.fail("Legacy token reached HTTP transport")
+    monkeypatch.setattr(service, "_request", forbidden)
+    with pytest.raises(ConnectorError, match="uygulama"):
+        service.execute("alice", cid, "github_get_repository", {"repository": "a/b"})
+
+
+def test_github_provider_exposes_app_installation_selection_without_repo_scope(api):
+    providers = api.get("/api/baglantilar/saglayicilar").json()["providers"]
+    github = next(p for p in providers if p["id"] == "github")
+    assert github["configured"] is True
+    assert github["scopes"] == []
+    assert github["installation_url"] == "https://github.com/apps/basak-fixture/installations/new"
+
+
+def test_multiple_user_selected_repositories_support_reads_and_writes(store):
+    import httpx
+    from chat.platform_connectors import ConnectorService
+    repositories = ["a/project-one", "team-b/project-two"]
+    cid = _github_connection(store, metadata={"repositories": repositories, "repository_ids": [3, 4],
+                                             "writable_repositories": repositories})
+    calls = []
+    def transport(request):
+        calls.append(request)
+        if "/branches/" in request.url.path:
+            return httpx.Response(200, json={"protected": False})
+        if request.method == "GET" and "/contents/" not in request.url.path:
+            return httpx.Response(200, json={"default_branch": "develop", "permissions": {"push": True}})
+        return httpx.Response(200, json={"content": {"sha": "a" * 40}})
+    service = ConnectorService(store, transport=httpx.MockTransport(transport))
+    listed = service.execute("alice", cid, "github_list_repositories", {})["structuredContent"]
+    assert listed["repositories"] == [{"full_name": name, "writable": True} for name in repositories]
+    assert calls == []
+    for repository in repositories:
+        service.execute("alice", cid, "github_read_file", {"repository": repository, "path": "README.md"})
+        service.execute("alice", cid, "github_write_file", {"repository": repository, "path": "README.md",
+                        "branch": "basak/" + cid[:12] + "/change", "message": "Change", "content": "eA=="})
+    assert [r.url.path for r in calls if r.method == "PUT"] == [
+        "/repos/" + repository + "/contents/README.md" for repository in repositories]
+
+
+def test_live_repository_permission_revocation_blocks_write_but_keeps_read(store):
+    import httpx
+    from chat.platform_connectors import ConnectorService, ConnectorError
+    cid = _github_connection(store)
+    calls = []
+    def transport(request):
+        calls.append(request)
+        assert request.method == "GET", "Read-only user received a repository mutation"
+        if "/contents/" in request.url.path:
+            return httpx.Response(200, json={"encoding": "base64", "content": "eA=="})
+        return httpx.Response(200, json={"default_branch": "main", "permissions": {"push": False}})
+    service = ConnectorService(store, transport=httpx.MockTransport(transport))
+    assert service.execute("alice", cid, "github_read_file", {"repository": "a/b", "path": "README.md"})["isError"] is False
+    # Stored writable selection may be stale; the live user's permission wins.
+    with pytest.raises(ConnectorError, match="yazma yetkisi"):
+        service.execute("alice", cid, "github_write_file", {"repository": "a/b", "path": "README.md",
+                        "branch": "basak/" + cid[:12] + "/change", "message": "Change", "content": "eA=="})
+    assert len(calls) == 2
+
+
+def test_github_readonly_selected_repository_is_listed_as_readonly(store, monkeypatch):
+    from chat.platform_connectors import ConnectorService
+    cid = _github_connection(store, metadata={"writable_repositories": []})
+    service = ConnectorService(store)
+    monkeypatch.setattr(service, "_request", lambda *args, **kwargs: pytest.fail("Listing leaked into broad provider listing"))
+    rows = service.execute("alice", cid, "github_list_repositories", {})["structuredContent"]["repositories"]
+    assert rows == [{"full_name": "a/b", "writable": False}]

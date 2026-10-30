@@ -578,6 +578,13 @@
         link.href = "/api/baglantilar/oauth/" + encodeURIComponent(provider.id) + "/baslat?purpose=login";
         card.append(link);
       } else if (state.user && provider.id !== "mcp") {
+        if (provider.id === "github" && provider.installation_url) {
+          const selection = node("a", "workspace-button", "Depo erişimini seç");
+          selection.href = provider.installation_url;
+          selection.target = "_blank";
+          selection.rel = "noopener noreferrer";
+          card.append(selection, node("p", "workspace-muted", "GitHub’da erişilecek depoları seç, sonra hesabını bağla."));
+        }
         const link = node("a", "workspace-button", connected.length ? "Hesabı yeniden bağla" : "Hesap bağla");
         link.href = "/api/baglantilar/oauth/" + encodeURIComponent(provider.id) + "/baslat?purpose=connect";
         card.append(link);
@@ -588,6 +595,9 @@
         const item = node("div", "workspace-connection-item");
         const connectionStatus = { connected: "Bağlı", reauth_required: "Yeniden giriş gerekli" }[connection.status] || connection.status;
         item.append(node("p", "", (connection.label || provider.label || provider.id) + " · " + connectionStatus));
+        if (connection.provider === "github" && Array.isArray(connection.metadata?.repositories)) {
+          item.append(node("p", "workspace-muted", "Depolar: " + connection.metadata.repositories.join(", ")));
+        }
         const remove = node("button", "workspace-text-button", "Erişimi kaldır");
         remove.type = "button";
         remove.addEventListener("click", async () => {
