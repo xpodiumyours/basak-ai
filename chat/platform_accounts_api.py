@@ -16,6 +16,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from chat.platform_connections import ConnectionStore
+from chat.platform_composio import (ComposioError, TOOLKITS as COMPOSIO_TOOLKITS,
+                                   configured as composio_configured)
 from chat.platform_connectors import ConnectorError, ConnectorService, PROVIDERS, provider_config
 from chat.platform_identity import COOKIE, SESSION_SECONDS, IdentityService, authenticate
 from chat.platform_mcp import MCPService, MCPOAuthError, validate_endpoint
@@ -109,6 +111,10 @@ async def connection_providers():
         if provider == "github" and cfg["configured"]:
             providers[-1]["installation_url"] = ("https://github.com/apps/" +
                 quote(os.environ["BASAK_GITHUB_APP_SLUG"], safe="") + "/installations/new")
+    providers.append({"id": "composio", "label": "Composio", "configured": composio_configured(),
+                      "reason": None if composio_configured() else "oauth_not_configured",
+                      "login": False, "scopes": [], "toolkits": [
+                          {"id": slug, "label": label} for slug, label in COMPOSIO_TOOLKITS.items()]})
     providers.append({"id": "mcp", "label": "MCP", "configured": True, "reason": None, "login": False, "scopes": []})
     return JSONResponse({"providers": providers}, headers={"Cache-Control": "no-store"})
 
@@ -130,11 +136,20 @@ async def connection_revoke(connection_id: str, request: Request):
         return _error("Istek kaynagi gecersiz", 403)
     try:
         uid = _owner(request)
-        if not _store_factory().revoke(uid, connection_id):
+        store = _store_factory()
+        connection = store.get(uid, connection_id)
+        if connection is None:
+            return _error("Baglanti bulunamadi", 404)
+        if connection["provider"] == "mcp" and connection["metadata"].get("composio_session_id"):
+            from chat.platform_composio import disconnect
+            await asyncio.to_thread(disconnect, uid, connection)
+        if not store.revoke(uid, connection_id):
             return _error("Baglanti bulunamadi", 404)
         return Response(status_code=204, headers={"Cache-Control": "no-store"})
     except PermissionError:
         return _error("Hesap girisi gerekli", 401)
+    except ComposioError:
+        return _error("Composio yetkisi kaldirilamadi; tekrar deneyin", 502)
     except RuntimeError:
         return _error("Baglanti kaldirilamadi", 503)
 
@@ -166,6 +181,67 @@ async def connection_permissions(connection_id: str, request: Request):
         return _error("Gecersiz baglanti istegi")
     except RuntimeError:
         return _error("Baglanti guncellenemedi", 503)
+
+
+@router.get("/api/baglantilar/composio/baslat")
+async def composio_start(request: Request, toolkit: str = "github"):
+    """Begin a real, browser-bound Connect Link for the current Başak user."""
+    if toolkit not in COMPOSIO_TOOLKITS:
+        return _error("Desteklenmeyen Composio uygulamasi")
+    if not composio_configured():
+        return _error("Composio projesi yapilandirilmadi", 503)
+    try:
+        from chat.platform_composio import create_session, authorize_session
+        uid = _owner(request)
+        store = _store_factory()
+        for conn in store.list(uid):
+            meta = conn.get("metadata") or {}
+            if (conn["status"] != "revoked" and meta.get("composio_toolkit") == toolkit):
+                return _error("Bu uygulama zaten bagli; once mevcut baglantiyi kaldirin", 409)
+        browser = request.cookies.get(BROWSER_COOKIE) or secrets.token_urlsafe(32)
+        data = await asyncio.to_thread(create_session, uid, toolkit)
+        state, _ = store.oauth_begin("mcp", browser, uid, "connect", data=data)
+        callback = _public_base() + "/api/baglantilar/composio/callback?state=" + quote(state, safe="")
+        target = await asyncio.to_thread(authorize_session, data["session_id"], toolkit, callback)
+        response = RedirectResponse(target, status_code=302, headers={
+            "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+        response.set_cookie(BROWSER_COOKIE, browser, max_age=600, httponly=True,
+                            secure=_secure(request), samesite="lax", path="/api/baglantilar")
+        return response
+    except PermissionError:
+        return _error("Hesap girisi gerekli", 401)
+    except ComposioError:
+        return _error("Composio baglantisi baslatilamadi", 502)
+    except RuntimeError:
+        return _error("Baglanti deposu kullanilamiyor", 503)
+
+
+@router.get("/api/baglantilar/composio/callback")
+async def composio_callback(request: Request, state: str = "", error: str = ""):
+    """Check the completed account at Composio before storing local access."""
+    try:
+        from chat.platform_composio import finish_session
+        uid = _owner(request)
+        browser = request.cookies.get(BROWSER_COOKIE, "")
+        if not state or not browser or error:
+            raise PermissionError()
+        store = _store_factory()
+        attempt = store.oauth_consume(state, "mcp", browser)
+        if attempt["user_id"] != uid:
+            raise PermissionError()
+        meta = await asyncio.to_thread(finish_session, uid, attempt["data"])
+        store.save(uid, "mcp", {}, [], meta)
+        response = RedirectResponse("/", status_code=303, headers={
+            "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+        response.delete_cookie(BROWSER_COOKIE, path="/api/baglantilar",
+                               secure=_secure(request), httponly=True, samesite="lax")
+        return response
+    except PermissionError:
+        return _error("Composio OAuth oturumu gecersiz veya suresi dolmus", 400)
+    except ComposioError:
+        return _error("Composio hesap baglantisi dogrulanamadi", 502)
+    except RuntimeError:
+        return _error("Composio baglanti deposu kullanilamiyor", 503)
 
 
 @router.post("/api/baglantilar/mcp")
