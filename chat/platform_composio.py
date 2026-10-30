@@ -343,8 +343,15 @@ def session_execute(user_id, connection, slug, arguments):
     account = _connected_account(sid, toolkit, user_id)
     result = _request("POST", "/api/v3.1/tool_router/session/" + sid + "/execute",
                       data={"tool_slug": slug, "arguments": arguments, "account": account})
-    if result.get("result_type") != "completed" or result.get("error"):
+    # v3.1 session execute returns {data, error, log_id}; result_type
+    # is not part of the documented response and cannot be mandatory.
+    # If a newer variant supplies it, reject explicit failure states.
+    payload = result.get("data")
+    result_type = result.get("result_type")
+    if (result.get("error") or not isinstance(payload, dict)
+            or result_type not in (None, "completed", "success")):
         return {"isError": True, "content": [{"type": "text",
                 "text": "Composio araci basarisiz"}],
                 "structuredContent": {"error": "Composio araci basarisiz"}}
-    return {"isError": False, "content": [], "structuredContent": result.get("data") or {}}
+    return {"isError": False, "content": [],
+            "structuredContent": payload}
