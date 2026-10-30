@@ -196,6 +196,30 @@ def _connected_account(sid, toolkit, user_id):
     raise ComposioError("Composio hesap izni tamamlanmadi")
 
 
+def complete_verified_auth(user_id, session_uri):
+    """Redeem Composio's single-use identity-verification callback.
+
+    The project must route OAuth callbacks to the verifier URL in Composio
+    Settings > General. A normal callback with a state token is insufficient
+    to prove which person consented at the provider.
+    """
+    if (not isinstance(session_uri, str) or not 10 <= len(session_uri) <= 2048
+            or any(ord(ch) < 33 for ch in session_uri)):
+        raise ComposioError("Composio dogrulama oturumu gecersiz")
+    result = _request("POST", "/api/v3.1/connected_accounts/complete_auth",
+                      data={"session_uri": session_uri, "user_id": _user_id(user_id)})
+    toolkit = _slug(result.get("toolkit_slug"))
+    account = result.get("connected_account_id")
+    if not isinstance(account, str) or not account.startswith("ca_"):
+        raise ComposioError("Dogrulanmis Composio hesap kimligi gecersiz")
+    # Never use a session or account belonging to a different Başak user.
+    session = create_session(user_id, toolkit)
+    session_id, _ = _session(user_id, session)
+    if _connected_account(session_id, toolkit, user_id) != account:
+        raise ComposioError("Dogrulanan Composio hesabi beklenen oturumda yok")
+    return finish_session(user_id, session)
+
+
 def finish_session(user_id, data):
     toolkit = _slug(data.get("toolkit"))
     sid, url = _session(user_id, data)
