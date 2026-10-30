@@ -59,8 +59,6 @@ psycopg-pool==3.3.3
 Authlib==1.7.2
 cryptography==48.0.0
 mcp==1.27.2
-# Server-side Composio Sessions SDK (pinned to the 2026-10-22 release).
-composio==0.30.0
 httpx==0.28.1
 
 # ── Ses: TTS (metin->ses) + STT (ses->metin) + konusmaci tanima ────
