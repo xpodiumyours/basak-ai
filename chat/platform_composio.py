@@ -271,13 +271,16 @@ def complete_verified_auth(user_id, session_uri):
 def finish_session(user_id, data):
     toolkit = _slug(data.get("toolkit"))
     sid, url = _session(user_id, data)
-    _connected_account(sid, toolkit, user_id)
+    connected_id = _connected_account(sid, toolkit, user_id)
+    if data.get("account") and data["account"] != connected_id:
+        raise ComposioError("Composio baglantisi baska hesaba yonlendirildi")
     return {
         "label": "Composio " + TOOLKITS.get(toolkit, toolkit),
         "url": url,
         "transport": "http",
         "composio_session_id": sid,
         "composio_toolkit": toolkit,
+        "composio_account_id": connected_id,
         "allowed_tools": [],
     }
 
