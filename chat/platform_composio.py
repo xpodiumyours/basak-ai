@@ -176,4 +176,5 @@ def disconnect(user_id, connection):
     sid, _ = _session(user_id, {"session_id": meta["composio_session_id"],
                                 "url": meta.get("url")})
     account_id = _connected_account(sid, toolkit, user_id)
-    _request("DELETE", "/api/v3.1/connected_accounts/" + account_id)
+    _request("DELETE", "/api/v3.1/connected_accounts/" + account_id,
+             params={"revoke_on_delete": "true"})
