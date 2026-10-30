@@ -142,6 +142,8 @@ def create_session(user_id, toolkit):
     response = _request("POST", "/api/v3.1/tool_router/session", data={
         "user_id": _user_id(user_id),
         "toolkits": {"enabled": [toolkit]},
+        # Composio Instant can incur charges if omitted; never opt in.
+        "instant": False,
         # A client without interactive MCP elicitation must never silently
         # approve an upstream request.
         "experimental": {"no_elicitation_support_fallback": "deny"},
@@ -213,6 +215,12 @@ def complete_verified_auth(user_id, session_uri):
     if not isinstance(account, str) or not account.startswith("ca_"):
         raise ComposioError("Dogrulanmis Composio hesap kimligi gecersiz")
     # Never use a session or account belonging to a different Başak user.
+    detail = _request("GET", "/api/v3.1/connected_accounts/" + account)
+    if (detail.get("id") != account
+            or detail.get("user_id") != _user_id(user_id)
+            or detail.get("status") != "ACTIVE"
+            or (detail.get("toolkit") or {}).get("slug") != toolkit):
+        raise ComposioError("Composio hesap sahipligi dogrulanamadi")
     session = create_session(user_id, toolkit)
     session_id, _ = _session(user_id, session)
     if _connected_account(session_id, toolkit, user_id) != account:
@@ -318,7 +326,7 @@ def session_execute(user_id, connection, slug, arguments):
     account = _connected_account(sid, toolkit, user_id)
     result = _request("POST", "/api/v3.1/tool_router/session/" + sid + "/execute",
                       data={"tool_slug": slug, "arguments": arguments, "account": account})
-    if result.get("error"):
+    if result.get("result_type") != "success" or result.get("error"):
         return {"isError": True, "content": [{"type": "text",
                 "text": "Composio araci basarisiz"}],
                 "structuredContent": {"error": "Composio araci basarisiz"}}
