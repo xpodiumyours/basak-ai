@@ -105,16 +105,16 @@ async def account_logout(request: Request):
 @router.get("/api/baglantilar/saglayicilar")
 async def connection_providers():
     providers = []
+    # Existing GitHub/Google OAuth is retained only as an identity sign-in
+    # route. All new third-party account connections use Composio.
     for provider, info in PROVIDERS.items():
+        if provider not in ("google", "github"):
+            continue
         cfg = provider_config(provider)
-        providers.append({"id": provider, "label": info["label"], "configured": cfg["configured"], "reason": None if cfg["configured"] else "oauth_not_configured", "login": provider in ("google", "github"), "scopes": info["scopes"], "verification_required": provider == "google"})
-        if provider == "github" and cfg["configured"]:
-            providers[-1]["installation_url"] = ("https://github.com/apps/" +
-                quote(os.environ["BASAK_GITHUB_APP_SLUG"], safe="") + "/installations/new")
+        providers.append({"id": provider, "label": info["label"], "configured": cfg["configured"], "reason": None if cfg["configured"] else "oauth_not_configured", "login": provider in ("google", "github"), "scopes": info["login_scopes"], "login_only": True, "verification_required": provider == "google"})
     providers.append({"id": "composio", "label": "Composio", "configured": composio_configured(),
                       "reason": None if composio_configured() else "oauth_not_configured",
-                      "login": False, "scopes": [], "toolkits": [
-                          {"id": slug, "label": label} for slug, label in COMPOSIO_TOOLKITS.items()]})
+                      "login": False, "scopes": [], "toolkits": []})
     providers.append({"id": "mcp", "label": "MCP", "configured": True, "reason": None, "login": False, "scopes": []})
     return JSONResponse({"providers": providers}, headers={"Cache-Control": "no-store"})
 
@@ -183,11 +183,30 @@ async def connection_permissions(connection_id: str, request: Request):
         return _error("Baglanti guncellenemedi", 503)
 
 
+@router.get("/api/baglantilar/composio/katalog")
+async def composio_catalog(request: Request, search: str = "", cursor: str = ""):
+    """Project-scoped, paginated catalogue for signed-in users."""
+    if not composio_configured():
+        return _error("Composio projesi yapilandirilmadi", 503)
+    try:
+        _owner(request)
+        from chat.platform_composio import catalog
+        data = await asyncio.to_thread(catalog, search, cursor)
+        return JSONResponse(data, headers={"Cache-Control": "private, no-store"})
+    except PermissionError:
+        return _error("Hesap girisi gerekli", 401)
+    except ComposioError:
+        return _error("Composio uygulama katalogu alinamadi", 502)
+
+
 @router.get("/api/baglantilar/composio/baslat")
 async def composio_start(request: Request, toolkit: str = "github"):
     """Begin a real, browser-bound Connect Link for the current Başak user."""
-    if toolkit not in COMPOSIO_TOOLKITS:
-        return _error("Desteklenmeyen Composio uygulamasi")
+    from chat.platform_composio import _slug
+    try:
+        _slug(toolkit)
+    except ComposioError:
+        return _error("Gecersiz Composio uygulamasi")
     if not composio_configured():
         return _error("Composio projesi yapilandirilmadi", 503)
     try:
@@ -338,6 +357,8 @@ async def connection_discover(connection_id: str, request: Request):
 
 @router.get("/api/baglantilar/oauth/{provider}/baslat")
 async def oauth_start(provider: str, request: Request, purpose: str = "connect"):
+    if purpose == "connect" and provider in ("github", "google", "notion"):
+        return _error("Yeni platform baglantilari Composio uzerinden kurulur", 410)
     try:
         cfg = provider_config(provider)
         if not cfg["configured"]:
@@ -411,6 +432,8 @@ def _exchange(provider, cfg, code, verifier, callback, purpose="connect"):
 
 @router.get("/api/baglantilar/oauth/{provider}/callback")
 async def oauth_callback(provider: str, request: Request, state: str = "", code: str = "", error: str = ""):
+    # Do not complete an already-issued legacy account-link attempt.
+    # Sign-in attempts remain valid to avoid logging people out.
     try:
         cfg = provider_config(provider)
         browser = request.cookies.get(BROWSER_COOKIE, "")
@@ -418,6 +441,8 @@ async def oauth_callback(provider: str, request: Request, state: str = "", code:
             raise PermissionError()
         store = _store_factory()
         attempt = store.oauth_consume(state, provider, browser)
+        if attempt["purpose"] == "connect" and provider in ("github", "google", "notion"):
+            return _error("Eski OAuth baglanti akisi kapatildi", 410)
         if attempt["purpose"] == "connect" and _authenticate(request) != attempt["user_id"]:
             raise PermissionError()
         if error or not code or not cfg["configured"]:
