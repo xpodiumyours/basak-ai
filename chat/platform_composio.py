@@ -226,17 +226,44 @@ def _session(user_id, data):
     return sid, url
 
 
-def _connected_account(sid, toolkit, user_id):
-    info = _request("GET", "/api/v3.1/tool_router/session/" + _sid(sid) + "/toolkits",
-                    params={"is_connected": "true", "toolkits": toolkit, "limit": 20})
-    for item in info.get("items", []):
-        acc = item.get("connected_account") or {}
-        if (item.get("slug") == toolkit and acc.get("status") == "ACTIVE"
-                and acc.get("user_id") == _user_id(user_id)
-                and isinstance(acc.get("id"), str) and acc.get("id").startswith("ca_")):
-            return acc["id"]
-    raise ComposioError("Composio hesap izni tamamlanmadi")
-
+def _connected_account(sid, toolkit, user_id, expected=None):
+    """Resolve the exact active account; never guess a default in multi-account mode."""
+    if expected is not None:
+        expected = _account_id(expected)
+    cursor, matches, seen = None, set(), set()
+    while True:
+        params = {"is_connected": "true", "toolkits": toolkit, "limit": 50}
+        if cursor:
+            params["cursor"] = cursor
+        info = _request("GET", "/api/v3.1/tool_router/session/" + _sid(sid) + "/toolkits",
+                        params=params)
+        if not isinstance(info.get("items"), list):
+            raise ComposioError("Composio bagli hesap listesi gecersiz")
+        for item in info["items"]:
+            if not isinstance(item, dict) or item.get("slug") != toolkit:
+                continue
+            account = item.get("connected_account") or {}
+            if not isinstance(account, dict):
+                continue
+            account_id = account.get("id")
+            if (account.get("status") == "ACTIVE"
+                    and account.get("user_id") == _user_id(user_id)
+                    and isinstance(account_id, str)):
+                _account_id(account_id)
+                matches.add(account_id)
+        if expected in matches:
+            return expected
+        next_cursor = info.get("next_cursor")
+        if not next_cursor:
+            break
+        if (not isinstance(next_cursor, str) or next_cursor in seen
+                or len(seen) >= 20):
+            raise ComposioError("Composio bagli hesap sayfalama hatasi")
+        seen.add(next_cursor)
+        cursor = next_cursor
+    if expected is None and len(matches) == 1:
+        return next(iter(matches))
+    raise ComposioError("Composio hesap kimligi eksik, degismis veya belirsiz")
 
 def complete_verified_auth(user_id, session_uri):
     """Redeem Composio's single-use identity-verification callback.
@@ -263,7 +290,7 @@ def complete_verified_auth(user_id, session_uri):
         raise ComposioError("Composio hesap sahipligi dogrulanamadi")
     session = create_session(user_id, toolkit, connected_account=account)
     session_id, _ = _session(user_id, session)
-    if _connected_account(session_id, toolkit, user_id) != account:
+    if _connected_account(session_id, toolkit, user_id, account) != account:
         raise ComposioError("Dogrulanan Composio hesabi beklenen oturumda yok")
     return finish_session(user_id, session)
 
@@ -271,7 +298,7 @@ def complete_verified_auth(user_id, session_uri):
 def finish_session(user_id, data):
     toolkit = _slug(data.get("toolkit"))
     sid, url = _session(user_id, data)
-    connected_id = _connected_account(sid, toolkit, user_id)
+    connected_id = _connected_account(sid, toolkit, user_id, data.get("account"))
     if data.get("account") and data["account"] != connected_id:
         raise ComposioError("Composio baglantisi baska hesaba yonlendirildi")
     return {
@@ -287,7 +314,7 @@ def finish_session(user_id, data):
 
 def _bound_account(sid, toolkit, user_id, meta):
     expected = _account_id(meta.get("composio_account_id"))
-    actual = _connected_account(sid, toolkit, user_id)
+    actual = _connected_account(sid, toolkit, user_id, expected)
     if actual != expected:
         raise ComposioError("Composio bagli hesap kimligi degisti")
     details = _request("GET", "/api/v3.1/connected_accounts/" + expected)
