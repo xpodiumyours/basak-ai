@@ -6,6 +6,7 @@ single-use, and scoped to login or one authenticated connection owner.
 import asyncio
 import base64
 import hashlib
+import logging
 import os
 import secrets
 import time
@@ -21,6 +22,8 @@ from chat.platform_composio import (ComposioError, TOOLKITS as COMPOSIO_TOOLKITS
 from chat.platform_connectors import ConnectorError, ConnectorService, PROVIDERS, provider_config
 from chat.platform_identity import COOKIE, SESSION_SECONDS, IdentityService, authenticate
 from chat.platform_mcp import MCPService, MCPOAuthError, validate_endpoint
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 _authenticate = authenticate
@@ -264,10 +267,11 @@ async def composio_verify(request: Request, session_uri: str = ""):
                        "allowed_tools": [tool["name"] for tool in tools]}
             store.save(uid, "mcp", store.credentials(uid, row["id"]),
                        refreshed["scopes"], updated, row["id"])
-        except (ComposioError, RuntimeError, ValueError, PermissionError):
+        except (ComposioError, RuntimeError, ValueError, PermissionError) as exc:
             # OAuth is single-use; keep the successfully linked account
             # so the user can retry discovery without repeating consent.
-            pass
+            logger.warning("Composio arac kesfi basarisiz (baglanti korundu): %s",
+                           type(exc).__name__)
         return RedirectResponse("/", status_code=303, headers={
             "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
     except PermissionError:
