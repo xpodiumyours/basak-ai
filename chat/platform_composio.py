@@ -107,9 +107,22 @@ def catalog(search="", cursor="", limit=40):
         meta = raw.get("meta") or {}
         if not isinstance(meta, dict):
             meta = {}
+        logo = meta.get("logo") or ""
+        if not isinstance(logo, str):
+            logo = ""
+        else:
+            try:
+                parsed = urlsplit(logo)
+                if (parsed.scheme != "https" or parsed.hostname != "assets.composio.dev"
+                        or parsed.username or parsed.password or parsed.port not in (None, 443)
+                        or parsed.query or parsed.fragment):
+                    logo = ""
+            except ValueError:
+                logo = ""
         available.append({"id": slug,
                           "label": str(raw.get("name") or slug)[:90],
-                          "description": str(meta.get("description") or "")[:240]})
+                          "description": str(meta.get("description") or "")[:240],
+                          "logo": logo[:500]})
     next_cursor = result.get("next_cursor") or ""
     if not isinstance(next_cursor, str) or len(next_cursor) > 512:
         raise ComposioError("Composio katalog sayfalama imleci gecersiz")
