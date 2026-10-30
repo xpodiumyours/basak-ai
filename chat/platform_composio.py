@@ -92,20 +92,14 @@ def validate_mcp_url(url):
     return url
 
 
-def mcp_headers(url):
-    validate_mcp_url(url)
-    if not configured():
-        raise ComposioError("Composio sunucu anahtari eksik")
-    return {"x-api-key": os.environ["COMPOSIO_API_KEY"].strip()}
-
-
 def create_session(user_id, toolkit):
     toolkit = _slug(toolkit)
     response = _request("POST", "/api/v3.1/tool_router/session", data={
         "user_id": _user_id(user_id),
         "toolkits": {"enabled": [toolkit]},
-        # Never silently enable paid Instant actions.
-        "instant": False,
+        # A client without interactive MCP elicitation must never silently
+        # approve an upstream request.
+        "experimental": {"no_elicitation_support_fallback": "deny"},
     })
     sid = _sid(response.get("session_id"))
     url = validate_mcp_url((response.get("mcp") or {}).get("url"))
@@ -138,6 +132,10 @@ def _session(user_id, data):
     url = validate_mcp_url((info.get("mcp") or {}).get("url"))
     if url != data.get("url"):
         raise ComposioError("Composio oturum adresi degismis")
+    enabled = (config.get("toolkits") or {}).get("enabled") or []
+    expected = data.get("toolkit")
+    if expected and enabled != [expected]:
+        raise ComposioError("Composio oturumunun uygulama yetkisi degisti")
     return sid, url
 
 
@@ -178,3 +176,81 @@ def disconnect(user_id, connection):
     account_id = _connected_account(sid, toolkit, user_id)
     _request("DELETE", "/api/v3.1/connected_accounts/" + account_id,
              params={"revoke_on_delete": "true"})
+
+
+def session_tools(user_id, connection):
+    """Discover API tool schemas without sending a key to the MCP host."""
+    meta = connection["metadata"]
+    toolkit = _slug(meta.get("composio_toolkit"))
+    sid, _ = _session(user_id, {
+        "session_id": meta.get("composio_session_id"),
+        "url": meta.get("url"), "toolkit": toolkit,
+    })
+    _connected_account(sid, toolkit, user_id)
+    from chat.platform_mcp import namespace
+    result, cursor = [], None
+    seen = set()
+    while True:
+        params = {"limit": 200}
+        if cursor:
+            params["cursor"] = cursor
+        response = _request("GET", "/api/v3.1/tool_router/session/" + sid + "/tools",
+                            params=params)
+        items = response.get("items")
+        if not isinstance(items, list):
+            raise ComposioError("Composio arac katalogu gecersiz")
+        for raw in items:
+            if not isinstance(raw, dict):
+                raise ComposioError("Composio arac semasi gecersiz")
+            slug = raw.get("slug")
+            group = raw.get("toolkit") or {}
+            if (not isinstance(slug, str) or not re.fullmatch(r"[A-Z0-9_]{3,150}", slug)
+                    or not isinstance(group, dict) or group.get("slug") != toolkit
+                    or slug in seen):
+                raise ComposioError("Composio arac kapsami gecersiz")
+            seen.add(slug)
+            properties = raw.get("input_parameters") or {}
+            if not isinstance(properties, dict):
+                raise ComposioError("Composio arac parametreleri gecersiz")
+            fields, required = {}, []
+            for name, schema in properties.items():
+                if not isinstance(name, str) or not isinstance(schema, dict):
+                    raise ComposioError("Composio arac parametresi gecersiz")
+                item = {k: v for k, v in schema.items() if k != "required"}
+                if schema.get("required") is True:
+                    required.append(name)
+                fields[name] = item
+            result.append({
+                "name": namespace(connection["id"], slug),
+                "remote_name": slug,
+                "description": str(raw.get("description") or raw.get("name") or slug)[:1500],
+                "inputSchema": {"type": "object", "properties": fields,
+                                "required": required, "additionalProperties": False},
+                "annotations": {"readOnlyHint": False, "destructiveHint": False},
+            })
+            if len(result) > 1000:
+                raise ComposioError("Composio arac sayisi guvenlik sinirini asti")
+        next_cursor = response.get("next_cursor")
+        if not next_cursor:
+            return result
+        if not isinstance(next_cursor, str) or next_cursor == cursor:
+            raise ComposioError("Composio arac sayfalama yaniti gecersiz")
+        cursor = next_cursor
+
+
+def session_execute(user_id, connection, slug, arguments):
+    """Use only the fixed Composio REST origin and explicitly pinned account."""
+    meta = connection["metadata"]
+    toolkit = _slug(meta.get("composio_toolkit"))
+    sid, _ = _session(user_id, {
+        "session_id": meta.get("composio_session_id"),
+        "url": meta.get("url"), "toolkit": toolkit,
+    })
+    account = _connected_account(sid, toolkit, user_id)
+    result = _request("POST", "/api/v3.1/tool_router/session/" + sid + "/execute",
+                      data={"tool_slug": slug, "arguments": arguments, "account": account})
+    if result.get("error"):
+        return {"isError": True, "content": [{"type": "text",
+                "text": "Composio araci basarisiz"}],
+                "structuredContent": {"error": "Composio araci basarisiz"}}
+    return {"isError": False, "content": [], "structuredContent": result.get("data") or {}}
