@@ -173,6 +173,7 @@ def disconnect(user_id, connection):
     if not meta.get("composio_session_id"):
         return
     toolkit = _slug(meta.get("composio_toolkit"))
-    sid, _ = _session(user_id, meta)
+    sid, _ = _session(user_id, {"session_id": meta["composio_session_id"],
+                                "url": meta.get("url")})
     account_id = _connected_account(sid, toolkit, user_id)
     _request("DELETE", "/api/v3.1/connected_accounts/" + account_id)
