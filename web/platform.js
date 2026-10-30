@@ -62,7 +62,9 @@
 
   function createState(principal) {
     return { principal: String(principal || ""), user: null, runs: {}, selectedId: null,
-      cursor: 0, log: [], connections: [], providers: [] };
+      cursor: 0, log: [], connections: [], providers: [],
+      composioSearch: "", composioCatalog: {toolkits: [], next_cursor: ""},
+      composioLoading: false, composioError: "" };
   }
 
   function identity(state, user) {
@@ -583,12 +585,47 @@
         link.href = "/api/baglantilar/oauth/" + encodeURIComponent(provider.id) + "/baslat?purpose=login";
         card.append(link);
       } else if (state.user && provider.id === "composio") {
-        for (const toolkit of provider.toolkits || []) {
-          if (connected.some((connection) => connection.metadata?.composio_toolkit === toolkit.id)) continue;
-          const link = node("a", "workspace-button", toolkit.label + " bağla");
-          link.href = "/api/baglantilar/composio/baslat?toolkit=" + encodeURIComponent(toolkit.id);
-          card.append(link);
+        const search = node("form", "workspace-mcp-form");
+        const entry = node("input");
+        entry.type = "search";
+        entry.placeholder = "GitHub, Gmail, Slack, Takvim…";
+        entry.setAttribute("aria-label", "Bağlanacak uygulama ara");
+        entry.maxLength = 100;
+        entry.value = state.composioSearch || "";
+        const submit = node("button", "workspace-button", "Uygulama ara");
+        submit.type = "submit";
+        search.append(entry, submit);
+        search.addEventListener("submit", (event) => {
+          event.preventDefault();
+          state.composioSearch = entry.value.trim();
+          fetchComposioCatalog(state.composioSearch);
+        });
+        card.append(search);
+        if (state.composioError) card.append(node("p", "workspace-error", state.composioError));
+        if (state.composioLoading) card.append(node("p", "workspace-muted", "Uygulamalar yükleniyor…"));
+        for (const toolkit of state.composioCatalog.toolkits || []) {
+          const item = node("div", "workspace-connection-item");
+          item.append(node("strong", "", toolkit.label),
+                      node("p", "workspace-muted", toolkit.description || ""));
+          const linked = connected.some((connection) => connection.metadata?.composio_toolkit === toolkit.id);
+          if (linked) item.append(node("p", "workspace-muted", "Bağlı"));
+          else {
+            const link = node("a", "workspace-button", "Bağlan");
+            link.href = "/api/baglantilar/composio/baslat?toolkit=" + encodeURIComponent(toolkit.id);
+            item.append(link);
+          }
+          card.append(item);
         }
+        if (state.composioCatalog.next_cursor && !state.composioLoading) {
+          const more = node("button", "workspace-text-button", "Daha fazla uygulama");
+          more.type = "button";
+          more.addEventListener("click", () =>
+            fetchComposioCatalog(state.composioSearch, state.composioCatalog.next_cursor));
+          card.append(more);
+        }
+      } else if (state.user && provider.login_only) {
+        // Old GitHub/Google App OAuth is identity sign-in only.
+        card.append(node("p", "workspace-muted", "Hesap girişi için kullanılabilir. Yeni uygulama bağlantıları Composio bölümünden yapılır."));
       } else if (state.user && provider.id !== "mcp") {
         if (provider.id === "github" && provider.installation_url) {
           const selection = node("a", "workspace-button", "Depo erişimini seç");
@@ -777,6 +814,32 @@
     } catch (error) { if (version === revision) handleError(error); }
   }
 
+  let composioCatalogSequence = 0;
+  async function fetchComposioCatalog(search = "", cursor = "") {
+    const turn = ++composioCatalogSequence;
+    state.composioLoading = true;
+    state.composioError = "";
+    renderPreview();
+    try {
+      const data = await client.read("/api/baglantilar/composio/katalog?search=" +
+        encodeURIComponent(search) + (cursor ? "&cursor=" + encodeURIComponent(cursor) : ""));
+      if (turn !== composioCatalogSequence) return;
+      const previous = cursor ? state.composioCatalog.toolkits || [] : [];
+      state.composioCatalog = {
+        toolkits: [...previous, ...(data.toolkits || [])],
+        next_cursor: data.next_cursor || "",
+      };
+    } catch (error) {
+      if (turn !== composioCatalogSequence) return;
+      state.composioError = error.message;
+    } finally {
+      if (turn === composioCatalogSequence) {
+        state.composioLoading = false;
+        renderPreview();
+      }
+    }
+  }
+
   async function refreshConnections() {
     const version = revision;
     const data = await client.read("/api/baglantilar");
@@ -893,6 +956,10 @@
       state.providers = providers.providers || [];
       if (state.user) {
         await Promise.all([refreshRuns(), refreshConnections()]);
+        if (state.providers.some(provider => provider.id === "composio" && provider.configured)) {
+          // A catalog error must not hide accounts or existing tasks.
+          await fetchComposioCatalog();
+        }
         scope.dispatchEvent(new CustomEvent("basak:platform-account", { detail: state.user }));
         if (selectedConversation?.runs?.length) await selectRun(selectedConversation.runs.at(-1).id, false);
       }
