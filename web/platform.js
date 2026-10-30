@@ -570,13 +570,25 @@
     for (const provider of state.providers) {
       const card = node("section", "workspace-connection");
       card.append(node("strong", "", provider.label || provider.id));
-      const connected = state.connections.filter((connection) => connection.provider === provider.id && connection.status !== "revoked");
+      const connected = state.connections.filter((connection) => {
+        if (connection.status === "revoked") return false;
+        if (provider.id === "composio") return connection.provider === "mcp" && Boolean(connection.metadata?.composio_toolkit);
+        if (provider.id === "mcp") return connection.provider === "mcp" && !connection.metadata?.composio_toolkit;
+        return connection.provider === provider.id;
+      });
       if (!provider.configured) {
         card.append(node("p", "workspace-muted", "Sunucu bağlantısı yapılandırılmadı."));
       } else if (!state.user && provider.login) {
         const link = node("a", "workspace-button", (provider.label || provider.id) + " ile giriş yap");
         link.href = "/api/baglantilar/oauth/" + encodeURIComponent(provider.id) + "/baslat?purpose=login";
         card.append(link);
+      } else if (state.user && provider.id === "composio") {
+        for (const toolkit of provider.toolkits || []) {
+          if (connected.some((connection) => connection.metadata?.composio_toolkit === toolkit.id)) continue;
+          const link = node("a", "workspace-button", toolkit.label + " bağla");
+          link.href = "/api/baglantilar/composio/baslat?toolkit=" + encodeURIComponent(toolkit.id);
+          card.append(link);
+        }
       } else if (state.user && provider.id !== "mcp") {
         if (provider.id === "github" && provider.installation_url) {
           const selection = node("a", "workspace-button", "Depo erişimini seç");
@@ -609,7 +621,7 @@
           } catch (error) { handleError(error); remove.disabled = false; }
         });
         item.append(remove);
-        if (provider.id === "mcp") {
+        if (connection.provider === "mcp") {
           const discover = node("button", "workspace-text-button", "Araçları kontrol et");
           discover.type = "button";
           discover.addEventListener("click", async () => {
