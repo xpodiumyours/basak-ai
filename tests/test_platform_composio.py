@@ -279,7 +279,7 @@ def test_callback_rejects_cross_user_connected_account(gateway, monkeypatch):
 
 
 
-def test_execute_response_without_completed_result_is_rejected(gateway, monkeypatch):
+def test_documented_v31_rest_execute_response_succeeds(gateway, monkeypatch):
     call, _, url = _fake_api(gateway)
     def documented(method, path, *, data=None, params=None):
         result = call(method, path, data=data, params=params)
@@ -292,8 +292,8 @@ def test_execute_response_without_completed_result_is_rejected(gateway, monkeypa
         "composio_toolkit": "github", "composio_session_id": "trs_fixture99",
         "composio_account_id": "ca_fixture", "url": url
     }}, "GITHUB_GET_REPO", {"repository": "owner/repo"})
-    assert result["isError"] is True
-    assert result["structuredContent"] == {"error": "Composio araci basarisiz"}
+    assert result["isError"] is False
+    assert result["structuredContent"]["repository"] == "owner/repo"
 
 
 def test_failed_execute_response_never_reports_success(gateway, monkeypatch):
@@ -359,3 +359,25 @@ def test_missing_or_changed_pinned_account_disables_execution(gateway, monkeypat
             "url": url
         }}, "GITHUB_GET_REPO", {"repository": "owner/repo"})
     assert not any(path.endswith("/execute") for _, path, _, _ in requests)
+
+
+@pytest.mark.parametrize("execute_body", [
+    {"data": {"repository": "owner/repo"}, "error": {"message": "Denied"}},
+    {"data": {"success": False}, "error": None},
+    {"data": {"isError": True}, "error": None},
+    {"data": {"repository": "owner/repo"}, "result_type": "failed", "error": None},
+    {"data": {}, "instant_charge": True, "error": None},
+])
+def test_session_execute_rejects_documented_failure_shapes(gateway, monkeypatch,
+                                                          execute_body):
+    call, _, url = _fake_api(gateway)
+    def failing(method, path, *, data=None, params=None):
+        if path.endswith("/execute"):
+            return execute_body
+        return call(method, path, data=data, params=params)
+    monkeypatch.setattr(gateway, "_request", failing)
+    result = gateway.session_execute("alice", {"metadata": {
+        "composio_toolkit": "github", "composio_session_id": "trs_fixture99",
+        "composio_account_id": "ca_fixture", "url": url,
+    }}, "GITHUB_GET_REPO", {"repository": "owner/repo"})
+    assert result["isError"] is True
