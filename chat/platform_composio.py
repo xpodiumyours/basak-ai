@@ -66,9 +66,54 @@ def _request(method, path, *, data=None, params=None):
 
 
 def _slug(toolkit):
-    if toolkit not in TOOLKITS:
-        raise ComposioError("Desteklenmeyen Composio uygulamasi")
+    # Every toolkit is project-verified by Composio during session creation.
+    # No hard-coded, user-visible list is necessary.
+    if not isinstance(toolkit, str) or not re.fullmatch(r"[a-z][a-z0-9_]{1,79}", toolkit):
+        raise ComposioError("Gecersiz Composio uygulama kimligi")
     return toolkit
+
+
+def catalog(search="", cursor="", limit=40):
+    """Page through only Composio-managed Connect Link capable integrations.
+
+    Client receives display-only metadata, never auth configuration or keys.
+    """
+    if not isinstance(search, str) or len(search) > 100:
+        raise ComposioError("Uygulama aramasi cok uzun")
+    if not isinstance(cursor, str) or len(cursor) > 512:
+        raise ComposioError("Uygulama sayfalama imleci gecersiz")
+    limit = max(1, min(int(limit), 60))
+    params = {"limit": limit, "sort_by": "usage", "include_deprecated": "false"}
+    if search.strip():
+        params["search"] = search.strip()
+    if cursor:
+        params["cursor"] = cursor
+    result = _request("GET", "/api/v3.1/toolkits", params=params)
+    items = result.get("items")
+    if not isinstance(items, list):
+        raise ComposioError("Composio uygulama katalogu gecersiz")
+    available = []
+    for raw in items:
+        if not isinstance(raw, dict):
+            continue
+        slug = raw.get("slug")
+        try:
+            _slug(slug)
+        except ComposioError:
+            continue
+        if (raw.get("no_auth") or raw.get("is_local_toolkit")
+                or not raw.get("composio_managed_auth_schemes")):
+            continue
+        meta = raw.get("meta") or {}
+        if not isinstance(meta, dict):
+            meta = {}
+        available.append({"id": slug,
+                          "label": str(raw.get("name") or slug)[:90],
+                          "description": str(meta.get("description") or "")[:240]})
+    next_cursor = result.get("next_cursor") or ""
+    if not isinstance(next_cursor, str) or len(next_cursor) > 512:
+        raise ComposioError("Composio katalog sayfalama imleci gecersiz")
+    return {"toolkits": available, "next_cursor": next_cursor}
 
 
 def _sid(session_id):
@@ -156,7 +201,7 @@ def finish_session(user_id, data):
     sid, url = _session(user_id, data)
     _connected_account(sid, toolkit, user_id)
     return {
-        "label": "Composio " + TOOLKITS[toolkit],
+        "label": "Composio " + TOOLKITS.get(toolkit, toolkit),
         "url": url,
         "transport": "http",
         "composio_session_id": sid,
