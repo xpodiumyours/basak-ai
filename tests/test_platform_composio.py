@@ -38,6 +38,13 @@ def _fake_api(gateway, user="alice", connected=True):
             if data["user_id"] != gateway._user_id(user):
                 return {"connected_account_id": "ca_wrong_user", "toolkit_slug": "github"}
             return {"connected_account_id": "ca_fixture", "toolkit_slug": "github"}
+        if method == "GET" and path == "/api/v3.1/connected_accounts/ca_fixture":
+            return {"id": "ca_fixture", "user_id": gateway._user_id(user),
+                    "status": "ACTIVE" if connected else "FAILED",
+                    "toolkit": {"slug": "github"}}
+        if method == "GET" and path == "/api/v3.1/connected_accounts/ca_wrong_user":
+            return {"id": "ca_wrong_user", "user_id": gateway._user_id("mallory"),
+                    "status": "ACTIVE", "toolkit": {"slug": "github"}}
         if method == "POST" and path == "/api/v3.1/tool_router/session":
             return {"session_id": "trs_fixture99", "mcp": {"url": url}}
         if method == "POST" and path.endswith("/link"):
@@ -63,7 +70,7 @@ def _fake_api(gateway, user="alice", connected=True):
                                    "repository": {"type": "string", "required": True}
                                }}], "next_cursor": None}
         if method == "POST" and path.endswith("/execute"):
-            return {"data": {"ok": True, "repository": data["arguments"]["repository"]}}
+            return {"result_type": "success", "data": {"ok": True, "repository": data["arguments"]["repository"]}}
         if method == "DELETE":
             return {}
         raise AssertionError((method, path))
@@ -103,6 +110,7 @@ def test_session_create_and_oauth_link(gateway, monkeypatch):
     assert requests[0][2] == {
         "user_id": gateway._user_id("alice"),
         "toolkits": {"enabled": ["github"]},
+        "instant": False,
         "experimental": {"no_elicitation_support_fallback": "deny"},
     }
     assert gateway.authorize_session("trs_fixture99", "github", "https://basak.example/callback") == (
@@ -257,3 +265,26 @@ def test_direct_rest_tools_are_tenant_scoped_and_never_use_mcp_host(
                 {"tool_slug": "GITHUB_GET_REPO",
                  "arguments": {"repository": "owner/repo"},
                  "account": "ca_fixture"}, None) in calls
+
+
+def test_callback_rejects_cross_user_connected_account(gateway, monkeypatch):
+    call, calls, _ = _fake_api(gateway, user="bob")
+    monkeypatch.setattr(gateway, "_request", call)
+    with pytest.raises(gateway.ComposioError):
+        gateway.complete_verified_auth("alice", "uri_identity_mismatch")
+    # Never even create a session when account ownership cannot be proven.
+    assert not any(path == "/api/v3.1/tool_router/session" for _, path, _, _ in calls)
+
+
+def test_failed_execute_response_never_reports_success(gateway, monkeypatch):
+    call, requests, url = _fake_api(gateway)
+    def failed(method, path, *, data=None, params=None):
+        if path.endswith("/execute"):
+            return {"result_type": "failed", "data": {"success": True}}
+        return call(method, path, data=data, params=params)
+    monkeypatch.setattr(gateway, "_request", failed)
+    result = gateway.session_execute("alice", {"metadata": {
+        "composio_toolkit": "github", "composio_session_id": "trs_fixture99", "url": url
+    }}, "GITHUB_GET_REPO", {"repository": "owner/repo"})
+    assert result["isError"] is True
+    assert result["structuredContent"] == {"error": "Composio araci basarisiz"}
