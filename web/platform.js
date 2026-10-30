@@ -604,14 +604,25 @@
         if (state.composioError) card.append(node("p", "workspace-error", state.composioError));
         if (state.composioLoading) card.append(node("p", "workspace-muted", "Uygulamalar yükleniyor…"));
         for (const toolkit of state.composioCatalog.toolkits || []) {
-          const item = node("div", "workspace-connection-item");
-          item.append(node("strong", "", toolkit.label),
-                      node("p", "workspace-muted", toolkit.description || ""));
+          const item = node("div", "workspace-connection-item workspace-toolkit");
+          if (toolkit.logo) {
+            const logo = node("img", "workspace-toolkit-logo");
+            logo.src = toolkit.logo;
+            logo.alt = "";
+            logo.loading = "lazy";
+            logo.referrerPolicy = "no-referrer";
+            item.append(logo);
+          }
+          const detail = node("div", "workspace-toolkit-detail");
+          detail.append(node("strong", "", toolkit.label));
+          if (toolkit.description) detail.append(node("p", "workspace-muted", toolkit.description));
+          item.append(detail);
           const linked = connected.some((connection) => connection.metadata?.composio_toolkit === toolkit.id);
-          if (linked) item.append(node("p", "workspace-muted", "Bağlı"));
+          if (linked) item.append(node("span", "workspace-toolkit-connected", "Bağlı"));
           else {
             const link = node("a", "workspace-button", "Bağlan");
             link.href = "/api/baglantilar/composio/baslat?toolkit=" + encodeURIComponent(toolkit.id);
+            link.setAttribute("aria-label", toolkit.label + " hesabını bağla");
             item.append(link);
           }
           card.append(item);
@@ -958,7 +969,8 @@
         await Promise.all([refreshRuns(), refreshConnections()]);
         if (state.providers.some(provider => provider.id === "composio" && provider.configured)) {
           // A catalog error must not hide accounts or existing tasks.
-          await fetchComposioCatalog();
+          // Do not delay the entire task workspace behind a third-party catalogue.
+          void fetchComposioCatalog();
         }
         scope.dispatchEvent(new CustomEvent("basak:platform-account", { detail: state.user }));
         if (selectedConversation?.runs?.length) await selectRun(selectedConversation.runs.at(-1).id, false);
