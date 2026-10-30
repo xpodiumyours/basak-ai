@@ -1,7 +1,11 @@
 # EDGE MAĞAZASI BAŞVURUSU — ücretsiz yol (Chrome 5 $'ı beklemeden)
 
 **Karar:** Önce Edge Add-ons (ücretsiz), sonra Chrome Web Store.
-**Durum:** Teknik hazırlık depoda bitti; başvuru Casper'ın 15 dakikası.
+**Durum (2026-10-30 ölçümü):** Teknik hazırlık **depoda bitmedi.**
+Aşağıdaki tabloda ✗ ile işaretli dört varlık depoda yok: mağaza zip'i,
+geliştirici zip'i, ikonlar, seçenekler sayfası. `eklenti/manifest.json`
+içinde de `icons` ve `options_page` anahtarı yok (sürüm **0.2.1**). Başvuru
+öncesi bunlar üretilmeli — "15 dakikada biter" değil.
 
 Kaynak: Microsoft Learn "Publish a Microsoft Edge extension"
 (`learn.microsoft.com/.../publish/publish-extension`).
@@ -10,17 +14,17 @@ Kaynak: Microsoft Learn "Publish a Microsoft Edge extension"
 
 ## 1. Hazır olanlar (depoda, testli)
 
-| Gereksinim | Durum |
+| Gereksinim | Durum (2026-10-30 ölçümü) |
 |---|---|
-| Mağaza paketi | `/eklenti/eklenti-magaza.zip` — manifest ZIP kökünde, `key` yok, `test/` ve `OKUBENI.md` girmez (test: `test_magaza_paketi_kokte_manifest_key_yok`) |
-| Geliştirici zip'i (manuel kurulum) | `/eklenti/eklenti.zip` — değişmedi, tek klasör altında |
-| İkonlar 16/32/48/128 | `eklenti/ikon*.png`, `ui/style.css` paletinden üretildi |
-| Seçenekler sayfası | `ayarlar.html` — adres/anahtar + "Bağlantıyı sına" (kaydetmeden dener) |
-| Mağaza kimliği sonrası kart | `web/eklenti-kart.js` kimlik LİSTESİ yoklar; onay sonrası atanan kimlik listenin başına eklenir (test: `yoklama bilinen kimlik adresine yapılır`) |
-| Gizlilik sayfasında eklenti bölümü | `/gizlilik.html` §2a (okunan/okunmayan veri, yerel saklama, tek amaç) |
-| Kurulum sayfasında Edge adımları | `/eklenti.html` — `edge://extensions` + mağaza paketi bağlantısı |
-| Uzak kod | yok (MV3; tüm betikler yerel) |
-| İzinler (en az) | `storage` (ayar), `tabs` (etkin sekme bilgisi), `scripting` (sayfaya içerik betiği enjeksiyonu), `sidePanel` (yan panel). Hepsi kodda gerçekten kullanılır. |
+| Mağaza paketi | ✗ `/eklenti/eklenti-magaza.zip` **depoda yok**; üreten betik de yok (`.py/.yml/.mjs` taraması boş); anılan `test_magaza_paketi_kokte_manifest_key_yok` testi **yok**. |
+| Geliştirici zip'i (manuel kurulum) | ✗ `/eklenti/eklenti.zip` **depoda yok.** |
+| İkonlar 16/32/48/128 | ✗ `eklenti/ikon*.png` **hiç commit edilmemiş**; `manifest.json`'da `icons` anahtarı yok. |
+| Seçenekler sayfası | ✗ `ayarlar.html` / `ayarlar.js` **depoda hiç yok**; `manifest.json`'da `options_page` yok. |
+| Mağaza kimliği sonrası kart | ✗ `web/eklenti-kart.js` ve `#eklentiKarti` 2026-10-24'te `9692e9c` ile silindi; `EKLENTI_IDLER` ve `yoklama bilinen kimlik adresine yapılır` testi artık yok. |
+| Gizlilik sayfasında eklenti bölümü | ✓ `/gizlilik.html` (gerçek dosya: `web/gizlilik.html`). |
+| Kurulum sayfasında Edge adımları | ✓ `/eklenti.html` (gerçek dosya: `web/eklenti.html`). |
+| Uzak kod | ✓ yok (MV3; tüm betikler yerel). |
+| İzinler (en az) | ✓ `storage`, `tabs`, `scripting`, `sidePanel` — `manifest.json`'da birebir aynı, hepsi kodda kullanılıyor. |
 
 ---
 
@@ -67,10 +71,12 @@ Kaynak: Microsoft Learn "Publish a Microsoft Edge extension"
 
 ## 3. Onay SONRASI (tek iş, ajan yapar)
 
-1. Mağazanın verdiği **eklenti kimliği** `web/eklenti-kart.js`
-   `EKLENTI_IDLER` listesinin başına eklenir.
-2. Testler koşar (`test_eklenti_kimligi_kartta` yeni kimliği de yoklar —
-   test güncellenir).
+1. Mağazanın verdiği **eklenti kimliği** bir kimlik listesine eklenir.
+   ⚠️ 2026-10-30 ölçümü: bu listenin taşıyıcısı `web/eklenti-kart.js`
+   `9692e9c` (2026-10-24) ile silindi ve yerine konulmadı — **bu adım şu an
+   uygulanamaz**, önce yeni bir kimlik listesi yazılmalı.
+2. İlgili test koşar. ⚠️ `test_eklenti_kimligi_kartta` artık yok; kart
+   kaldırılırken silinmiş.
 3. Yayınlanır; kart hem zip kurulumunu hem mağaza sürümünü "kurulu" tanır.
 
 ---

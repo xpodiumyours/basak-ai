@@ -1,7 +1,7 @@
 # Başak
 
 Windows üzerinde çalışan, Türkçe konuşan kişisel yapay zeka asistanı.
-Masaüstü arayüzü (Jarvis tarzı), kalıcı hafıza, 58 araç, sesli giriş/çıkış
+Masaüstü arayüzü (Jarvis tarzı), kalıcı hafıza, 87 araç, sesli giriş/çıkış
 ve fatura fotoğrafından satış kataloğu üreten bir hat içerir.
 
 > **Bu dosya 2026-09-19'da yazıldı.** O güne kadar README yoktu; projeye
@@ -112,17 +112,13 @@ Adresler ve varsayılan modeller kodda gömülüdür; `mistral_api_url`,
 | `chutes_key` | Chutes | ⛔ **Kapalı**: ücretlidir (1M token 0,0245 dolardan). Anahtar yazmak tek başına yetmez |
 
 ⛔ işaretlilerin **kayıt kartı** açılmadan zincire girmez; bu bilerek
-böyledir — bedava düzen bozulmaz. Yeni platformun sırası ölçümden sonra
+böyledir — bedava düzen bozulmaz. Yeni platformların sırası ölçümden sonra
 `brain/registry.py` içinde gerekçesiyle belirlenir (bkz. §6 kuralı):
-şu an listenin **sonundadır**, çünkü canlı hız ölçümü henüz yok.
+kapalı iki platform da listenin **sonundadır**, çünkü canlı hız ölçümleri
+henüz yok.
 
 > **2026-09-22:** glhf.chat adayı ölçümde ölü çıktı (HTTP 522) ve koddan
 > tamamen kaldırıldı. Ölü sağlayıcı tutulmuyor.
-
-⛔ işaretlilerin **kayıt kartı** açılmadan zincire girmez; bu bilerek
-böyledir — bedava düzen bozulmaz. Yeni platformların sırası ölçümden sonra
-`brain/registry.py` içinde gerekçesiyle belirlenir (bkz. §6 kuralı):
-şu an ikisi de listenin **sonundadır**, çünkü canlı hız ölçümleri henüz yok.
 
 > **Gizlilik notu:** Mistral'in ücretsiz katmanında veri, panelden
 > kapatılmazsa model geliştirmesinde kullanılabilir
@@ -165,7 +161,7 @@ basak_app.py          masaüstü pencere + JS köprüsü (pywebview)
 │   ├── secici.py     sıra kararı (registry sırasını korur, oyun kurmaz)
 │   ├── yayin.py      akan cevap (streaming) + araç isteği
 │   └── adapters/     her sağlayıcı için ince adaptör
-├── tools/            58 araç (şema + çalıştırma dalı)
+├── tools/            87 araç (şema + çalıştırma dalı)
 ├── memory/           SQLite hafıza motoru
 ├── voice/            Piper TTS + Whisper STT + konuşmacı tanıma
 ├── data/             çalışma verisi (git dışı): fatura, katalog, audit
@@ -229,15 +225,15 @@ gerekçesiyle birlikte yorumda belirt.
 >
 > | Sayı | Neyi sayar | Kaynak |
 > |---|---|---|
-> | **58** | Python çekirdeğinin **yerel araçları** — dosya okuma, web arama, hava durumu, defter, görev… Model bunları çağırır. | `tools/definitions.py` → `TOOLS` |
+> | **87** | Python çekirdeğinin **yerel araçları** — dosya okuma, web arama, hava durumu, defter, görev… Model bunları çağırır. | `tools/definitions.py` → `TOOLS` |
 > | **162** | Web kataloğundaki **çevrimiçi araçlar** — 22'si doğrudan tarayıcıda çalışır, kalanı API üzerinden. | `tools/freetools_katalog.py` → `ARACLAR`, `/araclar` |
 >
 > Vitrin "162" der çünkü `/araclar` sayfası web kataloğunu listeler.
-> Bu bölüm "58" der çünkü modelin çağırabildiği araçları anlatır.
+> Bu bölüm "87" der çünkü modelin çağırabildiği araçları anlatır.
 > Web kataloğu ile çekirdek araçları **aynı şey değildir**; ikisi de
 > ölçülmüş değerlerdir.
 
-`tools/definitions.py` → `TOOLS` listesi (58 araç). Her aracın **dört yeri**
+`tools/definitions.py` → `TOOLS` listesi (87 araç; 2026-10-30 ölçümü, her iki dalda da aynı). Her aracın **dört yeri**
 vardır ve dördü birden yapılmazsa araç **sessizce ölü kalır** (AGENTS.md §0):
 
 1. `tools/definitions.py` — modele sunulan şema
@@ -264,7 +260,6 @@ kendine yetki yazamaz.
 | `hafiza_olcum.py` | Hafıza arama doğruluğunu sabit setle ölçer; `--canli` ile anlam seti de ölçülür |
 | `hata.log` | Çalışma günlüğü (5 MB × 3 döner) |
 | `data/audit/audit.log` | Her beyin çağrısının denetim kaydı |
-| `tools/saglik_raporu.py` | Sayaçlar + denetim özeti (araç olarak da koşar) |
 
 ### 7a. Davranışı değiştiren ortam değişkenleri
 

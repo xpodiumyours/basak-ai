@@ -145,6 +145,9 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   "eklentiyi kurup bağlanmanız gerekiyor" (kaynak: glm), uydurma yok.
   Kalıcı çözüm: bağlantı kaydını paylaşımlı depoya yazmak (sıradaki iş).
 - 2026-10-21: eklenti kurulumu **sohbet ekranına** taşındı (kişiye özel kart).
+  ⚠️ **GEÇERSİZ (2026-10-24, `9692e9c`):** kart sohbet ekranından kaldırıldı;
+  `web/eklenti-kart.js`, `#eklentiKarti` ve `EKLENTI_IDLER` artık yok. Aşağıdaki
+  paragraf tarihî kayıttır, bugünkü durumu anlatmaz. Ölçüm 2026-10-30.
   `web/eklenti-kart.js` + `#eklentiKarti`: kart bu tarayıcıda eklenti kurulu
   mu diye `chrome-extension://<id>/sinyal.png` ile ölçer (1500 ms sınır;
   cevap yoksa "bildirmedi" der, uydurmaz), "kapat" kararını Başak ID'sine
@@ -227,18 +230,23 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
 
 - 2026-10-22: `c7c550e` + `357e862` (dal `feat/harita-zinciri`, henüz main
   değil) — **eklenti kartı telefonda hiç görünmesin** (Casper'ın canlı
-  önizleme ekranından gelen şikâyet). Kapsam: "Başak'ı tarayıcında yanına al"
+  önizleme ekranından gelen şikâyet). ⚠️ **Bu girişin anlattığı kart artık
+  yok:** tamamı `9692e9c` (2026-10-24) ile kaldırıldı, tarihî kayıttır.
+  Kapsam: "Başak'ı tarayıcında yanına al"
   kurulum kartı telefon/tablette ilk ekranı kaplıyor ve **uygulanamaz**
   adımlar tarif ediyordu (chrome://extensions ve araç çubuğu simgesi mobilde
   yok). Kart artık yalnız kurulum mümkün olan masaüstü tarayıcıda açılır;
   mobilde satır bile yazmaz. Masaüstü davranışı aynen.
-  **Kilitler:** jsdom kart testi 3 yeni test (`kart.test.mjs` 7→10;
+  **Kilitler:** jsdom kart testi 3 yeni test (`kart.test.mjs` 7→10 —
+  ⚠️ bu dosya `9692e9c` ile silindi, ölçüm 2026-10-30; ayrıca
   sabotajla ayrımcılık kanıtı: koruma sökülünce tam 2 mobil test kırmızı,
   masaüstü testleri yeşil kaldı); pytest'te servis edilen betik + cache kırma
   sürüm damgası kilidi (`eklenti-kart.js?v=2`).
   **Kapılar:** pytest **1659 geçti / 26 atlandı**; ruff / py_compile /
   node --check temiz; jsdom kart **10/10**. Gerçek tarayıcı provası
-  (`scripts/olcum/_eklenti_kart_kanit.py`) **9/9 tutarlı** (mobil
+  (⚠️ kanıt betiği `scripts/olcum/_eklenti_kart_kanit.py` `9692e9c` ile
+  silindi — 2026-10-30 ölçümünde depoda yok, iddia yeniden
+  doğrulanamaz) **9/9 tutarlı** (mobil
   Pixel-boyutu + masaüstü); görseller `_eklenti_kart_kanit/`.
   **Yan bulgu (ölçüldü):** 18 tarayıcı testi sessizce yeniden atlanmaya
   başlamıştı (1640/44) — neden Playwright cache'inde
@@ -276,3 +284,16 @@ tek satır: tarih, commit, kapsam, canlı kanıt.
   hücresi bu koşuda da beklenen dizeyi üretti (daha önce kırmızıydı — tek
   koşu `§8.3` açık işini kapatmaz, kaydı duruyor). Raporlar
   `data/canli-rapor/20261022-19*.json` (gitignore'da).
+
+- 2026-10-24: `9692e9c` — **eklenti kurulum kartı sohbet ekranından kaldırıldı.**
+  Silinenler: `web/eklenti-kart.js`, `web/index.html` içindeki `#eklentiKarti`
+  bloğu, `eklenti/test/kart.test.mjs`, `scripts/olcum/_eklenti_kart_kanit.py`.
+  Yerine konulan bir şey yok (`EKLENTI_IDLER` de yok). Kurulum sayfası
+  `web/eklenti.html` depoda duruyor.
+  **Neden bu kayıt eklendi (2026-10-30):** dosyanın son kaydı 2026-10-22'ydi;
+  10-24'teki kaldırma hiç yazılmamış, yani bu belge kodla çelişiyordu.
+  2026-10-21 ve 2026-10-22 kayıtlarındaki kart iddiaları yukarıda ⚠️ ile
+  işaretlendi. Ölçüm (2026-10-30): üç dosyanın varlığı ve silinmesi
+  `git log --all --diff-filter=D` ile doğrulandı; hepsini sildiği commit
+  `9692e9c`, tarih 2026-10-24. `EKLENTI_IDLER` değişkeni ise silinen
+  `web/eklenti-kart.js` içindeydi, başka hiçbir yerde yaşamıyor.

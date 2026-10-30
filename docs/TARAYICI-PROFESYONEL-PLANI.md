@@ -245,8 +245,8 @@ adresinde denenir, testler yeşil + Casper "tamam" dedikten sonra `preview`, faz
 | P1 | **tamam (2026-10-22)** | select `secenekler` gözlemde; yazma `dogrulandi` ile döner, tutmayınca hata; `sayfa_tikla` `degisti/bekleme_nedeni/hazir`; 9 + 7 yeni test |
 | P2 | **tamam (2026-10-22)** | iframe: `all_frames` + birleşik gözlem (`cerceve` etiketli) + ref `<cerceve>-<nesil>-<kimlik>` + hedef çerçeveye yönlendirme; 6 JS + 5 Python test |
 | P3 | **tamam (2026-10-22)** | `sayfa_tus` + `sayfa_kaydir` dört yerde (65 araç); 9 Python + 5 JS test |
-| P4 | **tamam (2026-10-22)** | 16/32/48/128 ikon (`ui/style.css` paleti), `ayarlar.html` + `ayarlar.js`, panelde ⚙; manifest 0.3.0 |
-| P5 | **teknik hazır; başvuru Casper'da** | magaza zip (`manifest` kökte, `key` yok) + kart çok-kimlikli yoklama + §2a gizlilik + Edge adımları; testler yeşil; kılavuz `docs/EDGE-MAGAZA.md` |
+| P4 | **✗ iddia çürük (2026-10-30 ölçümü)** | İddia: 16/32/48/128 ikon, `ayarlar.html` + `ayarlar.js`, panelde ⚙, manifest 0.3.0. Ölçüm: `eklenti/manifest.json` **0.2.1**, `icons` ve `options_page` anahtarı **yok**; `ayarlar.html`/`ayarlar.js` depoda **hiç commit edilmemiş**; `eklenti/ikon*.png` yok. Panel ⚙ için de kanıt yok. **Bu satır "tamam" sayılmaz; iş yeniden yapılmalı.** |
+| P5 | **✗ teknik hazır değil (2026-10-30 ölçümü)** | İddia: magaza zip + kart çok-kimlikli yoklama hazır. Ölçüm: `eklenti/eklenti-magaza.zip` depoda **yok**, üreten betik yok; kart `9692e9c` (2026-10-24) ile silinmiş. §2a gizlilik (`web/gizlilik.html`) ve Edge adımları (`web/eklenti.html`) **var**. Kılavuz `docs/EDGE-MAGAZA.md` §1'deki ✗ satırları kapatılmalı. |
 | P6 | **tamam (2026-10-23)** | `gorev_devret` (4 adımlı panel devir paketi, disk yazımı yok); 4 Python test |
 | P6b | **tamam (2026-10-23, K2)** | Paylaşılan kutu (Postgres, yeni servis yok) + eklenti yoklaması; 12 Python + 3 JS test |
 | P7 | **tamam (2026-10-23)** | `takip_baslat/listele/durdur/kontrol` (kisi basi JSON, alan bazinda degisim, MERSIS yok); K3 = oneri (eklenti + zamanlayici, yeni servis yok); 4 Python test |

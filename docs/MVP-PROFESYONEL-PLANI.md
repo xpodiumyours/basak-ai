@@ -309,13 +309,16 @@ kasıtlıysa yazılı); geri alma provası yapılmış ve kayıtlı.
   gövde sabit `{"ok": true}`, bağımlılık/commit/model bilgisi vermez;
   `/api/durum` **token'lı kalır** (kilit testi geçti). 4 test:
   `tests/test_healthz_ucu.py`. Canlı ölçüm: §8.1.
-- [ ] **P3.2** **Hata taksonomisi:** `tools/permissions.py` zaten
-  etiket→politika tablosuna sahip. Web uçlarındaki hata gövdesi tek bir
-  biçime iner: `kod` + ` insan metni`. Bugün metin serbest yazılıyor.
+- [ ] **P3.2** **Hata taksonomisi:** Dayanak düzeltildi (2026-10-30 —
+  ölçüm): etiket→politika tablosunu taşıyan `tools/permissions.py` artık
+  yok; yetki beyaz liste (`TANINMIS_TOOLLAR`) + run politikası üzerinden
+  işliyor. Kalan iş şu: web uçlarındaki hata gövdesini tek biçime indirmek
+  — `kod` + insan metni. Bugün metin serbest yazılıyor.
 - [ ] **P3.3** **Araç çağrı kaydı** zaten var (`data/audit/`, gizli alan
-  maskeli, `tests/test_log_kirmalama.py` yeşil). Eksik olan: **hata
-  sınıfı sayacı** — hangi araç kaç kez hata verdi. Karne
-  (`brain/karne.json`) bunu model için tutuyor; operasyon için toplam yok.
+  maskeli; maskeleme `tools/olcum.py::_kirmala`, kiliti
+  `tests/test_icerik_ara.py` — 2026-10-30 ölçümü: 9 geçti. Eskiden anılan
+  `tests/test_log_kirmalama.py` silinmişti). Eksik olan: **hata
+  sınıfı sayacı** — hangi araç kaç kez hata verdi; operasyon için toplam yok.
 - [ ] **P3.4** **Canlı rapor → deploy kanıtı (ÖLÇÜLDÜ):** `tests/live`
   çıktısı `data/canli-rapor/`'a yazılıyor ve bu klasör **`.gitignore`
   satır 51'de** → P0.2 kanıtı **depoya girmiyor**. Karar P0.2'de
