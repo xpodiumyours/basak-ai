@@ -13,6 +13,7 @@ def gateway(monkeypatch):
     from chat import platform_composio as module
     monkeypatch.setenv("COMPOSIO_API_KEY", "test-project-key-not-real")
     monkeypatch.setenv("BASAK_CONNECTION_KEY", base64.urlsafe_b64encode(b"x" * 32).decode())
+    monkeypatch.setenv("BASAK_COMPOSIO_VERIFIER_READY", "1")
     return module
 
 
@@ -21,6 +22,22 @@ def _fake_api(gateway, user="alice", connected=True):
     url = "https://backend.composio.dev/tool_router/v3/trs_fixture99/mcp"
     def call(method, path, *, data=None, params=None):
         requests.append((method, path, data, params))
+        if method == "GET" and path == "/api/v3.1/toolkits":
+            return {"items": [
+                {"slug": "github", "name": "GitHub",
+                 "composio_managed_auth_schemes": ["oauth2"],
+                 "meta": {"description": "Repository access"}},
+                {"slug": "slack", "name": "Slack",
+                 "composio_managed_auth_schemes": ["oauth2"],
+                 "meta": {"description": "Team messages"}},
+                {"slug": "private_key", "name": "Bring your key",
+                 "composio_managed_auth_schemes": [],
+                 "meta": {}}],
+                 "next_cursor": None}
+        if method == "POST" and path == "/api/v3.1/connected_accounts/complete_auth":
+            if data["user_id"] != gateway._user_id(user):
+                return {"connected_account_id": "ca_wrong_user", "toolkit_slug": "github"}
+            return {"connected_account_id": "ca_fixture", "toolkit_slug": "github"}
         if method == "POST" and path == "/api/v3.1/tool_router/session":
             return {"session_id": "trs_fixture99", "mcp": {"url": url}}
         if method == "POST" and path.endswith("/link"):
@@ -140,31 +157,58 @@ def api_client(gateway, monkeypatch, tmp_path):
     return TestClient(app, base_url="https://basak.example"), store
 
 
-def test_browser_bound_callback_and_user_isolation(api_client, gateway, monkeypatch):
+def test_verified_oauth_callback_and_user_isolation(api_client, gateway, monkeypatch):
     client, store = api_client
-    call, _, url = _fake_api(gateway)
+    call, requests, _ = _fake_api(gateway)
     monkeypatch.setattr(gateway, "_request", call)
-    saved = {}
-    original = gateway.authorize_session
-    def redirect(sid, tk, callback):
-        saved["callback"] = callback
-        return original(sid, tk, callback)
-    monkeypatch.setattr(gateway, "authorize_session", redirect)
+    # The old callback without provider-identity verification is retired.
+    assert client.get("/api/baglantilar/composio/callback?state=x",
+                      headers={"x-test-user": "alice"}).status_code == 410
     start = client.get("/api/baglantilar/composio/baslat?toolkit=github",
                        headers={"x-test-user": "alice"}, follow_redirects=False)
     assert start.status_code == 302
     assert start.headers["location"].startswith("https://app.composio.dev/link/")
     assert store.list("alice") == []
-    callback = urlsplit(saved["callback"])
-    cb = client.get(callback.path + "?" + callback.query,
-                    headers={"x-test-user": "alice"}, follow_redirects=False)
-    assert cb.status_code == 303
+    assert requests[1][2]["callback_url"] == "https://basak.example/api/baglantilar/composio/dogrula"
+    # Composio's verifier, unlike the redirect query state, verifies the
+    # identity of the person who actually consented at the provider.
+    callback = client.get("/api/baglantilar/composio/dogrula?session_uri=uri_fixture_123456",
+                          headers={"x-test-user": "alice"}, follow_redirects=False)
+    assert callback.status_code == 303
     assert len(store.list("alice")) == 1
     assert store.list("bob") == []
-    visible = client.get("/api/baglantilar", headers={"x-test-user": "alice"}).json()
-    assert "test-project-key-not-real" not in str(visible)
     assert client.get("/api/baglantilar", headers={"x-test-user": "bob"}).json() == {"connections": []}
-    assert store.list("alice")[0]["metadata"]["url"] == url
+    assert "test-project-key-not-real" not in str(store.list("alice"))
+
+
+def test_catalog_has_managed_oauth_and_no_secret(api_client, gateway, monkeypatch):
+    client, _ = api_client
+    call, _, _ = _fake_api(gateway)
+    monkeypatch.setattr(gateway, "_request", call)
+    response = client.get("/api/baglantilar/composio/katalog?search=git",
+                          headers={"x-test-user": "alice"})
+    assert response.status_code == 200
+    assert {x["id"] for x in response.json()["toolkits"]} == {"github", "slack"}
+    assert "test-project-key-not-real" not in response.text
+    assert client.get("/api/baglantilar/composio/katalog").status_code == 401
+    assert client.get("/api/baglantilar/composio/katalog?search=" + "x" * 110,
+                      headers={"x-test-user": "alice"}).status_code == 502
+
+
+def test_legacy_github_connection_is_retired_but_sign_in_preserved(api_client):
+    client, _ = api_client
+    url = "/api/baglantilar/oauth/github/baslat"
+    assert client.get(url + "?purpose=connect", headers={"x-test-user": "alice"}).status_code == 410
+    assert client.get(url + "?purpose=login", headers={"x-test-user": "alice"}).status_code != 410
+
+
+def test_identity_verifier_is_mandatory(api_client, monkeypatch):
+    client, _ = api_client
+    monkeypatch.delenv("BASAK_COMPOSIO_VERIFIER_READY")
+    assert client.get("/api/baglantilar/composio/baslat?toolkit=github",
+                      headers={"x-test-user": "alice"}).status_code == 503
+    assert client.get("/api/baglantilar/composio/dogrula?session_uri=uri_fixture_123456",
+                      headers={"x-test-user": "alice"}).status_code == 503
 
 
 def test_missing_key_fails_closed(api_client, monkeypatch):
