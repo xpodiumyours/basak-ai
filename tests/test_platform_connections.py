@@ -207,12 +207,11 @@ def test_api_login_flow_callback_replay_and_cookie_flags(api, store, monkeypatch
     assert api.get(callback, follow_redirects=False).status_code == 400
 
 
-def test_api_connect_cannot_switch_owner_mid_oauth(api, monkeypatch):
-    from urllib.parse import parse_qs, urlsplit
-    start = api.get("/api/baglantilar/oauth/github/baslat?purpose=connect", headers={"x-test-user": "alice"}, follow_redirects=False)
-    state = parse_qs(urlsplit(start.headers["location"]).query)["state"][0]
-    response = api.get("/api/baglantilar/oauth/github/callback", params={"state": state, "code": "code"}, headers={"x-test-user": "bob"})
-    assert response.status_code == 400
+def test_old_github_connect_route_is_gone(api):
+    response = api.get("/api/baglantilar/oauth/github/baslat?purpose=connect",
+                       headers={"x-test-user": "alice"}, follow_redirects=False)
+    assert response.status_code == 410
+
 
 
 def test_mcp_catalog_execution_validates_owner_permissions_and_preserves_data(store):
@@ -286,15 +285,16 @@ def test_mcp_permission_update_checks_discovered_names(api, store):
     assert store.get("alice", cid)["metadata"]["allowed_tools"] == ["read"]
 
 
-def test_github_app_oauth_never_requests_account_repository_scopes(api):
+def test_github_login_never_requests_repository_scopes(api):
     from chat.platform_connectors import PROVIDERS
     from urllib.parse import urlsplit, parse_qs
     assert PROVIDERS["github"]["scopes"] == []
-    for purpose in ("login", "connect"):
-        response = api.get("/api/baglantilar/oauth/github/baslat?purpose=" + purpose,
-                           headers={"x-test-user": "alice"}, follow_redirects=False)
-        assert response.status_code == 302
-        assert "scope" not in parse_qs(urlsplit(response.headers["location"]).query)
+    response = api.get("/api/baglantilar/oauth/github/baslat?purpose=login",
+                       headers={"x-test-user": "alice"}, follow_redirects=False)
+    assert response.status_code == 302
+    assert "scope" not in parse_qs(urlsplit(response.headers["location"]).query)
+    assert api.get("/api/baglantilar/oauth/github/baslat?purpose=connect",
+                   headers={"x-test-user": "alice"}).status_code == 410
 
 
 @pytest.mark.parametrize("scopes", [[], ["repo"], ["public_repo"]])
@@ -398,48 +398,13 @@ def test_github_branch_commit_and_repository_pagination(store):
     assert len(calls) == 1, "Repository listing must use only revalidated connection selection"
 
 
-@pytest.mark.parametrize("discovery_fails", [False, True])
-def test_github_connect_stores_verified_app_user_credential_and_refresh(api, store, monkeypatch, discovery_fails):
-    import httpx
-    from urllib.parse import parse_qs, urlsplit
-    from chat import platform_accounts_api as module, platform_github_app as github
-    discovery = []
-    def upstream(request):
-        if request.url.host == "github.com":
-            return httpx.Response(200, json={"access_token": "ghu_userfixture", "refresh_token": "ghr_refreshfixture", "scope": ""})
-        assert request.url.path == "/user", "Repository discovery belongs to the verified GitHub App helper"
-        return httpx.Response(200, json={"id": 42, "login": "alice"})
-    def discover(user_token, profile, transport=None):
-        discovery.append((dict(user_token), profile))
-        if discovery_fails:
-            raise github.GitHubAppError("Installation permissions do not match")
-        return ({**user_token, "auth_type": github.AUTH_TYPE},
-                {"auth_type": github.AUTH_TYPE, "github_app_id": 1,
-                 "installations": [2],
-                 "repositories": ["a/b"], "repository_ids": [3], "writable_repositories": ["a/b"],
-                 "permissions": dict(github.PERMISSIONS)})
-    monkeypatch.setattr(module, "_transport", httpx.MockTransport(upstream))
-    monkeypatch.setattr(github, "discover_connection", discover)
-    start = api.get("/api/baglantilar/oauth/github/baslat?purpose=connect",
-                    headers={"x-test-user": "alice"}, follow_redirects=False)
-    state = parse_qs(urlsplit(start.headers["location"]).query)["state"][0]
-    result = api.get("/api/baglantilar/oauth/github/callback", params={"state": state, "code": "fixture"},
-                     headers={"x-test-user": "alice"}, follow_redirects=False)
-    assert discovery == [({"access_token": "ghu_userfixture", "refresh_token": "ghr_refreshfixture", "scope": ""},
-                          {"id": 42, "login": "alice"})]
-    rows = store.list("alice")
-    if discovery_fails:
-        assert result.status_code == 503
-        assert rows == []
-    else:
-        assert result.status_code == 303
-        assert len(rows) == 1
-        assert rows[0]["metadata"]["repositories"] == ["a/b"]
-        assert rows[0]["metadata"]["permissions"] == github.PERMISSIONS
-        assert store.credentials("alice", rows[0]["id"]) == {
-            "access_token": "ghu_userfixture", "refresh_token": "ghr_refreshfixture", "scope": "",
-            "auth_type": github.AUTH_TYPE}
-        assert "ghu_userfixture" not in json.dumps(rows) + result.text
+def test_github_app_link_is_retired_without_deleting_existing_records(api, store):
+    old = store.save("alice", "github", {"access_token": "legacy"}, [],
+                     {"repositories": ["a/b"]})
+    response = api.get("/api/baglantilar/oauth/github/baslat?purpose=connect",
+                       headers={"x-test-user": "alice"}, follow_redirects=False)
+    assert response.status_code == 410
+    assert store.get("alice", old["id"]) is not None
 
 
 @pytest.mark.parametrize("tool,path", [
@@ -614,7 +579,8 @@ def test_github_provider_exposes_app_installation_selection_without_repo_scope(a
     github = next(p for p in providers if p["id"] == "github")
     assert github["configured"] is True
     assert github["scopes"] == []
-    assert github["installation_url"] == "https://github.com/apps/basak-fixture/installations/new"
+    assert github["login_only"] is True
+    assert "installation_url" not in github
 
 
 def test_multiple_user_selected_repositories_support_reads_and_writes(store):
