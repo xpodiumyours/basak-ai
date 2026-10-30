@@ -129,6 +129,12 @@ def catalog(search="", cursor="", limit=40):
     return {"toolkits": available, "next_cursor": next_cursor}
 
 
+def _account_id(account_id):
+    if not isinstance(account_id, str) or not re.fullmatch(r"ca_[a-zA-Z0-9_-]{4,150}", account_id):
+        raise ComposioError("Composio hesap kimligi gecersiz")
+    return account_id
+
+
 def _sid(session_id):
     if not isinstance(session_id, str) or not re.fullmatch(r"trs_[a-zA-Z0-9_-]{6,120}", session_id):
         raise ComposioError("Composio oturum kimligi gecersiz")
@@ -150,9 +156,11 @@ def validate_mcp_url(url):
     return url
 
 
-def create_session(user_id, toolkit):
+def create_session(user_id, toolkit, connected_account=None):
     toolkit = _slug(toolkit)
-    response = _request("POST", "/api/v3.1/tool_router/session", data={
+    if connected_account is not None:
+        _account_id(connected_account)
+    config = {
         "user_id": _user_id(user_id),
         "toolkits": {"enabled": [toolkit]},
         # Composio Instant can incur charges if omitted; never opt in.
@@ -160,7 +168,10 @@ def create_session(user_id, toolkit):
         # A client without interactive MCP elicitation must never silently
         # approve an upstream request.
         "experimental": {"no_elicitation_support_fallback": "deny"},
-    })
+    }
+    if connected_account is not None:
+        config["connected_accounts"] = {toolkit: [connected_account]}
+    response = _request("POST", "/api/v3.1/tool_router/session", data=config)
     sid = _sid(response.get("session_id"))
     url = validate_mcp_url((response.get("mcp") or {}).get("url"))
     return {"session_id": sid, "url": url, "toolkit": toolkit}
