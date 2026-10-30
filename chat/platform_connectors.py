@@ -6,6 +6,7 @@ Sheets v4, and Notion API 2026-03-11. No model-selected host or credential.
 import base64
 import json
 import os
+import re
 import time
 from urllib.parse import quote, urlsplit
 
@@ -25,7 +26,7 @@ SHEETS_WRITE = "https://www.googleapis.com/auth/spreadsheets"
 
 PROVIDERS = {
     "google": {"label": "Google Drive / Docs / Sheets", "authorize": "https://accounts.google.com/o/oauth2/v2/auth", "token": "https://oauth2.googleapis.com/token", "identity": "https://openidconnect.googleapis.com/v1/userinfo", "scopes": ["openid", "email", "profile", DRIVE_READ, DOCS_WRITE, SHEETS_WRITE], "login_scopes": ["openid", "email", "profile"]},
-    "github": {"label": "GitHub", "authorize": "https://github.com/login/oauth/authorize", "token": "https://github.com/login/oauth/access_token", "identity": "https://api.github.com/user", "scopes": ["repo"], "login_scopes": []},
+    "github": {"label": "GitHub", "authorize": "https://github.com/login/oauth/authorize", "token": "https://github.com/login/oauth/access_token", "identity": "https://api.github.com/user", "scopes": [], "login_scopes": []},
     "notion": {"label": "Notion", "authorize": "https://api.notion.com/v1/oauth/authorize", "token": "https://api.notion.com/v1/oauth/token", "scopes": [], "login_scopes": []},
 }
 
@@ -80,6 +81,9 @@ def provider_config(provider):
     base["client_secret"] = os.environ.get(prefix + "_CLIENT_SECRET", "").strip()
     base["configured"] = bool(
         base["client_id"] and base["client_secret"] and _oauth_prerequisites_ready())
+    if provider == "github":
+        from chat.platform_github_app import configured
+        base["configured"] = base["configured"] and configured()
     return base
 
 
@@ -94,7 +98,7 @@ OBJ = {"type": "object"}
 A = {"type": "array"}
 TOOLS = {
     "github": [
-        _schema("github_list_repositories", "Lists repositories visible to the connected GitHub user; page selects the result page.", {"page": {"type": "integer", "minimum": 1}}),
+        _schema("github_list_repositories", "Lists repositories selected for this GitHub App connection; page selects the result page.", {"page": {"type": "integer", "minimum": 1}}),
         _schema("github_get_repository", "Reads repository metadata including default branch and permissions.", {"repository": S}, ["repository"]),
         _schema("github_get_branch", "Reads a repository branch including its current commit SHA and protection status.", {"repository": S, "branch": S}, ["repository", "branch"]),
         _schema("github_read_file", "Reads a repository file or directory at a ref.", {"repository": S, "path": S, "ref": S}, ["repository", "path"]),
@@ -151,8 +155,21 @@ class ConnectorService:
         connection = self.store.get(user_id, connection_id)
         if not connection or connection["status"] != "connected":
             raise PermissionError("Baglanti kullanilamiyor")
-        return [{k: v for k, v in t.items() if k != "scopes"} for t in TOOLS.get(connection["provider"], [])
-                if self._scope_allowed(connection, t)]
+        result = [{k: v for k, v in t.items() if k != "scopes"} for t in TOOLS.get(connection["provider"], [])
+                  if self._scope_allowed(connection, t)]
+        if connection["provider"] == "github":
+            import copy
+            result = copy.deepcopy(result)
+            prefix = self._branch_prefix(connection)
+            for tool in result:
+                field = {"github_create_branch": "branch", "github_write_file": "branch",
+                         "github_create_pr": "head"}.get(tool["name"])
+                if field:
+                    tool["inputSchema"]["properties"][field].update(
+                        {"pattern": "^" + re.escape(prefix) + ".+", "description": "Connection branch prefix: " + prefix})
+                if tool["name"] == "github_create_pr":
+                    tool["inputSchema"]["properties"]["draft"] = {"type": "boolean", "const": True, "default": True}
+        return result
 
     @staticmethod
     def _scope_allowed(connection, schema):
@@ -160,11 +177,14 @@ class ConnectorService:
         # An OAuth login token with no scope may read public information
         # but MUST NOT unlock repository writes in the tool catalog.
         # OAuth 'repo' implies the public_repo permissions as well.
-        if connection["provider"] == "github" and schema["name"] in {
-                "github_create_branch", "github_write_file", "github_create_pr",
-                "github_dispatch_workflow"}:
-            if not ({"public_repo", "repo"} & scopes):
+        if connection["provider"] == "github":
+            metadata = connection["metadata"]
+            if metadata.get("auth_type") != "github_app_user":
                 return False
+            allowed = {"github_list_repositories", "github_get_repository", "github_get_branch",
+                       "github_read_file", "github_list_prs", "github_get_pr",
+                       "github_create_branch", "github_write_file", "github_create_pr"}
+            return schema["name"] in allowed
         return all(s in scopes or (s == DRIVE_READ and DRIVE_WRITE in scopes)
                    for s in schema.get("scopes", []))
 
@@ -192,9 +212,20 @@ class ConnectorService:
 
     def _token(self, user_id, connection):
         token = self.store.credentials(user_id, connection["id"])
+        if connection["provider"] == "github":
+            from chat.platform_github_app import validate_connection
+            validate_connection(connection)
+            if (token.get("auth_type") != "github_app_user"
+                    or not str(token.get("access_token") or "").startswith("ghu_")):
+                raise ConnectorError("GitHub icin secili depo uygulama baglantisi gerekli")
         if token.get("expires_at") and float(token["expires_at"]) <= time.time() + 30:
             try:
-                token = refresh_token(connection["provider"], token, transport=self.transport)
+                if connection["provider"] == "github":
+                    from chat.platform_github_app import refresh_connection
+                    token, metadata = refresh_connection(connection, token, transport=self.transport)
+                    connection = {**connection, "metadata": {**connection["metadata"], **metadata}}
+                else:
+                    token = refresh_token(connection["provider"], token, transport=self.transport)
                 self.store.save(user_id, connection["provider"], token, connection["scopes"], connection["metadata"], connection["id"])
             except Exception as exc:
                 self.store.mark_reauth(user_id, connection["id"])
@@ -214,30 +245,77 @@ class ConnectorService:
         if not self._scope_allowed(connection, schema):
             raise ConnectorError("Bu islem icin gerekli yetki verilmedi")
         _validated_args(schema, args)
+        if provider == "github" and tool == "github_list_repositories":
+            self._token(user_id, connection)
+            current = self.store.get(user_id, connection_id)
+            metadata = current["metadata"]
+            repositories = metadata.get("repositories", [])
+            writable = set(metadata.get("writable_repositories", []))
+            offset = (args.get("page", 1) - 1) * 100
+            data = {"total_count": len(repositories), "repositories": [
+                {"full_name": name, "writable": name in writable}
+                for name in repositories[offset:offset + 100]]}
+            return {"content": [{"type": "text", "text": json.dumps(data, ensure_ascii=False)}],
+                    "structuredContent": data, "isError": False}
         if tool == "github_dispatch_workflow" and (self.cost_guard is None or not self.cost_guard(user_id, connection_id, dict(args))):
             raise ConnectorError("Actions icin ucret dogmayacagi dogrulanmadi; is baslatilmadi")
-        token = self._token(user_id, connection)
         method, url, params, body = self._operation(connection, tool, dict(args))
+        token = self._token(user_id, connection)
+        if provider == "github":
+            connection = self.store.get(user_id, connection_id)
+            method, url, params, body = self._operation(connection, tool, dict(args))
+            self._github_preflight(connection, tool, args, token)
         data = self._request(method, url, token, provider=provider, params=params, body=body)
         return {"content": [{"type": "text", "text": json.dumps(data, ensure_ascii=False)}], "structuredContent": data if isinstance(data, dict) else {"items": data}, "isError": False}
+
+    @staticmethod
+    def _branch_prefix(connection):
+        return "basak/" + connection["id"][:12] + "/"
+
+    @classmethod
+    def _own_branch(cls, connection, branch):
+        from chat.platform_github_paths import validate_branch
+        validate_branch(branch)
+        if not branch.startswith(cls._branch_prefix(connection)):
+            raise ConnectorError("Dal bu baglantinin gelistirme alani disinda")
+
+    def _github_preflight(self, connection, tool, args, token):
+        if tool not in {"github_create_branch", "github_write_file", "github_create_pr"}:
+            return
+        repo = args["repository"]
+        root = "https://api.github.com/repos/" + "/".join(quote(x, safe="") for x in repo.split("/"))
+        info = self._request("GET", root, token, provider="github")
+        default = info.get("default_branch")
+        branch = args.get("head") if tool == "github_create_pr" else args["branch"]
+        if not (info.get("permissions") or {}).get("push"):
+            raise ConnectorError("Bu depoda kullanicinin yazma yetkisi yok")
+        if not default or branch == default:
+            raise ConnectorError("Varsayilan dala dogrudan yazilamaz")
+        if tool == "github_create_pr" and args["base"] != default:
+            raise ConnectorError("Taslak PR varsayilan dala yonelik olmali")
+        if tool in {"github_write_file", "github_create_pr"}:
+            info = self._request("GET", root + "/branches/" + quote(branch, safe=""), token, provider="github")
+            if info.get("protected") is not False:
+                raise ConnectorError("Korunan veya koruma durumu bilinmeyen dala yazilamaz")
 
     def _operation(self, connection, tool, a):
         provider = connection["provider"]
         params, body = None, None
         if provider == "github":
             root = "https://api.github.com"
-            if tool == "github_list_repositories":
-                return "GET", root + "/user/repos", {"per_page": 100, "sort": "updated", **a}, None
-            repo = a.pop("repository")
+            from chat.platform_github_paths import validate_repository, validate_file_path, validate_branch
+            repo = validate_repository(a.pop("repository"))
             if repo not in connection["metadata"].get("repositories", []):
                 raise ConnectorError("Depo bu baglantiya verilen yetkiler arasinda degil")
             root += "/repos/" + "/".join(quote(x, safe="") for x in repo.split("/"))
             if tool == "github_get_repository":
                 return "GET", root, None, None
             if tool == "github_get_branch":
-                return "GET", root + "/branches/" + quote(a["branch"], safe=""), None, None
+                return "GET", root + "/branches/" + quote(validate_branch(a["branch"]), safe=""), None, None
             if tool == "github_read_file":
-                path = a.pop("path")
+                path = validate_file_path(a.pop("path"))
+                if a.get("ref"):
+                    validate_branch(a["ref"])
                 return "GET", root + "/contents/" + quote(path, safe="/"), a, None
             if tool == "github_list_prs":
                 return "GET", root + "/pulls", {"per_page": 100, **a}, None
@@ -252,13 +330,18 @@ class ConnectorService:
             if tool == "github_list_artifacts":
                 return "GET", root + "/actions/runs/" + str(a["run_id"]) + "/artifacts", {"per_page": 100}, None
             if tool == "github_create_branch":
+                self._own_branch(connection, a["branch"])
                 return "POST", root + "/git/refs", None, {"ref": "refs/heads/" + a["branch"], "sha": a["sha"]}
             if tool == "github_write_file":
-                if a["branch"] in ("main", "master", "preview"):
-                    raise ConnectorError("Korunan dala dogrudan yazilamaz")
-                path = a.pop("path")
+                self._own_branch(connection, a["branch"])
+                path = validate_file_path(a.pop("path"), write=True)
                 return "PUT", root + "/contents/" + quote(path, safe="/"), None, a
             if tool == "github_create_pr":
+                self._own_branch(connection, a["head"])
+                validate_branch(a["base"])
+                if a.get("draft") is False:
+                    raise ConnectorError("Bu baglanti yalniz taslak PR olusturabilir")
+                a["draft"] = True
                 return "POST", root + "/pulls", None, a
             if tool == "github_dispatch_workflow":
                 workflow = a.pop("workflow")

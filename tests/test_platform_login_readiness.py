@@ -13,6 +13,8 @@ def oauth_env(monkeypatch):
     monkeypatch.setenv("BASAK_PUBLIC_URL", "https://basak.example")
     monkeypatch.setenv("BASAK_GITHUB_CLIENT_ID", "synthetic-client-id")
     monkeypatch.setenv("BASAK_GITHUB_CLIENT_SECRET", "synthetic-client-secret")
+    monkeypatch.setenv("BASAK_GITHUB_APP_ID", "1")
+    monkeypatch.setenv("BASAK_GITHUB_APP_SLUG", "basak-fixture")
     monkeypatch.setenv("BASAK_OTURUM_ANAHTARI", "synthetic-secret-longer-than-32-bytes")
     monkeypatch.setenv(
         "BASAK_CONNECTION_KEY", base64.urlsafe_b64encode(b"x" * 32).decode())
@@ -27,6 +29,16 @@ def test_provider_configuration_requires_signed_session_and_encryption(oauth_env
     assert provider_config("github")["configured"] is False
     oauth_env.setenv("BASAK_OTURUM_ANAHTARI", "synthetic-secret-longer-than-32-bytes")
     oauth_env.setenv("BASAK_CONNECTION_KEY", "not-a-32-byte-key")
+    assert provider_config("github")["configured"] is False
+
+
+def test_github_provider_requires_app_identity_without_repository_allowlist(oauth_env):
+    from chat.platform_connectors import provider_config
+
+    oauth_env.delenv("BASAK_GITHUB_APP_PRIVATE_KEY", raising=False)
+    oauth_env.delenv("BASAK_GITHUB_REPOSITORIES", raising=False)
+    assert provider_config("github")["configured"] is True
+    oauth_env.delenv("BASAK_GITHUB_APP_ID")
     assert provider_config("github")["configured"] is False
 
 

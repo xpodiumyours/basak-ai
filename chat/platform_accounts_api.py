@@ -9,7 +9,7 @@ import hashlib
 import os
 import secrets
 import time
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import quote, urlencode, urlsplit
 
 import httpx
 from fastapi import APIRouter, Request
@@ -106,6 +106,9 @@ async def connection_providers():
     for provider, info in PROVIDERS.items():
         cfg = provider_config(provider)
         providers.append({"id": provider, "label": info["label"], "configured": cfg["configured"], "reason": None if cfg["configured"] else "oauth_not_configured", "login": provider in ("google", "github"), "scopes": info["scopes"], "verification_required": provider == "google"})
+        if provider == "github" and cfg["configured"]:
+            providers[-1]["installation_url"] = ("https://github.com/apps/" +
+                quote(os.environ["BASAK_GITHUB_APP_SLUG"], safe="") + "/installations/new")
     providers.append({"id": "mcp", "label": "MCP", "configured": True, "reason": None, "login": False, "scopes": []})
     return JSONResponse({"providers": providers}, headers={"Cache-Control": "no-store"})
 
@@ -324,18 +327,9 @@ def _exchange(provider, cfg, code, verifier, callback, purpose="connect"):
         if provider == "github":
             if not isinstance(profile.get("id"), int):
                 raise ConnectorError("GitHub hesap kimligi eksik")
-            repositories = []
-            page = 1
-            while purpose == "connect":
-                result = client.get("https://api.github.com/user/repos", headers=headers, params={"per_page": 100, "page": page})
-                if result.status_code != 200:
-                    raise ConnectorError("GitHub depo erisimleri okunamadi")
-                rows = result.json()
-                repositories.extend(row["full_name"] for row in rows if isinstance(row, dict) and row.get("full_name"))
-                if 'rel="next"' not in result.headers.get("link", ""):
-                    break
-                page += 1
-            metadata["repositories"] = repositories
+            if purpose == "connect":
+                from chat.platform_github_app import discover_connection
+                token, metadata = discover_connection(token, profile, transport=_transport)
         return token, profile, metadata
 
 
@@ -365,8 +359,6 @@ async def oauth_callback(provider: str, request: Request, state: str = "", code:
             data_scopes = {s for s in cfg["scopes"] if s.startswith("https://")}
             if provider == "google" and not data_scopes.issubset(set(scopes)):
                 return _error("Istenen Google Drive, Docs ve Sheets yetkileri tam verilmedi", 403)
-            if provider == "github" and not set(cfg["scopes"]).issubset(set(scopes)):
-                return _error("Istenen GitHub depo okuma ve yazma yetkileri tam verilmedi", 403)
             label = cfg["label"] + " — " + str(profile.get("name") or profile.get("login") or "Hesap")
             store.save(uid, provider, token, scopes, {**metadata, "label": label, "account_id": str(profile.get("sub") or profile.get("id") or "")})
         response.delete_cookie(BROWSER_COOKIE, path="/api/baglantilar", secure=_secure(request), httponly=True, samesite="lax")
