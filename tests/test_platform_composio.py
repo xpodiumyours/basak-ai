@@ -186,6 +186,9 @@ def test_verified_oauth_callback_and_user_isolation(api_client, gateway, monkeyp
                           headers={"x-test-user": "alice"}, follow_redirects=False)
     assert callback.status_code == 303
     assert len(store.list("alice")) == 1
+    tools = store.list("alice")[0]["metadata"]
+    assert tools["tools"][0]["remote_name"] == "GITHUB_GET_REPO"
+    assert tools["allowed_tools"] == [tools["tools"][0]["name"]]
     assert store.list("bob") == []
     assert client.get("/api/baglantilar", headers={"x-test-user": "bob"}).json() == {"connections": []}
     assert "test-project-key-not-real" not in str(store.list("alice"))
