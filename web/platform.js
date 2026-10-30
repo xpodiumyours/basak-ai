@@ -570,6 +570,9 @@
     container.append(node("h2", "workspace-panel-title", "Bağlantılar"));
     if (!state.user) container.append(node("p", "workspace-muted", "Başak’ı sana verilen özel bağlantıyla açabilirsin; hesap oluşturman gerekmiyor."));
     for (const provider of state.providers) {
+      // Identity sign-in providers are not separate app integrations. The
+      // app's GitHub/Google accounts appear exclusively through Composio.
+      if (state.user && provider.login_only) continue;
       const card = node("section", "workspace-connection");
       card.append(node("strong", "", provider.label || provider.id));
       const connected = state.connections.filter((connection) => {
