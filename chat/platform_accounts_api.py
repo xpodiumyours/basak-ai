@@ -218,10 +218,8 @@ async def composio_start(request: Request, toolkit: str = "github"):
     try:
         uid = _owner(request)
         store = _store_factory()
-        for conn in store.list(uid):
-            meta = conn.get("metadata") or {}
-            if conn["status"] != "revoked" and meta.get("composio_toolkit") == toolkit:
-                return _error("Bu uygulama zaten bagli; once mevcut baglantiyi kaldirin", 409)
+        # Each verified OAuth return is pinned to its own connected_account_id,
+        # so an owner may connect several accounts of the same toolkit.
         data = await asyncio.to_thread(create_session, uid, toolkit)
         callback = _public_base() + "/api/baglantilar/composio/dogrula"
         target = await asyncio.to_thread(authorize_session, data["session_id"], toolkit, callback)
@@ -252,8 +250,9 @@ async def composio_verify(request: Request, session_uri: str = ""):
         for conn in store.list(uid):
             existing = conn.get("metadata") or {}
             if (conn["status"] != "revoked"
-                    and existing.get("composio_toolkit") == meta.get("composio_toolkit")):
-                return _error("Uygulama zaten bagli", 409)
+                    and existing.get("composio_account_id") == meta.get("composio_account_id")):
+                return RedirectResponse("/", status_code=303, headers={
+                    "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
         row = store.save(uid, "mcp", {}, [], meta)
         # Connecting an app prepares its actions automatically. Actual
         # agent execution still passes the immutable per-call approval gate,
