@@ -112,8 +112,8 @@ async def connection_providers():
             continue
         cfg = provider_config(provider)
         providers.append({"id": provider, "label": info["label"], "configured": cfg["configured"], "reason": None if cfg["configured"] else "oauth_not_configured", "login": provider in ("google", "github"), "scopes": info["login_scopes"], "login_only": True, "verification_required": provider == "google"})
-    providers.append({"id": "composio", "label": "Composio", "configured": composio_configured(),
-                      "reason": None if composio_configured() else "oauth_not_configured",
+    providers.append({"id": "composio", "label": "Composio", "configured": bool(composio_configured() and _composio_verifier_ready()),
+                      "reason": None if (composio_configured() and _composio_verifier_ready()) else "identity_verifier_not_ready",
                       "login": False, "scopes": [], "toolkits": []})
     providers.append({"id": "mcp", "label": "MCP", "configured": True, "reason": None, "login": False, "scopes": []})
     return JSONResponse({"providers": providers}, headers={"Cache-Control": "no-store"})
@@ -199,68 +199,76 @@ async def composio_catalog(request: Request, search: str = "", cursor: str = "")
         return _error("Composio uygulama katalogu alinamadi", 502)
 
 
+def _composio_verifier_ready():
+    # Composio callback identity verification must be enabled on the project.
+    # A value in Vercel by itself does not configure the Composio dashboard.
+    return os.environ.get("BASAK_COMPOSIO_VERIFIER_READY") == "1"
+
+
 @router.get("/api/baglantilar/composio/baslat")
 async def composio_start(request: Request, toolkit: str = "github"):
-    """Begin a real, browser-bound Connect Link for the current Başak user."""
-    from chat.platform_composio import _slug
+    """Authorize an app through Composio, not through a custom GitHub App."""
+    from chat.platform_composio import _slug, create_session, authorize_session
     try:
         _slug(toolkit)
     except ComposioError:
         return _error("Gecersiz Composio uygulamasi")
-    if not composio_configured():
-        return _error("Composio projesi yapilandirilmadi", 503)
+    if not composio_configured() or not _composio_verifier_ready():
+        return _error("Composio proje anahtari ve OAuth kimlik dogrulamasi gerekli", 503)
     try:
-        from chat.platform_composio import create_session, authorize_session
         uid = _owner(request)
         store = _store_factory()
         for conn in store.list(uid):
             meta = conn.get("metadata") or {}
-            if (conn["status"] != "revoked" and meta.get("composio_toolkit") == toolkit):
+            if conn["status"] != "revoked" and meta.get("composio_toolkit") == toolkit:
                 return _error("Bu uygulama zaten bagli; once mevcut baglantiyi kaldirin", 409)
-        browser = request.cookies.get(BROWSER_COOKIE) or secrets.token_urlsafe(32)
         data = await asyncio.to_thread(create_session, uid, toolkit)
-        state, _ = store.oauth_begin("mcp", browser, uid, "connect", data=data)
-        callback = _public_base() + "/api/baglantilar/composio/callback?state=" + quote(state, safe="")
+        callback = _public_base() + "/api/baglantilar/composio/dogrula"
         target = await asyncio.to_thread(authorize_session, data["session_id"], toolkit, callback)
-        response = RedirectResponse(target, status_code=302, headers={
+        return RedirectResponse(target, status_code=302, headers={
             "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
-        response.set_cookie(BROWSER_COOKIE, browser, max_age=600, httponly=True,
-                            secure=_secure(request), samesite="lax", path="/api/baglantilar")
-        return response
     except PermissionError:
         return _error("Hesap girisi gerekli", 401)
     except ComposioError:
         return _error("Composio baglantisi baslatilamadi", 502)
+    except RuntimeError:
+        return _error("Baglanti deposu veya donus adresi kullanilamiyor", 503)
+
+
+@router.get("/api/baglantilar/composio/dogrula")
+async def composio_verify(request: Request, session_uri: str = ""):
+    """Composio calls this browser endpoint after OAuth consent.
+
+    The caller must have a Başak login. Composio enforces that the account
+    created by the original link is owned by that exact signed-in user.
+    """
+    if not _composio_verifier_ready() or not composio_configured():
+        return _error("Composio OAuth kimlik dogrulama ayari eksik", 503)
+    try:
+        from chat.platform_composio import complete_verified_auth
+        uid = _owner(request)
+        store = _store_factory()
+        meta = await asyncio.to_thread(complete_verified_auth, uid, session_uri)
+        for conn in store.list(uid):
+            existing = conn.get("metadata") or {}
+            if (conn["status"] != "revoked"
+                    and existing.get("composio_toolkit") == meta.get("composio_toolkit")):
+                return _error("Uygulama zaten bagli", 409)
+        store.save(uid, "mcp", {}, [], meta)
+        return RedirectResponse("/", status_code=303, headers={
+            "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+    except PermissionError:
+        return _error("Bu Composio baglantisi icin hesap girisi gerekli", 401)
+    except ComposioError:
+        return _error("Composio OAuth kimligi dogrulanamadi", 502)
     except RuntimeError:
         return _error("Baglanti deposu kullanilamiyor", 503)
 
 
 @router.get("/api/baglantilar/composio/callback")
 async def composio_callback(request: Request, state: str = "", error: str = ""):
-    """Check the completed account at Composio before storing local access."""
-    try:
-        from chat.platform_composio import finish_session
-        uid = _owner(request)
-        browser = request.cookies.get(BROWSER_COOKIE, "")
-        if not state or not browser or error:
-            raise PermissionError()
-        store = _store_factory()
-        attempt = store.oauth_consume(state, "mcp", browser)
-        if attempt["user_id"] != uid:
-            raise PermissionError()
-        meta = await asyncio.to_thread(finish_session, uid, attempt["data"])
-        store.save(uid, "mcp", {}, [], meta)
-        response = RedirectResponse("/", status_code=303, headers={
-            "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
-        response.delete_cookie(BROWSER_COOKIE, path="/api/baglantilar",
-                               secure=_secure(request), httponly=True, samesite="lax")
-        return response
-    except PermissionError:
-        return _error("Composio OAuth oturumu gecersiz veya suresi dolmus", 400)
-    except ComposioError:
-        return _error("Composio hesap baglantisi dogrulanamadi", 502)
-    except RuntimeError:
-        return _error("Composio baglanti deposu kullanilamiyor", 503)
+    """Reject the old state-only callback: it does not prove provider identity."""
+    return _error("Eski Composio OAuth donusu guvenlik icin kapatildi", 410)
 
 
 @router.post("/api/baglantilar/mcp")
