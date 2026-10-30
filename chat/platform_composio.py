@@ -189,6 +189,10 @@ def _session(user_id, data):
     config = info.get("config") or {}
     if not isinstance(config, dict) or config.get("user_id") != _user_id(user_id):
         raise ComposioError("Composio oturumu baska kullaniciya ait")
+    # Do not execute on a session that could charge the project for Instant.
+    # Composio reports this field as false when disabled.
+    if config.get("instant") is not False:
+        raise ComposioError("Composio ucretli Instant modunun kapali oldugu dogrulanamadi")
     url = validate_mcp_url((info.get("mcp") or {}).get("url"))
     if url != data.get("url"):
         raise ComposioError("Composio oturum adresi degismis")
