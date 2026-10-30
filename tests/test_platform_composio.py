@@ -61,6 +61,7 @@ def _fake_api(gateway, user="alice", connected=True):
         if method == "GET" and path.endswith("/trs_fixture99"):
             return {"config": {"user_id": gateway._user_id(user),
                                "toolkits": {"enabled": ["github"]},
+                               "connected_accounts": {"github": ["ca_fixture"]},
                                "instant": False},
                     "mcp": {"url": url}}
         if method == "GET" and path.endswith("/tools"):
@@ -146,7 +147,7 @@ def test_provider_account_deleted_on_disconnect(gateway, monkeypatch):
     monkeypatch.setattr(gateway, "_request", call)
     gateway.disconnect("alice", {"metadata": {
         "composio_session_id": "trs_fixture99", "composio_toolkit": "github",
-        "url": url}})
+        "composio_account_id": "ca_fixture", "url": url}})
     assert requests[-1][:2] == ("DELETE", "/api/v3.1/connected_accounts/ca_fixture")
 
 
@@ -278,7 +279,7 @@ def test_callback_rejects_cross_user_connected_account(gateway, monkeypatch):
 
 
 
-def test_documented_execute_response_without_result_type_succeeds(gateway, monkeypatch):
+def test_execute_response_without_completed_result_is_rejected(gateway, monkeypatch):
     call, _, url = _fake_api(gateway)
     def documented(method, path, *, data=None, params=None):
         result = call(method, path, data=data, params=params)
@@ -289,10 +290,10 @@ def test_documented_execute_response_without_result_type_succeeds(gateway, monke
     monkeypatch.setattr(gateway, "_request", documented)
     result = gateway.session_execute("alice", {"metadata": {
         "composio_toolkit": "github", "composio_session_id": "trs_fixture99",
-        "url": url
+        "composio_account_id": "ca_fixture", "url": url
     }}, "GITHUB_GET_REPO", {"repository": "owner/repo"})
-    assert result["isError"] is False
-    assert result["structuredContent"]["repository"] == "owner/repo"
+    assert result["isError"] is True
+    assert result["structuredContent"] == {"error": "Composio araci basarisiz"}
 
 
 def test_failed_execute_response_never_reports_success(gateway, monkeypatch):
@@ -303,7 +304,7 @@ def test_failed_execute_response_never_reports_success(gateway, monkeypatch):
         return call(method, path, data=data, params=params)
     monkeypatch.setattr(gateway, "_request", failed)
     result = gateway.session_execute("alice", {"metadata": {
-        "composio_toolkit": "github", "composio_session_id": "trs_fixture99", "url": url
+        "composio_toolkit": "github", "composio_session_id": "trs_fixture99", "composio_account_id": "ca_fixture", "url": url
     }}, "GITHUB_GET_REPO", {"repository": "owner/repo"})
     assert result["isError"] is True
     assert result["structuredContent"] == {"error": "Composio araci basarisiz"}
