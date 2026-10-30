@@ -60,7 +60,8 @@ def _fake_api(gateway, user="alice", connected=True):
             }]}
         if method == "GET" and path.endswith("/trs_fixture99"):
             return {"config": {"user_id": gateway._user_id(user),
-                               "toolkits": {"enabled": ["github"]}},
+                               "toolkits": {"enabled": ["github"]},
+                               "instant": False},
                     "mcp": {"url": url}}
         if method == "GET" and path.endswith("/tools"):
             return {"items": [{"slug": "GITHUB_GET_REPO",
@@ -288,3 +289,16 @@ def test_failed_execute_response_never_reports_success(gateway, monkeypatch):
     }}, "GITHUB_GET_REPO", {"repository": "owner/repo"})
     assert result["isError"] is True
     assert result["structuredContent"] == {"error": "Composio araci basarisiz"}
+
+
+def test_instant_must_remain_disabled_when_reloading_session(gateway, monkeypatch):
+    call, _, url = _fake_api(gateway)
+    def charge_enabled(method, path, *, data=None, params=None):
+        result = call(method, path, data=data, params=params)
+        if method == "GET" and path.endswith("/trs_fixture99"):
+            result["config"]["instant"] = {}
+        return result
+    monkeypatch.setattr(gateway, "_request", charge_enabled)
+    with pytest.raises(gateway.ComposioError, match="Instant"):
+        gateway.finish_session("alice", {
+            "session_id": "trs_fixture99", "url": url, "toolkit": "github"})
