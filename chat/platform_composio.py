@@ -249,7 +249,7 @@ def complete_verified_auth(user_id, session_uri):
             or detail.get("status") != "ACTIVE"
             or (detail.get("toolkit") or {}).get("slug") != toolkit):
         raise ComposioError("Composio hesap sahipligi dogrulanamadi")
-    session = create_session(user_id, toolkit)
+    session = create_session(user_id, toolkit, connected_account=account)
     session_id, _ = _session(user_id, session)
     if _connected_account(session_id, toolkit, user_id) != account:
         raise ComposioError("Dogrulanan Composio hesabi beklenen oturumda yok")
