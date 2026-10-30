@@ -385,11 +385,14 @@ def session_execute(user_id, connection, slug, arguments):
     account = _bound_account(sid, toolkit, user_id, meta)
     result = _request("POST", "/api/v3.1/tool_router/session/" + sid + "/execute",
                       data={"tool_slug": slug, "arguments": arguments, "account": account})
-    # Composio v3.1 can fail without an error string. The documented
-    # success discriminator is result_type='completed', not data/status.
+    # v3.1 REST documents {data, error, log_id}, without result_type.
+    # The SDK can additionally provide result_type. Reject explicit failure
+    # in either representation, but do not require an SDK-only field.
     payload = result.get("data")
-    if (result.get("result_type") != "completed" or result.get("error")
-            or not isinstance(payload, dict) or result.get("instant_charge")):
+    outcome = result.get("result_type")
+    if (result.get("error") is not None or not isinstance(payload, dict)
+            or outcome not in (None, "completed") or result.get("instant_charge")
+            or payload.get("isError") is True or payload.get("success") is False):
         return {"isError": True, "content": [{"type": "text",
                 "text": "Composio araci basarisiz"}],
                 "structuredContent": {"error": "Composio araci basarisiz"}}
