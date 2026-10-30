@@ -305,8 +305,9 @@ def disconnect(user_id, connection):
         return
     toolkit = _slug(meta.get("composio_toolkit"))
     sid, _ = _session(user_id, {"session_id": meta["composio_session_id"],
-                                "url": meta.get("url")})
-    account_id = _connected_account(sid, toolkit, user_id)
+                                "url": meta.get("url"), "toolkit": toolkit,
+                                "account": meta.get("composio_account_id")})
+    account_id = _bound_account(sid, toolkit, user_id, meta)
     _request("DELETE", "/api/v3.1/connected_accounts/" + account_id,
              params={"revoke_on_delete": "true"})
 
@@ -318,8 +319,9 @@ def session_tools(user_id, connection):
     sid, _ = _session(user_id, {
         "session_id": meta.get("composio_session_id"),
         "url": meta.get("url"), "toolkit": toolkit,
+        "account": meta.get("composio_account_id"),
     })
-    _connected_account(sid, toolkit, user_id)
+    _bound_account(sid, toolkit, user_id, meta)
     from chat.platform_mcp import namespace
     result, cursor = [], None
     seen = set()
@@ -378,8 +380,9 @@ def session_execute(user_id, connection, slug, arguments):
     sid, _ = _session(user_id, {
         "session_id": meta.get("composio_session_id"),
         "url": meta.get("url"), "toolkit": toolkit,
+        "account": meta.get("composio_account_id"),
     })
-    account = _connected_account(sid, toolkit, user_id)
+    account = _bound_account(sid, toolkit, user_id, meta)
     result = _request("POST", "/api/v3.1/tool_router/session/" + sid + "/execute",
                       data={"tool_slug": slug, "arguments": arguments, "account": account})
     # v3.1 session execute returns {data, error, log_id}; result_type
