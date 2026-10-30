@@ -1,10 +1,9 @@
-"""Offline contract tests for the new Composio Sessions adapter.
+"""Offline acceptance tests for Composio Sessions v3.1.
 
-No Composio secret, provider token, or network call is used in CI.
+No live Composio API key or third-party account access is required.
 """
 import base64
-from types import SimpleNamespace as NS
-from urllib.parse import urlsplit, parse_qs
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -17,90 +16,103 @@ def gateway(monkeypatch):
     return module
 
 
-def _session(toolkit="github", connected=True):
-    account = NS(id="ca_fixture") if connected else None
-    item = NS(slug=toolkit, connection=NS(is_active=connected, connected_account=account))
-    session = NS(
-        session_id="sess_fixture",
-        mcp=NS(url="https://backend.composio.dev/tool_router/session/sess_fixture/mcp"),
-        toolkits=lambda **kwargs: NS(items=[item] if connected else []),
-        authorize=lambda *args, **kwargs: NS(redirect_url="https://connect.composio.dev/link/ln_fixture"),
-    )
-    return session
+def _fake_api(gateway, user="alice", connected=True):
+    requests = []
+    url = "https://backend.composio.dev/tool_router/v3/trs_fixture99/mcp"
+    def call(method, path, *, data=None, params=None):
+        requests.append((method, path, data, params))
+        if method == "POST" and path == "/api/v3.1/tool_router/session":
+            return {"session_id": "trs_fixture99", "mcp": {"url": url}}
+        if method == "POST" and path.endswith("/link"):
+            return {"redirect_url": "https://app.composio.dev/link/lt_fixture"}
+        if method == "GET" and path.endswith("/toolkits"):
+            return {"items": [{
+                "slug": "github",
+                "connected_account": {
+                    "status": "ACTIVE" if connected else "FAILED",
+                    "user_id": gateway._user_id(user),
+                    "id": "ca_fixture",
+                }
+            }]}
+        if method == "GET" and path.endswith("/trs_fixture99"):
+            return {"config": {"user_id": gateway._user_id(user)},
+                    "mcp": {"url": url}}
+        if method == "DELETE":
+            return {}
+        raise AssertionError((method, path))
+    return call, requests, url
 
 
-def test_user_ids_distinct_and_non_reversible(gateway):
-    a = gateway._user_id("alice")
-    b = gateway._user_id("bob")
+def test_tenant_ids_are_distinct(gateway):
+    a, b = gateway._user_id("alice"), gateway._user_id("bob")
     assert a != b and a == gateway._user_id("alice")
-    assert "alice" not in a
-    assert len(a) == len("basak_") + 64
+    assert len(a) == 70 and "alice" not in a
 
 
 @pytest.mark.parametrize("url", [
-    "http://backend.composio.dev/mcp",
-    "https://evil.example/mcp",
-    "https://backend.composio.dev.evil.example/mcp",
-    "https://u:p@backend.composio.dev/mcp",
-    "https://backend.composio.dev:444/mcp",
-    "https://backend.composio.dev/mcp#bad",
+    "http://backend.composio.dev/tool_router/v3/mcp",
+    "https://evil.example/tool_router/v3/mcp",
+    "https://backend.composio.dev.evil.example/tool_router/v3/mcp",
+    "https://u:p@backend.composio.dev/tool_router/v3/mcp",
+    "https://backend.composio.dev:444/tool_router/v3/mcp",
+    "https://backend.composio.dev/tool_router/v3/mcp#bad",
+    "https://backend.composio.dev/private",
 ])
-def test_project_key_never_sent_elsewhere(gateway, url):
+def test_project_key_is_origin_restricted(gateway, url):
     with pytest.raises(gateway.ComposioError):
         gateway.mcp_headers(url)
 
 
-def test_key_header_stays_server_side(gateway):
-    url = "https://backend.composio.dev/tool_router/session/test/mcp"
+def test_project_key_stays_in_server_headers(gateway):
+    url = "https://backend.composio.dev/tool_router/v3/trs_12345/mcp"
     assert gateway.mcp_headers(url) == {"x-api-key": "test-project-key-not-real"}
+    assert gateway.validate_mcp_url("https://app.composio.dev/tool_router/v3/trs_12345/mcp")
 
 
-def test_session_create_scoped_to_one_toolkit(gateway, monkeypatch):
-    calls = []
-    session = _session()
-    fake = NS(sessions=NS(create=lambda **kw: (calls.append(kw), session)[1]))
-    monkeypatch.setattr(gateway, "_client", lambda: fake)
+def test_session_create_and_oauth_link(gateway, monkeypatch):
+    call, requests, url = _fake_api(gateway)
+    monkeypatch.setattr(gateway, "_request", call)
     result = gateway.create_session("alice", "github")
-    assert result == {"session_id": "sess_fixture", "url": session.mcp.url, "toolkit": "github"}
-    assert calls[0]["mcp"] is True and calls[0]["toolkits"] == ["github"]
-    assert calls[0]["user_id"] == gateway._user_id("alice")
+    assert result == {"session_id": "trs_fixture99", "url": url, "toolkit": "github"}
+    assert requests[0][2] == {
+        "user_id": gateway._user_id("alice"),
+        "toolkits": {"enabled": ["github"]},
+        "instant": False,
+    }
+    assert gateway.authorize_session("trs_fixture99", "github", "https://basak.example/callback") == (
+        "https://app.composio.dev/link/lt_fixture")
+    assert requests[1][2]["callback_url"] == "https://basak.example/callback"
     with pytest.raises(gateway.ComposioError):
         gateway.create_session("alice", "unapproved-app")
 
 
-def test_link_and_verified_finish(gateway, monkeypatch):
-    session = _session()
-    monkeypatch.setattr(gateway, "_client", lambda: NS(use=lambda *a, **k: session))
-    link = gateway.authorize_session("sess_fixture", "github", "https://basak.example/callback")
-    assert link == "https://connect.composio.dev/link/ln_fixture"
-    metadata = gateway.finish_session("alice", {
-        "session_id": "sess_fixture", "toolkit": "github", "url": session.mcp.url
-    })
-    assert metadata["label"] == "Composio GitHub"
-    assert metadata["allowed_tools"] == []
-    assert "test-project-key-not-real" not in str(metadata)
+def test_finish_checks_identity_and_live_connection(gateway, monkeypatch):
+    call, requests, url = _fake_api(gateway)
+    monkeypatch.setattr(gateway, "_request", call)
+    result = gateway.finish_session("alice", {
+        "session_id": "trs_fixture99", "url": url, "toolkit": "github"})
+    assert result["composio_toolkit"] == "github" and result["allowed_tools"] == []
+    assert "test-project-key-not-real" not in str(result)
+    with pytest.raises(gateway.ComposioError):
+        gateway.finish_session("bob", {
+            "session_id": "trs_fixture99", "url": url, "toolkit": "github"})
 
 
-def test_unconnected_session_not_accepted(gateway, monkeypatch):
-    session = _session(connected=False)
-    monkeypatch.setattr(gateway, "_client", lambda: NS(use=lambda *a, **k: session))
+def test_unconnected_account_is_rejected(gateway, monkeypatch):
+    call, _, url = _fake_api(gateway, connected=False)
+    monkeypatch.setattr(gateway, "_request", call)
     with pytest.raises(gateway.ComposioError):
         gateway.finish_session("alice", {
-            "session_id": "sess_fixture", "toolkit": "github", "url": session.mcp.url
-        })
+            "session_id": "trs_fixture99", "url": url, "toolkit": "github"})
 
 
-def test_revoke_calls_provider_before_local_delete(gateway, monkeypatch):
-    calls = []
-    session = _session()
-    fake = NS(use=lambda *a, **kw: session,
-              connected_accounts=NS(delete=lambda aid: calls.append(aid)))
-    monkeypatch.setattr(gateway, "_client", lambda: fake)
+def test_provider_account_deleted_on_disconnect(gateway, monkeypatch):
+    call, requests, url = _fake_api(gateway)
+    monkeypatch.setattr(gateway, "_request", call)
     gateway.disconnect("alice", {"metadata": {
-        "composio_session_id": "sess_fixture", "composio_toolkit": "github",
-        "url": session.mcp.url
-    }})
-    assert calls == ["ca_fixture"]
+        "composio_session_id": "trs_fixture99", "composio_toolkit": "github",
+        "url": url}})
+    assert requests[-1][:2] == ("DELETE", "/api/v3.1/connected_accounts/ca_fixture")
 
 
 @pytest.fixture
@@ -116,28 +128,23 @@ def api_client(gateway, monkeypatch, tmp_path):
     monkeypatch.setattr(api, "_authenticate", lambda req: req.headers.get("x-test-user"))
     app = FastAPI()
     app.include_router(api.router)
-    return TestClient(app, base_url="https://basak.example"), store, api
+    return TestClient(app, base_url="https://basak.example"), store
 
 
-def test_browser_bound_connect_and_owner_visibility(api_client, gateway, monkeypatch):
-    client, store, api = api_client
-    session = _session()
-    monkeypatch.setattr(gateway, "create_session",
-                        lambda uid, toolkit: {"session_id": session.session_id,
-                                               "url": session.mcp.url, "toolkit": toolkit})
+def test_browser_bound_callback_and_user_isolation(api_client, gateway, monkeypatch):
+    client, store = api_client
+    call, _, url = _fake_api(gateway)
+    monkeypatch.setattr(gateway, "_request", call)
     saved = {}
-    def redirect(_sid, _toolkit, callback):
+    original = gateway.authorize_session
+    def redirect(sid, tk, callback):
         saved["callback"] = callback
-        return "https://connect.composio.dev/link/ln_fixture"
+        return original(sid, tk, callback)
     monkeypatch.setattr(gateway, "authorize_session", redirect)
-    monkeypatch.setattr(gateway, "finish_session", lambda uid, data: {
-        "label": "Composio GitHub", "url": data["url"], "transport": "http",
-        "composio_session_id": data["session_id"], "composio_toolkit": "github",
-        "allowed_tools": []})
     start = client.get("/api/baglantilar/composio/baslat?toolkit=github",
                        headers={"x-test-user": "alice"}, follow_redirects=False)
     assert start.status_code == 302
-    assert start.headers["location"].startswith("https://connect.composio.dev/")
+    assert start.headers["location"].startswith("https://app.composio.dev/link/")
     assert store.list("alice") == []
     callback = urlsplit(saved["callback"])
     cb = client.get(callback.path + "?" + callback.query,
@@ -145,17 +152,18 @@ def test_browser_bound_connect_and_owner_visibility(api_client, gateway, monkeyp
     assert cb.status_code == 303
     assert len(store.list("alice")) == 1
     assert store.list("bob") == []
-    listing = client.get("/api/baglantilar", headers={"x-test-user": "alice"}).json()
-    assert "test-project-key-not-real" not in str(listing)
+    visible = client.get("/api/baglantilar", headers={"x-test-user": "alice"}).json()
+    assert "test-project-key-not-real" not in str(visible)
     assert client.get("/api/baglantilar", headers={"x-test-user": "bob"}).json() == {"connections": []}
+    assert store.list("alice")[0]["metadata"]["url"] == url
 
 
-def test_no_composio_key_keeps_connect_closed(api_client, monkeypatch):
-    client, _, _ = api_client
+def test_missing_key_fails_closed(api_client, monkeypatch):
+    client, _ = api_client
     monkeypatch.delenv("COMPOSIO_API_KEY")
     info = client.get("/api/baglantilar/saglayicilar").json()
-    provider = next(p for p in info["providers"] if p["id"] == "composio")
-    assert provider["configured"] is False
-    start = client.get("/api/baglantilar/composio/baslat?toolkit=github",
-                       headers={"x-test-user": "alice"})
-    assert start.status_code == 503
+    item = next(p for p in info["providers"] if p["id"] == "composio")
+    assert item["configured"] is False
+    response = client.get("/api/baglantilar/composio/baslat?toolkit=github",
+                          headers={"x-test-user": "alice"})
+    assert response.status_code == 503
