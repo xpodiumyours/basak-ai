@@ -381,3 +381,26 @@ def test_session_execute_rejects_documented_failure_shapes(gateway, monkeypatch,
         "composio_account_id": "ca_fixture", "url": url,
     }}, "GITHUB_GET_REPO", {"repository": "owner/repo"})
     assert result["isError"] is True
+
+
+def test_multi_account_selection_is_explicit_and_page_safe(gateway, monkeypatch):
+    call, requests, _ = _fake_api(gateway)
+    def multi(method, path, *, data=None, params=None):
+        if method == "GET" and path.endswith("/toolkits"):
+            if not params.get("cursor"):
+                return {"items": [{"slug": "github", "connected_account": {
+                    "id": "ca_other99", "status": "ACTIVE",
+                    "user_id": gateway._user_id("alice")}}],
+                    "next_cursor": "next-page"}
+            return {"items": [{"slug": "github", "connected_account": {
+                "id": "ca_fixture", "status": "ACTIVE",
+                "user_id": gateway._user_id("alice")}}],
+                "next_cursor": None}
+        return call(method, path, data=data, params=params)
+    monkeypatch.setattr(gateway, "_request", multi)
+    assert gateway._connected_account("trs_fixture99", "github", "alice",
+                                      "ca_fixture") == "ca_fixture"
+    with pytest.raises(gateway.ComposioError, match="belirsiz"):
+        gateway._connected_account("trs_fixture99", "github", "alice")
+    assert not any(method == "POST" and path.endswith("/execute")
+                   for method, path, _, _ in requests)
