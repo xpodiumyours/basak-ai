@@ -339,7 +339,7 @@ def session_execute(user_id, connection, slug, arguments):
     account = _connected_account(sid, toolkit, user_id)
     result = _request("POST", "/api/v3.1/tool_router/session/" + sid + "/execute",
                       data={"tool_slug": slug, "arguments": arguments, "account": account})
-    if result.get("result_type") != "success" or result.get("error"):
+    if result.get("result_type") != "completed" or result.get("error"):
         return {"isError": True, "content": [{"type": "text",
                 "text": "Composio araci basarisiz"}],
                 "structuredContent": {"error": "Composio araci basarisiz"}}
