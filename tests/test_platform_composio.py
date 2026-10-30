@@ -35,8 +35,18 @@ def _fake_api(gateway, user="alice", connected=True):
                 }
             }]}
         if method == "GET" and path.endswith("/trs_fixture99"):
-            return {"config": {"user_id": gateway._user_id(user)},
+            return {"config": {"user_id": gateway._user_id(user),
+                               "toolkits": {"enabled": ["github"]}},
                     "mcp": {"url": url}}
+        if method == "GET" and path.endswith("/tools"):
+            return {"items": [{"slug": "GITHUB_GET_REPO",
+                               "toolkit": {"slug": "github"},
+                               "description": "Read a repository",
+                               "input_parameters": {
+                                   "repository": {"type": "string", "required": True}
+                               }}], "next_cursor": None}
+        if method == "POST" and path.endswith("/execute"):
+            return {"data": {"ok": True, "repository": data["arguments"]["repository"]}}
         if method == "DELETE":
             return {}
         raise AssertionError((method, path))
@@ -60,14 +70,13 @@ def test_tenant_ids_are_distinct(gateway):
 ])
 def test_project_key_is_origin_restricted(gateway, url):
     with pytest.raises(gateway.ComposioError):
-        gateway.mcp_headers(url)
+        gateway.validate_mcp_url(url)
 
 
 def test_project_key_stays_in_server_headers(gateway):
     url = "https://backend.composio.dev/tool_router/v3/trs_12345/mcp"
-    assert gateway.mcp_headers(url) == {"x-api-key": "test-project-key-not-real"}
+    assert gateway.validate_mcp_url(url) == url
     assert gateway.validate_mcp_url("https://app.composio.dev/tool_router/v3/trs_12345/mcp")
-
 
 def test_session_create_and_oauth_link(gateway, monkeypatch):
     call, requests, url = _fake_api(gateway)
@@ -77,7 +86,7 @@ def test_session_create_and_oauth_link(gateway, monkeypatch):
     assert requests[0][2] == {
         "user_id": gateway._user_id("alice"),
         "toolkits": {"enabled": ["github"]},
-        "instant": False,
+        "experimental": {"no_elicitation_support_fallback": "deny"},
     }
     assert gateway.authorize_session("trs_fixture99", "github", "https://basak.example/callback") == (
         "https://app.composio.dev/link/lt_fixture")
@@ -167,3 +176,40 @@ def test_missing_key_fails_closed(api_client, monkeypatch):
     response = client.get("/api/baglantilar/composio/baslat?toolkit=github",
                           headers={"x-test-user": "alice"})
     assert response.status_code == 503
+
+
+def test_direct_rest_tools_are_tenant_scoped_and_never_use_mcp_host(
+        gateway, monkeypatch):
+    from chat.platform_mcp import MCPService
+    from chat.platform_connections import ConnectionStore
+    from chat.kosu_deposu import _SqliteDepo
+    import tempfile
+    call, calls, url = _fake_api(gateway)
+    monkeypatch.setattr(gateway, "_request", call)
+    with tempfile.TemporaryDirectory() as folder:
+        store = ConnectionStore(_SqliteDepo(folder + "/composio.db"))
+        meta = gateway.finish_session("alice", {
+            "session_id": "trs_fixture99", "url": url, "toolkit": "github"})
+        cid = store.save("alice", "mcp", {}, [], meta)["id"]
+        service = MCPService(store)
+        # Discover via REST and do not expose any tool until user enables it.
+        tools = __import__("asyncio").run(
+            service.discover("alice", cid))
+        assert len(tools) == 1
+        t = tools[0]
+        assert t["remote_name"] == "GITHUB_GET_REPO"
+        assert t["inputSchema"]["required"] == ["repository"]
+        with pytest.raises(PermissionError):
+            service.execute_sync("alice", cid, t["name"], {"repository": "owner/repo"})
+        with pytest.raises(PermissionError):
+            service.execute_sync("bob", cid, t["name"], {"repository": "owner/repo"})
+        meta["tools"] = tools
+        meta["allowed_tools"] = [t["name"]]
+        store.save("alice", "mcp", {}, [], meta, cid)
+        result = service.execute_sync("alice", cid, t["name"], {"repository": "owner/repo"})
+        assert result["structuredContent"] == {"ok": True, "repository": "owner/repo"}
+        assert all(path.startswith("/api/v3.1/") for _, path, _, _ in calls)
+        assert ("POST", "/api/v3.1/tool_router/session/trs_fixture99/execute",
+                {"tool_slug": "GITHUB_GET_REPO",
+                 "arguments": {"repository": "owner/repo"},
+                 "account": "ca_fixture"}, None) in calls
