@@ -407,3 +407,23 @@ def test_multi_account_selection_is_explicit_and_page_safe(gateway, monkeypatch)
         gateway._connected_account("trs_fixture99", "github", "alice")
     assert not any(method == "POST" and path.endswith("/execute")
                    for method, path, _, _ in requests)
+
+
+def test_second_account_can_be_added_without_deleting_first(api_client, gateway,
+                                                              monkeypatch):
+    client, store = api_client
+    call, _, url = _fake_api(gateway)
+    monkeypatch.setattr(gateway, "_request", call)
+    original = gateway.finish_session("alice", {
+        "session_id": "trs_fixture99", "url": url, "toolkit": "github"})
+    existing = store.save("alice", "mcp", {}, [], original)
+    begin = client.get("/api/baglantilar/composio/baslat?toolkit=github",
+                       headers={"x-test-user": "alice"}, follow_redirects=False)
+    assert begin.status_code == 302
+    assert store.get("alice", existing["id"]) is not None
+    # A repeated consent for the same account is idempotent.
+    callback = client.get("/api/baglantilar/composio/dogrula?session_uri=uri_fixture_123456",
+                          headers={"x-test-user": "alice"}, follow_redirects=False)
+    assert callback.status_code == 303
+    assert len(store.list("alice")) == 1
+    assert store.list("bob") == []
