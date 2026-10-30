@@ -385,13 +385,11 @@ def session_execute(user_id, connection, slug, arguments):
     account = _bound_account(sid, toolkit, user_id, meta)
     result = _request("POST", "/api/v3.1/tool_router/session/" + sid + "/execute",
                       data={"tool_slug": slug, "arguments": arguments, "account": account})
-    # v3.1 session execute returns {data, error, log_id}; result_type
-    # is not part of the documented response and cannot be mandatory.
-    # If a newer variant supplies it, reject explicit failure states.
+    # Composio v3.1 can fail without an error string. The documented
+    # success discriminator is result_type='completed', not data/status.
     payload = result.get("data")
-    result_type = result.get("result_type")
-    if (result.get("error") or not isinstance(payload, dict)
-            or result_type not in (None, "completed", "success")):
+    if (result.get("result_type") != "completed" or result.get("error")
+            or not isinstance(payload, dict) or result.get("instant_charge")):
         return {"isError": True, "content": [{"type": "text",
                 "text": "Composio araci basarisiz"}],
                 "structuredContent": {"error": "Composio araci basarisiz"}}
