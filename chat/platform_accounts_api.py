@@ -254,7 +254,21 @@ async def composio_verify(request: Request, session_uri: str = ""):
             if (conn["status"] != "revoked"
                     and existing.get("composio_toolkit") == meta.get("composio_toolkit")):
                 return _error("Uygulama zaten bagli", 409)
-        store.save(uid, "mcp", {}, [], meta)
+        row = store.save(uid, "mcp", {}, [], meta)
+        # Connecting an app prepares its actions automatically. Actual
+        # agent execution still passes the immutable per-call approval gate,
+        # and users can narrow the discovered allowlist in Connections.
+        try:
+            tools = await MCPService(store).discover(uid, row["id"])
+            refreshed = store.get(uid, row["id"])
+            updated = {**refreshed["metadata"],
+                       "allowed_tools": [tool["name"] for tool in tools]}
+            store.save(uid, "mcp", store.credentials(uid, row["id"]),
+                       refreshed["scopes"], updated, row["id"])
+        except (ComposioError, RuntimeError, ValueError, PermissionError):
+            # OAuth is single-use; keep the successfully linked account
+            # so the user can retry discovery without repeating consent.
+            pass
         return RedirectResponse("/", status_code=303, headers={
             "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
     except PermissionError:
