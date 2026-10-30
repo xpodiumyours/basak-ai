@@ -174,7 +174,10 @@ def create_session(user_id, toolkit, connected_account=None):
     response = _request("POST", "/api/v3.1/tool_router/session", data=config)
     sid = _sid(response.get("session_id"))
     url = validate_mcp_url((response.get("mcp") or {}).get("url"))
-    return {"session_id": sid, "url": url, "toolkit": toolkit}
+    session = {"session_id": sid, "url": url, "toolkit": toolkit}
+    if connected_account is not None:
+        session["account"] = connected_account
+    return session
 
 
 def authorize_session(session_id, toolkit, callback):
@@ -211,6 +214,15 @@ def _session(user_id, data):
     expected = data.get("toolkit")
     if expected and enabled != [expected]:
         raise ComposioError("Composio oturumunun uygulama yetkisi degisti")
+    pinned = data.get("account")
+    if pinned:
+        _account_id(pinned)
+        overrides = config.get("connected_accounts") or {}
+        ids = overrides.get(expected) if isinstance(overrides, dict) else None
+        if isinstance(ids, str):
+            ids = [ids]
+        if ids != [pinned]:
+            raise ComposioError("Composio oturumu beklenen hesaba sabitlenmemis")
     return sid, url
 
 
