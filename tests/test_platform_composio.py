@@ -208,6 +208,26 @@ def test_catalog_has_managed_oauth_and_no_secret(api_client, gateway, monkeypatc
                       headers={"x-test-user": "alice"}).status_code == 502
 
 
+def test_catalog_keeps_only_provider_owned_logo_hosts(gateway, monkeypatch):
+    def call(method, path, *, data=None, params=None):
+        return {"items": [
+            {"slug": "github", "name": "GitHub",
+             "composio_managed_auth_schemes": ["oauth2"],
+             "meta": {"logo": "https://logos.composio.dev/api/github"}},
+            {"slug": "slack", "name": "Slack",
+             "composio_managed_auth_schemes": ["oauth2"],
+             "meta": {"logo": "https://assets.composio.dev/logos/slack"}},
+            {"slug": "gmail", "name": "Gmail",
+             "composio_managed_auth_schemes": ["oauth2"],
+             "meta": {"logo": "https://evil.example/gmail.png"}}],
+            "next_cursor": None}
+    monkeypatch.setattr(gateway, "_request", call)
+    logos = {item["id"]: item["logo"] for item in gateway.catalog()["toolkits"]}
+    assert logos == {"github": "https://logos.composio.dev/api/github",
+                     "slack": "https://assets.composio.dev/logos/slack",
+                     "gmail": ""}
+
+
 def test_legacy_github_connection_is_retired_but_sign_in_preserved(api_client):
     client, _ = api_client
     url = "/api/baglantilar/oauth/github/baslat"

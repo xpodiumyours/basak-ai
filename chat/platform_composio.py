@@ -21,6 +21,7 @@ TOOLKITS = {
 }
 API_ORIGIN = "https://backend.composio.dev"
 MCP_HOSTS = frozenset(("backend.composio.dev", "app.composio.dev"))
+LOGO_HOSTS = frozenset(("assets.composio.dev", "logos.composio.dev"))
 LINK_HOSTS = frozenset(("connect.composio.dev", "app.composio.dev"))
 
 
@@ -113,7 +114,7 @@ def catalog(search="", cursor="", limit=40):
         else:
             try:
                 parsed = urlsplit(logo)
-                if (parsed.scheme != "https" or parsed.hostname != "assets.composio.dev"
+                if (parsed.scheme != "https" or parsed.hostname not in LOGO_HOSTS
                         or parsed.username or parsed.password or parsed.port not in (None, 443)
                         or parsed.query or parsed.fragment):
                     logo = ""
