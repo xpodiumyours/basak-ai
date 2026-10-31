@@ -197,13 +197,18 @@ class MCPService:
         credentials = self.store.credentials(user_id, connection["id"])
         if credentials.get("expires_at") and float(credentials["expires_at"]) <= time.time() + 30:
             credentials = await asyncio.to_thread(self._refresh, user_id, connection, credentials)
+        # Composio sessions use the same-origin v3.1 REST adapter in
+        # discover/execute below. Never send a project key to an MCP URL.
+        if metadata.get("composio_session_id"):
+            raise PermissionError("Composio baglantisi dogrudan REST API ile calisir")
         headers = {}
         if credentials.get("access_token"):
             headers["Authorization"] = "Bearer " + credentials["access_token"]
 
         async def guard(request):
             validate_endpoint(str(request.url))
-            if urlsplit(str(request.url)).hostname != urlsplit(url).hostname:
+            source, target = urlsplit(url), urlsplit(str(request.url))
+            if target.scheme != source.scheme or target.netloc != source.netloc:
                 raise PermissionError("MCP kaynagi degistirilemez")
 
         async with httpx.AsyncClient(headers=headers, follow_redirects=False, timeout=60,
@@ -240,6 +245,13 @@ class MCPService:
 
     async def discover(self, user_id, connection_id):
         connection = self._owned(user_id, connection_id)
+        if connection["metadata"].get("composio_session_id"):
+            from chat.platform_composio import session_tools
+            tools = await asyncio.to_thread(session_tools, user_id, connection)
+            metadata = {**connection["metadata"], "tools": tools}
+            secret = self.store.credentials(user_id, connection_id)
+            self.store.save(user_id, "mcp", secret, connection["scopes"], metadata, connection_id)
+            return tools
         tools, cursor = [], None
         async with self._session(user_id, connection) as session:
             while True:
@@ -271,6 +283,10 @@ class MCPService:
             Draft202012Validator(schema["inputSchema"]).validate(arguments)
         except Exception as exc:
             raise ValueError("MCP argumanlari semaya uymuyor") from exc
+        if connection["metadata"].get("composio_session_id"):
+            from chat.platform_composio import session_execute
+            return await asyncio.to_thread(session_execute, user_id, connection,
+                                           schema["remote_name"], arguments)
         async with self._session(user_id, connection) as session:
             return normalize_result(await session.call_tool(schema["remote_name"], arguments))
 

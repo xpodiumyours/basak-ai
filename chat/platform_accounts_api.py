@@ -6,6 +6,7 @@ single-use, and scoped to login or one authenticated connection owner.
 import asyncio
 import base64
 import hashlib
+import logging
 import os
 import secrets
 import time
@@ -16,9 +17,13 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from chat.platform_connections import ConnectionStore
+from chat.platform_composio import (ComposioError, TOOLKITS as COMPOSIO_TOOLKITS,
+                                   configured as composio_configured)
 from chat.platform_connectors import ConnectorError, ConnectorService, PROVIDERS, provider_config
 from chat.platform_identity import COOKIE, SESSION_SECONDS, IdentityService, authenticate
 from chat.platform_mcp import MCPService, MCPOAuthError, validate_endpoint
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 _authenticate = authenticate
@@ -103,12 +108,25 @@ async def account_logout(request: Request):
 @router.get("/api/baglantilar/saglayicilar")
 async def connection_providers():
     providers = []
+    # Existing GitHub/Google OAuth is retained only as an identity sign-in
+    # route. All new third-party account connections use Composio.
     for provider, info in PROVIDERS.items():
+        if provider not in ("google", "github"):
+            continue
         cfg = provider_config(provider)
-        providers.append({"id": provider, "label": info["label"], "configured": cfg["configured"], "reason": None if cfg["configured"] else "oauth_not_configured", "login": provider in ("google", "github"), "scopes": info["scopes"], "verification_required": provider == "google"})
-        if provider == "github" and cfg["configured"]:
-            providers[-1]["installation_url"] = ("https://github.com/apps/" +
-                quote(os.environ["BASAK_GITHUB_APP_SLUG"], safe="") + "/installations/new")
+        providers.append({"id": provider, "label": info["label"], "configured": cfg["configured"], "reason": None if cfg["configured"] else "oauth_not_configured", "login": provider in ("google", "github"), "scopes": info["login_scopes"], "login_only": True, "verification_required": provider == "google"})
+    # Two distinct prerequisites: the project key and the dashboard-side
+    # callback verifier. Reporting both as one reason hides which one is
+    # actually missing, so the panel names the failing one.
+    if composio_configured():
+        composio_ok = _composio_verifier_ready()
+        composio_reason = None if composio_ok else "identity_verifier_not_ready"
+    else:
+        composio_ok = False
+        composio_reason = "composio_api_key_missing"
+    providers.append({"id": "composio", "label": "Composio", "configured": composio_ok,
+                      "reason": composio_reason,
+                      "login": False, "scopes": [], "toolkits": []})
     providers.append({"id": "mcp", "label": "MCP", "configured": True, "reason": None, "login": False, "scopes": []})
     return JSONResponse({"providers": providers}, headers={"Cache-Control": "no-store"})
 
@@ -130,11 +148,20 @@ async def connection_revoke(connection_id: str, request: Request):
         return _error("Istek kaynagi gecersiz", 403)
     try:
         uid = _owner(request)
-        if not _store_factory().revoke(uid, connection_id):
+        store = _store_factory()
+        connection = store.get(uid, connection_id)
+        if connection is None:
+            return _error("Baglanti bulunamadi", 404)
+        if connection["provider"] == "mcp" and connection["metadata"].get("composio_session_id"):
+            from chat.platform_composio import disconnect
+            await asyncio.to_thread(disconnect, uid, connection)
+        if not store.revoke(uid, connection_id):
             return _error("Baglanti bulunamadi", 404)
         return Response(status_code=204, headers={"Cache-Control": "no-store"})
     except PermissionError:
         return _error("Hesap girisi gerekli", 401)
+    except ComposioError:
+        return _error("Composio yetkisi kaldirilamadi; tekrar deneyin", 502)
     except RuntimeError:
         return _error("Baglanti kaldirilamadi", 503)
 
@@ -151,13 +178,36 @@ async def connection_permissions(connection_id: str, request: Request):
             return _error("Baglanti bulunamadi", 404)
         body = await request.json()
         allowed = body.get("allowed_tools") if isinstance(body, dict) else None
-        if connection["provider"] != "mcp" or not isinstance(allowed, list) or any(not isinstance(x, str) for x in allowed):
+        enabled = body.get("enabled") if isinstance(body, dict) else None
+        if connection["provider"] != "mcp":
             return _error("Gecerli MCP arac izinleri gerekli")
+        if allowed is not None and (not isinstance(allowed, list)
+                                    or any(not isinstance(x, str) for x in allowed)):
+            return _error("Gecerli MCP arac izinleri gerekli")
+        if allowed is None and enabled is None:
+            return _error("Gecerli MCP arac izinleri gerekli")
+        if enabled is not None and not isinstance(enabled, bool):
+            return _error("Gecerli baglanti durumu gerekli")
         catalog = connection["metadata"].get("tools", [])
         known = {value for tool in catalog for value in (tool.get("name"), tool.get("remote_name"))}
-        if not set(allowed).issubset(known):
+        if allowed is not None and not set(allowed).issubset(known):
             return _error("Izinler kesfedilmis araclarla sinirli olmali")
-        metadata = {**connection["metadata"], "allowed_tools": list(dict.fromkeys(allowed))}
+        metadata = {**connection["metadata"]}
+        selected = list(dict.fromkeys(allowed)) if allowed is not None else list(metadata.get("allowed_tools") or [])
+        if enabled is False:
+            # Closing a connector keeps the chosen tools but grants none: the
+            # executor only reads allowed_tools, so an empty list is fail-closed.
+            metadata.update({"enabled": False, "disabled_tools": selected, "allowed_tools": []})
+        elif enabled is True:
+            restored = selected
+            saved = metadata.get("disabled_tools")
+            if allowed is None and isinstance(saved, list) and saved \
+                    and all(isinstance(x, str) and x in known for x in saved):
+                restored = list(dict.fromkeys(saved))
+            metadata.pop("disabled_tools", None)
+            metadata.update({"enabled": True, "allowed_tools": restored})
+        elif allowed is not None:
+            metadata["allowed_tools"] = selected
         row = store.save(uid, "mcp", store.credentials(uid, connection_id), connection["scopes"], metadata, connection_id)
         return JSONResponse(row, headers={"Cache-Control": "no-store"})
     except PermissionError:
@@ -166,6 +216,118 @@ async def connection_permissions(connection_id: str, request: Request):
         return _error("Gecersiz baglanti istegi")
     except RuntimeError:
         return _error("Baglanti guncellenemedi", 503)
+
+
+@router.get("/api/baglantilar/composio/katalog")
+async def composio_catalog(request: Request, search: str = "", cursor: str = ""):
+    """Project-scoped, paginated catalogue for signed-in users."""
+    if not composio_configured():
+        return _error("Composio projesi yapilandirilmadi", 503)
+    try:
+        _owner(request)
+        from chat.platform_composio import catalog
+        data = await asyncio.to_thread(catalog, search, cursor)
+        return JSONResponse(data, headers={"Cache-Control": "private, no-store"})
+    except PermissionError:
+        return _error("Hesap girisi gerekli", 401)
+    except ComposioError:
+        return _error("Composio uygulama katalogu alinamadi", 502)
+
+
+def _composio_verifier_ready():
+    # Composio callback identity verification must be enabled on the project.
+    # A value in Vercel by itself does not configure the Composio dashboard.
+    return os.environ.get("BASAK_COMPOSIO_VERIFIER_READY") == "1"
+
+
+@router.get("/api/baglantilar/composio/baslat")
+async def composio_start(request: Request, toolkit: str = "github"):
+    """Authorize an app through Composio, not through a custom GitHub App."""
+    from chat.platform_composio import _slug, create_session, authorize_session
+    try:
+        _slug(toolkit)
+    except ComposioError:
+        return _error("Gecersiz Composio uygulamasi")
+    if not composio_configured() or not _composio_verifier_ready():
+        return _error("Composio proje anahtari ve OAuth kimlik dogrulamasi gerekli", 503)
+    try:
+        uid = _owner(request)
+        store = _store_factory()
+        # Each verified OAuth return is pinned to its own connected_account_id,
+        # so an owner may connect several accounts of the same toolkit.
+        data = await asyncio.to_thread(create_session, uid, toolkit)
+        callback = _public_base() + "/api/baglantilar/composio/dogrula"
+        target = await asyncio.to_thread(authorize_session, data["session_id"], toolkit, callback)
+        return RedirectResponse(target, status_code=302, headers={
+            "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+    except PermissionError:
+        return _error("Hesap girisi gerekli", 401)
+    except ComposioError:
+        return _error("Composio baglantisi baslatilamadi", 502)
+    except RuntimeError:
+        return _error("Baglanti deposu veya donus adresi kullanilamiyor", 503)
+
+
+@router.get("/api/baglantilar/composio/dogrula")
+async def composio_verify(request: Request, session_uri: str = "",
+                          status: str = "", connected_account_id: str = ""):
+    """Composio calls this browser endpoint after OAuth consent.
+
+    The caller must have a Başak login. A tool_router /link round returns
+    status and connected_account_id; the account is only stored after
+    Composio itself reports it ACTIVE for our exact signed-in user.
+    A stricter identity-verifier round carries session_uri instead.
+    """
+    if not _composio_verifier_ready() or not composio_configured():
+        return _error("Composio OAuth kimlik dogrulama ayari eksik", 503)
+    try:
+        from chat.platform_composio import complete_linked_auth, complete_verified_auth
+        uid = _owner(request)
+        store = _store_factory()
+        if session_uri:
+            meta = await asyncio.to_thread(complete_verified_auth, uid, session_uri)
+        elif status == "success" and connected_account_id:
+            meta = await asyncio.to_thread(complete_linked_auth, uid, connected_account_id)
+        else:
+            raise ComposioError("Composio dogrulama donusu eksik")
+        for conn in store.list(uid):
+            existing = conn.get("metadata") or {}
+            if (conn["status"] != "revoked"
+                    and existing.get("composio_account_id") == meta.get("composio_account_id")):
+                return RedirectResponse("/", status_code=303, headers={
+                    "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+        row = store.save(uid, "mcp", {}, [], meta)
+        # Connecting an app prepares its actions automatically. Actual
+        # agent execution still passes the immutable per-call approval gate,
+        # and users can narrow the discovered allowlist in Connections.
+        try:
+            tools = await MCPService(store).discover(uid, row["id"])
+            refreshed = store.get(uid, row["id"])
+            updated = {**refreshed["metadata"],
+                       "allowed_tools": [tool["name"] for tool in tools]}
+            store.save(uid, "mcp", store.credentials(uid, row["id"]),
+                       refreshed["scopes"], updated, row["id"])
+        except (ComposioError, RuntimeError, ValueError, PermissionError) as exc:
+            # OAuth is single-use; keep the successfully linked account
+            # so the user can retry discovery without repeating consent.
+            logger.warning("Composio arac kesfi basarisiz (baglanti korundu): %s",
+                           type(exc).__name__)
+        return RedirectResponse("/", status_code=303, headers={
+            "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+    except PermissionError:
+        return _error("Bu Composio baglantisi icin hesap girisi gerekli", 401)
+    except ComposioError as exc:
+        # Composio hata metinleri sabit kalıplardır, kimlik taşımaz; hangi
+        # aşamada takıldığını gizlemek hata ayıklamayı körleştirir.
+        return _error("Composio OAuth kimligi dogrulanamadi: %s" % exc, 502)
+    except RuntimeError:
+        return _error("Baglanti deposu kullanilamiyor", 503)
+
+
+@router.get("/api/baglantilar/composio/callback")
+async def composio_callback(request: Request, state: str = "", error: str = ""):
+    """Reject the old state-only callback: it does not prove provider identity."""
+    return _error("Eski Composio OAuth donusu guvenlik icin kapatildi", 410)
 
 
 @router.post("/api/baglantilar/mcp")
@@ -262,6 +424,8 @@ async def connection_discover(connection_id: str, request: Request):
 
 @router.get("/api/baglantilar/oauth/{provider}/baslat")
 async def oauth_start(provider: str, request: Request, purpose: str = "connect"):
+    if purpose == "connect" and provider in ("github", "google", "notion"):
+        return _error("Yeni platform baglantilari Composio uzerinden kurulur", 410)
     try:
         cfg = provider_config(provider)
         if not cfg["configured"]:
@@ -335,6 +499,8 @@ def _exchange(provider, cfg, code, verifier, callback, purpose="connect"):
 
 @router.get("/api/baglantilar/oauth/{provider}/callback")
 async def oauth_callback(provider: str, request: Request, state: str = "", code: str = "", error: str = ""):
+    # Do not complete an already-issued legacy account-link attempt.
+    # Sign-in attempts remain valid to avoid logging people out.
     try:
         cfg = provider_config(provider)
         browser = request.cookies.get(BROWSER_COOKIE, "")
@@ -342,6 +508,8 @@ async def oauth_callback(provider: str, request: Request, state: str = "", code:
             raise PermissionError()
         store = _store_factory()
         attempt = store.oauth_consume(state, provider, browser)
+        if attempt["purpose"] == "connect" and provider in ("github", "google", "notion"):
+            return _error("Eski OAuth baglanti akisi kapatildi", 410)
         if attempt["purpose"] == "connect" and _authenticate(request) != attempt["user_id"]:
             raise PermissionError()
         if error or not code or not cfg["configured"]:

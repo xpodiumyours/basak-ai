@@ -7,6 +7,10 @@
 BASAK_PRODUCTION_DATABASE_URL=
 # Must match the Vercel Production connection encryption key byte for byte.
 BASAK_CONNECTION_KEY=
+# Composio project key, byte for byte the same as the Production web environment.
+# The worker executes Composio tools with it; the release preflight fails unless
+# this is set under exactly this name.
+COMPOSIO_API_KEY=
 # Only provider credentials that are approved for the Production worker.
 GROQ_API_KEY=
 GEMINI_API_KEY=
