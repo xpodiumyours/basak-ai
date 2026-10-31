@@ -111,6 +111,11 @@
 .workspace-toolkit-detail .workspace-muted{font-size:10px;line-height:1.45;margin:3px 0 0}
 .workspace-toolkit>.workspace-button{margin:0;white-space:nowrap;flex:none}
 .workspace-toolkit-connected{font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap}
+.workspace-toolkit-count{margin:0;padding:2px 2px;border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex:none}
+.workspace-toolkit-count:hover{color:var(--workspace-accent)}
+.workspace-toolkit-link{font-size:12px;font-weight:600;white-space:nowrap;flex:none;margin:0}
+.workspace-toolkit-connect{color:var(--muted)}
+.workspace-toolkit-connect:hover{color:var(--workspace-accent)}
 
 .workspace-mcp-form{display:flex;flex-direction:column;gap:8px;margin-top:24px}
 .workspace-mcp-form h3{font-size:12px;font-weight:600;margin:0 0 8px}

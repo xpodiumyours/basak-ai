@@ -819,12 +819,20 @@
         detail.append(node("strong", "", toolkit.label));
         if (toolkit.description) detail.append(node("p", "workspace-muted", toolkit.description));
         item.append(detail);
-        const count = connected.filter((connection) =>
-          connection.metadata?.composio_toolkit === toolkit.id).length;
-        if (count) item.append(node("span", "workspace-toolkit-connected", count + " bağlı"));
-        const link = node("a", "workspace-button", count ? "Hesap ekle" : "Bağlan");
+        const mine = connected.filter((connection) =>
+          connection.metadata?.composio_toolkit === toolkit.id);
+        if (mine.length) {
+          // Bağlı uygulama: satır sağında hesap sayısı, tıklayınca yönet görünümü.
+          const chip = node("button", "workspace-toolkit-count", String(mine.length) + " ›");
+          chip.type = "button";
+          chip.setAttribute("aria-label", toolkit.label + ": " + mine.length + " bağlı hesap");
+          chip.addEventListener("click", () => { connectorView = "manage"; renderPreview(); });
+          item.append(chip);
+        }
+        const link = node("a", mine.length ? "workspace-text-button workspace-toolkit-link" : "workspace-toolkit-link workspace-toolkit-connect",
+          mine.length ? "Hesap ekle" : "Bağlan");
         link.href = "/api/baglantilar/composio/baslat?toolkit=" + encodeURIComponent(toolkit.id);
-        link.setAttribute("aria-label", toolkit.label + (count ? " için başka hesap ekle" : " hesabını bağla"));
+        link.setAttribute("aria-label", toolkit.label + (mine.length ? " için başka hesap ekle" : " hesabını bağla"));
         item.append(link);
         container.append(item);
       }
