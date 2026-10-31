@@ -125,3 +125,7 @@ data/_*.json
 tunnel-log.txt
 GOREV-*.md
 .pydeps/
+
+.v-kesit*
+.v-bKey*
+.v-oKey*

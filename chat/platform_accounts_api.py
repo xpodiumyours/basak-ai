@@ -269,34 +269,27 @@ async def composio_start(request: Request, toolkit: str = "github"):
 
 
 @router.get("/api/baglantilar/composio/dogrula")
-async def composio_verify(request: Request, session_uri: str = "",
-                          status: str = "", connected_account_id: str = ""):
+async def composio_verify(request: Request, session_uri: str = ""):
     """Composio calls this browser endpoint after OAuth consent.
 
-    The caller must have a Başak login. A tool_router /link round returns
-    status and connected_account_id; the account is only stored after
-    Composio itself reports it ACTIVE for our exact signed-in user.
-    A stricter identity-verifier round carries session_uri instead.
+    The caller must have a Başak login. Composio verifies that the person
+    returning from the provider owns the connection.
     """
     if not _composio_verifier_ready() or not composio_configured():
         return _error("Composio OAuth kimlik dogrulama ayari eksik", 503)
     try:
-        from chat.platform_composio import complete_linked_auth, complete_verified_auth
+        from chat.platform_composio import complete_verified_auth
         uid = _owner(request)
         store = _store_factory()
-        if session_uri:
-            meta = await asyncio.to_thread(complete_verified_auth, uid, session_uri)
-        elif status == "success" and connected_account_id:
-            meta = await asyncio.to_thread(complete_linked_auth, uid, connected_account_id)
-        else:
-            raise ComposioError("Composio dogrulama donusu eksik")
+        meta = await asyncio.to_thread(complete_verified_auth, uid, session_uri)
         for conn in store.list(uid):
             existing = conn.get("metadata") or {}
-            if (conn["status"] != "revoked"
-                    and existing.get("composio_account_id") == meta.get("composio_account_id")):
+            if (conn["status"] == "connected"
+                    and existing.get("composio_account_id") == meta.get("composio_account_id")
+                    and store.credentials(uid, conn["id"]).get("composio_verified_account") == meta.get("composio_account_id")):
                 return RedirectResponse("/", status_code=303, headers={
                     "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
-        row = store.save(uid, "mcp", {}, [], meta)
+        row = store.save(uid, "mcp", {"composio_verified_account": meta["composio_account_id"]}, [], meta)
         # Connecting an app prepares its actions automatically. Actual
         # agent execution still passes the immutable per-call approval gate,
         # and users can narrow the discovered allowlist in Connections.

@@ -69,7 +69,10 @@ def _fake_api(gateway, user="alice", connected=True):
                                "toolkit": {"slug": "github"},
                                "description": "Read a repository",
                                "input_parameters": {
-                                   "repository": {"type": "string", "required": True}
+                                   "type": "object",
+                                   "properties": {"repository": {"type": "string"}},
+                                   "required": ["repository"],
+                                   "additionalProperties": False,
                                }}], "next_cursor": None}
         if method == "POST" and path.endswith("/execute"):
             return {"result_type": "completed", "data": {"ok": True, "repository": data["arguments"]["repository"]}}
@@ -228,21 +231,35 @@ def test_catalog_keeps_only_provider_owned_logo_hosts(gateway, monkeypatch):
                      "gmail": ""}
 
 
-def test_complete_linked_auth_accepts_only_our_active_account(gateway, monkeypatch):
-    call, _, url = _fake_api(gateway)
+def test_pre_verifier_connection_cannot_discover_or_execute(api_client, gateway, monkeypatch):
+    from chat.platform_mcp import MCPService
+    client, store = api_client
+    call, calls, url = _fake_api(gateway)
     monkeypatch.setattr(gateway, "_request", call)
-    meta = gateway.complete_linked_auth("alice", "ca_fixture")
-    assert meta["composio_account_id"] == "ca_fixture"
-    assert meta["composio_toolkit"] == "github"
-    with pytest.raises(gateway.ComposioError):
-        gateway.complete_linked_auth("alice", "ca_wrong_user")
+    legacy = gateway.finish_session("alice", {
+        "session_id": "trs_fixture99", "url": url, "toolkit": "github"})
+    legacy["tools"] = [{"name": "legacy_tool", "remote_name": "GITHUB_GET_REPO",
+                        "inputSchema": {"type": "object"}}]
+    legacy["allowed_tools"] = ["legacy_tool"]
+    connection = store.save("alice", "mcp", {}, [], legacy)
+    service = MCPService(store)
+    with pytest.raises(PermissionError):
+        __import__("asyncio").run(service.discover("alice", connection["id"]))
+    with pytest.raises(PermissionError):
+        service.execute_sync("alice", connection["id"], "legacy_tool", {})
+    assert not any(path.endswith(("/tools", "/execute")) for _, path, _, _ in calls)
 
 
-def test_complete_linked_auth_rejects_inactive_account(gateway, monkeypatch):
-    call, _, _ = _fake_api(gateway, connected=False)
+def test_unverified_link_callback_is_rejected_even_for_owners_active_account(api_client, gateway, monkeypatch):
+    client, store = api_client
+    call, requests, _ = _fake_api(gateway)
     monkeypatch.setattr(gateway, "_request", call)
-    with pytest.raises(gateway.ComposioError):
-        gateway.complete_linked_auth("alice", "ca_fixture")
+    response = client.get(
+        "/api/baglantilar/composio/dogrula?status=success&connected_account_id=ca_fixture",
+        headers={"x-test-user": "alice"}, follow_redirects=False)
+    assert response.status_code == 502
+    assert requests == []
+    assert store.list("alice") == []
 
 
 def test_legacy_github_connection_is_retired_but_sign_in_preserved(api_client):
@@ -288,9 +305,9 @@ def test_direct_rest_tools_are_tenant_scoped_and_never_use_mcp_host(
     monkeypatch.setattr(gateway, "_request", call)
     with tempfile.TemporaryDirectory() as folder:
         store = ConnectionStore(_SqliteDepo(folder + "/composio.db"))
-        meta = gateway.finish_session("alice", {
-            "session_id": "trs_fixture99", "url": url, "toolkit": "github"})
-        cid = store.save("alice", "mcp", {}, [], meta)["id"]
+        meta = gateway.complete_verified_auth("alice", "uri_fixture_123456")
+        credentials = {"composio_verified_account": meta["composio_account_id"]}
+        cid = store.save("alice", "mcp", credentials, [], meta)["id"]
         service = MCPService(store)
         # Discover via REST and do not expose any tool until user enables it.
         tools = __import__("asyncio").run(
@@ -305,7 +322,7 @@ def test_direct_rest_tools_are_tenant_scoped_and_never_use_mcp_host(
             service.execute_sync("bob", cid, t["name"], {"repository": "owner/repo"})
         meta["tools"] = tools
         meta["allowed_tools"] = [t["name"]]
-        store.save("alice", "mcp", {}, [], meta, cid)
+        store.save("alice", "mcp", credentials, [], meta, cid)
         result = service.execute_sync("alice", cid, t["name"], {"repository": "owner/repo"})
         assert result["structuredContent"] == {"ok": True, "repository": "owner/repo"}
         assert all(path.startswith("/api/v3.1/") for _, path, _, _ in calls)
@@ -313,6 +330,9 @@ def test_direct_rest_tools_are_tenant_scoped_and_never_use_mcp_host(
                 {"tool_slug": "GITHUB_GET_REPO",
                  "arguments": {"repository": "owner/repo"},
                  "account": "ca_fixture"}, None) in calls
+        # sqlite connections held by reference cycles must be finalized before
+        # TemporaryDirectory can remove its files on Windows.
+        __import__("gc").collect()
 
 
 def test_callback_rejects_cross_user_connected_account(gateway, monkeypatch):
@@ -323,6 +343,38 @@ def test_callback_rejects_cross_user_connected_account(gateway, monkeypatch):
     # Never even create a session when account ownership cannot be proven.
     assert not any(path == "/api/v3.1/tool_router/session" for _, path, _, _ in calls)
 
+
+
+def test_session_tools_preserves_documented_json_schema(gateway, monkeypatch):
+    call, _, url = _fake_api(gateway)
+    schema = {
+        "type": "object",
+        "properties": {
+            "repository": {"type": "string", "description": "Repository name"},
+            "options": {"type": "object", "properties": {
+                "limit": {"type": "integer", "minimum": 1}
+            }},
+        },
+        "required": ["repository"],
+        "additionalProperties": False,
+    }
+
+    def documented(method, path, *, data=None, params=None):
+        response = call(method, path, data=data, params=params)
+        if method == "GET" and path.endswith("/tools"):
+            response["items"][0]["input_parameters"] = schema
+        return response
+
+    monkeypatch.setattr(gateway, "_request", documented)
+    tools = gateway.session_tools("alice", {"id": "connection1", "metadata": {
+        "composio_toolkit": "github", "composio_session_id": "trs_fixture99",
+        "composio_account_id": "ca_fixture", "url": url,
+    }})
+    assert tools[0]["inputSchema"] == schema
+    from jsonschema import Draft202012Validator
+    validator = Draft202012Validator(tools[0]["inputSchema"])
+    assert validator.is_valid({"repository": "repo", "options": {"limit": 2}})
+    assert not validator.is_valid({"options": {"limit": 0}})
 
 
 def test_documented_v31_rest_execute_response_succeeds(gateway, monkeypatch):
@@ -457,9 +509,8 @@ def test_second_account_can_be_added_without_deleting_first(api_client, gateway,
     client, store = api_client
     call, _, url = _fake_api(gateway)
     monkeypatch.setattr(gateway, "_request", call)
-    original = gateway.finish_session("alice", {
-        "session_id": "trs_fixture99", "url": url, "toolkit": "github"})
-    existing = store.save("alice", "mcp", {}, [], original)
+    original = gateway.complete_verified_auth("alice", "uri_fixture_123456")
+    existing = store.save("alice", "mcp", {"composio_verified_account": original["composio_account_id"]}, [], original)
     begin = client.get("/api/baglantilar/composio/baslat?toolkit=github",
                        headers={"x-test-user": "alice"}, follow_redirects=False)
     assert begin.status_code == 302

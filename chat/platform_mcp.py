@@ -174,6 +174,11 @@ class MCPService:
         connection = self.store.get(user_id, connection_id)
         if not connection or connection["provider"] != "mcp" or connection["status"] != "connected":
             raise PermissionError("MCP baglantisi kullanilamiyor")
+        meta = connection["metadata"]
+        if meta.get("composio_session_id"):
+            verified = self.store.credentials(user_id, connection_id).get("composio_verified_account")
+            if not verified or verified != meta.get("composio_account_id"):
+                raise PermissionError("Composio icin yeniden dogrulanmis baglanti gerekli")
         return connection
 
     @asynccontextmanager
