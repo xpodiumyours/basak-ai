@@ -783,7 +783,9 @@
       container.append(node("p", "workspace-muted",
         composio && composio.reason === "identity_verifier_not_ready"
           ? "Bağlantı servisi hazır değil: Composio OAuth kimlik doğrulaması sunucuda tamamlanmamış."
-          : "Sunucu bağlantısı yapılandırılmadı."));
+          : composio && composio.reason === "composio_api_key_missing"
+            ? "Bağlantı servisi hazır değil: sunucuda COMPOSIO_API_KEY tanımlı değil."
+            : "Sunucu bağlantısı yapılandırılmadı."));
     } else {
       const search = node("form", "workspace-mcp-form workspace-connector-search");
       const entry = node("input");

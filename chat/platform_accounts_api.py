@@ -115,8 +115,17 @@ async def connection_providers():
             continue
         cfg = provider_config(provider)
         providers.append({"id": provider, "label": info["label"], "configured": cfg["configured"], "reason": None if cfg["configured"] else "oauth_not_configured", "login": provider in ("google", "github"), "scopes": info["login_scopes"], "login_only": True, "verification_required": provider == "google"})
-    providers.append({"id": "composio", "label": "Composio", "configured": bool(composio_configured() and _composio_verifier_ready()),
-                      "reason": None if (composio_configured() and _composio_verifier_ready()) else "identity_verifier_not_ready",
+    # Two distinct prerequisites: the project key and the dashboard-side
+    # callback verifier. Reporting both as one reason hides which one is
+    # actually missing, so the panel names the failing one.
+    if composio_configured():
+        composio_ok = _composio_verifier_ready()
+        composio_reason = None if composio_ok else "identity_verifier_not_ready"
+    else:
+        composio_ok = False
+        composio_reason = "composio_api_key_missing"
+    providers.append({"id": "composio", "label": "Composio", "configured": composio_ok,
+                      "reason": composio_reason,
                       "login": False, "scopes": [], "toolkits": []})
     providers.append({"id": "mcp", "label": "MCP", "configured": True, "reason": None, "login": False, "scopes": []})
     return JSONResponse({"providers": providers}, headers={"Cache-Control": "no-store"})

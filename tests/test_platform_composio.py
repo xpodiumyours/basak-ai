@@ -218,6 +218,10 @@ def test_legacy_github_connection_is_retired_but_sign_in_preserved(api_client):
 def test_identity_verifier_is_mandatory(api_client, monkeypatch):
     client, _ = api_client
     monkeypatch.delenv("BASAK_COMPOSIO_VERIFIER_READY")
+    item = next(p for p in client.get("/api/baglantilar/saglayicilar").json()["providers"]
+                if p["id"] == "composio")
+    # Key is present here, so the verifier is the one reported as missing.
+    assert item["reason"] == "identity_verifier_not_ready"
     assert client.get("/api/baglantilar/composio/baslat?toolkit=github",
                       headers={"x-test-user": "alice"}).status_code == 503
     assert client.get("/api/baglantilar/composio/dogrula?session_uri=uri_fixture_123456",
@@ -230,6 +234,8 @@ def test_missing_key_fails_closed(api_client, monkeypatch):
     info = client.get("/api/baglantilar/saglayicilar").json()
     item = next(p for p in info["providers"] if p["id"] == "composio")
     assert item["configured"] is False
+    # The panel must name the missing prerequisite, not a generic one.
+    assert item["reason"] == "composio_api_key_missing"
     response = client.get("/api/baglantilar/composio/baslat?toolkit=github",
                           headers={"x-test-user": "alice"})
     assert response.status_code == 503
