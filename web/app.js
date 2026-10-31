@@ -2419,20 +2419,21 @@ if (sidebarBackdropEl) sidebarBackdropEl.addEventListener("click", sidebarKapat)
 function kimligiCiz() {
   const d = window.basakKimlik;
   if (!d || !kimlikSatirEl || !kullaniciAdEl) return;
-  kullaniciAdEl.textContent = "Başak ID · " + (d.basak_id || d.kullanici);
+  const kimlik = String(d.basak_id || d.kullanici || "");
+  kullaniciAdEl.textContent = kimlik;
+  kimlikSatirEl.dataset.kimlik = kimlik;
   kimlikSatirEl.hidden = false;
 }
 
-// Kimlik çipi: tek dokunuşta kopyalar (destek/destek yazışması için).
+// Kimlik çipi: tek dokunuşta kopyalar (destek yazışması için).
 if (kimlikSatirEl) {
   kimlikSatirEl.addEventListener("click", async () => {
-    const ham = String((kullaniciAdEl && kullaniciAdEl.textContent) || "");
-    const kimlik = ham.replace(/^Başak ID\s*·\s*/, "").trim();
+    const kimlik = String(kimlikSatirEl.dataset.kimlik || "");
+    if (!kimlik || !kullaniciAdEl) return;
     const oldu = await panoyaKopyala(kimlik);
-    if (!kullaniciAdEl) return;
-    const eski = "Başak ID · " + kimlik;
-    kullaniciAdEl.textContent = oldu ? "Kopyalandı · " + kimlik : eski;
-    setTimeout(() => { kullaniciAdEl.textContent = eski; }, 1600);
+    if (!oldu) return;
+    kullaniciAdEl.textContent = "Kopyalandı";
+    setTimeout(() => { kullaniciAdEl.textContent = kimlik; }, 1600);
   });
 }
 
