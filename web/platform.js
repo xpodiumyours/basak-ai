@@ -566,172 +566,317 @@
     if (wasBottom) container.scrollTop = container.scrollHeight;
   }
 
+  const CONNECTOR_ICONS = {
+    add: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">' +
+      '<path d="M8 3.2v9.6M3.2 8h9.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    manage: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">' +
+      '<path d="M2.4 4.6h11.2M2.4 11.4h11.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>' +
+      '<circle cx="5.6" cy="4.6" r="1.9" fill="currentColor"/><circle cx="10.4" cy="11.4" r="1.9" fill="currentColor"/></svg>',
+  };
+  // "Uygulama ekle" and "Bağlantıları yönet" are two views of one panel, the
+  // way a connectors sheet works: entry rows first, then the list they open.
+  let connectorView = "";
+
+  function connectorStatusText(connection) {
+    return { connected: "Bağlı", reauth_required: "Yeniden giriş gerekli" }[connection.status] || connection.status;
+  }
+
+  function activeConnections() {
+    return state.connections.filter((connection) => connection.status !== "revoked");
+  }
+
+  function connectorActions(view) {
+    const actions = node("div", "workspace-connector-actions");
+    actions.setAttribute("role", "group");
+    actions.setAttribute("aria-label", "Bağlantı işlemleri");
+    for (const entry of [{ kind: "add", label: "Uygulama ekle" },
+                         { kind: "manage", label: "Bağlantıları yönet" }]) {
+      const row = node("button", "workspace-connector-row");
+      row.type = "button";
+      row.dataset.connectorView = entry.kind;
+      row.setAttribute("aria-pressed", String(view === entry.kind));
+      const icon = node("span", "workspace-connector-icon");
+      icon.innerHTML = CONNECTOR_ICONS[entry.kind];
+      const chevron = node("span", "workspace-connector-chevron", "›");
+      chevron.setAttribute("aria-hidden", "true");
+      row.append(icon, node("span", "workspace-connector-label", entry.label), chevron);
+      row.addEventListener("click", () => { connectorView = entry.kind; renderPreview(); });
+      actions.append(row);
+    }
+    return actions;
+  }
+
+  function connectorTile(connection) {
+    const toolkit = connection.metadata && connection.metadata.composio_toolkit;
+    const logo = ((state.composioCatalog || {}).toolkits || []).find((item) => item.id === toolkit);
+    const label = connection.label || toolkit || "MCP";
+    if (logo && logo.logo) {
+      const image = node("img", "workspace-connector-logo");
+      image.src = logo.logo;
+      image.alt = "";
+      image.loading = "lazy";
+      image.referrerPolicy = "no-referrer";
+      return image;
+    }
+    const letter = node("span", "workspace-connector-letter", label.trim().charAt(0).toUpperCase() || "?");
+    letter.setAttribute("aria-hidden", "true");
+    return letter;
+  }
+
+  function connectorToggle(connection) {
+    const enabled = (connection.metadata || {}).enabled !== false;
+    const name = connection.label || "Bağlantı";
+    const toggle = node("button", "workspace-switch");
+    toggle.type = "button";
+    toggle.setAttribute("role", "switch");
+    toggle.setAttribute("aria-checked", String(enabled));
+    toggle.setAttribute("aria-label", name + (enabled ? " bağlantısını kapat" : " bağlantısını aç"));
+    toggle.addEventListener("click", async () => {
+      toggle.disabled = true;
+      try {
+        await client.write("/api/baglantilar/" + encodeURIComponent(connection.id), { enabled: !enabled }, "PATCH");
+        await refreshConnections();
+        message(enabled ? name + " kapatıldı: ajan bu hesaptan okuma ve yazma yapamaz."
+                        : name + " açıldı: kaydedilmiş araç izinleri yeniden etkin.");
+      } catch (error) { handleError(error); }
+      finally { toggle.disabled = false; }
+    });
+    return toggle;
+  }
+
+  function connectorPermissionForm(connection, host) {
+    return async (event) => {
+      const button = event.currentTarget;
+      const existing = host.querySelector(".workspace-tool-list");
+      if (existing) {
+        existing.remove();
+        button.setAttribute("aria-expanded", "false");
+        return;
+      }
+      button.disabled = true;
+      try {
+        const data = await client.write("/api/baglantilar/" + encodeURIComponent(connection.id) + "/kesfet", {});
+        const form = node("form", "workspace-tool-list");
+        form.append(node("p", "workspace-muted", "Ajanın bu bağlantıda kullanabileceği araçları seç."));
+        const inputs = [];
+        const allowed = (connection.metadata && connection.metadata.allowed_tools) || [];
+        for (const tool of data.tools || []) {
+          const label = node("label", "workspace-tool-choice");
+          const input = node("input");
+          input.type = "checkbox";
+          input.value = tool.name;
+          input.checked = allowed.includes(tool.name);
+          inputs.push(input);
+          label.append(input, node("span", "", tool.name));
+          form.append(label);
+        }
+        const save = node("button", "workspace-button", "Araç izinlerini kaydet");
+        save.type = "submit";
+        form.append(save);
+        form.addEventListener("submit", async (submitEvent) => {
+          submitEvent.preventDefault();
+          save.disabled = true;
+          try {
+            await client.write("/api/baglantilar/" + encodeURIComponent(connection.id), {
+              allowed_tools: inputs.filter((input) => input.checked).map((input) => input.value),
+            }, "PATCH");
+            message("Bağlantı izinleri kaydedildi.");
+            await refreshConnections();
+          } catch (error) { handleError(error); save.disabled = false; }
+        });
+        host.append(form);
+        button.setAttribute("aria-expanded", "true");
+      } catch (error) { handleError(error); }
+      finally { button.disabled = false; }
+    };
+  }
+
+  function renderConnectorManage(container, connected) {
+    container.append(node("h3", "workspace-connector-heading", "Bağlı hesaplarım"));
+    if (!connected.length) {
+      container.append(node("p", "workspace-muted", "Henüz bağlı hesap yok. “Uygulama ekle” ile başla."));
+      return;
+    }
+    for (const connection of connected) {
+      const meta = connection.metadata || {};
+      const toolkit = meta.composio_toolkit || "";
+      const host = node("div", "workspace-connector-card");
+      const item = node("div", "workspace-connector-item");
+      const detail = node("div", "workspace-connector-detail");
+      detail.append(node("strong", "", connection.label || "Bağlantı"));
+      const peers = toolkit
+        ? connected.filter((other) => (other.metadata || {}).composio_toolkit === toolkit).length : 1;
+      detail.append(node("p", "workspace-muted",
+        connectorStatusText(connection) + (peers > 1 ? " · " + peers + " hesap" : "")));
+      if (connection.provider === "github" && Array.isArray(meta.repositories)) {
+        detail.append(node("p", "workspace-muted", "Depolar: " + meta.repositories.join(", ")));
+      }
+      item.append(connectorTile(connection), detail);
+
+      const remove = node("button", "workspace-text-button", "Erişimi kaldır");
+      remove.type = "button";
+      remove.addEventListener("click", async () => {
+        remove.disabled = true;
+        try {
+          await client.write("/api/baglantilar/" + encodeURIComponent(connection.id), {}, "DELETE");
+          await refreshConnections();
+          message("Bağlantının erişimi kaldırıldı.");
+        } catch (error) { handleError(error); remove.disabled = false; }
+      });
+      if (connection.provider === "mcp") {
+        const manage = node("button", "workspace-text-button", "Yönet");
+        manage.type = "button";
+        manage.setAttribute("aria-expanded", "false");
+        manage.addEventListener("click", connectorPermissionForm(connection, host));
+        item.append(connectorToggle(connection), manage, remove);
+      } else {
+        item.append(remove);
+      }
+      host.append(item);
+      container.append(host);
+    }
+  }
+
+  function mcpAddForm() {
+    const form = node("form", "workspace-mcp-form");
+    const label = node("label", "", "MCP sunucu adı");
+    const input = node("input");
+    input.required = true;
+    input.name = "label";
+    input.id = "platformMcpLabel";
+    label.htmlFor = input.id;
+    const urlLabel = node("label", "", "HTTPS MCP adresi");
+    const url = node("input");
+    url.type = "url";
+    url.required = true;
+    url.name = "url";
+    url.id = "platformMcpUrl";
+    url.placeholder = "https://sunucu.example/mcp";
+    urlLabel.htmlFor = url.id;
+    const submit = node("button", "workspace-button", "MCP bağlantısı ekle");
+    submit.type = "submit";
+    const feedback = node("p", "workspace-muted");
+    feedback.setAttribute("role", "status");
+    form.append(node("h3", "", "Yeni MCP bağlantısı"), label, input, urlLabel, url,
+      node("p", "workspace-muted", "Adresin içine parola veya anahtar koyma. Yetkilendirme gerektiğinde ayrı bağlantı adımı kullanılır."), submit, feedback);
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      submit.disabled = true;
+      try {
+        await client.write("/api/baglantilar/mcp", { label: input.value.trim(), url: url.value.trim(), allowed_tools: [] });
+        await refreshConnections();
+        message("MCP bağlantısı kaydedildi; araç ve yetki kontrolünü açabilirsin.");
+      } catch (error) { feedback.textContent = error.message; feedback.className = "workspace-error"; }
+      finally { submit.disabled = false; }
+    });
+    return form;
+  }
+
+  function renderConnectorCatalog(container, connected) {
+    container.append(node("h3", "workspace-connector-heading", "Uygulama keşfet"));
+    const composio = state.providers.find((provider) => provider.id === "composio");
+    if (!state.providers.length) {
+      container.append(node("p", "workspace-muted", "Bağlantı bilgileri alınamadı. Yenilemeyi deneyebilirsin."));
+    } else if (!composio || !composio.configured) {
+      // The API already reports which prerequisite is missing; show it instead
+      // of a generic failure so the owner knows what to finish.
+      container.append(node("p", "workspace-muted",
+        composio && composio.reason === "identity_verifier_not_ready"
+          ? "Bağlantı servisi hazır değil: Composio OAuth kimlik doğrulaması sunucuda tamamlanmamış."
+          : "Sunucu bağlantısı yapılandırılmadı."));
+    } else {
+      const search = node("form", "workspace-mcp-form workspace-connector-search");
+      const entry = node("input");
+      entry.type = "search";
+      entry.placeholder = "GitHub, Gmail, Slack, Takvim…";
+      entry.setAttribute("aria-label", "Bağlanacak uygulama ara");
+      entry.maxLength = 100;
+      entry.value = state.composioSearch || "";
+      const submit = node("button", "workspace-button", "Uygulama ara");
+      submit.type = "submit";
+      search.append(entry, submit);
+      search.addEventListener("submit", (event) => {
+        event.preventDefault();
+        state.composioSearch = entry.value.trim();
+        fetchComposioCatalog(state.composioSearch);
+      });
+      container.append(search);
+      if (state.composioError) container.append(node("p", "workspace-error", state.composioError));
+      if (state.composioLoading) container.append(node("p", "workspace-muted", "Uygulamalar yükleniyor…"));
+      for (const toolkit of state.composioCatalog.toolkits || []) {
+        const item = node("div", "workspace-connection-item workspace-toolkit");
+        if (toolkit.logo) {
+          const logo = node("img", "workspace-toolkit-logo");
+          logo.src = toolkit.logo;
+          logo.alt = "";
+          logo.loading = "lazy";
+          logo.referrerPolicy = "no-referrer";
+          item.append(logo);
+        }
+        const detail = node("div", "workspace-toolkit-detail");
+        detail.append(node("strong", "", toolkit.label));
+        if (toolkit.description) detail.append(node("p", "workspace-muted", toolkit.description));
+        item.append(detail);
+        const count = connected.filter((connection) =>
+          connection.metadata?.composio_toolkit === toolkit.id).length;
+        if (count) item.append(node("span", "workspace-toolkit-connected", count + " bağlı"));
+        const link = node("a", "workspace-button", count ? "Hesap ekle" : "Bağlan");
+        link.href = "/api/baglantilar/composio/baslat?toolkit=" + encodeURIComponent(toolkit.id);
+        link.setAttribute("aria-label", toolkit.label + (count ? " için başka hesap ekle" : " hesabını bağla"));
+        item.append(link);
+        container.append(item);
+      }
+      if (state.composioCatalog.next_cursor && !state.composioLoading) {
+        const more = node("button", "workspace-text-button", "Daha fazla uygulama");
+        more.type = "button";
+        more.addEventListener("click", () =>
+          fetchComposioCatalog(state.composioSearch, state.composioCatalog.next_cursor));
+        container.append(more);
+      }
+      if (!(state.composioCatalog.toolkits || []).length && !state.composioLoading
+          && !state.composioError) {
+        void fetchComposioCatalog(state.composioSearch || "");
+      }
+      // Identity providers stay sign-in only; new app accounts come from Composio.
+      for (const provider of state.providers) {
+        if (provider.login_only || provider.id === "composio" || provider.id === "mcp") continue;
+        const card = node("section", "workspace-connection");
+        card.append(node("strong", "", provider.label || provider.id));
+        if (!provider.configured) card.append(node("p", "workspace-muted", "Sunucu bağlantısı yapılandırılmadı."));
+        else {
+          const link = node("a", "workspace-button", "Hesap bağla");
+          link.href = "/api/baglantilar/oauth/" + encodeURIComponent(provider.id) + "/baslat?purpose=connect";
+          card.append(link);
+        }
+        container.append(card);
+      }
+    }
+    container.append(mcpAddForm());
+  }
+
   function renderConnections(container) {
     container.append(node("h2", "workspace-panel-title", "Bağlantılar"));
-    if (!state.user) container.append(node("p", "workspace-muted", "Başak’ı sana verilen özel bağlantıyla açabilirsin; hesap oluşturman gerekmiyor."));
-    for (const provider of state.providers) {
-      // Identity sign-in providers are not separate app integrations. The
-      // app's GitHub/Google accounts appear exclusively through Composio.
-      if (state.user && provider.login_only) continue;
-      const card = node("section", "workspace-connection");
-      card.append(node("strong", "", provider.label || provider.id));
-      const connected = state.connections.filter((connection) => {
-        if (connection.status === "revoked") return false;
-        if (provider.id === "composio") return connection.provider === "mcp" && Boolean(connection.metadata?.composio_toolkit);
-        if (provider.id === "mcp") return connection.provider === "mcp" && !connection.metadata?.composio_toolkit;
-        return connection.provider === provider.id;
-      });
-      if (!provider.configured) {
-        card.append(node("p", "workspace-muted", "Sunucu bağlantısı yapılandırılmadı."));
-      } else if (!state.user && provider.login) {
-        const link = node("a", "workspace-button", (provider.label || provider.id) + " ile giriş yap");
-        link.href = "/api/baglantilar/oauth/" + encodeURIComponent(provider.id) + "/baslat?purpose=login";
-        card.append(link);
-      } else if (state.user && provider.id === "composio") {
-        const search = node("form", "workspace-mcp-form");
-        const entry = node("input");
-        entry.type = "search";
-        entry.placeholder = "GitHub, Gmail, Slack, Takvim…";
-        entry.setAttribute("aria-label", "Bağlanacak uygulama ara");
-        entry.maxLength = 100;
-        entry.value = state.composioSearch || "";
-        const submit = node("button", "workspace-button", "Uygulama ara");
-        submit.type = "submit";
-        search.append(entry, submit);
-        search.addEventListener("submit", (event) => {
-          event.preventDefault();
-          state.composioSearch = entry.value.trim();
-          fetchComposioCatalog(state.composioSearch);
-        });
-        card.append(search);
-        if (state.composioError) card.append(node("p", "workspace-error", state.composioError));
-        if (state.composioLoading) card.append(node("p", "workspace-muted", "Uygulamalar yükleniyor…"));
-        for (const toolkit of state.composioCatalog.toolkits || []) {
-          const item = node("div", "workspace-connection-item workspace-toolkit");
-          if (toolkit.logo) {
-            const logo = node("img", "workspace-toolkit-logo");
-            logo.src = toolkit.logo;
-            logo.alt = "";
-            logo.loading = "lazy";
-            logo.referrerPolicy = "no-referrer";
-            item.append(logo);
-          }
-          const detail = node("div", "workspace-toolkit-detail");
-          detail.append(node("strong", "", toolkit.label));
-          if (toolkit.description) detail.append(node("p", "workspace-muted", toolkit.description));
-          item.append(detail);
-          const count = connected.filter((connection) =>
-            connection.metadata?.composio_toolkit === toolkit.id).length;
-          if (count) item.append(node("span", "workspace-toolkit-connected", count + " bağlı"));
-          const link = node("a", "workspace-button", count ? "Hesap ekle" : "Bağlan");
-          link.href = "/api/baglantilar/composio/baslat?toolkit=" + encodeURIComponent(toolkit.id);
-          link.setAttribute("aria-label", toolkit.label + (count ? " için başka hesap ekle" : " hesabını bağla"));
-          item.append(link);
-          card.append(item);
-        }
-        if (state.composioCatalog.next_cursor && !state.composioLoading) {
-          const more = node("button", "workspace-text-button", "Daha fazla uygulama");
-          more.type = "button";
-          more.addEventListener("click", () =>
-            fetchComposioCatalog(state.composioSearch, state.composioCatalog.next_cursor));
-          card.append(more);
-        }
-      } else if (state.user && provider.login_only) {
-        // Old GitHub/Google App OAuth is identity sign-in only.
-        card.append(node("p", "workspace-muted", "Hesap girişi için kullanılabilir. Yeni uygulama bağlantıları Composio bölümünden yapılır."));
-      } else if (state.user && provider.id !== "mcp") {
-        if (provider.id === "github" && provider.installation_url) {
-          const selection = node("a", "workspace-button", "Depo erişimini seç");
-          selection.href = provider.installation_url;
-          selection.target = "_blank";
-          selection.rel = "noopener noreferrer";
-          card.append(selection, node("p", "workspace-muted", "GitHub’da erişilecek depoları seç, sonra hesabını bağla."));
-        }
-        const link = node("a", "workspace-button", connected.length ? "Hesabı yeniden bağla" : "Hesap bağla");
-        link.href = "/api/baglantilar/oauth/" + encodeURIComponent(provider.id) + "/baslat?purpose=connect";
-        card.append(link);
-      } else if (!state.user) {
-        card.append(node("p", "workspace-muted", "Giriş yaptıktan sonra bağlanabilir."));
+    if (!state.user) {
+      container.append(node("p", "workspace-muted", "Başak’ı sana verilen özel bağlantıyla açabilirsin; hesap oluşturman gerekmiyor."));
+      for (const provider of state.providers) {
+        const card = node("section", "workspace-connection");
+        card.append(node("strong", "", provider.label || provider.id));
+        if (!provider.configured) card.append(node("p", "workspace-muted", "Sunucu bağlantısı yapılandırılmadı."));
+        else if (provider.login) {
+          const link = node("a", "workspace-button", (provider.label || provider.id) + " ile giriş yap");
+          link.href = "/api/baglantilar/oauth/" + encodeURIComponent(provider.id) + "/baslat?purpose=login";
+          card.append(link);
+        } else card.append(node("p", "workspace-muted", "Giriş yaptıktan sonra bağlanabilir."));
+        container.append(card);
       }
-      for (const connection of connected) {
-        const item = node("div", "workspace-connection-item");
-        const connectionStatus = { connected: "Bağlı", reauth_required: "Yeniden giriş gerekli" }[connection.status] || connection.status;
-        item.append(node("p", "", (connection.label || provider.label || provider.id) + " · " + connectionStatus));
-        if (connection.provider === "github" && Array.isArray(connection.metadata?.repositories)) {
-          item.append(node("p", "workspace-muted", "Depolar: " + connection.metadata.repositories.join(", ")));
-        }
-        const remove = node("button", "workspace-text-button", "Erişimi kaldır");
-        remove.type = "button";
-        remove.addEventListener("click", async () => {
-          remove.disabled = true;
-          try {
-            await client.write("/api/baglantilar/" + encodeURIComponent(connection.id), {}, "DELETE");
-            await refreshConnections();
-            message("Bağlantının erişimi kaldırıldı.");
-          } catch (error) { handleError(error); remove.disabled = false; }
-        });
-        item.append(remove);
-        if (connection.provider === "mcp") {
-          const discover = node("button", "workspace-text-button", "Araçları kontrol et");
-          discover.type = "button";
-          discover.addEventListener("click", async () => {
-            discover.disabled = true;
-            try {
-              const data = await client.write("/api/baglantilar/" + encodeURIComponent(connection.id) + "/kesfet", {});
-              const form = node("form", "workspace-tool-list");
-              form.append(node("p", "workspace-muted", "Bu bağlantıda izin vereceğin araçları seç."));
-              const inputs = [];
-              const allowed = connection.metadata && connection.metadata.allowed_tools || [];
-              for (const tool of data.tools || []) {
-                const label = node("label", "workspace-tool-choice");
-                const input = node("input"); input.type = "checkbox"; input.value = tool.name;
-                input.checked = allowed.includes(tool.name);
-                inputs.push(input); label.append(input, node("span", "", tool.name)); form.append(label);
-              }
-              const save = node("button", "workspace-button", "Araç izinlerini kaydet"); save.type = "submit";
-              form.append(save);
-              form.addEventListener("submit", async (event) => {
-                event.preventDefault(); save.disabled = true;
-                try {
-                  await client.write("/api/baglantilar/" + encodeURIComponent(connection.id), {
-                    allowed_tools: inputs.filter((input) => input.checked).map((input) => input.value),
-                  }, "PATCH");
-                  message("MCP araç izinleri kaydedildi."); await refreshConnections();
-                } catch (error) { handleError(error); save.disabled = false; }
-              });
-              item.append(form);
-            } catch (error) { handleError(error); }
-            finally { discover.disabled = false; }
-          });
-          item.append(discover);
-        }
-        card.append(item);
-      }
-      container.append(card);
+      if (!state.providers.length) container.append(node("p", "workspace-muted", "Bağlantı bilgileri alınamadı. Yenilemeyi deneyebilirsin."));
+      return;
     }
-    if (!state.providers.length) container.append(node("p", "workspace-muted", "Bağlantı bilgileri alınamadı. Yenilemeyi deneyebilirsin."));
-    if (state.user) {
-      const form = node("form", "workspace-mcp-form");
-      const label = node("label", "", "MCP sunucu adı");
-      const input = node("input"); input.required = true; input.name = "label"; input.id = "platformMcpLabel";
-      label.htmlFor = input.id;
-      const urlLabel = node("label", "", "HTTPS MCP adresi");
-      const url = node("input"); url.type = "url"; url.required = true; url.name = "url"; url.id = "platformMcpUrl";
-      url.placeholder = "https://sunucu.example/mcp"; urlLabel.htmlFor = url.id;
-      const submit = node("button", "workspace-button", "MCP bağlantısı ekle"); submit.type = "submit";
-      const feedback = node("p", "workspace-muted"); feedback.setAttribute("role", "status");
-      form.append(node("h3", "", "Yeni MCP bağlantısı"), label, input, urlLabel, url,
-        node("p", "workspace-muted", "Adresin içine parola veya anahtar koyma. Yetkilendirme gerektiğinde ayrı bağlantı adımı kullanılır."), submit, feedback);
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault(); submit.disabled = true;
-        try {
-          await client.write("/api/baglantilar/mcp", { label: input.value.trim(), url: url.value.trim(), allowed_tools: [] });
-          await refreshConnections(); message("MCP bağlantısı kaydedildi; araç ve yetki kontrolünü açabilirsin.");
-        } catch (error) { feedback.textContent = error.message; feedback.className = "workspace-error"; }
-        finally { submit.disabled = false; }
-      });
-      container.append(form);
-    }
+    const connected = activeConnections();
+    const view = connectorView || (connected.length ? "manage" : "add");
+    container.append(connectorActions(view));
+    if (view === "manage") renderConnectorManage(container, connected);
+    else renderConnectorCatalog(container, connected);
   }
 
   function renderPreview() {

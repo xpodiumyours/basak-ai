@@ -102,7 +102,9 @@ class ConnectionStore:
         if not isinstance(token, dict) or not isinstance(scopes, (list, tuple)):
             raise ValueError("Baglanti tokeni ve yetkileri gecersiz")
         metadata = dict(metadata or {})
-        allowed = {"label", "account_name", "account_id", "workspace_id", "repositories", "url", "transport", "allowed_tools", "tools", "command", "args", "image", "client_id", "authorization_server", "token_endpoint", "grant_type", "auth_type", "github_app_id", "installation_id", "repository_ids", "permissions", "installations", "writable_repositories", "composio_session_id", "composio_toolkit", "composio_account_id"}
+        # Connector state ("enabled" and the tools parked while it is closed)
+        # belongs to the owner's own row; every other key stays filtered out.
+        allowed = {"label", "account_name", "account_id", "workspace_id", "repositories", "url", "transport", "allowed_tools", "disabled_tools", "enabled", "tools", "command", "args", "image", "client_id", "authorization_server", "token_endpoint", "grant_type", "auth_type", "github_app_id", "installation_id", "repository_ids", "permissions", "installations", "writable_repositories", "composio_session_id", "composio_toolkit", "composio_account_id"}
         metadata = {k: v for k, v in metadata.items() if k in allowed}
         cid = connection_id or uuid.uuid4().hex
         if connection_id and self.get(user_id, cid) is None:

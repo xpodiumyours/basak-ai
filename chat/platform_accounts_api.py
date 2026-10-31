@@ -169,13 +169,36 @@ async def connection_permissions(connection_id: str, request: Request):
             return _error("Baglanti bulunamadi", 404)
         body = await request.json()
         allowed = body.get("allowed_tools") if isinstance(body, dict) else None
-        if connection["provider"] != "mcp" or not isinstance(allowed, list) or any(not isinstance(x, str) for x in allowed):
+        enabled = body.get("enabled") if isinstance(body, dict) else None
+        if connection["provider"] != "mcp":
             return _error("Gecerli MCP arac izinleri gerekli")
+        if allowed is not None and (not isinstance(allowed, list)
+                                    or any(not isinstance(x, str) for x in allowed)):
+            return _error("Gecerli MCP arac izinleri gerekli")
+        if allowed is None and enabled is None:
+            return _error("Gecerli MCP arac izinleri gerekli")
+        if enabled is not None and not isinstance(enabled, bool):
+            return _error("Gecerli baglanti durumu gerekli")
         catalog = connection["metadata"].get("tools", [])
         known = {value for tool in catalog for value in (tool.get("name"), tool.get("remote_name"))}
-        if not set(allowed).issubset(known):
+        if allowed is not None and not set(allowed).issubset(known):
             return _error("Izinler kesfedilmis araclarla sinirli olmali")
-        metadata = {**connection["metadata"], "allowed_tools": list(dict.fromkeys(allowed))}
+        metadata = {**connection["metadata"]}
+        selected = list(dict.fromkeys(allowed)) if allowed is not None else list(metadata.get("allowed_tools") or [])
+        if enabled is False:
+            # Closing a connector keeps the chosen tools but grants none: the
+            # executor only reads allowed_tools, so an empty list is fail-closed.
+            metadata.update({"enabled": False, "disabled_tools": selected, "allowed_tools": []})
+        elif enabled is True:
+            restored = selected
+            saved = metadata.get("disabled_tools")
+            if allowed is None and isinstance(saved, list) and saved \
+                    and all(isinstance(x, str) and x in known for x in saved):
+                restored = list(dict.fromkeys(saved))
+            metadata.pop("disabled_tools", None)
+            metadata.update({"enabled": True, "allowed_tools": restored})
+        elif allowed is not None:
+            metadata["allowed_tools"] = selected
         row = store.save(uid, "mcp", store.credentials(uid, connection_id), connection["scopes"], metadata, connection_id)
         return JSONResponse(row, headers={"Cache-Control": "no-store"})
     except PermissionError:

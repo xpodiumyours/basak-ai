@@ -214,6 +214,81 @@ def test_old_github_connect_route_is_gone(api):
 
 
 
+def _composio_connection(store, allowed):
+    tools = [{"name": "gh_read", "remote_name": "GITHUB_READ"},
+             {"name": "gh_write", "remote_name": "GITHUB_WRITE"}]
+    return store.save("alice", "mcp", {}, [], {"label": "Composio GitHub",
+                       "url": "https://mcp.example", "tools": tools,
+                       "allowed_tools": list(allowed)})["id"]
+
+
+def test_api_connector_toggle_grants_nothing_when_closed_and_restores_exact_tools(api, store):
+    cid = _composio_connection(store, ["gh_read", "gh_write"])
+    headers = {"x-test-user": "alice", "origin": "https://basak.example"}
+    closed = api.patch("/api/baglantilar/" + cid, headers=headers, json={"enabled": False})
+    assert closed.status_code == 200
+    meta = closed.json()["metadata"]
+    assert meta["allowed_tools"] == [] and meta["enabled"] is False
+    assert meta["disabled_tools"] == ["gh_read", "gh_write"]
+    reopened = api.patch("/api/baglantilar/" + cid, headers=headers, json={"enabled": True})
+    assert reopened.status_code == 200
+    meta = reopened.json()["metadata"]
+    assert meta["allowed_tools"] == ["gh_read", "gh_write"] and meta["enabled"] is True
+    assert "disabled_tools" not in meta
+    # Eski izin yazma yolu aynen sürer ve durum alanına dokunmaz.
+    legacy = api.patch("/api/baglantilar/" + cid, headers=headers, json={"allowed_tools": ["gh_read"]})
+    assert legacy.status_code == 200
+    assert legacy.json()["metadata"]["allowed_tools"] == ["gh_read"]
+    assert legacy.json()["metadata"]["enabled"] is True
+    fresh = _composio_connection(store, ["gh_read"])
+    plain = api.patch("/api/baglantilar/" + fresh, headers=headers, json={"allowed_tools": ["gh_read"]})
+    assert "enabled" not in plain.json()["metadata"]
+    # Bilinmeyen araç ve gövdesiz istek reddedilir; başka kullanıcı erişemez.
+    assert api.patch("/api/baglantilar/" + cid, headers=headers,
+                     json={"allowed_tools": ["ghost"]}).status_code == 400
+    assert api.patch("/api/baglantilar/" + cid, headers=headers, json={}).status_code == 400
+    assert api.patch("/api/baglantilar/" + cid, headers={"x-test-user": "bob",
+                     "origin": "https://basak.example"},
+                     json={"enabled": False}).status_code == 404
+
+
+def test_closed_connector_executes_nothing_until_reopened(api, store):
+    import asyncio
+    from contextlib import asynccontextmanager
+    from mcp.types import Tool, ListToolsResult, CallToolResult, TextContent
+    from chat.platform_mcp import MCPService, namespace
+
+    class Session:
+        async def list_tools(self, cursor=None):
+            schema = {"type": "object", "properties": {"key": {"type": "string"}},
+                      "required": ["key"]}
+            return ListToolsResult(tools=[Tool(name="read", inputSchema=schema),
+                                          Tool(name="write", inputSchema=schema)])
+        async def call_tool(self, name, args):
+            return CallToolResult(content=[TextContent(type="text", text="ok")],
+                                  structuredContent={"ok": True})
+
+    @asynccontextmanager
+    async def factory(*args):
+        yield Session()
+
+    cid = store.save("alice", "mcp", {}, [], {"url": "https://mcp.example",
+                                              "allowed_tools": ["read"]})["id"]
+    service = MCPService(store, session_factory=factory)
+    asyncio.run(service.discover("alice", cid))
+    read = namespace(cid, "read")
+    assert asyncio.run(service.execute("alice", cid, read, {"key": "x"}))["structuredContent"] == {"ok": True}
+    headers = {"x-test-user": "alice", "origin": "https://basak.example"}
+    assert api.patch("/api/baglantilar/" + cid, headers=headers,
+                     json={"enabled": False}).status_code == 200
+    with pytest.raises(PermissionError):
+        asyncio.run(service.execute("alice", cid, read, {"key": "x"}))
+    assert api.patch("/api/baglantilar/" + cid, headers=headers,
+                     json={"enabled": True}).json()["metadata"]["allowed_tools"] == ["read"]
+    assert asyncio.run(service.execute("alice", cid, read, {"key": "x"}))["structuredContent"] == {"ok": True}
+
+
+
 def test_mcp_catalog_execution_validates_owner_permissions_and_preserves_data(store):
     import asyncio
     from contextlib import asynccontextmanager
