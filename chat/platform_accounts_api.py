@@ -308,8 +308,10 @@ async def composio_verify(request: Request, session_uri: str = ""):
             "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
     except PermissionError:
         return _error("Bu Composio baglantisi icin hesap girisi gerekli", 401)
-    except ComposioError:
-        return _error("Composio OAuth kimligi dogrulanamadi", 502)
+    except ComposioError as exc:
+        # Composio hata metinleri sabit kalıplardır, kimlik taşımaz; hangi
+        # aşamada takıldığını gizlemek hata ayıklamayı körleştirir.
+        return _error("Composio OAuth kimligi dogrulanamadi: %s" % exc, 502)
     except RuntimeError:
         return _error("Baglanti deposu kullanilamiyor", 503)
 
