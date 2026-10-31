@@ -162,7 +162,7 @@ def create_session(user_id, toolkit, connected_account=None):
         _account_id(connected_account)
     config = {
         "user_id": _user_id(user_id),
-        "toolkits": {"enabled": [toolkit]},
+        "toolkits": {"enable": [toolkit]},
         # Composio Instant can incur charges if omitted; never opt in.
         "instant": False,
         # A client without interactive MCP elicitation must never silently

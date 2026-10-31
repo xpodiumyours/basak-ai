@@ -111,7 +111,7 @@ def test_session_create_and_oauth_link(gateway, monkeypatch):
     assert result == {"session_id": "trs_fixture99", "url": url, "toolkit": "github"}
     assert requests[0][2] == {
         "user_id": gateway._user_id("alice"),
-        "toolkits": {"enabled": ["github"]},
+        "toolkits": {"enable": ["github"]},
         "instant": False,
         "experimental": {"no_elicitation_support_fallback": "deny"},
     }
