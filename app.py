@@ -784,7 +784,9 @@ async def kimlik_hazirla(request: Request):
         if not _mutation_origin_ok(request):
             return JSONResponse({'error':'İstek kaynağı geçersiz'},status_code=403)
         try:
-            account=_platform_kimlik(request)
+            # strict=True: depo gecici olarak okunamazsa yeni hesap ACMA
+            # (yanlislikla kimlik degistirmek baglantilari oksuz birakir).
+            account=_platform_kimlik(request, strict=True)
             token=None
             if not account:
                 account,token=IdentityService().open_browser()

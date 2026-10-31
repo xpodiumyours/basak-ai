@@ -18,6 +18,15 @@ COOKIE = "basak_platform_session"
 SESSION_SECONDS = 7 * 24 * 3600
 
 
+class SessionUnavailable(RuntimeError):
+    """Oturum deposu gecici olarak okunamadi; kimlik DEGISTIRILMEMELI.
+
+    "Kimlik yok" ile "kimlik su an dogrulanamiyor" ayni sey degildir.
+    Ikincisinde yeni hesap acmak, kullanicinin butun baglantilarini
+    sessizce oksuz birakir; cagiran taraf 503 dondurmelidir.
+    """
+
+
 def browser_access_enabled():
     """The public web address opens a browser-owned durable account."""
     return (os.environ.get('VERCEL_ENV') == 'production'
@@ -97,7 +106,13 @@ class IdentityService:
         self.store._db._calistir("UPDATE basak_account_session SET revoked=1 WHERE id=%s", (hashlib.sha256(sid.encode()).hexdigest(),))
 
 
-def authenticate(request):
+def authenticate(request, strict=False):
+    """Cerezden kimligi cozer.
+
+    strict=False: depo okunamazsa None doner (eski davranis).
+    strict=True:  depo okunamazsa SessionUnavailable firlatir; boylece
+                  cagiran taraf kimligi yeniden uretmez.
+    """
     token = request.cookies.get(COOKIE, "")
     if not token:
         return None
@@ -110,5 +125,7 @@ def authenticate(request):
     try:
         account = IdentityService().resolve_session(token)
         return account["id"] if account else None
-    except RuntimeError:
+    except RuntimeError as exc:
+        if strict:
+            raise SessionUnavailable("Oturum deposu okunamadi") from exc
         return None
