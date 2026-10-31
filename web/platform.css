@@ -191,5 +191,7 @@
 .workspace-switch[aria-checked="true"]{border-color:var(--workspace-accent);background:var(--workspace-accent)}
 .workspace-switch[aria-checked="true"]::after{transform:translateX(14px);background:var(--bg)}
 .workspace-switch:disabled{opacity:.6;cursor:default}
-.workspace-connector-search{margin-top:0}
+.workspace-connector-search{margin-top:0;flex-direction:row;align-items:center;gap:8px}
+.workspace-connector-search input{flex:1;min-width:0}
+.workspace-connector-search .workspace-button{margin:0;flex:none}
 @media(prefers-reduced-motion:reduce){.workspace-switch,.workspace-switch::after{transition:none}}
