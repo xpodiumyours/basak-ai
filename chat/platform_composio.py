@@ -266,6 +266,28 @@ def _connected_account(sid, toolkit, user_id, expected=None):
         return next(iter(matches))
     raise ComposioError("Composio hesap kimligi eksik, degismis veya belirsiz")
 
+def complete_linked_auth(user_id, account_id):
+    """Finish a tool_router /link round from its documented callback.
+
+    Composio redirects to our callback_url with status and
+    connected_account_id. Query parameters alone are not proof of
+    ownership, so the account is only accepted when Composio itself
+    reports it ACTIVE for exactly our user namespace.
+    """
+    _account_id(account_id)
+    detail = _request("GET", "/api/v3.1/connected_accounts/" + account_id)
+    toolkit = _slug((detail.get("toolkit") or {}).get("slug"))
+    if (detail.get("id") != account_id
+            or detail.get("user_id") != _user_id(user_id)
+            or detail.get("status") != "ACTIVE"):
+        raise ComposioError("Composio hesap sahipligi dogrulanamadi")
+    session = create_session(user_id, toolkit, connected_account=account_id)
+    session_id, _ = _session(user_id, session)
+    if _connected_account(session_id, toolkit, user_id, account_id) != account_id:
+        raise ComposioError("Dogrulanan Composio hesabi beklenen oturumda yok")
+    return finish_session(user_id, session)
+
+
 def complete_verified_auth(user_id, session_uri):
     """Redeem Composio's single-use identity-verification callback.
 

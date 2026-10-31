@@ -269,19 +269,27 @@ async def composio_start(request: Request, toolkit: str = "github"):
 
 
 @router.get("/api/baglantilar/composio/dogrula")
-async def composio_verify(request: Request, session_uri: str = ""):
+async def composio_verify(request: Request, session_uri: str = "",
+                          status: str = "", connected_account_id: str = ""):
     """Composio calls this browser endpoint after OAuth consent.
 
-    The caller must have a Başak login. Composio enforces that the account
-    created by the original link is owned by that exact signed-in user.
+    The caller must have a Başak login. A tool_router /link round returns
+    status and connected_account_id; the account is only stored after
+    Composio itself reports it ACTIVE for our exact signed-in user.
+    A stricter identity-verifier round carries session_uri instead.
     """
     if not _composio_verifier_ready() or not composio_configured():
         return _error("Composio OAuth kimlik dogrulama ayari eksik", 503)
     try:
-        from chat.platform_composio import complete_verified_auth
+        from chat.platform_composio import complete_linked_auth, complete_verified_auth
         uid = _owner(request)
         store = _store_factory()
-        meta = await asyncio.to_thread(complete_verified_auth, uid, session_uri)
+        if session_uri:
+            meta = await asyncio.to_thread(complete_verified_auth, uid, session_uri)
+        elif status == "success" and connected_account_id:
+            meta = await asyncio.to_thread(complete_linked_auth, uid, connected_account_id)
+        else:
+            raise ComposioError("Composio dogrulama donusu eksik")
         for conn in store.list(uid):
             existing = conn.get("metadata") or {}
             if (conn["status"] != "revoked"

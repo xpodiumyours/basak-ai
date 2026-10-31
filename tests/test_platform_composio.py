@@ -228,6 +228,23 @@ def test_catalog_keeps_only_provider_owned_logo_hosts(gateway, monkeypatch):
                      "gmail": ""}
 
 
+def test_complete_linked_auth_accepts_only_our_active_account(gateway, monkeypatch):
+    call, _, url = _fake_api(gateway)
+    monkeypatch.setattr(gateway, "_request", call)
+    meta = gateway.complete_linked_auth("alice", "ca_fixture")
+    assert meta["composio_account_id"] == "ca_fixture"
+    assert meta["composio_toolkit"] == "github"
+    with pytest.raises(gateway.ComposioError):
+        gateway.complete_linked_auth("alice", "ca_wrong_user")
+
+
+def test_complete_linked_auth_rejects_inactive_account(gateway, monkeypatch):
+    call, _, _ = _fake_api(gateway, connected=False)
+    monkeypatch.setattr(gateway, "_request", call)
+    with pytest.raises(gateway.ComposioError):
+        gateway.complete_linked_auth("alice", "ca_fixture")
+
+
 def test_legacy_github_connection_is_retired_but_sign_in_preserved(api_client):
     client, _ = api_client
     url = "/api/baglantilar/oauth/github/baslat"
