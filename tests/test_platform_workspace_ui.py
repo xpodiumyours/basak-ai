@@ -358,3 +358,119 @@ def test_real_chromium_pending_chat_title_reload_and_view_preservation(width, he
     finally:
         server.shutdown()
         server.server_close()
+
+
+@pytest.mark.parametrize('width,height', [(1440, 900), (390, 844)])
+def test_real_chromium_connectors_panel_manages_and_toggles(width, height, tmp_path):
+    """Bağlantılar paneli: iki giriş satırı, izin formu ve aç/kapa anahtarı."""
+    import functools
+    import threading
+    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+    playwright = pytest.importorskip('playwright.sync_api')
+    class Handler(SimpleHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+    server = ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Handler, directory=str(ROOT / 'web')))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    connection = {
+        'id': 'conn-github', 'provider': 'mcp', 'status': 'connected',
+        'label': 'Composio GitHub', 'scopes': [],
+        'metadata': {
+            'composio_toolkit': 'github', 'composio_session_id': 'trs_fixture_123456',
+            'url': 'https://backend.composio.dev/tool_router/fixture',
+            'tools': [{'name': 'github_read', 'remote_name': 'GITHUB_READ'},
+                      {'name': 'github_write', 'remote_name': 'GITHUB_WRITE'}],
+            'allowed_tools': ['github_read'],
+        },
+    }
+    patched = []
+    errors = []
+    try:
+        with playwright.sync_playwright() as pw:
+            browser = pw.chromium.launch()
+            page = browser.new_page(viewport={'width': width, 'height': height})
+            page.on('pageerror', lambda error: errors.append(str(error)))
+            def api(route):
+                request = route.request
+                path = request.url.split('?', 1)[0]
+                method = request.method
+                if path.endswith('/api/kimlik'):
+                    data = {'ok': True, 'kullanici': 'alice', 'basak_id': 'Alice'}
+                elif path.endswith('/api/hesap'):
+                    data = {'ok': True, 'authenticated': True, 'user': {'id': 'alice', 'name': 'Alice'}}
+                elif path.endswith('/api/baglantilar/saglayicilar'):
+                    data = {'providers': [
+                        {'id': 'github', 'label': 'GitHub', 'configured': True, 'login': True,
+                         'scopes': [], 'login_only': True, 'verification_required': True},
+                        {'id': 'composio', 'label': 'Composio', 'configured': True, 'reason': None,
+                         'login': False, 'scopes': [], 'toolkits': []},
+                        {'id': 'mcp', 'label': 'MCP', 'configured': True, 'reason': None,
+                         'login': False, 'scopes': []}]}
+                elif path.endswith('/api/baglantilar/composio/katalog'):
+                    data = {'toolkits': [{'id': 'gmail', 'label': 'Gmail',
+                                          'description': 'E-postalar ve taslaklar', 'logo': ''}],
+                            'next_cursor': ''}
+                elif path.endswith('/kesfet'):
+                    data = {'tools': connection['metadata']['tools']}
+                elif path.endswith('/api/baglantilar') and method == 'GET':
+                    data = {'connections': [connection]}
+                elif path.endswith('/api/baglantilar/conn-github') and method == 'PATCH':
+                    body = json.loads(request.post_data or '{}')
+                    patched.append(body)
+                    metadata = dict(connection['metadata'])
+                    if 'enabled' in body:
+                        metadata['enabled'] = bool(body['enabled'])
+                        if body['enabled'] is False:
+                            metadata['disabled_tools'] = list(metadata['allowed_tools'])
+                            metadata['allowed_tools'] = []
+                        else:
+                            metadata.pop('disabled_tools', None)
+                    if 'allowed_tools' in body:
+                        metadata['allowed_tools'] = list(body['allowed_tools'])
+                    connection['metadata'] = metadata
+                    data = connection
+                else:
+                    data = {'ok': True, 'kosular': [], 'olaylar': [],
+                            'connections': [], 'providers': []}
+                route.fulfill(status=200, content_type='application/json', body=json.dumps(data))
+            page.route('**/api/**', api)
+            page.goto('http://127.0.0.1:%d/index.html' % server.server_port)
+            page.wait_for_function("typeof olayiIsle === 'function' && window.basakKimlik?.kullanici")
+            if page.locator('#sidebarToggle').is_visible():
+                page.locator('#sidebarToggle').click()
+            page.locator('#platformConnections').click()
+            page.locator('[data-connector-view="add"]').wait_for()
+            # İki giriş satırı, yönet görünümü açıkken yönet satırı seçili.
+            assert page.locator('[data-connector-view="manage"]').get_attribute('aria-pressed') == 'true'
+            assert page.locator('[data-connector-view="add"]').is_visible()
+            assert page.get_by_role('heading', name='Bağlı hesaplarım').is_visible()
+            row = page.locator('.workspace-connector-item')
+            assert row.get_by_text('Composio GitHub', exact=False).is_visible()
+            assert row.get_by_text('Bağlı', exact=False).is_visible()
+            # İzin formu: kesfet çağrısıyla gelir, seçili araç işaretli açılır.
+            page.get_by_role('button', name='Yönet', exact=True).click()
+            page.locator('.workspace-tool-list').wait_for()
+            assert page.locator('.workspace-tool-list input[value="github_read"]').is_checked()
+            assert not page.locator('.workspace-tool-list input[value="github_write"]').is_checked()
+            # Anahtar: açıkken kapat, sunucuya enabled:false gider, kapalıyken araçlar yok.
+            switch = page.locator('.workspace-switch')
+            assert switch.get_attribute('aria-checked') == 'true'
+            switch.click()
+            page.wait_for_function(
+                "document.querySelector('.workspace-switch').getAttribute('aria-checked') === 'false'")
+            assert patched and patched[-1] == {'enabled': False}
+            assert connection['metadata']['allowed_tools'] == []
+            # Uygulama ekle görünümü: arama ve katalog satırı.
+            page.locator('[data-connector-view="add"]').click()
+            page.wait_for_function(
+                "document.querySelector('.workspace-connector-heading')?.textContent === 'Uygulama keşfet'")
+            assert page.locator('input[aria-label="Bağlanacak uygulama ara"]').is_visible()
+            assert page.locator('a[href*="composio/baslat?toolkit=gmail"]').is_visible()
+            assert page.locator('[data-connector-view="add"]').get_attribute('aria-pressed') == 'true'
+            assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+            page.screenshot(path=str(tmp_path / ('connectors-%d.png' % width)), full_page=True)
+            assert not errors, errors
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()

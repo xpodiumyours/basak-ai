@@ -6,6 +6,10 @@ BASAK_PREVIEW_DATABASE_URL=
 BASAK_DURABLE_CHAT_ENABLED=false
 # Required to read encrypted user connections (identical key to that web environment).
 BASAK_CONNECTION_KEY=
+# Composio project key, identical to the matching web environment. The worker
+# executes the discovered tools through Composio; the release preflight fails
+# unless this is set under exactly this name.
+COMPOSIO_API_KEY=
 # Existing provider model pool credentials. Set only providers you intend to use.
 GROQ_API_KEY=
 GEMINI_API_KEY=

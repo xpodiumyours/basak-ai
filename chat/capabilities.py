@@ -15,7 +15,9 @@ kendisinden okunur:
 
 Herkese acik mod yalniz SALT-OKUNUR dis araclari gorur: arama, okuma,
 hava, harita, hesap, saat. Yerel dosya sistemi, kod, tarayici, gorev,
-hatirlatma, hafiza ve alt ajan YOKTUR.
+hatirlatma ve hafiza YOKTUR. Ordu (alt ajan) alani da aciktir: alt
+ajanlar ayni istek içinde paralel koşar ve salt okunur araçları kullanır
+(bkz. chat.inline_ordu); kalıcı hesap gerektirmez.
 """
 
 import os
@@ -36,6 +38,12 @@ PUBLIC_TOOLS = frozenset((
     # Harita (okuma)
     "harita_goster", "konum_coz", "sube_bul", "poi_ara",
     "mesafe_hesapla", "rota_hesapla", "mesafe_sure",
+))
+
+# Ordu (alt ajan) alani: hesap/kayıt gerektirmez. Calisma bicime bagli
+# sinir chat/inline_ordu modulundedir — alt ajanlar salt okunur.
+ORDU_ARACLARI = frozenset((
+    "ajan_modelleri", "alt_ajan", "alt_ajan_sonuclari",
 ))
 
 
@@ -73,7 +81,8 @@ def katalog_sec(kid, tools):
     katalog = list(tools or [])
     if sahip_mi(kid):
         return katalog
+    herkese = PUBLIC_TOOLS | ORDU_ARACLARI
     return [
         arac for arac in katalog
-        if (arac.get("function") or {}).get("name") in PUBLIC_TOOLS
+        if (arac.get("function") or {}).get("name") in herkese
     ]

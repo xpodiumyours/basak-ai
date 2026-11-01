@@ -97,6 +97,16 @@ def inspect(environment, role, env=None, connect=None, now=None):
     add("connection_encryption", _valid_key(env.get("BASAK_CONNECTION_KEY")),
         "Valid 32-byte URL-safe base64 key required")
 
+    # App connections run through Composio in both roles: the web starts and
+    # verifies OAuth, the worker executes the discovered tools.
+    add("composio_api_key", bool((env.get("COMPOSIO_API_KEY") or "").strip()),
+        "Composio project key must use its exact name COMPOSIO_API_KEY")
+
+    if role == "web":
+        add("composio_identity_verifier",
+            (env.get("BASAK_COMPOSIO_VERIFIER_READY") or "") == "1",
+            "Composio dashboard callback identity verification must be completed first")
+
     if role == "web":
         add("public_https", _public_https(env.get("BASAK_PUBLIC_URL")),
             "Canonical HTTPS base URL required")

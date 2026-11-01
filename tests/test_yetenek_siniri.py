@@ -33,15 +33,17 @@ def test_ortam_listesi_sahip_ekler(monkeypatch):
     assert sahip_mi("ayse") is False
 
 
-def test_anonim_katalog_yalniz_salt_okunur_araclari_gorur():
-    from chat.capabilities import PUBLIC_TOOLS, katalog_sec
+def test_anonim_katalog_salt_okunur_araclar_ve_ordu_alani():
+    from chat.capabilities import ORDU_ARACLARI, PUBLIC_TOOLS, katalog_sec
     anonim = katalog_sec("u1234567890123456", TOOLS)
     adlar = {t["function"]["name"] for t in anonim}
-    assert adlar <= PUBLIC_TOOLS
+    assert adlar <= PUBLIC_TOOLS | ORDU_ARACLARI
     assert adlar
+    # Ordu (alt ajan) alani herkese acik: ayni istek icinde paralel kosar.
+    assert adlar & ORDU_ARACLARI == ORDU_ARACLARI
     # Sunucuda durum degistiren / kisisel veri okuyan araclar YOK.
     for yasak in ("kod_calistir", "write_file_tool", "read_file",
-                  "alt_ajan", "bulut_tarayici", "hafiza_ara",
+                  "bulut_tarayici", "hafiza_ara",
                   "hatirlatma_kur", "add_task", "katalog_kur",
                   "testleri_kos", "gorsel_uret"):
         assert yasak not in adlar, yasak

@@ -52,7 +52,7 @@ def fake_db(cursor):
 
 def env_for(environment="preview", role="worker"):
     key = base64.urlsafe_b64encode(b"x" * 32).decode()
-    env = {"BASAK_CONNECTION_KEY": key}
+    env = {"BASAK_CONNECTION_KEY": key, "COMPOSIO_API_KEY": "synthetic-project-key-not-real"}
     if environment == "preview":
         env["BASAK_PREVIEW_DATABASE_URL"] = "postgresql://test:fake@preview.local/test"
         env["DATABASE_URL"] = "postgresql://test:fake@prod.local/test"
@@ -66,6 +66,7 @@ def env_for(environment="preview", role="worker"):
             "BASAK_GITHUB_CLIENT_ID": "test-client",
             "BASAK_GITHUB_CLIENT_SECRET": "synthetic-test-secret",
             "BASAK_DURABLE_CHAT_ENABLED": "true",
+            "BASAK_COMPOSIO_VERIFIER_READY": "1",
         })
     return env
 
@@ -134,5 +135,37 @@ def test_report_never_leaks_connection_secrets():
     result = inspect("production", "web", env=env, connect=connector, now=100)
     report = json.dumps(result)
     for secret in ("synthetic-test-secret", "synthetic-session-test-key",
-                   "test:fake", env["BASAK_CONNECTION_KEY"]):
+                   "test:fake", env["BASAK_CONNECTION_KEY"],
+                   env["COMPOSIO_API_KEY"]):
         assert secret not in report
+
+
+def test_preflight_requires_composio_key_under_its_exact_name():
+    # A key stored as "compos" (or any other name) is a missing key here.
+    for environment, role in (("production", "web"), ("preview", "worker")):
+        env = env_for(environment, role)
+        env.pop("COMPOSIO_API_KEY")
+        connector, _ = fake_db(FakeCursor())
+        result = inspect(environment, role, env=env, connect=connector, now=100)
+        assert "composio_api_key" in failures(result)
+        assert result["automated_preflight_passed"] is False
+
+
+def test_web_preflight_requires_completed_identity_verification():
+    env = env_for("production", "web")
+    connector, _ = fake_db(FakeCursor())
+    env.pop("BASAK_COMPOSIO_VERIFIER_READY")
+    missing = inspect("production", "web", env=env, connect=connector, now=100)
+    assert "composio_identity_verifier" in failures(missing)
+    env["BASAK_COMPOSIO_VERIFIER_READY"] = "true"
+    wrong = inspect("production", "web", env=env, connect=connector, now=100)
+    assert "composio_identity_verifier" in failures(wrong)
+    env["BASAK_COMPOSIO_VERIFIER_READY"] = "1"
+    ready = inspect("production", "web", env=env, connect=connector, now=100)
+    assert "composio_identity_verifier" not in failures(ready)
+    assert ready["automated_preflight_passed"] is True
+    # Worker rolü OAuth doğrulamasını değil, yalnız anahtarı taşır.
+    worker = inspect("preview", "worker", env=env_for("preview"),
+                     connect=connector, now=100)
+    assert "composio_identity_verifier" not in {c["name"] for c in worker["checks"]}
+    assert worker["automated_preflight_passed"] is True
