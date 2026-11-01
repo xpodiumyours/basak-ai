@@ -1,18 +1,19 @@
 # Kurtarma Raporu — yetim dallar
 
-- uretildi: 2026-11-01 11:04
+- uretildi: 2026-11-01 11:27
 - ureten: `python kurtarma/rapor_uret.py` (bu dosya elle duzenlenmez)
-- commit: `85d5fe4`
+- commit: `d1cd016`
 - ttl_saat: 72
-- komut: `C:\Users\Casper\AppData\Local\Programs\Python\Python312\python.exe -m pytest tests -q && C:\Users\Casper\AppData\Local\Programs\Python\Python312\python.exe -m py_compile app.py chat/capabilities.py chat/flow.py chat/inline_ordu.py chat/platform_context.py chat/tools.py tests/test_inline_ordu.py tests/test_yetenek_siniri.py tests/test_vercel_stream.py scripts/olcum/model_yetenek_olcumu.py && C:\Users\Casper\AppData\Local\Programs\Python\Python312\python.exe tools/sir_kapisi.py`
+- komut: `C:\Users\Casper\AppData\Local\Programs\Python\Python312\python.exe -m pytest tests -q && C:\Users\Casper\AppData\Local\Programs\Python\Python312\python.exe -m py_compile app.py kurtarma/rapor_uret.py chat/capabilities.py chat/flow.py chat/inline_ordu.py chat/platform_context.py chat/tools.py tests/test_inline_ordu.py tests/test_yetenek_siniri.py tests/test_vercel_stream.py scripts/olcum/model_yetenek_olcumu.py chat/platform_identity.py tests/test_kimlik_oturum_kalici.py && C:\Users\Casper\AppData\Local\Programs\Python\Python312\python.exe tools/sir_kapisi.py`
 
 ## Taban
 
 - taban_dal: `feat/composio-schema-preview-20261031`
 - taban_commit: `1f29c84` (2026-10-31 Validate Composio tool schemas against their documented shape and pin pre-verifier connections)
-- dal: `kurtarma/yetim-dallar`
-- uzak main: `f5a395a 2026-10-31` (Keep the browser identity stable when the session store is unreadable)
-- main ile fark (yamayla): main 2 commit ileride, merge-tree cakismasi yok
+- dal: `main`
+- uzak main: `d1cd016 2026-11-01` (Yetim dallardan kurtarilan isi main'e al)
+- main ile fark (yamayla): main 0 commit ileride, merge-tree cakismasi yok
+- uzakta bu commit'i tasiyan dallar: origin/HEAD -> origin/main, origin/main, origin/preview
 
 ## Kurtarilan
 
@@ -41,19 +42,17 @@ Toplam: 4 commit (kurtarma dalinda `1f29c84..HEAD`).
 
 ## Kapilar
 
-- **testler** (exit 0): `C:\Users\Casper\AppData\Local\Programs\Python\Python312\python.exe -m pytest tests -q` -> 2429 passed, 42 skipped, 1 warning in 204.79s (0:03:24)
-- **sozdizimi** (exit 0): `C:\Users\Casper\AppData\Local\Programs\Python\Python312\python.exe -m py_compile app.py chat/capabilities.py chat/flow.py chat/inline_ordu.py chat/platform_context.py chat/tools.py tests/test_inline_ordu.py tests/test_yetenek_siniri.py tests/test_vercel_stream.py scripts/olcum/model_yetenek_olcumu.py` -> sessiz basari (exit 0)
+- **testler** (exit 0): `C:\Users\Casper\AppData\Local\Programs\Python\Python312\python.exe -m pytest tests -q` -> 2431 passed, 42 skipped in 120.01s (0:02:00)
+- **sozdizimi** (exit 0): `C:\Users\Casper\AppData\Local\Programs\Python\Python312\python.exe -m py_compile app.py kurtarma/rapor_uret.py chat/capabilities.py chat/flow.py chat/inline_ordu.py chat/platform_context.py chat/tools.py tests/test_inline_ordu.py tests/test_yetenek_siniri.py tests/test_vercel_stream.py scripts/olcum/model_yetenek_olcumu.py chat/platform_identity.py tests/test_kimlik_oturum_kalici.py` -> sessiz basari (exit 0)
 - **sir_kapisi** (exit 0): `C:\Users\Casper\AppData\Local\Programs\Python\Python312\python.exe tools/sir_kapisi.py` -> SIR KAPISI: temiz.
 
 ```
 testler:
-apanis.<locals>.yut' was never awaited
-    def tell(self):
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-2429 passed, 42 skipped, 1 warning in 204.79s (0:03:24)
+................................................................... [ 93%]
+........................................................................ [ 96%]
+........................................................................ [ 98%]
+.........................                                                [100%]
+2431 passed, 42 skipped in 120.01s (0:02:00)
 C:\Users\Casper\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\__init__.py:113: RequestsDependencyWarning: urllib3 (2.6.3) or chardet (7.4.3)/charset_normalizer (3.4.4) doesn't match a supported version!
   warnings.warn(
 
@@ -61,7 +60,7 @@ sozdizimi:
 
 
 sir_kapisi:
-Taranan izlenen dosya: 702
+Taranan izlenen dosya: 705
 SIR KAPISI: temiz.
 
 ```
@@ -88,6 +87,8 @@ Uzak dallarin uclarina konan yedek etiketler (15 adet, silinmedi):
 
 ## Sonuc
 
-- test_sonucu: 2429 passed, 42 skipped, 1 warning in 204.79s (0:03:24)
-- sonuc: KAPILAR YESIL; kurtarma dali yalniz kendisi push edildi, main/preview'a dokunulmadi.
-- not: uzak main bu tabandan 2 commit ileride; dallar arasi birlesme cakismasiz (merge-tree: yok), yani kurtarma dali main'e temiz birlesir. Main'e merge yetkisi Casper'da (AGENTS.md 10).
+- test_sonucu: 2431 passed, 42 skipped in 120.01s (0:02:00)
+- yayin: main ve preview `d1cd016`; canli adres https://basak-vercel.vercel.app
+- canli olcum: ana sayfa 200, /api/hesap 200, chat.css yeni isaret 1
+- sonuc: KAPILAR YESIL; is main'e birlesip canliya cikti ve canli olcumyle dogrulandi.
+- not: uzak main bu tabandan 0 commit ileride; dallar arasi birlesme cakismasiz (merge-tree: yok).

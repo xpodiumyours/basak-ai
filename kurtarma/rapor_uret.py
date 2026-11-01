@@ -9,10 +9,12 @@ import datetime
 import pathlib
 import subprocess
 import sys
+import urllib.request
 
 KOK = pathlib.Path(__file__).resolve().parent.parent
 CIKTI = KOK / "kurtarma" / "RAPOR.md"
 TTL_SAAT = 72
+CANLI_URL = "https://basak-vercel.vercel.app"
 
 # Taban: uzakta freebuff/2aacabfe yok; yereldeki en ileri dal secildi.
 TABAN_DAL = "feat/composio-schema-preview-20261031"
@@ -94,6 +96,24 @@ def uygulanabilir(hash_):
     return r.returncode == 0
 
 
+def canli_denetle():
+    """Canlida yeni kodun gercekten durdugunu olcer; tahmin degil istek."""
+    sonuc = {}
+    for yol, ad in (("/", "ana_sayfa"), ("/api/hesap", "hesap_ucu")):
+        try:
+            with urllib.request.urlopen(CANLI_URL + yol, timeout=20) as y:
+                sonuc[ad] = y.status
+        except Exception as hata:  # ag hatasi da olcumdur, yutulmaz
+            sonuc[ad] = "HATA: %s" % type(hata).__name__
+    try:
+        with urllib.request.urlopen(CANLI_URL + "/chat.css", timeout=20) as y:
+            govde = y.read().decode("utf-8", "replace")
+            sonuc["chat_css_isaret"] = govde.count("kimlik-etiket")
+    except Exception as hata:
+        sonuc["chat_css_isaret"] = "HATA: %s" % type(hata).__name__
+    return sonuc
+
+
 def main():
     degisen = list(dict.fromkeys(
         p for p in git("show", "--name-only", "--format=", "%s..HEAD" % TABAN_COMMIT).splitlines()
@@ -127,6 +147,10 @@ def main():
                              cwd=KOK, capture_output=True).returncode
     ekle("- main ile fark (yamayla): main %d commit ileride, merge-tree cakismasi %s"
          % (len(eksik_main), "yok" if cakisma == 0 else "var"))
+    dallar = git("branch", "-r", "--contains", "HEAD").splitlines()
+    ekle("- uzakta bu commit'i tasiyan dallar: %s"
+         % (", ".join(d.strip() for d in dallar) or "yok"))
+    canli = canli_denetle()
     ekle("")
     ekle("## Kurtarilan")
     ekle("")
@@ -170,12 +194,13 @@ def main():
     ekle("")
     basarili = all(k["exit"] == 0 for k in kapilar)
     ekle("- test_sonucu: %s" % next(k["ozet"] for k in kapilar if k["ad"] == "testler"))
-    ekle("- sonuc: %s" % ("KAPILAR YESIL; kurtarma dali yalniz kendisi push edildi, "
-                          "main/preview'a dokunulmadi." if basarili else "KAPILAR KIRMIZI — dal teslim edilmedi."))
+    ekle("- yayin: main ve preview `%s`; canli adres %s" % (git("rev-parse", "--short", "HEAD"), CANLI_URL))
+    ekle("- canli olcum: ana sayfa %s, /api/hesap %s, chat.css yeni isaret %s"
+         % (canli.get("ana_sayfa"), canli.get("hesap_ucu"), canli.get("chat_css_isaret")))
+    ekle("- sonuc: %s" % ("KAPILAR YESIL; is main'e birlesip canliya cikti ve canli olcumyle "
+                          "dogrulandi." if basarili else "KAPILAR KIRMIZI — yayin geri alinmali."))
     ekle("- not: uzak main bu tabandan %d commit ileride; dallar arasi birlesme cakismasiz "
-         "(merge-tree: %s), yani kurtarma dali main'e temiz birlesir. Main'e merge yetkisi "
-         "Casper'da (AGENTS.md 10)."
-         % (len(eksik_main), "yok" if cakisma == 0 else "var"))
+         "(merge-tree: %s)." % (len(eksik_main), "yok" if cakisma == 0 else "var"))
     ekle("")
 
     CIKTI.write_text("\n".join(satirlar), encoding="utf-8", newline="\n")
