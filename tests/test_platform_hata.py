@@ -180,3 +180,65 @@ def test_geri_uyum_grubu_execute_sync_icinde_de_acilir(monkeypatch):
     with pytest.raises(RuntimeError) as hata:
         service.execute_sync("u1", "c1", "arac", {})
     assert "401 Yetkisiz" in str(hata.value)
+
+
+def _composio_baglantisi():
+    return {"id": "c1", "provider": "mcp", "status": "connected", "scopes": [],
+            "metadata": {
+                "composio_session_id": "trs_x",
+                "composio_toolkit": "github",
+                "composio_account_id": "ca_x",
+                "url": "https://backend.composio.dev/tool_router/trs_x/mcp",
+                "allowed_tools": ["mcp__c1__GITHUB_GET_REPO_ab12"],
+                "tools": [{"name": "mcp__c1__GITHUB_GET_REPO_ab12",
+                           "remote_name": "GITHUB_GET_REPO",
+                           "inputSchema": {"type": "object",
+                                           "properties": {"owner": {"type": "string"}},
+                                           "required": ["owner"]},
+                           "annotations": {"readOnlyHint": True}}]}}
+
+
+def test_composio_baglantisi_mcp_istemcisini_acmaz(monkeypatch):
+    from chat import platform_connectors as module
+
+    cagrilan = {}
+
+    def sahte_execute_tool(user_id, connection, tool, args):
+        cagrilan["tool"] = tool
+        return {"isError": False, "structuredContent": {"ok": True}}
+
+    class SahteMagaza:
+        def get(self, user_id, cid):
+            return _composio_baglantisi()
+
+    monkeypatch.setattr(module, "ConnectionStore", lambda: SahteMagaza())
+    monkeypatch.setattr("chat.platform_composio.execute_tool", sahte_execute_tool)
+    sonuc = module.execute("u1", "c1", "GITHUB_GET_REPO", {"owner": "x"})
+    assert cagrilan["tool"] == "GITHUB_GET_REPO"
+    assert sonuc["structuredContent"] == {"ok": True}
+
+
+def test_composio_arac_izni_yoksa_calismaz(monkeypatch):
+    from chat import platform_composio as module
+
+    def patlat(*a, **k):
+        raise AssertionError("saglayiciya gidilmemeli")
+
+    monkeypatch.setattr(module, "session_execute", patlat)
+    baglanti = _composio_baglantisi()
+    baglanti["metadata"]["allowed_tools"] = []
+    with pytest.raises(module.ComposioError) as hata:
+        module.execute_tool("u1", baglanti, "GITHUB_GET_REPO", {"owner": "x"})
+    assert "yetki" in str(hata.value)
+
+
+def test_composio_arguman_semasi_uygulanir(monkeypatch):
+    from chat import platform_composio as module
+
+    def patlat(*a, **k):
+        raise AssertionError("saglayiciya gidilmemeli")
+
+    monkeypatch.setattr(module, "session_execute", patlat)
+    with pytest.raises(module.ComposioError) as hata:
+        module.execute_tool("u1", _composio_baglantisi(), "GITHUB_GET_REPO", {})
+    assert "semaya" in str(hata.value)

@@ -463,6 +463,10 @@ def execute(user_id, connection_id, tool, args):
         raise PermissionError("Baglanti etkin degil (%s); once yeniden baglanmali"
                               % connection["status"])
     if connection["provider"] == "mcp":
+        if connection["metadata"].get("composio_session_id"):
+            # Composio yalniz REST ile calisir; MCP istemcisi acilmaz.
+            from chat.platform_composio import execute_tool
+            return execute_tool(user_id, connection, tool, dict(args or {}))
         from chat.platform_mcp import MCPService
         return MCPService(store).execute_sync(user_id, connection_id, tool, args)
     return ConnectorService(store).execute(user_id, connection_id, tool, args)

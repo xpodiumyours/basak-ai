@@ -412,6 +412,30 @@ def session_tools(user_id, connection):
         cursor = next_cursor
 
 
+def execute_tool(user_id, connection, tool_name, arguments):
+    """Kesfedilmis Composio aracini dogrudan REST ile calistirir.
+
+    MCP istemcisi ve gorev grubu kullanilmaz: Composio'nun calisma bicimi
+    ayni-koken v3.1 REST adaptorudur. Boylece hata anyio sarmali icinde
+    kaybolmaz; saglayicinin gercek yaniti gorunur.
+    """
+    from chat.platform_mcp import eslesen_arac
+    meta = connection["metadata"]
+    tools = meta.get("tools") or []
+    schema = eslesen_arac(tools, tool_name)
+    allowed = meta.get("allowed_tools") or []
+    if schema["remote_name"] not in allowed and schema["name"] not in allowed:
+        raise ComposioError("Bu arac icin yetki verilmedi")
+    if not isinstance(arguments, dict):
+        raise ComposioError("Arac argumanlari sozluk olmali")
+    from jsonschema import Draft202012Validator
+    try:
+        Draft202012Validator(schema["inputSchema"]).validate(arguments)
+    except Exception as exc:
+        raise ComposioError("Arac argumanlari semaya uymuyor") from exc
+    return session_execute(user_id, connection, schema["remote_name"], arguments)
+
+
 def session_execute(user_id, connection, slug, arguments):
     """Use only the fixed Composio REST origin and explicitly pinned account."""
     meta = connection["metadata"]
