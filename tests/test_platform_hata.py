@@ -151,3 +151,32 @@ def test_engel_nedeni_kullaniciya_gorunur(monkeypatch):
     with pytest.raises(module.ExecutionBlocked) as hata:
         module._connection_meta({"baglanti_id": "c1", "arac": "x"}, SahteCtx())
     assert "yeniden baglanmali" in str(hata.value)
+
+
+class _GeriUyumGrubu(Exception):
+    """Python < 3.11 exceptiongroup paketinin bicimini taklit eder."""
+
+    def __init__(self, mesaj, icerik):
+        super().__init__(mesaj)
+        self.exceptions = tuple(icerik)
+
+
+def test_geri_uyum_grubu_da_acilir():
+    from chat.hata import hata_metni
+    grup = _GeriUyumGrubu("unhandled errors in a TaskGroup (1 sub-exception)",
+                          [PermissionError("asil neden burada")])
+    assert hata_metni(grup) == "asil neden burada"
+
+
+def test_geri_uyum_grubu_execute_sync_icinde_de_acilir(monkeypatch):
+    from chat.platform_mcp import MCPService
+    service = MCPService(store=object())
+
+    async def patlat(*a, **k):
+        raise _GeriUyumGrubu("unhandled errors in a TaskGroup (1 sub-exception)",
+                             [RuntimeError("401 Yetkisiz")])
+
+    monkeypatch.setattr(service, "execute", patlat)
+    with pytest.raises(RuntimeError) as hata:
+        service.execute_sync("u1", "c1", "arac", {})
+    assert "401 Yetkisiz" in str(hata.value)

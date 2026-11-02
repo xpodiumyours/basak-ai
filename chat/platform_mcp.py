@@ -333,8 +333,8 @@ class MCPService:
         try:
             return run_sync(self.execute(user_id, connection_id, tool_name, arguments))
         except BaseException as exc:
-            from chat.hata import GRUP, hata_metni
-            if isinstance(exc, GRUP):
+            from chat.hata import grup_mu, hata_metni
+            if grup_mu(exc):
                 # anyio/asyncio sarmalini ac; asil nedeni disari ver.
                 raise RuntimeError(hata_metni(exc)) from exc
             raise
