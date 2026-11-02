@@ -164,6 +164,10 @@ def create_session(user_id, toolkit, connected_account=None):
     config = {
         "user_id": _user_id(user_id),
         "toolkits": {"enable": [toolkit]},
+        # A session exposes only its router/meta tools unless app tools are
+        # preloaded; "all" stays bound by the positive toolkit allowlist and
+        # Composio caps it at 1000 tools.
+        "preload": {"tools": "all"},
         # Composio Instant can incur charges if omitted; never opt in.
         "instant": False,
         # A client without interactive MCP elicitation must never silently

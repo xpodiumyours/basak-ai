@@ -115,6 +115,7 @@ def test_session_create_and_oauth_link(gateway, monkeypatch):
     assert requests[0][2] == {
         "user_id": gateway._user_id("alice"),
         "toolkits": {"enable": ["github"]},
+        "preload": {"tools": "all"},
         "instant": False,
         "experimental": {"no_elicitation_support_fallback": "deny"},
     }
@@ -469,6 +470,7 @@ def test_verified_auth_creates_account_pinned_session(gateway, monkeypatch):
               if method == "POST" and path == "/api/v3.1/tool_router/session"]
     assert create[-1]["connected_accounts"] == {"github": ["ca_fixture"]}
     assert create[-1]["instant"] is False
+    assert create[-1]["preload"] == {"tools": "all"}
 
 
 def test_missing_or_changed_pinned_account_disables_execution(gateway, monkeypatch):
