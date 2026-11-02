@@ -189,6 +189,11 @@ class MCPService:
             return
         from mcp import ClientSession
         metadata = connection["metadata"]
+        # Composio yalniz ayni-koken v3.1 REST adaptoruyle calisir. Barindirilan
+        # MCP adresine anahtarsiz baglanmak anyio icinde opak bir gorev-grubu
+        # hatasi uretir; bu yolu en basta kesiyoruz.
+        if metadata.get("composio_session_id"):
+            raise PermissionError("Composio baglantisi dogrudan REST API ile calisir")
         if metadata.get("transport") == "stdio":
             if self.isolated_stdio_factory is None:
                 raise RuntimeError("stdio MCP icin izole bulut iscisi gerekli")
@@ -202,10 +207,6 @@ class MCPService:
         credentials = self.store.credentials(user_id, connection["id"])
         if credentials.get("expires_at") and float(credentials["expires_at"]) <= time.time() + 30:
             credentials = await asyncio.to_thread(self._refresh, user_id, connection, credentials)
-        # Composio sessions use the same-origin v3.1 REST adapter in
-        # discover/execute below. Never send a project key to an MCP URL.
-        if metadata.get("composio_session_id"):
-            raise PermissionError("Composio baglantisi dogrudan REST API ile calisir")
         headers = {}
         if credentials.get("access_token"):
             headers["Authorization"] = "Bearer " + credentials["access_token"]
@@ -274,15 +275,44 @@ class MCPService:
         self.store.save(user_id, "mcp", secret, connection["scopes"], metadata, connection_id)
         return tools
 
+    @staticmethod
+    def _eslesen_arac(tools, tool_name):
+        """Araci ad alaniyla, uzak slug ile veya harf farkiyla cozer.
+
+        Katalog adlari 24 karakterde kirpildigi icin model kesifte gordugu
+        uzak slug'i tekrar edebilir; ikisi de ayni araci gosterir.
+        """
+        aranan = str(tool_name or "").strip()
+        if not aranan:
+            raise ValueError("Arac adi gerekli")
+        for arac in tools:
+            if arac.get("name") == aranan:
+                return arac
+        kucuk = aranan.lower()
+        for arac in tools:
+            if str(arac.get("remote_name") or "").lower() == kucuk:
+                return arac
+        for arac in tools:
+            if str(arac.get("name") or "").lower() == kucuk:
+                return arac
+        ornek = ", ".join(sorted(str(a.get("remote_name") or a.get("name") or "")
+                                 for a in tools)[:3])
+        raise PermissionError("Arac bu baglanti katalogunda yok (%s arac); ornek: %s"
+                              % (len(tools), ornek))
+
     async def execute(self, user_id, connection_id, tool_name, arguments):
         connection = self._owned(user_id, connection_id)
-        tools = connection["metadata"].get("tools") or await self.discover(user_id, connection_id)
-        schema = next((t for t in tools if t["name"] == tool_name), None)
-        if schema is None:
-            raise PermissionError("MCP araci kesfedilen katalogda yok")
-        allowed = connection["metadata"].get("allowed_tools", [])
-        if schema["remote_name"] not in allowed and tool_name not in allowed:
-            raise PermissionError("MCP araci icin yetki verilmedi")
+        meta = connection["metadata"]
+        if not meta.get("composio_session_id"):
+            host = (urlsplit(str(meta.get("url") or "")).hostname or "").lower()
+            if host in ("backend.composio.dev", "app.composio.dev"):
+                raise PermissionError("Composio baglantisi oturum bilgisi olmadan "
+                                      "calistirilamaz; baglantiyi yeniden kurun")
+        tools = meta.get("tools") or await self.discover(user_id, connection_id)
+        schema = self._eslesen_arac(tools, tool_name)
+        allowed = meta.get("allowed_tools") or []
+        if schema["remote_name"] not in allowed and schema["name"] not in allowed:
+            raise PermissionError("Bu arac icin yetki verilmedi; baglanti izinlerini guncelleyin")
         from jsonschema import Draft202012Validator
         try:
             Draft202012Validator(schema["inputSchema"]).validate(arguments)
@@ -296,4 +326,11 @@ class MCPService:
             return normalize_result(await session.call_tool(schema["remote_name"], arguments))
 
     def execute_sync(self, user_id, connection_id, tool_name, arguments):
-        return run_sync(self.execute(user_id, connection_id, tool_name, arguments))
+        try:
+            return run_sync(self.execute(user_id, connection_id, tool_name, arguments))
+        except BaseException as exc:
+            from chat.hata import GRUP, hata_metni
+            if isinstance(exc, GRUP):
+                # anyio/asyncio sarmalini ac; asil nedeni disari ver.
+                raise RuntimeError(hata_metni(exc)) from exc
+            raise

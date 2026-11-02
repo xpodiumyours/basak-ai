@@ -450,6 +450,9 @@ def execute(user_id, connection_id, tool, args):
     connection = store.get(user_id, connection_id)
     if not connection:
         raise PermissionError("Baglanti bulunamadi")
+    if connection["status"] != "connected":
+        raise PermissionError("Baglanti etkin degil (%s); once yeniden baglanmali"
+                              % connection["status"])
     if connection["provider"] == "mcp":
         from chat.platform_mcp import MCPService
         return MCPService(store).execute_sync(user_id, connection_id, tool, args)

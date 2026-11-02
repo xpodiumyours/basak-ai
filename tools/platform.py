@@ -122,7 +122,10 @@ def execute(name, args):
             result['_wait_children'] = pending
         return {'result': json.dumps(result, ensure_ascii=False)}
     if name == 'baglanti_liste':
-        return {'result': _connections().list(ctx.user_id)}
+        # Model yalniz kullanilabilir baglantilari gorur: iptal edilmis bir
+        # kayit secilirse arac cagrisi kacinilmaz olarak basarisiz olur.
+        return {'result': [c for c in _connections().list(ctx.user_id)
+                           if c.get('status') == 'connected']}
     if name == 'baglanti_araclari':
         from chat.platform_connectors import list_tools
         return {'result': list_tools(ctx.user_id, str(args.get('baglanti_id') or ''))}

@@ -545,7 +545,10 @@ def calistir(tool_name, args):
             return freetools_kopru.freetools_calistir(
                 str(args.get("adres", "")), args.get("form"))
     except Exception as e:
-        logger.warning("Arac hatasi (%s): %s", tool_name, e)
-        return {"error": "Arac calismadi: %s" % str(e)}
+        from chat.hata import hata_metni
+        # Gurup sarmalayicisi gizlenmesin: nedeni kullanici ve gunluk gorur.
+        logger.warning("Arac hatasi (%s): %s", tool_name, hata_metni(e),
+                       exc_info=True)
+        return {"error": "Arac calismadi: %s" % hata_metni(e)}
 
     return {"error": "'%s' calistirilamadi." % tool_name}
