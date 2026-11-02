@@ -48,6 +48,31 @@ def normalize_result(result):
     return copy.deepcopy(result)
 
 
+def eslesen_arac(tools, tool_name):
+    """Araci ad alaniyla, uzak slug ile veya harf farkiyla cozer.
+
+    Katalog adlari 24 karakterde kirpildigi icin model kesifte gordugu uzak
+    slug'i tekrar edebilir; ikisi de ayni araci gosterir.
+    """
+    aranan = str(tool_name or "").strip()
+    if not aranan:
+        raise ValueError("Arac adi gerekli")
+    for arac in tools or ():
+        if arac.get("name") == aranan:
+            return arac
+    kucuk = aranan.lower()
+    for arac in tools or ():
+        if str(arac.get("remote_name") or "").lower() == kucuk:
+            return arac
+    for arac in tools or ():
+        if str(arac.get("name") or "").lower() == kucuk:
+            return arac
+    ornek = ", ".join(sorted(str(a.get("remote_name") or a.get("name") or "")
+                             for a in (tools or ()))[:3])
+    raise PermissionError("Arac bu baglanti katalogunda yok (%s arac); ornek: %s"
+                          % (len(tools or ()), ornek))
+
+
 def run_sync(awaitable):
     try:
         asyncio.get_running_loop()
@@ -277,28 +302,7 @@ class MCPService:
 
     @staticmethod
     def _eslesen_arac(tools, tool_name):
-        """Araci ad alaniyla, uzak slug ile veya harf farkiyla cozer.
-
-        Katalog adlari 24 karakterde kirpildigi icin model kesifte gordugu
-        uzak slug'i tekrar edebilir; ikisi de ayni araci gosterir.
-        """
-        aranan = str(tool_name or "").strip()
-        if not aranan:
-            raise ValueError("Arac adi gerekli")
-        for arac in tools:
-            if arac.get("name") == aranan:
-                return arac
-        kucuk = aranan.lower()
-        for arac in tools:
-            if str(arac.get("remote_name") or "").lower() == kucuk:
-                return arac
-        for arac in tools:
-            if str(arac.get("name") or "").lower() == kucuk:
-                return arac
-        ornek = ", ".join(sorted(str(a.get("remote_name") or a.get("name") or "")
-                                 for a in tools)[:3])
-        raise PermissionError("Arac bu baglanti katalogunda yok (%s arac); ornek: %s"
-                              % (len(tools), ornek))
+        return eslesen_arac(tools, tool_name)
 
     async def execute(self, user_id, connection_id, tool_name, arguments):
         connection = self._owned(user_id, connection_id)

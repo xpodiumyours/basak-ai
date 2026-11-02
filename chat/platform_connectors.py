@@ -433,7 +433,16 @@ def tool_metadata(user_id, connection_id, tool):
     if not connection:
         raise PermissionError("Baglanti bulunamadi")
     catalog = connection["metadata"].get("tools", []) if connection["provider"] == "mcp" else TOOLS.get(connection["provider"], [])
-    schema = next((t for t in catalog if t["name"] == tool), None)
+    if connection["provider"] == "mcp":
+        # Onay kapisi da yurutme ile ayni kuralla cozer; aksi halde model
+        # kesifte gordugu uzak slug ile arac cagirdiginda is bloke edilir.
+        from chat.platform_mcp import eslesen_arac
+        try:
+            schema = eslesen_arac(catalog, tool)
+        except (ValueError, PermissionError):
+            raise PermissionError("Arac baglanti katalogunda yok") from None
+    else:
+        schema = next((t for t in catalog if t["name"] == tool), None)
     if schema is None:
         raise PermissionError("Arac baglanti katalogunda yok")
     hints = schema.get("annotations") or {}

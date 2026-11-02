@@ -52,8 +52,10 @@ def _connection_meta(args, ctx):
     try:
         from chat.platform_connectors import tool_metadata
         return tool_metadata(ctx.user_id, args.get('baglanti_id', ''), args.get('arac', ''))
-    except Exception:
-        raise ExecutionBlocked('Baglanti ya da arac erisimi hazir degil', 'awaiting_connection') from None
+    except Exception as exc:
+        from chat.hata import hata_metni
+        raise ExecutionBlocked('Baglanti ya da arac erisimi hazir degil: '
+                               + hata_metni(exc), 'awaiting_connection') from None
 
 
 def effective_permissions(allowed_tools):

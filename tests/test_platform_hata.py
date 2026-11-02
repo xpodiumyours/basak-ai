@@ -118,3 +118,36 @@ def test_baglanti_liste_olu_kayitlari_modele_sunmaz(monkeypatch):
     monkeypatch.setattr(module, "_connections", lambda: SahteMagaza())
     sonuc = module.execute("baglanti_liste", {})
     assert [c["id"] for c in sonuc["result"]] == ["canli"]
+
+def test_tool_metadata_uzak_slug_ile_eslesir(monkeypatch):
+    from chat import platform_connectors as module
+
+    class SahteMagaza:
+        def get(self, user_id, cid):
+            return {"id": cid, "provider": "mcp", "status": "connected",
+                    "scopes": [], "metadata": {"tools": [
+                        {"name": "mcp__c1__GITHUB_GET_REPO_ab12",
+                         "remote_name": "GITHUB_GET_REPO",
+                         "annotations": {"readOnlyHint": True}}]}}
+
+    monkeypatch.setattr(module, "ConnectionStore", lambda: SahteMagaza())
+    meta = module.tool_metadata("u1", "c1", "GITHUB_GET_REPO")
+    assert meta["read_only"] is True
+    assert meta["connection_id"] == "c1"
+    with pytest.raises(PermissionError):
+        module.tool_metadata("u1", "c1", "GITHUB_YOK")
+
+
+def test_engel_nedeni_kullaniciya_gorunur(monkeypatch):
+    from chat import platform_agents as module
+
+    def patlat(user_id, connection_id, tool):
+        raise PermissionError("Baglanti etkin degil (revoked); once yeniden baglanmali")
+
+    class SahteCtx:
+        user_id = "u1"
+
+    monkeypatch.setattr("chat.platform_connectors.tool_metadata", patlat)
+    with pytest.raises(module.ExecutionBlocked) as hata:
+        module._connection_meta({"baglanti_id": "c1", "arac": "x"}, SahteCtx())
+    assert "yeniden baglanmali" in str(hata.value)
