@@ -367,8 +367,15 @@ def session_tools(user_id, connection):
                 raise ComposioError("Composio arac semasi gecersiz")
             slug = raw.get("slug")
             group = raw.get("toolkit") or {}
+            if not isinstance(group, dict):
+                raise ComposioError("Composio arac kapsami gecersiz")
+            # A session also lists Composio meta tools and every other enabled
+            # toolkit. Only the pinned app's tools may run with the pinned
+            # account, so foreign entries are skipped instead of failing the
+            # whole catalogue.
+            if group.get("slug") != toolkit:
+                continue
             if (not isinstance(slug, str) or not re.fullmatch(r"[A-Z0-9_]{3,150}", slug)
-                    or not isinstance(group, dict) or group.get("slug") != toolkit
                     or slug in seen):
                 raise ComposioError("Composio arac kapsami gecersiz")
             seen.add(slug)

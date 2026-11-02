@@ -377,6 +377,29 @@ def test_session_tools_preserves_documented_json_schema(gateway, monkeypatch):
     assert not validator.is_valid({"options": {"limit": 0}})
 
 
+def test_session_tools_skips_tools_of_other_toolkits(gateway, monkeypatch):
+    call, _, url = _fake_api(gateway)
+
+    def with_meta_tools(method, path, *, data=None, params=None):
+        response = call(method, path, data=data, params=params)
+        if method == "GET" and path.endswith("/tools"):
+            # A live session lists Composio meta tools next to the app's own
+            # tools; they belong to another toolkit and must never run with
+            # the account pinned to this connection.
+            response["items"] = [{"slug": "COMPOSIO_SEARCH_TOOLS",
+                                  "toolkit": {"slug": "composio"},
+                                  "description": "Search tools",
+                                  "input_parameters": {"type": "object"}},
+                                 *response["items"]]
+        return response
+
+    monkeypatch.setattr(gateway, "_request", with_meta_tools)
+    tools = gateway.session_tools("alice", {"id": "connection1", "metadata": {
+        "composio_toolkit": "github", "composio_session_id": "trs_fixture99",
+        "composio_account_id": "ca_fixture", "url": url,
+    }})
+    assert [tool["remote_name"] for tool in tools] == ["GITHUB_GET_REPO"]
+
 def test_documented_v31_rest_execute_response_succeeds(gateway, monkeypatch):
     call, _, url = _fake_api(gateway)
     def documented(method, path, *, data=None, params=None):
