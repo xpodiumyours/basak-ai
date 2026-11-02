@@ -7,14 +7,11 @@ https://docs.composio.dev/reference/api-reference/tool-router
 """
 import hashlib
 import hmac
-import logging
 import os
 import re
 from urllib.parse import urlsplit
 
 import httpx
-
-logger = logging.getLogger(__name__)
 
 TOOLKITS = {
     "github": "GitHub",
@@ -380,7 +377,10 @@ def session_tools(user_id, connection):
             # toolkit. Only the pinned app's tools may run with the pinned
             # account, so foreign entries are skipped instead of failing the
             # whole catalogue.
-            if group.get("slug") != toolkit:
+            # The live tools endpoint reports toolkit slugs in upper case
+            # ("GITHUB") while the pinned toolkit is lower case; fold them.
+            group_slug = group.get("slug")
+            if not isinstance(group_slug, str) or group_slug.strip().lower() != toolkit:
                 continue
             if (not isinstance(slug, str) or not re.fullmatch(r"[A-Z0-9_]{3,150}", slug)
                     or slug in seen):
@@ -404,13 +404,6 @@ def session_tools(user_id, connection):
             })
             if len(result) > 1000:
                 raise ComposioError("Composio arac sayisi guvenlik sinirini asti")
-        if not result:
-            # An empty catalogue is otherwise indistinguishable from a session
-            # that only exposes router tools; the slugs show which it was.
-            logger.warning("Composio arac katalogu bos: toolkit=%s items=%s ornek=%s",
-                           toolkit, len(items),
-                           [(i.get("slug"), (i.get("toolkit") or {}).get("slug"))
-                            for i in items[:5] if isinstance(i, dict)])
         next_cursor = response.get("next_cursor")
         if not next_cursor:
             return result

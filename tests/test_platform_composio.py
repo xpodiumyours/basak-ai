@@ -384,14 +384,15 @@ def test_session_tools_skips_tools_of_other_toolkits(gateway, monkeypatch):
     def with_meta_tools(method, path, *, data=None, params=None):
         response = call(method, path, data=data, params=params)
         if method == "GET" and path.endswith("/tools"):
-            # A live session lists Composio meta tools next to the app's own
-            # tools; they belong to another toolkit and must never run with
-            # the account pinned to this connection.
+            # The live session lists Composio meta tools next to the app's
+            # own tools and reports every toolkit slug in upper case.
+            app_tool = dict(response["items"][0])
+            app_tool["toolkit"] = {"slug": "GITHUB"}
             response["items"] = [{"slug": "COMPOSIO_SEARCH_TOOLS",
-                                  "toolkit": {"slug": "composio"},
+                                  "toolkit": {"slug": "COMPOSIO"},
                                   "description": "Search tools",
                                   "input_parameters": {"type": "object"}},
-                                 *response["items"]]
+                                 app_tool]
         return response
 
     monkeypatch.setattr(gateway, "_request", with_meta_tools)
