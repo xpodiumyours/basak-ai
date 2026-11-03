@@ -127,8 +127,9 @@ def execute(name, args):
         return {'result': [c for c in _connections().list(ctx.user_id)
                            if c.get('status') == 'connected']}
     if name == 'baglanti_araclari':
-        from chat.platform_connectors import list_tools
-        return {'result': list_tools(ctx.user_id, str(args.get('baglanti_id') or ''))}
+        from chat.platform_connectors import tool_catalog
+        return {'result': tool_catalog(ctx.user_id, str(args.get('baglanti_id') or ''),
+                                       args.get('sorgu'))}
     if name == 'baglanti_cagir':
         from chat.platform_connectors import execute as call
         result = call(ctx.user_id, str(args.get('baglanti_id') or ''),

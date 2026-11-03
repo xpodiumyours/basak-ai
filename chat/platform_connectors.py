@@ -427,6 +427,41 @@ def list_tools(user_id, connection_id):
     return ConnectorService(store).tools(user_id, connection_id)
 
 
+def _kisa_aciklama(metin):
+    """Katalog satirinda gosterilen tek cumlelik aciklama."""
+    duz = " ".join(str(metin or "").split())
+    if len(duz) <= 180:
+        return duz
+    kesim = duz[:180]
+    nokta = kesim.rfind(". ")
+    if nokta >= 40:
+        return kesim[:nokta + 1]
+    return kesim.rstrip() + "..."
+
+
+def tool_catalog(user_id, connection_id, sorgu=None):
+    """Modele donen arac katalogu.
+
+    Arama yoksa her arac icin yalniz ad ve kisa aciklama doner: tam semalar
+    yuzlerce aracin ayni anda baglama girmesini engeller. Arama verilirse
+    eslesen araclarin tam semasi doner, yani model aradigi araci kendi secer.
+    """
+    araclar = list_tools(user_id, connection_id)
+    arama = " ".join(str(sorgu or "").split()).lower()
+    if not arama:
+        return [{"name": arac.get("name", ""),
+                 "remote_name": arac.get("remote_name") or arac.get("name", ""),
+                 "description": _kisa_aciklama(arac.get("description"))}
+                for arac in araclar]
+    eslesen = []
+    for arac in araclar:
+        havuz = " ".join(str(arac.get(alan) or "") for alan in
+                         ("name", "remote_name", "description")).lower()
+        if arama in havuz:
+            eslesen.append(arac)
+    return eslesen
+
+
 def tool_metadata(user_id, connection_id, tool):
     store = ConnectionStore()
     connection = store.get(user_id, connection_id)
