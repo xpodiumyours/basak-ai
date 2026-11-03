@@ -34,6 +34,12 @@ SETTLED = TERMINAL | {"blocked"}
 PREFIX = "basak_platform_"
 
 
+def runtime_surum():
+    """Isci kalp atisinda ve kuyruk kapisinda kullanilan surum etiketi."""
+    from chat.agent_runtime import RUNTIME_VERSION
+    return str(RUNTIME_VERSION)
+
+
 def delegated_result(run):
     """Tool-facing results omit private executor checkpoints, not task evidence."""
     result = {key: value for key, value in run.items()
@@ -260,7 +266,7 @@ class RuntimeStore:
             "preview TEXT NOT NULL DEFAULT '{}')",
             "CREATE TABLE IF NOT EXISTS basak_platform_worker_presence ("
             "worker_id TEXT PRIMARY KEY, seen_at DOUBLE PRECISION NOT NULL, "
-            "state TEXT NOT NULL)",
+            "state TEXT NOT NULL, surum TEXT NOT NULL DEFAULT '')",
             "CREATE INDEX IF NOT EXISTS basak_platform_owner ON basak_platform_run(user_id,workspace_id)",
             "CREATE INDEX IF NOT EXISTS basak_platform_parent ON basak_platform_run(parent_id)",
             "CREATE TABLE IF NOT EXISTS basak_platform_workspace_file ("
@@ -282,16 +288,26 @@ class RuntimeStore:
                 'SELECT * FROM basak_platform_workspace_file LIMIT 0').description]
             if 'deleted' not in file_columns:
                 tx.execute('ALTER TABLE basak_platform_workspace_file ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0')
+            presence_columns = [d[0] for d in tx.execute(
+                'SELECT * FROM basak_platform_worker_presence LIMIT 0').description]
+            if 'surum' not in presence_columns:
+                tx.execute("ALTER TABLE basak_platform_worker_presence ADD COLUMN surum TEXT NOT NULL DEFAULT ''")
 
-    def worker_ping(self, worker_id):
-        """Worker proves liveness independently of whether jobs are queued."""
+    def worker_ping(self, worker_id, surum=None):
+        """Worker proves liveness independently of whether jobs are queued.
+
+        Surum de yazar: eski surumle ayakta kalan bir isci, yeni kodu
+        bilmeden is alirsa isi sessizce bozar. Kuyruk yalniz kendi
+        surumunu tasiyan isciyi hazir sayar.
+        """
         worker_id = _key(worker_id, "worker_id")
+        surum = str(surum if surum is not None else runtime_surum())
         with self.transaction() as tx:
             tx.execute("INSERT INTO basak_platform_worker_presence"
-                       "(worker_id,seen_at,state) VALUES(%s,%s,'online') "
+                       "(worker_id,seen_at,state,surum) VALUES(%s,%s,'online',%s) "
                        "ON CONFLICT(worker_id) DO UPDATE SET "
-                       "seen_at=excluded.seen_at,state='online'",
-                       (worker_id, self.clock()))
+                       "seen_at=excluded.seen_at,state='online',surum=excluded.surum",
+                       (worker_id, self.clock(), surum))
 
     def workspace_files(self, user_id, workspace_id, include_deleted=False):
         with self.transaction(readonly=True) as tx:
@@ -457,7 +473,8 @@ class RuntimeStore:
                     return None
             ready = not require_worker or bool(tx.one(
                     "SELECT worker_id FROM basak_platform_worker_presence "
-                    "WHERE state='online' AND seen_at>=%s LIMIT 1", (self.clock()-30,)))
+                    "WHERE state='online' AND seen_at>=%s AND surum=%s LIMIT 1",
+                    (self.clock()-30, runtime_surum())))
             if allow_legacy and (not durable_enabled or not ready):
                 if request_key:
                     tx.execute("INSERT INTO basak_platform_chat_route "
