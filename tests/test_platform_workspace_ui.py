@@ -474,3 +474,16 @@ def test_real_chromium_connectors_panel_manages_and_toggles(width, height, tmp_p
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_approval_card_speaks_plain_language_and_run_facts_stay_honest():
+    js("""
+const view=ui.approvalView({resource:'c1',preview:{operation:'mcp__c1__GITHUB_LIST_REPOSITORIES_3aac1f',target:{repository:'xpodiumyours/basak-ai'}}},[{id:'c1',label:'GitHub'}]);
+assert.equal(view.step,'GitHub · GITHUB LIST REPOSITORIES');
+assert.equal(view.details,'Depo: xpodiumyours/basak-ai');
+assert.match(view.title,/izin/i);
+assert.equal(ui.operationText('mcp__c1__GITHUB_CREATE_ISSUE_ab12cd'),'GITHUB CREATE ISSUE');
+assert.equal(ui.operationText('hesapla'),'hesapla');
+assert.equal(ui.elapsedText({olustu:'2026-11-03T21:22:40Z',guncelleme:'2026-11-03T21:23:52Z'}),'1 dk 12 sn');
+assert.equal(ui.elapsedText({}),'');
+""")

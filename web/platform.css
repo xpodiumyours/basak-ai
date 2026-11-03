@@ -78,7 +78,14 @@
 .workspace-run-reason,.workspace-check{font-size:11px;line-height:1.6;width:100%;margin:2px 0;overflow-wrap:anywhere}
 .workspace-approval{padding:10px;border:1px solid var(--workspace-amber);border-radius:7px;width:100%;font-size:12px}
 .workspace-approval p{line-height:1.5;overflow-wrap:anywhere;margin:0 0 10px}
-.workspace-approval button+button{margin-left:8px}
+.workspace-approval-title{font-size:12px;font-weight:650;color:var(--ink);margin:0 0 8px}
+.workspace-approval-digest{display:block;color:var(--muted);font-size:10px;margin:0 0 10px}
+.workspace-approval-actions{display:flex;flex-wrap:wrap;gap:8px}
+.workspace-approval-actions button+button{margin-left:0}
+.workspace-approval-actions .workspace-button.is-primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.workspace-run-facts,.workspace-run-now{width:100%;margin:0;font-size:11px;line-height:1.6;overflow-wrap:anywhere}
+.workspace-run-facts{color:var(--muted)}
+.workspace-run-now{color:var(--ink)}
 .workspace-steer-form{border:1px solid var(--line);padding:12px;border-radius:8px;margin:16px 0}
 .workspace-steer-form>div{display:flex;gap:8px}
 .workspace-steer-form input{min-width:0;flex:1;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12px}

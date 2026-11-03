@@ -173,6 +173,77 @@
     return fields.join(" · ") || "İşlem ayrıntısı kayıtlı değil; onay öncesi hedefi doğrula";
   }
 
+  function timeValue(value) {
+    if (value == null || value === "") return NaN;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return Math.abs(numeric) < 1e12 ? numeric * 1000 : numeric;
+    const parsed = Date.parse(String(value).trim().replace(" ", "T"));
+    return Number.isFinite(parsed) ? parsed : NaN;
+  }
+
+  function elapsedText(run) {
+    const start = timeValue(run && run.olustu);
+    if (!Number.isFinite(start)) return "";
+    const end = timeValue(run && (run.guncelleme || run.updated_at));
+    const seconds = Math.max(0, Math.round(((Number.isFinite(end) ? end : Date.now()) - start) / 1000));
+    if (seconds < 60) return seconds + " sn";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return minutes + " dk " + (seconds % 60) + " sn";
+    return Math.floor(minutes / 60) + " sa " + (minutes % 60) + " dk";
+  }
+
+  // Display only: turns a remote tool id into the name the user recognises.
+  function operationText(operation) {
+    const raw = String(operation || "").trim();
+    if (!raw) return "";
+    const parts = raw.split("__");
+    const name = parts.length >= 3 ? parts.slice(2).join("__") : raw;
+    return name.replace(/_[0-9a-f]{6,}$/i, "").replace(/[_-]+/g, " ").trim() || raw;
+  }
+
+  function approvalView(approval, connections) {
+    const preview = (approval && approval.preview) || {};
+    const resource = String((approval && approval.resource) || "");
+    const match = (connections || []).find((item) => item &&
+      (item.id === resource || item.connection_id === resource));
+    const where = match ? (match.label || match.provider || resource) : resource.slice(0, 12);
+    const titles = { repository: "Depo", branch: "Dal", path: "Dosya", workflow: "İş akışı",
+      ref: "Referans", document_id: "Belge", spreadsheet_id: "Tablo", page_id: "Sayfa",
+      block_id: "Blok", file_id: "Dosya kimliği", range: "Hücre aralığı",
+      session_id: "Tarayıcı oturumu", data_source_id: "Veri kaynağı" };
+    const targets = preview.target || {};
+    const details = Object.keys(titles).filter((key) => typeof targets[key] === "string")
+      .map((key) => titles[key] + ": " + targets[key]);
+    const what = operationText(preview.operation);
+    return {
+      title: "Başak dış bir işlem için izin istiyor",
+      step: [where, what].filter(Boolean).join(" · ") || "Dış çağrı",
+      details: details.join(" · "),
+    };
+  }
+
+  function shortValue(value) {
+    const text = typeof value === "string" ? value : JSON.stringify(value);
+    return String(text == null ? "" : text).replace(/\s+/g, " ").slice(0, 48);
+  }
+
+  function argsText(args) {
+    if (!args || typeof args !== "object" || Array.isArray(args)) return "";
+    return Object.keys(args).slice(0, 2).map((key) => key + ": " + shortValue(args[key])).join(" · ");
+  }
+
+  function currentStep(run, tools) {
+    const last = tools.length ? tools[tools.length - 1] : null;
+    if (last) {
+      const payload = last.payload || {};
+      const name = payload.tool || payload.arac || payload.ad || "";
+      const done = last.type === "tool_done" || payload.tur === "toolDone";
+      const failed = payload.ok === false;
+      return done ? (failed ? "araç hatası · " : "araç tamam · ") + name : "araç çalışıyor · " + name;
+    }
+    return run && run.durum ? statusText(run.durum) : "";
+  }
+
   function evidenceText(check) {
     const data = check && check.evidence;
     if (!data || typeof data !== "object" || Array.isArray(data)) return String(check.id || "Kabul kontrolü");
@@ -229,7 +300,8 @@
   }
 
   const exported = { createState, identity, snapshot, events, statusText, mergeMessages,
-    childProgress, evidenceText, approvalDetails, workerStatusText, hasWork, activityEvent, eventTime, observeRun,
+    childProgress, evidenceText, approvalDetails, approvalView, operationText, elapsedText,
+    workerStatusText, hasWork, activityEvent, eventTime, observeRun,
     safeHref, previewHref, createClient };
   if (typeof module !== "undefined" && module.exports) module.exports = exported;
   if (!scope.document) return;
@@ -448,22 +520,35 @@
       const badge = node("span", "workspace-status", statusText(run.durum));
       badge.dataset.status = run.durum || "unknown";
       row.append(badge);
-      const model = [run.model_ref, run.provider].filter(Boolean).join(" · ");
-      if (model) row.append(node("small", "workspace-muted", model));
+      const activityLog = state.log.filter(event =>
+        (event.payload?.origin_run_id || event.run_id) === run.id &&
+        ['tool_started', 'tool_done', 'chat'].includes(event.type));
+      const tools = activityLog.filter(event => activityEvent(event) && (event.type !== 'chat' ||
+        ['toolStart', 'toolDone', 'arac'].includes(event.payload?.tur)));
+      const facts = [];
+      if (run.model_ref) facts.push("Rol: " + run.model_ref);
+      if (run.provider) facts.push("Sağlayıcı: " + run.provider);
+      const sure = elapsedText(run);
+      if (sure) facts.push("Süre: " + sure);
+      if (tools.length) facts.push("Araç: " + tools.length);
+      if ((run.children || []).length) facts.push("Alt görev: " + (run.children || []).length);
+      if (facts.length) row.append(node("p", "workspace-run-facts", facts.join(" · ")));
+      const now = currentStep(run, tools);
+      if (now) row.append(node("p", "workspace-run-now", "Şu an: " + now));
       if (run.hata || run.reason || run.blocked_reason) row.append(node("p", "workspace-run-reason", run.hata || run.reason || run.blocked_reason));
       for (const check of run.checks || []) {
         if (check.id === "response_recorded") continue;
         row.append(node("p", "workspace-check", (check.ok === true ? "Geçti: " : "Geçmedi: ") + evidenceText(check)));
       }
       if (depth && run.answer) row.append(node('pre', 'workspace-code', run.answer));
-      const activity = state.log.filter(event =>
-        (event.payload?.origin_run_id || event.run_id) === run.id &&
-        ['tool_started', 'tool_done', 'chat'].includes(event.type));
-      const tools = activity.filter(event => activityEvent(event) && (event.type !== 'chat' ||
-        ['toolStart', 'toolDone', 'arac'].includes(event.payload?.tur)));
       if (tools.length) {
         const detail = node('details', 'workspace-agent-tools');
         detail.append(node('summary', '', 'Araç işlemleri · ' + tools.length));
+        const failures = tools.filter(event => (event.payload || {}).ok === false).length;
+        if (failures) {
+          detail.open = true;
+          detail.append(node('p', 'workspace-run-reason', failures + ' araç çağrısı hata verdi.'));
+        }
         for (const event of tools) {
           detail.append(node('p', 'workspace-run-reason', eventLabel(event)));
         }
@@ -486,17 +571,26 @@
       }
       for (const approval of run.approvals || []) {
         if (approval.status !== "pending") continue;
+        const view = approvalView(approval, state.connections);
         const box = node("div", "workspace-approval");
-        box.append(node("p", "", "Onay: " + (approval.action || "İşlem") + " · " + (approval.resource || "")));
-        box.append(node("p", "workspace-muted", approvalDetails(approval)));
-        box.append(node("small", "workspace-muted", "İşlem özeti: " + String(approval.arguments_digest || "").slice(0, 16)));
+        box.append(node("p", "workspace-approval-title", view.title));
+        box.append(node("p", "", "Ne yapılacak: " + view.step));
+        if (view.details) box.append(node("p", "workspace-muted", view.details));
+        box.append(node("p", "workspace-muted",
+          "Neden soruluyor: bağlı uygulamalarda her dış çağrı tek tek onaylanır. " +
+          "İzin verirsen bu çağrı bir kez çalışır; reddedersen görev durur."));
+        box.append(node("small", "workspace-approval-digest",
+          "Onay imzası: " + String(approval.arguments_digest || "").slice(0, 16)));
+        const approvalActions = node("div", "workspace-approval-actions");
         for (const approved of [true, false]) {
-          const button = node("button", "workspace-button", approved ? "Bu işlemi onayla" : "Reddet");
+          const button = node("button", "workspace-button" + (approved ? " is-primary" : ""),
+            approved ? "İzin ver ve çalıştır" : "Reddet ve durdur");
           button.type = "button";
           button.disabled = busy;
           button.addEventListener("click", () => perform(run.id, "onay", { approval_id: approval.id, approved }));
-          box.append(button);
+          approvalActions.append(button);
         }
+        box.append(approvalActions);
         row.append(box);
       }
       if (["verifying", "partial"].includes(run.durum)) {
@@ -539,8 +633,14 @@
     const labels = { steering: "Yeni yön alındı", approval: "Onay durumu", artifact: "Çıktı kaydedildi",
       check: "Kabul kontrolü", tool_started: "Araç çalışıyor", tool_done: "Araç sonucu",
       model: "Model", provider: "Sağlayıcı", status: "Durum", chat: "Araç işlemi" };
+    const tool = payload.tool || payload.arac || payload.ad || "";
+    if (tool && ["tool_started", "tool_done", "chat"].includes(event.type)) {
+      const phase = event.type === "tool_done" ? (payload.ok === false ? "hata" : "tamam") : "çalışıyor";
+      const args = argsText(payload.args);
+      return (labels[event.type] || "Araç") + " · " + tool + " · " + phase + (args ? " · " + args : "");
+    }
     return (labels[event.type] || event.type || "Olay") + " · " + (
-      payload.durum ? statusText(payload.durum) : payload.tool || payload.arac || payload.ad || payload.title || payload.model_ref || payload.provider || "");
+      payload.durum ? statusText(payload.durum) : payload.title || payload.model_ref || payload.provider || "");
   }
 
   function renderEvents() {
