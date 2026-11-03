@@ -428,6 +428,32 @@ class RuntimeStore:
                 "context": spec.get("context", {}), "continuation": _read(row["continuation"]),
                 "dependencies": [x["dependency_id"] for x in tx.rows("SELECT dependency_id FROM basak_platform_dependency WHERE run_id=%s", (row["id"],))]}
 
+    def budama(self, gun=14):
+        """Eski kosularin agir satirlarini siler; kosu ve denetim kalir.
+
+        Neden: `event.payload`, `action.result` ve `artifact.data` tam arac
+        katalogunu ve arac ciktilarini tasiyor; her sohbet birkac megabayt
+        biriktiriyor ve ucretsiz plan kotasini doldurup TUM sistemi kilitliyor
+        (2026-11-03: Neon "exceeded the quota" - giris dahil her sey durdu).
+        Silinen: eski kosunun olaylari, yapaylari ve arac sonuc govdeleri.
+        Kalan: kosu satiri, arac kaydinin kendisi (hangi arac, ok/hata).
+        """
+        cutoff = self.clock() - float(gun) * 86400
+        with self.transaction() as tx:
+            eski = [r["run_id"] for r in tx.rows(
+                "SELECT run_id FROM basak_platform_event GROUP BY run_id "
+                "HAVING MAX(created_at) < %s", (cutoff,))]
+            sayi = {"kosu": len(eski), "olay": 0, "eylem": 0, "yapay": 0}
+            for run_id in eski:
+                sayi["olay"] += tx.execute("DELETE FROM basak_platform_event WHERE run_id=%s",
+                                           (run_id,)).rowcount
+                sayi["eylem"] += tx.execute("UPDATE basak_platform_action SET result=NULL "
+                                            "WHERE run_id=%s AND result IS NOT NULL",
+                                            (run_id,)).rowcount
+                sayi["yapay"] += tx.execute("DELETE FROM basak_platform_artifact WHERE run_id=%s",
+                                            (run_id,)).rowcount
+            return sayi
+
     def create(self, user_id, workspace_id, instruction, *, model_ref="", parent_id=None,
                dependencies=(), allowed_tools=None, acceptance=None, request_key=None,
                run_id=None, kind="agent", context=None, require_worker=False,

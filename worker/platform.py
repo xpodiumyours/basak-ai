@@ -54,6 +54,11 @@ def main(argv=None):
     from brain import Brain
     handler = thread_handler(execute_job, Brain)
     store = RuntimeStore()
+    try:
+        # Eski kosularin agir govdeleri birikip veritabani kotasini doldurmasin.
+        logging.info("Veritabani budama: %s", store.budama())
+    except Exception:
+        logging.exception("Veritabani budama atlandi")
     identity = args.worker_id or ('platform-' + uuid.uuid4().hex[:12])
     worker = Worker(store, handler, worker_id=identity,
                     lease_seconds=args.lease_seconds)
