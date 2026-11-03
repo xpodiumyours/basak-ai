@@ -32,9 +32,16 @@ def test_arama_yoksa_sema_donmez(monkeypatch):
     katalog = _katalog(monkeypatch)
     assert len(katalog) == 3
     for satir in katalog:
-        assert set(satir) == {"name", "remote_name", "description"}
+        assert set(satir) == {"name", "remote_name", "description",
+                              "parametreler", "zorunlu"}
         assert "inputSchema" not in satir
         assert len(satir["description"]) <= 183
+
+
+def test_katalog_parametre_ve_zorunlu_alan_tasir(monkeypatch):
+    satir = [a for a in _katalog(monkeypatch) if a["remote_name"] == "GITHUB_CREATE_ISSUE"][0]
+    assert satir["parametreler"] == ["body", "owner", "repo", "title"]
+    assert satir["zorunlu"] == ["owner", "repo", "title"]
 
 
 def test_arama_ile_tam_sema_doner(monkeypatch):
@@ -54,10 +61,27 @@ def test_eslesme_yoksa_bos_liste(monkeypatch):
     assert _katalog(monkeypatch, "stripe") == []
 
 
-def test_katalog_tam_listeden_coook_kucuk(monkeypatch):
-    tam = json.dumps(_araclar(), ensure_ascii=False)
-    katalog = json.dumps(_katalog(monkeypatch), ensure_ascii=False)
-    assert len(katalog) < len(tam) / 2
+def test_yuzlerce_arac_katalogu_baglami_sismez(monkeypatch):
+    from chat import platform_connectors as module
+
+    def uret():
+        liste = []
+        for i in range(300):
+            liste.append({
+                "name": "mcp__c1__GITHUB_ARAC_%03d_ab12" % i,
+                "remote_name": "GITHUB_ARAC_%03d" % i,
+                "description": ("Belirli bir depoda islem yapar ve sonucu doner. " * 8).strip(),
+                "inputSchema": {"type": "object", "properties": {
+                    alan: {"type": "string", "description": "Aciklama metni " * 6}
+                    for alan in ("owner", "repo", "baslik", "govde", "etiket", "dal")},
+                    "required": ["owner", "repo"]},
+            })
+        return liste
+
+    monkeypatch.setattr(module, "list_tools", lambda user_id, cid: uret())
+    tam = json.dumps(uret(), ensure_ascii=False)
+    katalog = json.dumps(module.tool_catalog("u1", "c1"), ensure_ascii=False)
+    assert len(katalog) < len(tam) * 0.4
 
 
 def test_baglanti_araclari_sorguyu_iletir(monkeypatch):

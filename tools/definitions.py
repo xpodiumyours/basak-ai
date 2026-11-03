@@ -914,8 +914,8 @@ ALT_AJAN_SONUCLARI = _arac('alt_ajan_sonuclari',
 BAGLANTI_LISTE = _arac('baglanti_liste',
     'Bu kullanicinin platform ve MCP baglantilarinin kimliklerini ve durumlarini doner; sir donmez.', {}, [])
 BAGLANTI_ARACLARI = _arac('baglanti_araclari',
-    'Baglanti arac katalogunu doner: arama yoksa her aracin adi ve kisa aciklamasi, '
-    'arama verilirse eslesen araclarin tam semasi doner.',
+    'Baglanti arac katalogunu doner: arama yoksa her aracin adi, kisa aciklamasi, '
+    'parametreleri ve zorunlu alanlari; arama verilirse eslesen araclarin tam semasi doner.',
     {'baglanti_id': {'type': 'string'}, 'sorgu': {'type': 'string'}}, ['baglanti_id'])
 BAGLANTI_CAGIR = _arac('baglanti_cagir',
     'Bagli platformun kesfedilmis aracini verilen semaya gore calistirir; metin ve yapilandirilmis sonucu doner.',

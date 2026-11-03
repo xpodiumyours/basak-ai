@@ -449,10 +449,17 @@ def tool_catalog(user_id, connection_id, sorgu=None):
     araclar = list_tools(user_id, connection_id)
     arama = " ".join(str(sorgu or "").split()).lower()
     if not arama:
-        return [{"name": arac.get("name", ""),
-                 "remote_name": arac.get("remote_name") or arac.get("name", ""),
-                 "description": _kisa_aciklama(arac.get("description"))}
-                for arac in araclar]
+        satirlar = []
+        for arac in araclar:
+            sema = arac.get("inputSchema") or {}
+            satirlar.append({
+                "name": arac.get("name", ""),
+                "remote_name": arac.get("remote_name") or arac.get("name", ""),
+                "description": _kisa_aciklama(arac.get("description")),
+                "parametreler": sorted((sema.get("properties") or {}).keys()),
+                "zorunlu": list(sema.get("required") or []),
+            })
+        return satirlar
     eslesen = []
     for arac in araclar:
         havuz = " ".join(str(arac.get(alan) or "") for alan in
