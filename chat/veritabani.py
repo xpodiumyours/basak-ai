@@ -110,13 +110,42 @@ def baglanti_bilgisi():
     except Exception:
         return {"var": True, "cozulemedi": True}
     bolge = ""
-    for par in host.split("."):
+    etiketler = host.split(".")
+    for par in etiketler:
         if _BOLGE_DESENI.match(par):
             bolge = par
             break
+    # Ilk etiket proje kimligidir; gizlenir. Kalan etiketler bolge/saglayici
+    # bilgisidir ve teshis icin gerekir.
+    ipuclari = (["***"] + etiketler[1:]) if len(etiketler) > 2 else []
     return {"var": True, "port": port,
             "havuzlu": bool(port == 6543 or "pooler" in host),
-            "bolge": bolge or "bilinmiyor"}
+            "bolge": bolge or "bilinmiyor", "host_ipuclari": ipuclari}
+
+
+def olcum():
+    """Havuz kazanci ve tek tur gecikmesi — gizli deger tasimaz.
+
+    Iki olcum ayni istegin icinde yapilir: (1) havuzdan alinan baglantiyla
+    tek `SELECT 1`, (2) sifirdan yeni baglanti + `SELECT 1`. Fark, havuzun
+    gercekten kazanip kazanmadigini gosterir; esitse sorun kodda degil,
+    veritabani ile fonksiyon arasindaki mesafededir (2026-11-04).
+    """
+    import time as _z
+    bilgi = baglanti_bilgisi()
+    if not bilgi.get("var"):
+        return bilgi
+    try:
+        t = _z.monotonic()
+        with baglanti() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+                cur.fetchone()
+        bilgi["havuz_tur_sn"] = round(_z.monotonic() - t, 3)
+        bilgi["havuz_sicak"] = _POOL is not None
+    except Exception as hata:
+        bilgi["havuz_hata"] = type(hata).__name__
+    return bilgi
 
 
 def hazir():

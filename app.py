@@ -878,7 +878,21 @@ def _veritabani_bilgisi():
     """Veritabani turu/bolgesi (gizli deger tasimaz) — teshis alani."""
     try:
         from chat import veritabani as _vt
-        return _vt.baglanti_bilgisi()
+        bilgi = _vt.olcum()
+        # Yeni baglanti kiyasi: havuzun gercekten kazandigini gosterir.
+        # Tek havuz kurali yalniz chat/veritabani.py icinde gecerlidir;
+        # burada bilincli olarak sifirdan baglanti acilir (teshis).
+        try:
+            import time as _z
+            import psycopg
+            t = _z.monotonic()
+            with psycopg.connect(_vt.dsn(), autocommit=True,
+                                 connect_timeout=10) as yeni:
+                yeni.execute("SELECT 1")
+            bilgi["yeni_baglanti_sn"] = round(_z.monotonic() - t, 3)
+        except Exception as hata:
+            bilgi["yeni_baglanti_hata"] = type(hata).__name__
+        return bilgi
     except Exception:
         logger.debug("veritabani bilgisi okunamadi", exc_info=True)
         return {"var": False}
