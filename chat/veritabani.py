@@ -110,17 +110,13 @@ def baglanti_bilgisi():
     except Exception:
         return {"var": True, "cozulemedi": True}
     bolge = ""
-    etiketler = host.split(".")
-    for par in etiketler:
+    for par in host.split("."):
         if _BOLGE_DESENI.match(par):
             bolge = par
             break
-    # Ilk etiket proje kimligidir; gizlenir. Kalan etiketler bolge/saglayici
-    # bilgisidir ve teshis icin gerekir.
-    ipuclari = (["***"] + etiketler[1:]) if len(etiketler) > 2 else []
     return {"var": True, "port": port,
             "havuzlu": bool(port == 6543 or "pooler" in host),
-            "bolge": bolge or "bilinmiyor", "host_ipuclari": ipuclari}
+            "bolge": bolge or "bilinmiyor"}
 
 
 def olcum():
@@ -147,9 +143,8 @@ def olcum():
                     cur.execute("SELECT 1")
                     cur.fetchone()
                     sureler.append(int((_z.monotonic() - t) * 1000))
-                cur.execute("SELECT coalesce(inet_server_addr()::text, '')")
-                satir = cur.fetchone() or ("",)
-                bilgi["sunucu_ip"] = satir[0] or "bilinmiyor"
+                # Sunucu IP'si bilincli olarak donmez: bolge tespiti icin
+                # bir kez kullanildi (ap-south-1), acik ucta kalmaz.
         bilgi["tur_ms"] = sureler
         bilgi["havuz_tur_sn"] = round(sureler[0] / 1000.0, 3)
     except Exception as hata:
