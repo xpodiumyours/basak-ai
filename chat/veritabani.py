@@ -59,6 +59,8 @@ MIGRASYONLAR = (
     )),
 )
 
+from contextlib import contextmanager
+
 _KILIT = threading.Lock()
 _HAZIR = False
 _SON_HATA = 0.0
@@ -95,15 +97,68 @@ def hazir():
     return True
 
 
+# Surec basina TEK havuz. Resmi kaynaklar (2026-11-04 okundu):
+# - Vercel "Connection Pooling with Vercel Functions": havuzu modul (global)
+#   kapsaminda kur; Fluid compute ayni ornekteki istekler arasinda durumu
+#   paylasir, boylece her istek yeni baglanti acmaz. "min pool 1 tut,
+#   max pool'u 1 yapma" (eszamanli istekler baglanti bekler).
+# - Supabase "Connecting to Postgres": serverless icin shared pooler,
+#   transaction mode (port 6543) + prepared statement KAPALI.
+# - psycopg3 "Connection pools": global ConnectionPool, open=False ile
+#   tembel acilis, check=check_connection (Vercel'de donmus TCP soketi
+#   icin resmi cozum), atexit ile kapatma.
+_POOL = None
+_POOL_KILIT = threading.Lock()
+_POOL_DSN = ""
+
+
+def _havuz():
+    """Modul seviyesinde tek psycopg_pool havuzu (tembel acilir)."""
+    global _POOL, _POOL_DSN
+    hedef = dsn()
+    if not hedef:
+        raise RuntimeError("kalici veritabani DSN'i tanimli degil")
+    if _POOL is not None and _POOL_DSN == hedef:
+        return _POOL
+    with _POOL_KILIT:
+        if _POOL is not None and _POOL_DSN == hedef:
+            return _POOL
+        import atexit
+        from psycopg_pool import ConnectionPool
+        # check_connection 3.2+; eski surumlerde yoksa denetim kapali kalir.
+        denetim = getattr(ConnectionPool, "check_connection", None)
+        eski = _POOL
+        _POOL = ConnectionPool(
+            conninfo=hedef,
+            min_size=1,
+            max_size=4,
+            open=False,
+            timeout=15.0,
+            reconnect_timeout=60.0,
+            check=denetim,
+            # autocommit: mevcut davranis korunur. prepare_threshold=None:
+            # Supabase transaction pooler prepared statement tasiyamaz.
+            kwargs={"autocommit": True, "connect_timeout": 10,
+                    "prepare_threshold": None},
+            name="basak-veritabani",
+        )
+        _POOL.open()
+        _POOL_DSN = hedef
+        if eski is not None:
+            try:
+                eski.close()
+            except Exception:
+                logger.debug("eski havuz kapatilamadi", exc_info=True)
+        else:
+            atexit.register(_POOL.close)
+    return _POOL
+
+
+@contextmanager
 def baglanti():
-    """Autocommit baglanti dondurur (cagiran `with` ile kapatir)."""
-    import psycopg
-    conn = psycopg.connect(dsn(), autocommit=True, connect_timeout=10)
-    try:
-        conn.prepare_threshold = None
-    except Exception:
-        logger.debug("prepare_threshold ayarlanamadi", exc_info=True)
-    return conn
+    """Havuzdan autocommit baglanti verir; blok bitince havuza doner."""
+    with _havuz().connection() as conn:
+        yield conn
 
 
 def hazirla(zorla=False):
