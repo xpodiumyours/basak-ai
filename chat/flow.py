@@ -21,7 +21,8 @@ from chat.agent_runtime import (
 )
 from chat.agent_protocol import baslangic_araclari
 from chat.output_control import (
-    akan_ajan_adimi, akan_final, durum_gozlemcisi, kesik_cevabi_bildir,
+    akan_ajan_adimi, akan_final, durum_gozlemcisi, ilerleme_gozlemcisi,
+    ilerleme_kw, kesik_cevabi_bildir,
     kesik_mi,
 )
 from chat import context as ctx
@@ -685,6 +686,10 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             kaynak = ""
             _yayin_kw = {"tools": (etkin_tools or None)}
             _yayin_kw.update(_tercih_kw("cevapla_yayin"))
+            # Ekran metin gelene kadar bos kalmasin: saglayici + gecen
+            # gercek sure `durum` olayi olarak akar (metne dokunulmaz).
+            _yayin_kw.update(ilerleme_kw(
+                yayin, ilerleme_gozlemcisi(js_callback)))
             for kaynak, parca in yayin(mesajlar, model, **_yayin_kw):
                 parcalar.append(parca)
                 js_callback("BasakUI.parca(" + _j(parca) + ")")

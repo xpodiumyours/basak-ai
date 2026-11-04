@@ -771,7 +771,7 @@ class Brain:
         raise ZincirHatasi(f"Hicbir model calismadi ({detay})", turler)
 
     def cevapla_yayin(self, messages, yerel_model=None, tercih=None,
-                      tools=None, durum=None):
+                      tools=None, durum=None, ilerleme=None):
         """Akan cevap uretir: yield (kaynak, parca).
 
         Aracsiz duz sohbet icindir (tools=None). Model arac isterse
@@ -833,7 +833,13 @@ class Brain:
                 # reddediyordu (P2 onizleme kaydi, 2026-09-25).
                 giden = (messages if ad == "cohere"
                          else mesajlari_temizle(messages, provider=ad))
-                uretici = akit(ham, model, giden, tools=tools)
+                if ilerleme is not None:
+                    try:
+                        ilerleme({"tur": "saglayici", "saglayici": ad})
+                    except Exception:
+                        logger.debug("saglayici bildirilemedi", exc_info=True)
+                uretici = akit(ham, model, giden, tools=tools,
+                               ilerleme=ilerleme)
                 token_out = 0
                 for parca in uretici:
                     metin = (parca if isinstance(parca, str)

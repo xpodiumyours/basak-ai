@@ -1,5 +1,6 @@
 """P2 çıktı kontrolü: gerçek streaming ve sessiz kesilmeme."""
 
+import inspect
 import json
 import logging
 
@@ -30,6 +31,57 @@ def durum_gozlemcisi(js_callback):
         except Exception:
             logger.debug("durum olayi yayinlanamadi", exc_info=True)
     return _goster
+
+
+def ilerleme_gozlemcisi(js_callback):
+    """Akis oncesi/boyunca gercek ilerlemeyi `durum` olayina cevirir.
+
+    Muhakeme modelleri (Groq gpt-oss: reasoning varsayilan acik) cevap
+    metninden once dusunme jetonu uretir; metin gelene kadar ekran bos
+    kalmasin diye saglayici adi ve gecen gercek sure bildirilir.
+    Metne ve modele DOKUNULMAZ; yalnizca gostergedir.
+    """
+    goster = durum_gozlemcisi(js_callback)
+    if goster is None:
+        return None
+    durum = {"saglayici": ""}
+
+    def _cevir(veri):
+        if not isinstance(veri, dict):
+            return
+        tur = str(veri.get("tur") or "")
+        if tur == "saglayici":
+            durum["saglayici"] = str(veri.get("saglayici") or "")
+            if durum["saglayici"]:
+                goster("%s yanitliyor..." % durum["saglayici"])
+            return
+        if tur == "muhakeme":
+            ad = durum["saglayici"] or "model"
+            try:
+                saniye = int(float(veri.get("saniye") or 0))
+            except (TypeError, ValueError):
+                saniye = 0
+            goster("%s dusunuyor - %d sn" % (ad, saniye))
+
+    return _cevir
+
+
+def ilerleme_kw(yayin, ilerleme):
+    """`ilerleme` parametresini yalniz destekleyen cagriable'a verir.
+
+    Test ciftleri ve eski imzalar kirilmasin diye imza denetlenir;
+    desteklenmiyorsa hic gonderilmez (davranis ayni kalir).
+    """
+    if ilerleme is None or yayin is None:
+        return {}
+    try:
+        params = inspect.signature(yayin).parameters
+    except (TypeError, ValueError):
+        return {"ilerleme": ilerleme}
+    if "ilerleme" in params or any(
+            p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return {"ilerleme": ilerleme}
+    return {}
 
 
 def kesik_mi(yanit):
@@ -72,7 +124,8 @@ def akan_final(brain, model, mesajlar, js_callback, tercih=None):
     try:
         for kaynak, parca in yayin(
                 mesajlar, model, tercih=tercih, tools=None,
-                durum=durum_gozlemcisi(js_callback)):
+                durum=durum_gozlemcisi(js_callback),
+                **ilerleme_kw(yayin, ilerleme_gozlemcisi(js_callback))):
             parca = parca if isinstance(parca, str) else str(parca or "")
             if not parca:
                 continue
@@ -110,7 +163,8 @@ def akan_ajan_adimi(brain, model, mesajlar, js_callback, tools,
     try:
         for kaynak, parca in yayin(
                 mesajlar, model, tercih=tercih, tools=tools,
-                durum=durum_gozlemcisi(js_callback)):
+                durum=durum_gozlemcisi(js_callback),
+                **ilerleme_kw(yayin, ilerleme_gozlemcisi(js_callback))):
             parca = parca if isinstance(parca, str) else str(parca or "")
             if not parca:
                 continue

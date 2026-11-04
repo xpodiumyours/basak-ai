@@ -50,7 +50,7 @@ class CikisKesildi(Exception):
         self.kaynak = str(kaynak or "")
 
 
-def akit(openai_client, model, messages, tools=None):
+def akit(openai_client, model, messages, tools=None, ilerleme=None):
     """OpenAI-uyumlu istemciden metin parcasi uretir (generator).
 
     Yields: str parcalar. Arac cagrisi gorurse AracIstegi firlatir.
@@ -64,6 +64,30 @@ def akit(openai_client, model, messages, tools=None):
     AracIstegi ile birlikte tasinir. Cagiran ayni soruyu ikinci kez
     modele sormaz; ilk modelin sectigi arac dogrudan calisir.
     """
+    import time as _time
+
+    _baslangic = _time.monotonic()
+    _son_bildirim = [0.0]
+    _metin_basladi = [False]
+
+    def _bildir(tur, ek=None):
+        """Ilerleme gostergesi — yalnizca bildirim, akisi KIRAMAZ.
+
+        Muhakeme jetonlari `content`e girmez (Groq doc: gpt-oss modelleri
+        cevaptan once `reasoning` uretir, varsayilan effort=medium). Bu
+        yuzden metin gelene kadar gecen gercek sure bildirilir; metne
+        DOKUNULMAZ.
+        """
+        if ilerleme is None:
+            return
+        try:
+            veri = {"tur": tur,
+                    "saniye": round(_time.monotonic() - _baslangic, 1)}
+            veri.update(ek or {})
+            ilerleme(veri)
+        except Exception:
+            logger.debug("ilerleme bildirilemedi", exc_info=True)
+
     ekstra = {"tools": tools} if tools else {}
     stream = openai_client.chat.completions.create(
         model=model,
@@ -91,6 +115,11 @@ stream=True,
             _rd = getattr(delta, _alan, None)
             if _rd:
                 _muhakeme_parcalar.append((_alan, str(_rd)))
+                _simdi = _time.monotonic()
+                if _simdi - _son_bildirim[0] >= 2.0:
+                    _son_bildirim[0] = _simdi
+                    _bildir("muhakeme",
+                            {"jeton": len(_muhakeme_parcalar)})
         _delta_tools = getattr(delta, "tool_calls", None)
         if _delta_tools:
             for _tc in _delta_tools:
@@ -122,6 +151,9 @@ stream=True,
             continue
         parca = getattr(delta, "content", None) or ""
         if parca:
+            if not _metin_basladi[0]:
+                _metin_basladi[0] = True
+                _bildir("metin")
             yield parca
     if _arac_parcalar:
         tool_calls = []
