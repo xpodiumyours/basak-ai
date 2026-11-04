@@ -458,12 +458,21 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             return {"tercih": list(_tercih)}
         return {}
 
+    # Gecmis yukleme modelden ONCE kosar; uretimde 30+ sn yiyebiliyor.
+    # Gercek sure 2 sn'yi gecerse durum kanalina yazilir (olcum, teshis).
+    import time as _gecmis_zaman
+    _gecmis_t0 = _gecmis_zaman.monotonic()
     if gecmis_override is not None:
         gecmis = ctx.temizle_history(list(gecmis_override or []))
     else:
         gecmis = [] if misafir else ctx.temizle_history(
             [m for m in ctx.yukle(ctx.gecmis_yolu(), [])
              if m.get("role") != "system"])
+    _gecmis_sure = _gecmis_zaman.monotonic() - _gecmis_t0
+    if _gecmis_sure >= 2.0:
+        _gecmis_olc = durum_gozlemcisi(js_callback)
+        if _gecmis_olc:
+            _gecmis_olc("gecmis yukleme %.1f sn" % _gecmis_sure)
 
     # Araçlar kapalıysa kısa süreli düz-sohbet önbelleği kullanılabilir.
     # Araçlı run önbellekle bypass edilmez.
