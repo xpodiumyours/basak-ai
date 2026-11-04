@@ -874,6 +874,16 @@ async def kimlik_hazirla(request: Request):
         return _giris_engeli()
 
 
+def _veritabani_bilgisi():
+    """Veritabani turu/bolgesi (gizli deger tasimaz) — teshis alani."""
+    try:
+        from chat import veritabani as _vt
+        return _vt.baglanti_bilgisi()
+    except Exception:
+        logger.debug("veritabani bilgisi okunamadi", exc_info=True)
+        return {"var": False}
+
+
 @app.get("/api/durum")
 async def durum(request: Request):
     # 2026-09-23: bu uc kimliksizdi — saglayici listesi, model adlari,
@@ -1009,6 +1019,7 @@ async def durum(request: Request):
         "sema": _sema_durumu(),
         "kalici_sohbet": _kalici_sohbet_acik(),
         "arac_modu": _arac_modu_durum(kid),
+        "veritabani": _veritabani_bilgisi(),
     }
 
 

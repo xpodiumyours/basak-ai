@@ -19,6 +19,7 @@ yoluna duser. Uretimde DSN yoksa memory katmani zaten acik hata verir.
 """
 
 import logging
+import re
 import threading
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,41 @@ def dsn():
     except Exception:
         logger.debug("veritabani DSN cozulemedi", exc_info=True)
         return ""
+
+
+_BOLGE_DESENI = re.compile(
+    r"^(us|eu|ap|sa|ca|me|af)-(gov-)?(east|west|north|south|central|"
+    r"northeast|northwest|southeast|southwest)-\d+$")
+
+
+def baglanti_bilgisi():
+    """DSN'in GIZLI OLMAYAN teshis alanlari: port, havuz turu, bolge.
+
+    Kullanici adi, sifre ve tam host ASLA donmez; yalniz bolge etiketi
+    (or. `eu-central-1`) ve port. Amac: Vercel fonksiyon bolgesi ile
+    veritabani bolgesinin ayni olup olmadigini olcmek (2026-11-04).
+    """
+    try:
+        hedef = dsn()
+    except Exception:
+        return {"var": False}
+    if not hedef:
+        return {"var": False}
+    from urllib.parse import urlsplit
+    try:
+        parca = urlsplit(hedef)
+        host = (parca.hostname or "").lower()
+        port = parca.port or 5432
+    except Exception:
+        return {"var": True, "cozulemedi": True}
+    bolge = ""
+    for par in host.split("."):
+        if _BOLGE_DESENI.match(par):
+            bolge = par
+            break
+    return {"var": True, "port": port,
+            "havuzlu": bool(port == 6543 or "pooler" in host),
+            "bolge": bolge or "bilinmiyor"}
 
 
 def hazir():
