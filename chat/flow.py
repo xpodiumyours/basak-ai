@@ -46,7 +46,7 @@ def _konusmaci_ayir(text):
 
 
 def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi="",
-                misafir=False):
+                misafir=False, olcum=None):
     """Modele gidecek mesaj listesini kurar.
 
     2026-09-19: `araclar_acik` parametresi KALDIRILDI. Çağrılıyor ama
@@ -66,6 +66,11 @@ def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi="",
     # Profil salt-okunur bağlamdır; kullanıcı cümlesinden gizli
     # öğrenme/silme kararı çıkarılmaz.
     kid = aktif_kullanici()
+    # Model cagrilmadan once gecen hazirlik suresi olculur (profil +
+    # hafiza aramasi). Ekran 50+ sn bos kaliyorsa sebep buradadir; olcum
+    # 2 sn'yi gecerse gercek sure `durum` olarak yayinlanir.
+    import time as _zaman
+    _hazirlik_t0 = _zaman.monotonic()
     profil_blogu = ""
     if kid == VARSAYILAN_KULLANICI:
         try:
@@ -96,6 +101,12 @@ def _baglam_kur(text, system_prompt, konusmaci, ajan_sozlesmesi="",
     # kayit "sohbet gecmisi" olarak etiketlenir, kanit olarak degil.
     # Davranis talimati eklenmez — yalniz olgu etiketi.
     anilar = ctx.ilgili_anilar(text)
+    _hazirlik = _zaman.monotonic() - _hazirlik_t0
+    if olcum is not None and _hazirlik >= 2.0:
+        try:
+            olcum("hafiza hazirligi %.1f sn" % _hazirlik)
+        except Exception:
+            logger.debug("hazirlik olcumu yayinlanamadi", exc_info=True)
     if anilar:
         satirlar = []
         for a in anilar:
@@ -512,7 +523,8 @@ def mesaj_isle(text, brain, system_prompt, js_callback, tools=None,
             logger.warning("kosu defterine mola yazilamadi", exc_info=True)
     mesajlar = _baglam_kur(
         text, system_prompt, konusmaci,
-        AGENT_CONTRACT if arac_acik else "", misafir=misafir)
+        AGENT_CONTRACT if arac_acik else "", misafir=misafir,
+        olcum=durum_gozlemcisi(js_callback))
 
     model_gecmisi, pencere_bilgi = ctx.gecmis_model_penceresi(gecmis)
     if pencere_bilgi.get("compact") and hasattr(js_callback, "olay"):
