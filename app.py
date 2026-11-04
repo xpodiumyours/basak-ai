@@ -1034,6 +1034,7 @@ async def durum(request: Request):
         "kalici_sohbet": _kalici_sohbet_acik(),
         "arac_modu": _arac_modu_durum(kid),
         "veritabani": _veritabani_bilgisi(),
+        "fonksiyon_bolgesi": (os.environ.get("VERCEL_REGION") or "bilinmiyor"),
     }
 
 
