@@ -135,14 +135,23 @@ def olcum():
     bilgi = baglanti_bilgisi()
     if not bilgi.get("var"):
         return bilgi
+    bilgi["havuz_vardi"] = _POOL is not None  # olcumden ONCE okunur
     try:
-        t = _z.monotonic()
+        sureler = []
         with baglanti() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT 1")
-                cur.fetchone()
-        bilgi["havuz_tur_sn"] = round(_z.monotonic() - t, 3)
-        bilgi["havuz_sicak"] = _POOL is not None
+                # Arka arkaya bes tur: ilk tur baglanti/denetim odemesi
+                # tasir, sonrakiler yalniz gidis-donus suresidir.
+                for _ in range(5):
+                    t = _z.monotonic()
+                    cur.execute("SELECT 1")
+                    cur.fetchone()
+                    sureler.append(int((_z.monotonic() - t) * 1000))
+                cur.execute("SELECT coalesce(inet_server_addr()::text, '')")
+                satir = cur.fetchone() or ("",)
+                bilgi["sunucu_ip"] = satir[0] or "bilinmiyor"
+        bilgi["tur_ms"] = sureler
+        bilgi["havuz_tur_sn"] = round(sureler[0] / 1000.0, 3)
     except Exception as hata:
         bilgi["havuz_hata"] = type(hata).__name__
     return bilgi
