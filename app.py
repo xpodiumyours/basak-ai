@@ -196,6 +196,12 @@ def _uretim_kapisi_hazir():
 
 _HAFIZA_SIFIRLAMA_ANAHTARI = "clean_start_20260923_v1"
 
+# Surec basina bir kez: bu kontrol her istekte Postgres'e gidiyordu ve
+# tek gidis-donus olculen ~9 sn (2026-11-04: /api/durum 8,8 sn).
+# Temizlik zaten idempotent ve advisory lock'lu; sonuc surec omru boyunca
+# degismez, bu yuzden istek yolundan kaldirilir.
+_SIFIRLAMA_TAMAM = False
+
 
 def _hafizayi_bir_kez_sifirla():
     """Canlı hafızayı bir kez tamamen boşaltır ve eski 61 testi geri getirmez.
@@ -205,6 +211,10 @@ def _hafizayi_bir_kez_sifirla():
     da temizlenir; böylece memory/postgres.py içindeki eski taşıma yolu
     daha sonra 61 kaydı yeniden içeri alamaz.
     """
+    global _SIFIRLAMA_TAMAM
+    if _SIFIRLAMA_TAMAM:
+        return True
+
     import kullanici as kullanici_modulu
 
     if not kullanici_modulu.uretim_mi():
@@ -251,6 +261,7 @@ def _hafizayi_bir_kez_sifirla():
                 satir = cur.fetchone()
                 if satir is not None and str(satir[0]).strip().lower() == "true":
                     conn.commit()
+                    _SIFIRLAMA_TAMAM = True
                     return True
 
                 # Aktif kullanıcı hafızası.
@@ -274,6 +285,7 @@ def _hafizayi_bir_kez_sifirla():
                     ("__system__", _HAFIZA_SIFIRLAMA_ANAHTARI, "true"),
                 )
             conn.commit()
+        _SIFIRLAMA_TAMAM = True
         return True
     except Exception:
         return False
