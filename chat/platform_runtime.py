@@ -142,11 +142,27 @@ class Lease:
     expires_at: float
 
 
+# Teshis (2026-11-04): tek istekte kac veritabani turu yapildigini olcer.
+# Karar vermez, metne bakmaz; yalniz sayar (AGENTS.md §0).
+TANI = {"islem": 0, "sorgu": 0, "sure": 0.0}
+
+
+def tani_sifirla():
+    TANI.update({"islem": 0, "sorgu": 0, "sure": 0.0})
+    return TANI
+
+
+def tani_oku():
+    return {"islem": TANI["islem"], "sorgu": TANI["sorgu"],
+            "sure_sn": round(TANI["sure"], 2)}
+
+
 class _Transaction:
     def __init__(self, conn, sqlite):
         self.conn, self.sqlite = conn, sqlite
 
     def execute(self, sql, values=()):
+        TANI["sorgu"] += 1
         cursor = self.conn.cursor()
         cursor.execute(sql.replace("%s", "?") if self.sqlite else sql, values)
         return cursor
@@ -196,29 +212,34 @@ class RuntimeStore:
     def transaction(self, *, readonly=False):
         # Only metadata transactions serialize. Model/tool execution takes place
         # outside the transaction and may run concurrently on separate workers.
-        with self.depo._kilit:
-            conn = self.depo._baglan()
-            sqlite = self.depo.ad == "sqlite"
-            try:
-                if sqlite:
-                    conn.execute("PRAGMA foreign_keys=ON")
-                    conn.execute("BEGIN" if readonly else "BEGIN IMMEDIATE")
-                    yield _Transaction(conn, True)
-                    conn.commit()
-                else:
-                    with conn.transaction():
-                        tx = _Transaction(conn, False)
-                        if readonly:
-                            tx.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-                        else:
-                            tx.execute("SELECT pg_advisory_xact_lock(hashtext('basak_platform_ledger'))")
-                        yield tx
-            except BaseException:
-                if sqlite:
-                    conn.rollback()
-                raise
-            finally:
-                conn.close()
+        _t0 = time.monotonic()
+        TANI["islem"] += 1
+        try:
+            with self.depo._kilit:
+                conn = self.depo._baglan()
+                sqlite = self.depo.ad == "sqlite"
+                try:
+                    if sqlite:
+                        conn.execute("PRAGMA foreign_keys=ON")
+                        conn.execute("BEGIN" if readonly else "BEGIN IMMEDIATE")
+                        yield _Transaction(conn, True)
+                        conn.commit()
+                    else:
+                        with conn.transaction():
+                            tx = _Transaction(conn, False)
+                            if readonly:
+                                tx.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+                            else:
+                                tx.execute("SELECT pg_advisory_xact_lock(hashtext('basak_platform_ledger'))")
+                            yield tx
+                except BaseException:
+                    if sqlite:
+                        conn.rollback()
+                    raise
+                finally:
+                    conn.close()
+        finally:
+            TANI["sure"] += time.monotonic() - _t0
 
     def _schema(self):
         tables = (

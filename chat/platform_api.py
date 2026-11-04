@@ -124,7 +124,7 @@ def _json(value, status=200):
     return JSONResponse(value, status_code=status, headers={"Cache-Control": "no-store"})
 
 
-async def chat_response(request, user, body, history):
+async def chat_response(request, user, body, history, tani=None):
     """Persist an account chat turn; HTTP only observes the existing worker."""
     from chat.private_access_api import private_only
     from chat.platform_identity import browser_access_enabled
@@ -143,8 +143,16 @@ async def chat_response(request, user, body, history):
         return None
     # A database failure cannot prove that a previously submitted write did
     # not happen. Propagate it; never replay an ambiguous request in legacy.
+    # Teshis (2026-11-04): model oncesi adimlarin gercek suresini olcer.
+    # Davranisi degistirmez; yalniz olcer ve istemciye tasir.
+    from chat import platform_runtime as _pr
+    _pr.tani_sifirla()
+    _tani = dict(tani or {})
+    _t_bas = time.monotonic()
     store = _store()
+    _t_depo = time.monotonic()
     previous = _call(store.request_run, user, 'personal', key)
+    _t_onceki = time.monotonic()
     if not previous and (body.get('kosu_id') or body.get('yonlendirme_baglami')):
         if strict:
             raise HTTPException(409, 'Bu eski gorev otomatik yeniden baslatilamaz; onceki sonucu kontrol edin')
@@ -204,7 +212,11 @@ async def chat_response(request, user, body, history):
             raise HTTPException(503, 'Kalici gorev baslatilamadi')
         return None
     rid = run['id']
-    durable_event = {'istek': rid, 'tur': 'durableRun', 'kosu_id': rid,
+    _tani.update({"depo_sn": round(_t_depo - _t_bas, 2),
+                  "onceki_sn": round(_t_onceki - _t_depo, 2),
+                  "kayit_sn": round(time.monotonic() - _t_onceki, 2),
+                  "db": _pr.tani_oku()})
+    durable_event = {'istek': rid, 'tur': 'durableRun', 'kosu_id': rid, 'tani': _tani,
                      'conversation_id': conversation_id or rid,
                      'conversation_title': title, 'display_text': display_text}
 

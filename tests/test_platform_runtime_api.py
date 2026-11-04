@@ -245,6 +245,9 @@ def test_account_chat_stream_observes_worker_final_after_commit(api, monkeypatch
     assert response.status_code == 200
     events = [json.loads(line) for line in response.text.splitlines()]
     rid = response.headers['X-Basak-Run-ID']
+    # 2026-11-04: ilk olay teshis alanini tasir (model oncesi sureler).
+    tani = events[0].pop('tani')
+    assert {'depo_sn', 'onceki_sn', 'kayit_sn', 'db'} <= set(tani)
     assert events[0] == {'istek': rid, 'tur': 'durableRun', 'kosu_id': rid,
                          'conversation_id': rid, 'conversation_title': None, 'display_text': 'hello'}
     assert [e['cevap'] for e in events if e['tur'] == 'bitir'] == ['Durable response']

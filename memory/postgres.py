@@ -43,6 +43,12 @@ def _arama_kelimeleri(sorgu):
     return kelimeler
 
 
+# Surec basina bir kez: sema DDL'i (extension + dort indeks) ve legacy
+# tasima her motor kurulumunda yeniden kosuyordu. DDL idempotent olsa da
+# her sohbet turunda tam el sikismasi + DDL demekti (2026-11-04 olcumu).
+_SEMA_HAZIR = set()
+
+
 class PostgresHafizaMotoru:
     """Kullanici bazli Postgres hafiza motoru (Neon uyumlu)."""
 
@@ -76,6 +82,14 @@ class PostgresHafizaMotoru:
         return conn
 
     def _hazirla(self):
+        """Sema kurulumu surec basina bir kez kosar (ayni DSN + kullanici)."""
+        anahtar = (self._dsn, self.kullanici_id)
+        if anahtar in _SEMA_HAZIR:
+            return
+        self._sema_kur()
+        _SEMA_HAZIR.add(anahtar)
+
+    def _sema_kur(self):
         with self._baglan() as conn:
             with conn.cursor() as cur:
                 cur.execute("CREATE EXTENSION IF NOT EXISTS vector")

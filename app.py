@@ -1112,7 +1112,10 @@ async def sohbet(request: Request):
     if not isinstance(body, dict):
         return JSONResponse({'error': 'Istek bir JSON nesnesi olmali'}, status_code=400)
     metin = str((body or {}).get("metin") or "").strip()
+    import time as _t_zaman
+    _tani_t0 = _t_zaman.monotonic()
     account = _platform_kimlik(request)
+    _tani_kimlik = round(_t_zaman.monotonic() - _tani_t0, 2)
     if _private_only() and body.get('misafir'):
         return JSONResponse({'error': 'Ozel baglanti kalici gorevlerle calisir. Misafir modunu kapatin.'}, status_code=400)
     if account and not (body or {}).get('misafir'):
@@ -1123,7 +1126,10 @@ async def sohbet(request: Request):
         if not izin:
             return JSONResponse({'error': 'Gunluk ucretsiz hak doldu', 'kota': True,
                                  'kalan': 0}, status_code=429)
-        response = await chat_response(request, account, body, history=_gecmis(body))
+        response = await chat_response(
+            request, account, body, history=_gecmis(body),
+            tani={"kimlik_sn": _tani_kimlik,
+                  "kota_sn": round(_t_zaman.monotonic() - _tani_t0, 2)})
         if response is not None:
             return response
     try:
