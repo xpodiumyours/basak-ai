@@ -229,6 +229,7 @@ async def chat_response(request, user, body, history, tani=None):
         if foreground and run['durum'] == 'queued':
             from chat.platform_agents import execute_job
             from chat.platform_runtime import Worker
+            _pr.tani_asama('worker_basladi')
             worker = Worker(store, execute_job, worker_id='web-' + rid,
                             lease_seconds=90)
             running = asyncio.create_task(
@@ -264,7 +265,8 @@ async def chat_response(request, user, body, history, tani=None):
             if state in TERMINAL or state == 'verifying':
                 if current['answer']:
                     yield json.dumps({'istek': rid, 'tur': 'bitir', 'cevap': current['answer'],
-                                      'kaynak': current['provider']}, ensure_ascii=False) + '\n'
+                                      'kaynak': current['provider'],
+                                      'db': _pr.tani_oku()}, ensure_ascii=False) + '\n'
                 else:
                     yield json.dumps({'istek': rid, 'tur': 'error',
                                       'metin': current['hata'] or state}, ensure_ascii=False) + '\n'

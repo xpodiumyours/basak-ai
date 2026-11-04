@@ -55,8 +55,10 @@ def _pg_ekle(kid, gun):
     if not dsn:
         return None
     try:
-        import psycopg
-        with psycopg.connect(dsn, autocommit=True, connect_timeout=5) as conn:
+        # 2026-11-04: her mesajda yeni baglanti acmak olculdu ~1,9 sn.
+        # Kota da tek havuzdan gecer (chat/veritabani.py).
+        from chat import veritabani
+        with veritabani.baglanti() as conn:
             if not _tablo_hazir:
                 conn.execute(
                     "CREATE TABLE IF NOT EXISTS basak_kota ("

@@ -144,17 +144,28 @@ class Lease:
 
 # Teshis (2026-11-04): tek istekte kac veritabani turu yapildigini olcer.
 # Karar vermez, metne bakmaz; yalniz sayar (AGENTS.md §0).
-TANI = {"islem": 0, "sorgu": 0, "sure": 0.0}
+TANI = {"islem": 0, "sorgu": 0, "sure": 0.0, "t0": 0.0,
+        "asamalar": []}
 
 
 def tani_sifirla():
-    TANI.update({"islem": 0, "sorgu": 0, "sure": 0.0})
+    TANI.update({"islem": 0, "sorgu": 0, "sure": 0.0,
+                 "t0": time.monotonic(), "asamalar": []})
     return TANI
+
+
+def tani_asama(ad):
+    """Istek icindeki bir asamanin anini ve o ana kadarki sorgu sayisini yazar."""
+    if not TANI["t0"]:
+        return
+    TANI["asamalar"].append([str(ad), round(time.monotonic() - TANI["t0"], 2),
+                             TANI["sorgu"]])
 
 
 def tani_oku():
     return {"islem": TANI["islem"], "sorgu": TANI["sorgu"],
-            "sure_sn": round(TANI["sure"], 2)}
+            "sure_sn": round(TANI["sure"], 2),
+            "asamalar": list(TANI["asamalar"])}
 
 
 class _Transaction:

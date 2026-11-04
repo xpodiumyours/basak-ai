@@ -290,10 +290,14 @@ def execute_job(job, control, brain=None):
     from worker.platform_execution import Workspace, ExecutionUnavailable
     from chat.kimlik import state_kok
 
+    from chat.platform_runtime import tani_asama
+    tani_asama('execute_job')
     user = job['user_id']
     workspace = Workspace(state_kok(), user, job['workspace_id'], job['id'])
     workspace.restore(control.store, user, job['workspace_id'])
+    tani_asama('workspace_hazir')
     brain = brain or reused_brain()
+    tani_asama('beyin_hazir')
     permissions = job_permissions(job)
     if not permissions.issubset(CLOUD_TOOLS):
         return {'status': 'blocked', 'reason': 'Bu araclar bulut kullanici izolasyonunda desteklenmiyor'}
@@ -360,6 +364,7 @@ def execute_job(job, control, brain=None):
                     'ad': str(attachment.get('ad') or 'fotograf')}}, ensure_ascii=False)
             from chat.agent_runtime import AgentRunState
             state = AgentRunState(job['id'])
+            tani_asama('akis_basladi')
             mesaj_isle(instruction, brain, sistem_blogu(user), callback,
                        tools=catalog, gecmis_override=history,
                        run_state=state, platform_resume=saved,
