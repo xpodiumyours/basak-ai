@@ -6,40 +6,25 @@
 - ARAC_SONUC_TAVAN kirpmasi yok: tam sonuc modele gider.
 - "Kaynaklar:" ek satiri yok: model kendi cevabini yazar.
 
+2026-11-05: 2026-10-28'de geri konan tur/cagri SAYISI tavanlari
+(BASAK_MAX_TOOL_TURU=12, BASAK_MAX_TUR_CAGRISI=16,
+BASAK_MAX_TOOL_CAGRISI=40) KALDIRILDI — AGENTS.md S0-5 arac turu
+sinirini acikca yasaklar ve bu tavanlar ucretsiz modelin kapasitesini
+kod tarafinda kesiyordu. Dongu artik yalniz ILERLEMESIZ kaldiginda
+durur: bir turda ne basarili arac sonucu ne de yeni yetenek alani
+olustuysa kosu gorunur sekilde duraklatilir (neden="ilerleme_yok").
+Uretken turlar icin sayi siniri yoktur.
+
 Korunan (guvenlik): TANINMIS_TOOLLAR beyaz listesi — modelin
 uydurdugu ad CALISMAZ. DURUM_METNI ekran etiketidir.
 """
 
 import json
 import logging
-import os
 import re
 from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
-
-
-def _sayi_siniri(ad, varsayilan):
-    """Ortam degiskeninden pozitif tamsayi; bozuksa varsayilan."""
-    try:
-        return max(1, int(os.environ.get(ad, varsayilan)))
-    except (TypeError, ValueError):
-        return int(varsayilan)
-
-
-def azami_tur():
-    """Bir run'da kac model-arac turu kosabilir (sonsuz dongu kapisi)."""
-    return _sayi_siniri("BASAK_MAX_TOOL_TURU", 12)
-
-
-def azami_tur_cagrisi():
-    """Tek model turunda kac arac cagrisi yurutulur (tasma korumasi)."""
-    return _sayi_siniri("BASAK_MAX_TUR_CAGRISI", 16)
-
-
-def azami_cagri():
-    """Bir run'da toplam kac arac cagrisi yurutulur (maliyet kapisi)."""
-    return _sayi_siniri("BASAK_MAX_TOOL_CAGRISI", 40)
 
 
 class AracSonrasiHatasi(RuntimeError):
@@ -561,17 +546,12 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             control.checkpoint({'messages': expanded, 'open_areas': acik_alanlar,
                                 'provider': list(_tercih_aktif)})
 
-    _azami_tur = azami_tur()
-    _azami_cagri = azami_cagri()
-    _azami_tur_cagrisi = azami_tur_cagrisi()
-    _toplam_cagri = 0
+    # Ilk tur her zaman ilerlemedir (model sonucu ilk kez gorur). Sonraki
+    # turlarda ayni sonuc kumesi tekrar gelirse run ilerlemiyor demektir.
+    _onceki_imza = None
+    _duragan = 0
 
     while tool_calls:
-        if tur_no >= _azami_tur:
-            # Sonsuz arac dongusu kapatilir. Is atilmaz: duraklayan kosu
-            # imzali handoff ile devam eder, kullanici karar verir.
-            _sinir_ver("arac_turu", sinir=_azami_tur)
-            return "", kosan
         if control is not None:
             control.check_cancelled()
             _platform_checkpoint(tool_calls)
@@ -616,31 +596,6 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
             ad = func.get("name", "")
             args = parse_args(func.get("arguments", "{}"))
             cagri_id = call.get("id") or "call_%d" % len(tur_sonuclari)
-
-            if _sira >= _azami_tur_cagrisi:
-                net = ("Hata: tek turda arac cagrisi siniri (%d) asildi; "
-                       "bu cagri calistirilmadi." % _azami_tur_cagrisi)
-                _web_olay(js_callback, "toolDone", id=cagri_id, arac=ad,
-                          baslik=DURUM_METNI.get(ad, "Çalışıyor"),
-                          detay="", ok=False, hata=net)
-                if run_state is not None:
-                    run_state.tool_done(ad, cagri_id, False, args=args,
-                                        result=net, turn=tur_no)
-                tur_sonuclari.append((ad, net, cagri_id))
-                continue
-            if _toplam_cagri >= _azami_cagri and ad != YETENEK_AC_ADI:
-                net = ("Hata: run basina arac cagrisi siniri (%d) asildi; "
-                       "bu cagri calistirilmadi." % _azami_cagri)
-                _web_olay(js_callback, "toolDone", id=cagri_id, arac=ad,
-                          baslik=DURUM_METNI.get(ad, "Çalışıyor"),
-                          detay="", ok=False, hata=net)
-                if run_state is not None:
-                    run_state.tool_done(ad, cagri_id, False, args=args,
-                                        result=net, turn=tur_no)
-                tur_sonuclari.append((ad, net, cagri_id))
-                continue
-            if ad != YETENEK_AC_ADI:
-                _toplam_cagri += 1
 
             if ad == YETENEK_AC_ADI:
                 istenen = istenen_alanlar(args)
@@ -857,6 +812,24 @@ def arac_dongusu(tool_calls, mesajlar, brain, model, js_callback,
 
         if not tur_sonuclari:
             break
+        # Ilerleme = modele BU turda verilen sonuc kumesi oncekinden farkli.
+        # Ilk tur her zaman ilerler (model reddedilme/hata metnini ilk kez
+        # gorur ve duzeltme sansi olur). Ayni sonuc kumesi tekrar tekrar
+        # gelirse run ilerlemiyor: sayi tavani degil, ilerlemesiz dongu
+        # kapisi. Sessiz kesme yok — `limit` olayi + paused durumu.
+        _imza = tuple((ad, net) for ad, net, _cid in tur_sonuclari)
+        if _imza == _onceki_imza:
+            # Ayni sonuc kumesi ust uste geliyor. Tek tekrar normaldir
+            # (model sonucu gorup yeniden karar verir); iki ardil tekrar
+            # ilerlemesiz dongudur ve model final cevap icin bir sans
+            # daha almis olur.
+            _duragan += 1
+            if _duragan >= 2:
+                _sinir_ver("ilerleme_yok")
+                return "", kosan
+        else:
+            _duragan = 0
+        _onceki_imza = _imza
 
         # Standart tool-call sirasini koru: assistant tool_calls -> her
         # cagri icin tool sonucu -> modelin bir sonraki karari.

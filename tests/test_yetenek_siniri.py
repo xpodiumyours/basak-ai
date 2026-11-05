@@ -76,10 +76,10 @@ class _DonguBeyni:
         return {"content": "", "tool_calls": [_call("simdi")]}, "groq"
 
 
-def test_arac_turu_tavani_sonsuz_donguyu_kapatir(monkeypatch):
+def test_ilerlemesiz_dongu_duraklatilir():
+    """Sayi tavani YOK; durma kosulu ilerlemesiz turdur (AGENTS.md S0-5)."""
     from chat.agent_runtime import AgentRunState
     from chat.tools import arac_dongusu
-    monkeypatch.setenv("BASAK_MAX_TOOL_TURU", "3")
     state = AgentRunState("test-run")
     class Kayit:
         def __init__(self):
@@ -101,18 +101,18 @@ def test_arac_turu_tavani_sonsuz_donguyu_kapatir(monkeypatch):
     )
     olaylar = kayit.olaylar
     assert cevap == ""
-    # Ayni cagri tekrar korumasi 3. turu engelleyebilir; onemli olan
-    # dongunun sinirda DURMASI ve durumun paused olmasi.
-    assert kosan >= 2
+    # Ayni arac/arguman/sonuc tekrari ilk turdan sonra AYNI sonuc kumesini
+    # uretir; kosu ILERLEMESIZ olarak durur.
+    assert kosan >= 1
     assert state.status == "paused"
-    assert any(o.get("neden") == "arac_turu" for o in olaylar)
+    assert any(o.get("neden") == "ilerleme_yok" for o in olaylar)
     assert state.public_snapshot()["truncated_reason"] == ""
 
 
-def test_tur_basina_cagri_tavani_asilmaz(monkeypatch):
+def test_tur_basina_cagri_sayisi_sinirsiz():
+    """Tek turda kac arac istenirse hepsi kosar; cagri basina tavan yok."""
     from chat.agent_runtime import AgentRunState
     from chat.tools import arac_dongusu
-    monkeypatch.setenv("BASAK_MAX_TUR_CAGRISI", "2")
     kosulan = []
     state = AgentRunState("test-run")
 
@@ -126,17 +126,17 @@ def test_tur_basina_cagri_tavani_asilmaz(monkeypatch):
             return {"content": "bitti"}, "groq"
 
     cevap, kosan = arac_dongusu(
-        [_call("simdi", cid="c1"), _call("simdi", cid="c2"),
-         _call("simdi", cid="c3")],
+        [_call("simdi", '{"x":1}', "c1"), _call("simdi", '{"x":2}', "c2"),
+         _call("simdi", '{"x":3}', "c3")],
         [{"role": "user", "content": "x"}],
         Beyin(), None, lambda kod: None,
         lambda ad, args: kosulan.append(ad) or {"result": "ok"},
         tools=TOOLS, tool_choice="auto", run_state=state,
     )
-    assert len(kosulan) == 2
+    assert len(kosulan) == 3
     assert cevap == "bitti"
-    assert kosan == 2
-    assert state.public_snapshot()["failed_tool_count"] == 1
+    assert kosan == 3
+    assert state.public_snapshot()["failed_tool_count"] == 0
 
 
 def test_basarisiz_arac_cevapta_gorunur():

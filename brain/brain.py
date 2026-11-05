@@ -86,13 +86,11 @@ import time as _time_mod
 _COOLDOWN = {}  # {ad: bitis_zamani}
 _COOLDOWN_SURE = 20
 
-# Zaman asimi cooldown'u (2026-09-11, 2026-09-19'da uzatildi):
-# 429 kadar agir degil ama tekrar tekrar denenirse her mesaja ayni
-# bekleme cezasi biner. Olcum (hiz_olcum.py): GLM her istekte 20.62 sn'de
-# zaman asimina ugruyordu; 10 sn'lik cooldown bir sonraki mesajda doldugu
-# icin ceza HER mesajda yeniden odeniyordu. 300 sn: olu saglayici 5 dakika
-# atlanir, zincir kalanlarla aninda cevap verir.
-_ZAMAN_ASIMI_COOLDOWN = 300
+# Zaman asimi da kisa cooldown alir. 2026-09-19'da 300 sn'ye cikarilmisti;
+# 2026-11-05'te KALDIRILDI: tek bir zaman asimi saglayiciyi 5 dakika
+# tamamen kapatmak, ucretsiz modelin kapasitesini kod tarafinda kesmekti
+# (AGENTS.md S0-6). Saglayici kendi reset suresini bildiriyorsa
+# (Retry-After) o sure kullanilir; bildirmiyorsa normal kisa cooldown.
 
 def _cooldown_kaldi(ad):
     bitis = _COOLDOWN.get(ad, 0)
@@ -114,7 +112,7 @@ def _hata_sonrasi_beklet(ad, hata):
     if _rate_limit_mi(hata) or (kod is not None and 500 <= kod <= 599):
         _cooldown_ekle(ad, sure=_bekleme_suresi(hata))
     elif _zaman_asimi_mi(hata):
-        _cooldown_ekle(ad, sure=_ZAMAN_ASIMI_COOLDOWN)
+        _cooldown_ekle(ad, sure=_bekleme_suresi(hata))
 
 # Saglayici hatasinin turu hata METNINDEN okunmaz; resmi HTTP durum kodu ve
 # gövdedeki resmi hata kodu okunur. Eski metin taramasi Groq'un 413 "Request

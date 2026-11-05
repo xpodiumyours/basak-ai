@@ -44,17 +44,19 @@ class TestSeciciTarafsiz:
 
 
 class TestDonguOzgur:
-    def test_tur_tavani_acik_ve_yapilandirilabilir(self, monkeypatch):
-        """Tur tavani artik VAR ve ACIK; sinira kadar arac kapanmaz.
+    def test_tur_sayisi_tavani_yok(self):
+        """AGENTS.md S0-5: arac turu SAYISI siniri YASAK.
 
-        2026-10-28: sinirsiz `while tool_calls:` dongusu kaldirildi.
-        Varsayilan 12 turdur; `BASAK_MAX_TOOL_TURU` ile buyutulur ve
-        sinirda kosu sessizce kesilmez, `limit` olayiyla duraklatilir
-        (bkz. tests/test_yetenek_siniri.py). Burada tavan 31'e cekilerek
-        "tavan altinda arac yuzeyi kapanmaz" kurali korunur.
+        2026-11-05: 2026-10-28'de konan tur/cagri sayisi tavanlari
+        kaldirildi (BASAK_MAX_TOOL_TURU / _TUR_CAGRISI / _TOOL_CAGRISI).
+        Dongu, model tool_calls dondurdukce surer; tek durma kosulu
+        ILERLEMESIZ turdur (bkz. tests/test_yetenek_siniri.py).
         """
+        from chat import tools as ct
         from chat.tools import arac_dongusu
-        monkeypatch.setenv("BASAK_MAX_TOOL_TURU", "31")
+        assert not hasattr(ct, "azami_tur")
+        assert not hasattr(ct, "azami_tur_cagrisi")
+        assert not hasattr(ct, "azami_cagri")
 
         gorulen_araclar = []
         kalan = {"n": 30}

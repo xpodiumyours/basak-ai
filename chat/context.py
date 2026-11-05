@@ -86,14 +86,18 @@ def _mesaj_bayti(mesaj):
 
 
 def baglam_butcesi():
-    """Modele giden gecmisin bayt tavani (0 = sinirsiz, varsayilan 32 KB).
+    """Modele giden gecmisin bayt tavani (0 = sinirsiz; VARSAYILAN 0).
 
-    `BASAK_BAGLAM_BAYT=0` eski "tam gecmis" davranisini acikca secer.
+    2026-11-05: varsayilan 32 KB idi ve eski mesajlari SESSIZCE dusuruyordu
+    — AGENTS.md S0-5 gecmis penceresi kirpmasini yasaklar. Artik tam gecmis
+    gider; saglayicinin gercek baglam siniri asilirsa hata GORUNUR olur
+    (flow._beyin_hata_mesaji / HATA_COK_BUYUK), sessiz kesme olmaz.
+    Kisaltmak isteyen `BASAK_BAGLAM_BAYT` ile ACIKCA secer.
     """
     try:
-        deger = int(os.environ.get("BASAK_BAGLAM_BAYT", "32000"))
+        deger = int(os.environ.get("BASAK_BAGLAM_BAYT", "0"))
     except (TypeError, ValueError):
-        deger = 32000
+        deger = 0
     return max(0, deger)
 
 
