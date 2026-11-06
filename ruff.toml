@@ -23,7 +23,10 @@
 # incelenip kapatilir, sonra ignore satiri daraltilir. Kural seti
 # EXPLICIT yazildigi icin ruff surumu buyudukce varsayilanlar
 # degistirse kapi ANLAMSIZCA genisleyip kirmiziya donmez.
-target-version = "py310"
+# 2026-11-06: py310 -> py311. Proje 3.11+ calisiyor (CI'da 3.12) ve
+# `ExceptionGroup` yerlesik adi 3.11'de geldi; py310 hedefi bunu
+# "Undefined name" diye isaretleyip lint kapisini kiriyordu.
+target-version = "py311"
 
 [lint]
 select = ["E4", "E7", "E9", "F"]
